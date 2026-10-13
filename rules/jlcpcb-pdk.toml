@@ -1,0 +1,151 @@
+schema_version = 2
+default_profile = "one-ounce"
+
+[pdk]
+id = "jlcpcb-rigid-fr4"
+name = "JLCPCB rigid FR-4"
+revision = "advisory-mask-2026-09-29"
+manufacturer = "JLCPCB"
+process = "Rigid FR-4, 1 oz outer copper"
+
+[sources.jlc-capabilities]
+title = "JLCPCB PCB Capabilities"
+url = "https://jlcpcb.com/capabilities/pcb-capabilities"
+accessed = "2026-09-01"
+note = "Public capability table. Rules use standard service values and exclude special local BGA exceptions."
+
+[sources.diode-mask-guidance]
+title = "Diode soldermask web guidance"
+url = "https://github.com/diodeinc/pcb/blob/main/crates/pcb-ipc2581-tools/docs/dfm.md"
+note = "Diode prefers a 0.10 mm soldermask web as advisory guidance. Shortfalls warn, not fail; this does not certify the manufacturer's color-specific minimum, including 0.13 mm for black or white mask."
+
+[profiles.one-ounce]
+name = "1 oz rigid FR-4"
+description = "Standard rigid FR-4 service with advisory 0.10 mm soldermask-web guidance."
+technologies = ["rigid"]
+coverage = ["2-32 copper layers", "1 oz outer copper", "preferred soldermask web at 0.10 mm, warning only"]
+source = "jlc-capabilities"
+
+[profiles.one-ounce.defaults]
+material = "FR-4"
+board_thickness = "1.6 mm"
+outer_copper_weight = "1 oz"
+inner_copper_weight = "0.5 oz"
+
+[profiles.one-ounce.support]
+copper_layers = { minimum = 2, maximum = 32 }
+
+[[rules.drilling.hole_diameter]]
+id = "jlc.drilling.minimum_via_hole_diameter"
+select = { hole = "via" }
+limit = { minimum = "0.15 mm", preferred = "0.20 mm" }
+source = "jlc-capabilities"
+
+[[rules.drilling.hole_diameter]]
+id = "jlc.drilling.minimum_pth_hole_diameter"
+select = { hole = "pth" }
+limit = { minimum = "0.15 mm", preferred = "0.50 mm" }
+source = "jlc-capabilities"
+
+[[rules.drilling.hole_diameter]]
+id = "jlc.drilling.minimum_npth_hole_diameter"
+select = { hole = "npth" }
+limit = { minimum = "0.50 mm" }
+source = "jlc-capabilities"
+
+[[rules.drilling.slot_width]]
+id = "jlc.drilling.minimum_plated_slot_width"
+select = { plating = "plated" }
+cases = [
+  { id = "2-layer", when = { copper_layers = { exact = 2 } }, limit = { minimum = "0.50 mm" } },
+  { id = "multilayer", when = { copper_layers = { minimum = 3, maximum = 32 } }, limit = { minimum = "0.35 mm" } },
+]
+source = "jlc-capabilities"
+
+[[rules.drilling.slot_width]]
+id = "jlc.drilling.minimum_nonplated_slot_width"
+select = { plating = "nonplated" }
+limit = { minimum = "1.0 mm" }
+source = "jlc-capabilities"
+
+[[rules.drilling.hole_to_hole_clearance]]
+id = "jlc.drilling.minimum_hole_clearance.via_via"
+select = { first_hole = "via", second_hole = "via" }
+limit = { minimum = "0.20 mm" }
+source = "jlc-capabilities"
+
+[[rules.drilling.hole_to_hole_clearance]]
+id = "jlc.drilling.minimum_hole_clearance.via_pth"
+select = { first_hole = "via", second_hole = "pth" }
+limit = { minimum = "0.45 mm" }
+source = "jlc-capabilities"
+
+[[rules.drilling.hole_to_hole_clearance]]
+id = "jlc.drilling.minimum_hole_clearance.via_npth"
+select = { first_hole = "via", second_hole = "npth" }
+limit = { minimum = "0.45 mm" }
+source = "jlc-capabilities"
+
+[[rules.drilling.hole_to_hole_clearance]]
+id = "jlc.drilling.minimum_hole_clearance.pth_pth"
+select = { first_hole = "pth", second_hole = "pth" }
+limit = { minimum = "0.45 mm" }
+source = "jlc-capabilities"
+
+[[rules.drilling.hole_to_hole_clearance]]
+id = "jlc.drilling.minimum_hole_clearance.pth_npth"
+select = { first_hole = "pth", second_hole = "npth" }
+limit = { minimum = "0.45 mm" }
+source = "jlc-capabilities"
+
+[[rules.drilling.hole_to_hole_clearance]]
+id = "jlc.drilling.minimum_hole_clearance.npth_npth"
+select = { first_hole = "npth", second_hole = "npth" }
+limit = { minimum = "0.45 mm" }
+source = "jlc-capabilities"
+
+[[rules.copper.annular_ring]]
+id = "jlc.copper.minimum_via_annular_ring"
+select = { hole = "via" }
+limit = { minimum = "0.05 mm", preferred = "0.075 mm" }
+source = "jlc-capabilities"
+
+[[rules.copper.annular_ring]]
+id = "jlc.copper.minimum_pth_annular_ring"
+select = { hole = "pth" }
+cases = [
+  { id = "2-layer", when = { copper_layers = { exact = 2 } }, limit = { minimum = "0.18 mm", preferred = "0.25 mm" } },
+  { id = "multilayer", when = { copper_layers = { minimum = 3, maximum = 32 } }, limit = { minimum = "0.15 mm", preferred = "0.20 mm" } },
+]
+source = "jlc-capabilities"
+
+[[rules.copper.feature_width]]
+id = "jlc.copper.minimum_feature_width"
+cases = [
+  { id = "2-layer", when = { copper_layers = { exact = 2 } }, limit = { minimum = "0.10 mm" } },
+  { id = "multilayer", when = { copper_layers = { minimum = 3, maximum = 32 } }, limit = { minimum = "0.09 mm" } },
+]
+source = "jlc-capabilities"
+
+[[rules.copper.clearance]]
+id = "jlc.copper.minimum_clearance"
+cases = [
+  { id = "2-layer", when = { copper_layers = { exact = 2 } }, limit = { minimum = "0.10 mm" } },
+  { id = "multilayer", when = { copper_layers = { minimum = 3, maximum = 32 } }, limit = { minimum = "0.09 mm" } },
+]
+source = "jlc-capabilities"
+
+[[rules.copper.board_edge_clearance]]
+id = "jlc.copper.minimum_board_edge_clearance"
+limit = { minimum = "0.20 mm" }
+source = "jlc-capabilities"
+
+[[rules.copper.vscore_clearance]]
+id = "jlc.copper.minimum_vscore_clearance"
+limit = { minimum = "0.40 mm" }
+source = "jlc-capabilities"
+
+[[rules.soldermask.web]]
+id = "jlc.soldermask.minimum_web"
+limit = { preferred = "0.10 mm" }
+source = "diode-mask-guidance"

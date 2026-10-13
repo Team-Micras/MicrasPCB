@@ -1,0 +1,56 @@
+"""Datasheet requirements of the AS5047U package in 3.3 V mode (DS v1-00)."""
+
+load("@stdlib/interfaces.zen", "Spi")
+
+AS5047U = Module("../AS5047U.zen")
+
+
+def net_of(module, part, pin):
+    for name, ports in module.nets().items():
+        for path, p in ports:
+            if path.endswith("." + part) and p == pin:
+                return name
+    error(part + "." + pin + " is not connected")
+
+
+def parts_on(module, net):
+    """Component paths (without the test-case prefix) with a pin on the net."""
+    return [path.split(".", 1)[1] for path, _ in module.nets()[net]]
+
+
+def test_pin_is_grounded(module, inputs):
+    # Figure 4, pin 5: "Test pin (connect to ground)"
+    check(net_of(module, "AS5047U", "TEST") == "GND", "TEST must be tied to GND")
+
+
+def supply_pins_tied(module, inputs):
+    # Figure 11, 3.3 V operation: VDD and VDD3V3 on the same supply
+    check(
+        net_of(module, "AS5047U", "VDD") == net_of(module, "AS5047U", "VDD3V3"),
+        "VDD and VDD3V3 must be tied in 3.3 V mode",
+    )
+
+
+def supply_decoupled(module, inputs):
+    # Figure 11: 100 nF from the supply to GND
+    on_vdd = parts_on(module, net_of(module, "AS5047U", "VDD"))
+    on_gnd = parts_on(module, net_of(module, "AS5047U", "GND"))
+    caps = [c for path, c in module.components().items() if c.type == "capacitor" and path in on_vdd and path in on_gnd]
+    check(len(caps) == 1, "expected one decoupling capacitor between VDD and GND, found " + str(len(caps)))
+    check(caps[0].capacitance.matches("100nF"), "VDD decoupling must be 100 nF")
+
+
+TestBench(
+    name="AS5047U_3V3_mode",
+    module=AS5047U,
+    test_cases={
+        "default": {
+            "VDD": Power("VDD", voltage="3.3V"),
+            "GND": Ground("GND"),
+            "SPI": Spi("SPI"),
+            "A": Net("A"),
+            "B": Net("B"),
+        },
+    },
+    checks=[test_pin_is_grounded, supply_pins_tied, supply_decoupled],
+)

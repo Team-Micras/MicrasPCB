@@ -1,0 +1,67 @@
+"""Micras encoder board.
+
+One per wheel. The board stands upright in a slot in the main board, with the
+AS5047U facing the diametric magnet on the wheel axle. Supply, SPI and the ABI
+quadrature outputs leave through the edge tab soldered to the main board.
+
+Mechanical source of truth: spec/encoder.toml (outline, tab, sensor position).
+Previous revision: Altium MicrasEncoder.PcbDoc (hw_debug/modules/encoder).
+"""
+
+load("@stdlib/interfaces.zen", "Spi")
+load(
+    "@stdlib/board_config.zen",
+    "BoardConfig",
+    "Constraints",
+    "Copper",
+    "CopperLayer",
+    "DesignRules",
+    "DielectricLayer",
+    "NetClass",
+    "Stackup",
+)
+
+AS5047U = Module("github.com/Team-Micras/MicrasPCB/components/ams/AS5047U/AS5047U.zen")
+EncoderTab = Module("github.com/Team-Micras/MicrasPCB/components/micras/EncoderTab/EncoderTab.zen")
+
+V3V3 = Power("3V3", voltage="3.3V")
+GND = Ground()
+SPI = Spi("SPI")
+ENC_A = Net()
+ENC_B = Net()
+
+AS5047U(name="SENSOR", VDD=V3V3, GND=GND, SPI=SPI, A=ENC_A, B=ENC_B)
+EncoderTab(name="TAB", VDD=V3V3, GND=GND, SPI=SPI, A=ENC_A, B=ENC_B)
+
+# 0.80 mm finished (0.71 core + 2 x 35 um copper + 2 x 10 um mask): the tab must
+# fit the main board slot (spec/encoder.toml, pcb.thickness).
+# The tab pads end 0.2 mm from the tab edge, JLCPCB's copper-to-edge minimum
+# (rules/jlcpcb.kicad_dru); vias stay at JLCPCB's no-surcharge 0.3 mm drill.
+Board(
+    name="encoder",
+    path="layout",
+    layers=2,
+    schematic=True,
+    config=BoardConfig(
+        design_rules=DesignRules(
+            constraints=Constraints(copper=Copper(copper_to_edge_clearance=0.2)),
+            netclasses=[
+                NetClass(
+                    name="Default",
+                    clearance=0.15,
+                    track_width=0.2,
+                    via_diameter=0.6,
+                    via_drill=0.3,
+                ),
+            ],
+        ),
+        stackup=Stackup(
+            thickness=0.8,
+            layers=[
+                CopperLayer(thickness=0.035, role="mixed"),
+                DielectricLayer(thickness=0.71, material="FR4-Core", form="core"),
+                CopperLayer(thickness=0.035, role="mixed"),
+            ],
+        ),
+    ),
+)

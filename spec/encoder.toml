@@ -1,0 +1,47 @@
+# Encoder board: mechanical single source of truth.
+#
+# Generated from this file (never edit these by hand):
+#   - boards/encoder/layout/encoder.kicad_pcb: Edge.Cuts outline, drill/aux origin, and the
+#     position of the sensor and the tab (locked footprints)
+#   - build/encoder/encoder_mech.json: the board as MicrasHardware and micras-simulation see it
+#
+# Frame: origin at the tab centre on the shoulder line, which sits on the main board's top surface.
+# u points right, seen from the chip side; v points up, away from the main board. Millimetres.
+# The robot places the left board with the chip facing +y (MicrasHardware micras/layout.py).
+#
+# Every value is {value, source}, as in micras-simulation's robot.toml.
+
+[pcb]
+thickness = { value = 0.80, source = "JLCPCB standard 0.8 mm 2-layer; Altium MicrasEncoder.PcbDoc imports as 0.79 mm, MicrasHardware Board.encoder_pcb_t is 0.77 mm (measured?)" }
+copper_layers = { value = 2, source = "Altium MicrasEncoder.PcbDoc" }
+
+[outline]
+width = { value = 9.6, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts; MicrasHardware purchased.encoder_board()" }
+top = { value = 13.1, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts; MicrasHardware Board.encoder_top_h" }
+corner_radius = { value = 1.0, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts (top corner arcs)" }
+taper_start = { value = 7.458, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts: sides leave vertical at this height" }
+base_width = { value = 8.0, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts: width at the shoulder" }
+
+[tab]
+width = { value = 5.0, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts; MicrasHardware purchased.encoder_board()" }
+depth = { value = 1.0, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts; main board is 1.0412 mm (MicrasHardware Board.thickness)" }
+relief_radius = { value = 0.1, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts: half-round reliefs at the tab corners so the shoulder seats flat" }
+
+[sensor]
+# The AS5047U Hall array is at the package centre (datasheet Figure 63), so this is the point the
+# magnet axis must pass through.
+u = { value = 0.0, source = "Altium MicrasEncoder.PcbDoc IC1 position" }
+v = { value = 9.0, source = "Altium MicrasEncoder.PcbDoc IC1 position; MicrasHardware Board.encoder_chip_h" }
+rotation = { value = 0, source = "Altium MicrasEncoder.PcbDoc IC1 rotation" }
+path = { value = "SENSOR.AS5047U", source = "boards/encoder/encoder.zen instance path" }
+
+[connector]
+u = { value = 0.0, source = "tab centre" }
+v = { value = 0.0, source = "footprint origin is on the shoulder line" }
+rotation = { value = 0, source = "components/micras/EncoderTab footprint: +Y into the slot" }
+path = { value = "TAB.TAB", source = "boards/encoder/encoder.zen instance path" }
+
+[kicad]
+# Where the frame origin lands on the KiCad sheet.
+origin_x = { value = 100.0, source = "layout convention" }
+origin_y = { value = 100.0, source = "layout convention" }

@@ -1,0 +1,69 @@
+"""AS5047U - 14-bit on-axis magnetic rotary position sensor, TSSOP-14, 3.3 V supply mode.
+
+Datasheet: ams AS5047U DS v1-00 (2018-10-30).
+
+Application mode: 3.3 V operation (Figure 11, right). VDD and VDD3V3 are tied to
+the 3.0-3.6 V supply (Figure 6, VDD3V3 with VDD = VDD3V3) and decoupled by one
+100 nF capacitor. The 5 V mode, with 1 uF on the internal LDO output, is not
+supported by this package.
+
+Pins (Figure 4):
+- TEST (5) is tied to GND, as required.
+- U, V, W/PWM and I/PWM are push-pull outputs, left open (note 5).
+- VDD3V3 is typed power_in in the symbol: in 3.3 V mode it is a supply input,
+  not the LDO output.
+- CSn, CLK and MOSI must not float (note 1). The SPI host drives them; a host
+  that can release them must add the pull-up on CSn and pull-downs on CLK and
+  MOSI (notes 2 and 3).
+
+Mechanical: the Hall array centre is the package centre, 0.306 mm below the
+package top, radius 1.25 mm (Figure 63). Package A2 1.00 mm nominal, A 1.20 mm
+max, D 5.00 x E1 4.40 mm, 0.65 mm pitch (Figure 60): JEDEC MO-153 AB-1, which
+matches the KiCad TSSOP-14_4.4x5mm_P0.65mm footprint and STEP used here.
+"""
+
+load("@stdlib/interfaces.zen", "Spi")
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+
+VDD = io(Power(voltage="3.0V to 3.6V"))
+GND = io(Ground)
+SPI = io(Spi)
+A = io(Net)
+B = io(Net)
+
+Component(
+    name="AS5047U",
+    symbol=Symbol(library="AS5047U.kicad_sym"),
+    footprint=File("TSSOP-14_4.4x5mm_P0.65mm.kicad_mod"),
+    part=Part(mpn="AS5047U-HTSM", manufacturer="ams OSRAM"),
+    pins={
+        "~{CS}": SPI.CS,
+        "CLK": SPI.CLK,
+        "MISO": SPI.MISO,
+        "MOSI": SPI.MOSI,
+        "TEST": GND,
+        "B": B,
+        "A": A,
+        "W/PWM": NotConnected(),
+        "V": NotConnected(),
+        "U": NotConnected(),
+        "VDD": VDD,
+        "VDD3V3": VDD,
+        "GND": GND,
+        "I/PWM": NotConnected(),
+    },
+)
+
+# Figure 11: one 100 nF on the tied VDD/VDD3V3 node in 3.3 V mode.
+Capacitor(
+    name="C_VDD",
+    value="100nF",
+    package="0603",
+    voltage="50V",
+    dielectric="X7R",
+    mpn="CC0603KRX7R9BB104",
+    manufacturer="Yageo",
+    P1=VDD,
+    P2=GND,
+)
