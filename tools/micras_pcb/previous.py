@@ -404,7 +404,7 @@ def _altium_netlist(path: Path) -> set[frozenset[Pad]]:
     return out
 
 
-def _altium_pcb(path: Path) -> str:
+def altium_pcb(path: Path) -> str:
     """An Altium PcbDoc as KiCad board text (kicad-cli's importer; UUIDs differ on every run)."""
     import subprocess
     import tempfile
@@ -430,7 +430,7 @@ def build_snapshot(source: Path, board: str = "main") -> dict:
     for p in inputs:
         if not p.is_file():
             raise FileNotFoundError(p)
-    root = sexpr.parse(_altium_pcb(pcb_path) if pcb_path.suffix.lower() == ".pcbdoc" else pcb_path.read_text())
+    root = sexpr.parse(altium_pcb(pcb_path) if pcb_path.suffix.lower() == ".pcbdoc" else pcb_path.read_text())
     sym = _symbol_fields(sch_paths)
     if src.altium_sch:
         sym.update(_altium_sch_fields(source / src.altium_sch))

@@ -3,6 +3,11 @@
 ENCODER = Module("../encoder.zen")
 
 
+def parts(module):
+    """Designator (the instance name: IC1, C1, J1) -> component."""
+    return {path.split(".")[-2]: c for path, c in module.components().items()}
+
+
 def capacitor_voltage_ratings(module, inputs):
     # Every capacitor's rated voltage must cover the largest voltage across it, from the declared
     # ranges of the nets it joins.
@@ -22,18 +27,32 @@ def capacitor_voltage_ratings(module, inputs):
 def one_supply(module, inputs):
     # The board takes 3V3 from the main board through the tab and has no regulator of its own:
     # every supply pin sits on the tab's 3V3.
-    parts = {path.split(".")[-2]: c for path, c in module.components().items()}
-    tab = parts["TAB"].pins["VDD"].name
-    supplies = [n.name for pin, n in parts["SENSOR"].pins.items() if pin in ["VDD", "VDD3V3"]]
+    p = parts(module)
+    tab = p["J1"].pins["VDD"].name
+    supplies = [n.name for pin, n in p["IC1"].pins.items() if pin in ["VDD", "VDD3V3"]]
     check(
         len(supplies) == 2 and supplies[0] == tab and supplies[1] == tab,
         "AS5047U supplies " + str(supplies) + " must be the tab's " + tab,
     )
 
 
+def supply_decoupled(module, inputs):
+    # AS5047U DS v1-00 Figure 11, 3.3 V operation: 100 nF from the tied VDD/VDD3V3 to GND.
+    p = parts(module)
+    vdd, gnd = p["IC1"].pins["VDD"].name, p["IC1"].pins["GND"].name
+    caps = [
+        ref
+        for ref, c in p.items()
+        if c.type == "capacitor" and sorted([n.name for n in c.pins.values()]) == sorted([vdd, gnd])
+    ]
+    check(len(caps) == 1, "expected one capacitor from " + vdd + " to " + gnd + ", found " + str(caps))
+    value = p[caps[0]].capacitance.value
+    check(abs(value - 100e-9) < 1e-12, caps[0] + " must be 100 nF, is " + str(p[caps[0]].capacitance))
+
+
 TestBench(
     name="encoder_board",
     module=ENCODER,
     test_cases={"board": {}},
-    checks=[capacitor_voltage_ratings, one_supply],
+    checks=[capacitor_voltage_ratings, one_supply, supply_decoupled],
 )
