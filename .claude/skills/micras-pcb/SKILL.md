@@ -1,0 +1,73 @@
+---
+name: micras-pcb
+description: Work on the MicrasPCB boards: add or change a part, source it at JLCPCB, build or check the fab package, change mechanics, or script a KiCad file.
+---
+
+# MicrasPCB workflow
+
+`CLAUDE.md` has the rules and the gen/check loop; this skill adds how the toolchain behaves and
+where its limits are.
+
+## Trust the gates, not your own reading
+
+Models sound confident about circuits that would never work. Every claim about a board is
+checked by a deterministic tool: `pcb build` (types, voltage ranges), `pcb test` (datasheet
+requirements), ERC, LVS, DRC, DFM and pytest. When a requirement matters and no gate covers it,
+add one: a `pcb test` bench for a component's datasheet rule, a pytest in `tests/` for a
+board-level rule (pinout of a board-to-board joint, decoupling, spec geometry).
+
+People own three things: footprint and pin-1 checks, placement and routing, and the fab order.
+Prepare these for review; never sign them off.
+
+## Toolchain facts
+
+- Zener (`pcb`) is pre-1.0 and renames or removes commands between releases. Use the pinned
+  toolchain (`pcb +$PCB_TOOLCHAIN`, as the Makefile does) and its `--help`; do not rely on older
+  examples. Version bumps go in their own PR.
+- KiCad 10 has no headless layout or schematic API: the IPC API needs a running KiCad, and the
+  SWIG `pcbnew` module is deprecated and goes away in KiCad 11. New tools use `kicad-cli` and
+  `micras_pcb.sexpr` (span-preserving s-expression edits, so diffs stay small); do not import
+  `pcbnew`. A layout change still runs only as a script the user approved.
+- `.kicad_pcb` files do not merge in git. Do not rebase or merge across someone else's layout
+  edits; ask.
+
+## Adding a part
+
+1. Footprint: a KiCad library footprint when one matches the datasheet package; otherwise draw it
+   from the datasheet land pattern. Footprints from EasyEDA/LCSC converters have documented errors
+   (reversed polarity, wrong pin numbering, mismatched pads): never take one unchecked. Embed the
+   STEP and compare it with the pads.
+2. Zener: `Part(mpn=..., manufacturer=...)` (or `mpn`/`manufacturer` on stdlib generics), with the
+   datasheet figure or table cited for every pin and value. Follow the `librarian` skill for a new
+   package.
+3. `parts/jlc.toml`: one entry per MPN with `lcsc`, `type`, `rotation = 0`,
+   `rotation_verified = false` and a dated `source`. Prefer JLCPCB basic parts: each extended part
+   adds a loading fee per order. Look up stock and type with `make parts-online` (JLCPCB's
+   undocumented parts-search endpoint; a failure there is not a design failure).
+
+Parts that are copper on the board, such as the encoder's edge tab, use `skip_bom=True`: they
+stay out of the BOM, the CPL and `parts/jlc.toml`.
+
+## JLCPCB outputs
+
+`make fab` writes `build/<board>/fab/`:
+
+- `<board>-gerbers.zip`: copper, paste, silk, mask and Edge.Cuts gerbers plus Excellon drills,
+  from `kicad-cli`, relative to the drill origin (the spec origin).
+- `<board>-bom-jlcpcb.csv`: Comment, Designator, Footprint, `LCSC Part #`, MPN; from `pcb bom`
+  and `parts/jlc.toml`. An MPN without an entry fails the build.
+- `<board>-cpl-jlcpcb.csv`: Designator, Mid X, Mid Y, Layer, Rotation; KiCad's placement plus the
+  part's `rotation` offset. Zener's own JLC export applies no rotation corrections, which is why
+  this one exists.
+
+KiCad and JLCPCB disagree on the zero rotation of some packages, and no database of offsets is
+complete. The user checks each part once in JLCPCB's placement preview, then sets
+`rotation_verified = true` (fixing `rotation` first if needed). `make fab` lists the parts still
+unverified. Ordering is a manual upload: JLCPCB has no ordering API open to small teams.
+
+## Mechanics
+
+Board outline, origin and mechanically critical parts come from `spec/<board>.toml`, every value
+`{value, source}`. `make gen` writes them into the layout (locked) and exports
+`build/<board>/<board>_mech.json` for MicrasHardware, micras-simulation and the firmware. Change a
+mechanical number in the spec, never in the layout or in another repo.
