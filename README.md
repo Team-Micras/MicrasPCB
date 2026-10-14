@@ -6,7 +6,7 @@ CI.
 
 | Board | Status |
 |---|---|
-| `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.8 mm | routed, all checks clean, rotations not yet verified at JLCPCB |
+| `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.79 mm | placed and routed as the previous revision, same connectivity; fails the layout checks where that revision has faults ([known faults](boards/encoder/README.md#known-faults)) |
 | `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | placed and routed as the previous revision, same connectivity plus two declared changes (C1, C2) with their copper; fails the design checks where that revision has faults ([known faults](boards/main/README.md#known-faults)) |
 | `bluetooth`: HM-19 BLE module on a vertical USB-C plug that mates the main board's U2, 2 layers, 0.79 mm | placed and routed as the previous revision, same connectivity; fails the design checks where that revision has faults ([known faults](boards/bluetooth/README.md#known-faults)) |
 
@@ -30,9 +30,10 @@ components/**/*.zen             (Zener)      layout/<board>.kicad_pcb <─┘ pl
   byte-identical).
 - **`spec/` owns the mechanics.** `micras-pcb mech` writes the origin and the locked position of
   mechanically critical parts (the encoder's sensor and tab, the main board's screw holes) into
-  the `.kicad_pcb`, and exports the board for the other repos. It generates the encoder's Edge.Cuts
-  outline; the main board's outline is layout geometry, and the spec checks its interface
-  features (encoder slots, holes, notches, fan hole, extents). CI fails if the layout drifts.
+  the `.kicad_pcb`, and exports the board for the other repos. The Edge.Cuts outlines are layout
+  geometry (each board keeps its previous revision's); the spec checks their interface features
+  (the encoder's tab, shoulder, tapers and extents; the main board's encoder slots, holes,
+  notches, fan hole and extents; the Bluetooth module's extents). CI fails if the layout drifts.
 - **KiCad owns placement and routing**, which stay human-led.
 - **`parts/jlc.toml` owns sourcing**: MPN to LCSC number, basic/extended, placement rotation.
 
@@ -102,16 +103,17 @@ and fails if any gate failed.
 | layout-check | `pcb layout --check`, `micras-pcb rules/mech --check` | layout no longer matches the netlist, rules or spec drift |
 | ERC | `kicad-cli sch erc` | schematic electrical rules; `boards/<board>/erc.toml` names the nets supplied from off the board (the PWR_FLAG role) |
 | LVS | `micras-pcb lvs` | schematic and PCB connect different pads |
-| previous | `micras-pcb previous compare <board>` | a replicated board (main, bluetooth) connects anything differently from its previous revision, except the changes in `boards/<board>/changes.toml` |
+| previous | `micras-pcb previous compare <board>` | a replicated board (main, encoder, bluetooth) connects anything differently from its previous revision, except the changes in `boards/<board>/changes.toml` |
 | DRC | `kicad-cli pcb drc` + `rules/jlcpcb.kicad_dru` | JLCPCB clearances (copper, SMD pad to pad, hole to track), widths, drills, edge distances |
 | DFM | `pcb dfm` + `rules/jlcpcb-pdk.toml` | geometry-level manufacturability (Diode's sourced JLCPCB PDK) |
 | pytest | `pytest` | board contracts (encoder joint, firmware pin map), power tree, decoupling at the pin, encoder slot fit, courtyards, paste, 3D models, part data |
 | lint | `ruff` | Python lint and format |
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 
-The main board fails several of these by design: it replicates its previous revision, faults
-included, and [`boards/main/README.md`](boards/main/README.md#known-faults) gives the root cause of
-every failure.
+The main, encoder and Bluetooth boards fail several of these by design: they replicate their
+previous revisions, faults included, and their READMEs
+([main](boards/main/README.md#known-faults), [encoder](boards/encoder/README.md#known-faults),
+[bluetooth](boards/bluetooth/README.md#known-faults)) give the root cause of every failure.
 
 ## CI
 
@@ -141,8 +143,8 @@ pin-1 checks, placement and routing, and the fab order.
 
 ```text
 boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb is KiCad-owned, the rest generated)
-boards/main/previous/  snapshot of the previous main board revision (board.json) for the connectivity comparison,
-                       and the scripts that build its layout from that revision (transfer_layout.py, rework.py)
+boards/<board>/previous/  snapshot of the board's previous revision (board.json) for the connectivity comparison,
+                       and the scripts that build its layout from that revision (transfer_layout.py; main: rework.py)
 boards/main/firmware.toml  the firmware's pin map and drive settings (from MicrasFirmware), tested against the board
 boards/<board>/test/   Zener test benches of the board's circuit
 components/<mfr>/<P>/  reusable Zener packages: symbol, footprint (STEP embedded), .zen, test bench, README

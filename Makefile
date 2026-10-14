@@ -5,7 +5,7 @@ PCB := pcb +$(PCB_TOOLCHAIN)
 TOOL := uv run micras-pcb
 BOARDS := $(notdir $(patsubst %/pcb.toml,%,$(wildcard boards/*/pcb.toml)))
 # Boards replicated from a previous revision (boards/<board>/previous/board.json + changes.toml).
-PREVIOUS_BOARDS := main bluetooth
+PREVIOUS_BOARDS := main encoder bluetooth
 
 .PHONY: help setup gen check build warnings test layout-check erc lvs previous drc dfm pytest lint parts parts-online outputs fab review all clean
 

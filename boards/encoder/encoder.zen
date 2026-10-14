@@ -4,9 +4,10 @@ One per wheel. The board stands upright in a slot in the main board, with the
 AS5047U facing the diametric magnet on the wheel axle. Supply, SPI and the ABI
 quadrature outputs leave through the edge tab soldered to the main board.
 
-Mechanical source of truth: spec/encoder.toml (outline, tab, sensor position).
-Outline, tab pinout and sensor position: Altium MicrasEncoder.PcbDoc
-(hw_debug/modules/encoder).
+The circuit, designators, net names and layout are those of the Altium
+MicrasEncoder project (hw_debug/modules/encoder, snapshot in
+previous/board.json; `micras-pcb previous compare encoder` checks them).
+Mechanical checks: spec/encoder.toml (outline, tab, sensor position).
 """
 
 load("@stdlib/interfaces.zen", "Spi")
@@ -24,20 +25,36 @@ load(
 
 AS5047U = Module("github.com/Team-Micras/MicrasPCB/components/ams/AS5047U/AS5047U.zen")
 EncoderTab = Module("github.com/Team-Micras/MicrasPCB/components/micras/EncoderTab/EncoderTab.zen")
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
 
 V3V3 = Power("3V3", voltage="3.3V")
-GND = Ground()
-SPI = Spi("SPI")
-ENC_A = Net()
-ENC_B = Net()
+GND = Ground("GND")
+SPI = Spi(CS=Net("Encoder_CSn"), CLK=Net("SPI_SCK"), MISO=Net("SPI_MISO"), MOSI=Net("SPI_MOSI"))
+ENCODER_ABI_A = Net("Encoder_ABI_A")
+ENCODER_ABI_B = Net("Encoder_ABI_B")
 
-AS5047U(name="SENSOR", VDD=V3V3, GND=GND, SPI=SPI, A=ENC_A, B=ENC_B)
-EncoderTab(name="TAB", VDD=V3V3, GND=GND, SPI=SPI, A=ENC_A, B=ENC_B)
+AS5047U(name="IC1", VDD=V3V3, GND=GND, SPI=SPI, A=ENCODER_ABI_A, B=ENCODER_ABI_B)
 
-# 0.80 mm finished (0.71 core + 2 x 35 um copper + 2 x 10 um mask): the tab must
-# fit the main board slot (spec/encoder.toml, pcb.thickness).
-# The tab pads end 0.2 mm from the tab edge, JLCPCB's copper-to-edge minimum
-# (rules/jlcpcb.kicad_dru); vias stay at JLCPCB's no-surcharge 0.3 mm drill.
+# AS5047U DS v1-00 Figure 11, 3.3 V operation: 100 nF on the tied VDD/VDD3V3. Yageo
+# CC0603KRX7R9BB104 (LCSC C14663, JLCPCB basic): 100 nF 10 % 50 V X7R 0603, as the Fenghua
+# 0603B104K500NT the Altium schematic names (LCSC C30926, extended).
+Capacitor(
+    name="C1",
+    value="100nF 10%",
+    package="0603",
+    voltage="50V",
+    dielectric="X7R",
+    mpn="CC0603KRX7R9BB104",
+    manufacturer="Yageo",
+    P1=V3V3,
+    P2=GND,
+)
+
+EncoderTab(name="J1", VDD=V3V3, GND=GND, SPI=SPI, A=ENCODER_ABI_A, B=ENCODER_ABI_B)
+
+# Stackup of MicrasEncoder.PcbDoc: 0.70 mm FR-4 core, 35 um copper, 10 um mask a side,
+# 0.79 mm finished (spec/encoder.toml, pcb.thickness); ordered as JLCPCB's 0.8 mm 2-layer board.
+# Vias 0.3 mm drill / 0.6 mm pad, the previous layout's (JLCPCB's no-surcharge drill).
 Board(
     name="encoder",
     path="layout",
@@ -50,17 +67,17 @@ Board(
                 NetClass(
                     name="Default",
                     clearance=0.15,
-                    track_width=0.2,
+                    track_width=0.254,
                     via_diameter=0.6,
                     via_drill=0.3,
                 ),
             ],
         ),
         stackup=Stackup(
-            thickness=0.8,
+            thickness=0.79,
             layers=[
                 CopperLayer(thickness=0.035, role="mixed"),
-                DielectricLayer(thickness=0.71, material="FR4-Core", form="core"),
+                DielectricLayer(thickness=0.70, material="FR4-Core", form="core"),
                 CopperLayer(thickness=0.035, role="mixed"),
             ],
         ),

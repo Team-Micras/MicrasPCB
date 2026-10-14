@@ -1,5 +1,6 @@
 """The mechanical specs are well formed and their geometry is consistent."""
 
+import itertools
 import math
 import tomllib
 
@@ -39,9 +40,38 @@ def test_encoder_outline_matches_spec_extents():
 
 def test_sensor_fits_on_the_board():
     s = spec.load("encoder")
-    # TSSOP-14 courtyard is about 7.7 x 5.5 mm
-    assert s["sensor"]["v"] + 2.75 < s["outline"]["top"]
-    assert abs(s["sensor"]["u"]) + 3.85 < s["outline"]["width"] / 2
+    # the SOP65P640X120-14N courtyard (User.15 in components/ams/AS5047U) is 7.85 x 5.6 mm
+    assert s["sensor"]["v"] + 2.8 < s["outline"]["top"]
+    assert abs(s["sensor"]["u"]) + 3.925 < s["outline"]["width"] / 2
+
+
+def test_encoder_layout_matches_the_spec():
+    text = board_pcb("encoder").read_text()
+    new, changes, problems = mech.apply("encoder", text)
+    assert (changes, problems) == ([], [])
+    assert new == text
+
+
+def test_encoder_features_catch_a_moved_outline():
+    # the outline check is not vacuous: the layout shifted by 0.1 mm fails it
+    s = spec.load("encoder")
+    s["kicad"] = {**s["kicad"], "origin_x": s["kicad"]["origin_x"] + 0.1}
+    problems = mech.encoder_features(s, sexpr.parse(board_pcb("encoder").read_text()))
+    assert any("tab" in p for p in problems) and any("side" in p for p in problems)
+
+
+def test_encoder_mech_export_is_the_layout_outline():
+    s = spec.load("encoder")
+    m = mech.mech_json("encoder")
+    us, vs = [p[0] for p in m["outline"]], [p[1] for p in m["outline"]]
+    assert max(us) - min(us) == pytest.approx(s["outline"]["width"], abs=1e-3)
+    assert (max(vs), min(vs)) == pytest.approx((s["outline"]["top"], -s["tab"]["depth"]), abs=1e-3)
+    assert m["thickness"] == s["pcb"]["thickness"]
+    assert (m["sensor"]["u"], m["sensor"]["v"]) == (s["sensor"]["u"], s["sensor"]["v"])
+    # counter-clockwise, no repeated points
+    ring = [*m["outline"], m["outline"][0]]
+    assert sum(a[0] * b[1] - b[0] * a[1] for a, b in itertools.pairwise(ring)) > 0
+    assert all(a != b for a, b in itertools.pairwise(ring))
 
 
 # ---------------------------------------------------------------------------------------------
