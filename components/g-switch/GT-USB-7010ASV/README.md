@@ -42,6 +42,11 @@ recommended PCB layout: 0.3 x 1.24 mm signal pads and 0.6 x 1.24 mm VBUS/GND pad
 shell tabs as plated oval slots 8.64 mm apart (front pair 1.0 x 2.1 mm pad, 0.6 x 1.7 mm slot;
 rear pair 1.0 x 1.8 mm pad, 0.6 x 1.4 mm slot, 4.18 mm behind).
 
+- The outer GND pads A1B12 and B1A12 (and their paste apertures) are 1.19 mm long, 0.05 mm short
+  of the drawing at the end facing the peg holes: their copper keeps 0.22 mm from the holes,
+  above JLCPCB's 0.2 mm copper-to-edge clearance (`rules/jlcpcb.kicad_dru`); the drawing's pads
+  come within 0.17 mm.
+
 - The two 0.65 mm housing-peg holes of the recommended layout (5.78 mm apart, at y = -1.28 mm)
   are drawn on F.Fab and User.1 but are not drilled by the footprint: the board outline must cut
   them (Edge.Cuts circles).
