@@ -1,0 +1,313 @@
+{
+ "format": 1,
+ "source": {
+  "root": "hw_debug",
+  "files": {
+   "modules/bluetooth/MicrasBluetoothModule.PcbDoc": "0032e2a890d01ef2a702fee6b7cf1dd661b071a56c01dfcef6ff84980603030d",
+   "modules/bluetooth/MicrasBluetoothModule.SchDoc": "6fdfbf286e80d0aa4e41cc2ee6bdd8e4a97eec89fc92ffb77c0ecb037c891a2b",
+   "modules/bluetooth/MicrasBluetoothModule.netlist.txt": "6bbb412ae5af7402bac2f612f3d18196a0d1a3744bed1c46ccb49c1098c157de"
+  }
+ },
+ "board": {
+  "copper_layers": 2,
+  "layers": [
+   {
+    "name": "F.Cu",
+    "type": "signal",
+    "user_name": "Top Layer"
+   },
+   {
+    "name": "B.Cu",
+    "type": "signal",
+    "user_name": "Bottom Layer"
+   }
+  ],
+  "thickness": 0.79,
+  "stackup": [
+   {
+    "name": "F.SilkS",
+    "type": "Top Silk Screen"
+   },
+   {
+    "name": "F.Paste",
+    "type": "Top Solder Paste"
+   },
+   {
+    "name": "F.Mask",
+    "type": "Top Solder Mask",
+    "thickness": "0.01"
+   },
+   {
+    "name": "F.Cu",
+    "type": "copper",
+    "thickness": "0.035"
+   },
+   {
+    "name": "dielectric 1",
+    "type": "core",
+    "thickness": "0.7",
+    "material": "FR-4",
+    "epsilon_r": "4.5",
+    "loss_tangent": "0.02"
+   },
+   {
+    "name": "B.Cu",
+    "type": "copper",
+    "thickness": "0.035"
+   },
+   {
+    "name": "B.Mask",
+    "type": "Bottom Solder Mask",
+    "thickness": "0.01"
+   },
+   {
+    "name": "B.Paste",
+    "type": "Bottom Solder Paste"
+   },
+   {
+    "name": "B.SilkS",
+    "type": "Bottom Silk Screen"
+   }
+  ],
+  "aux_axis_origin": [
+   144.001075,
+   117.503615
+  ],
+  "grid_origin": [
+   144.001075,
+   117.503615
+  ],
+  "edge_cuts_bbox": {
+   "min": [
+    140.501095,
+    92.503595
+   ],
+   "max": [
+    156.501105,
+    117.503595
+   ]
+  }
+ },
+ "parts": {
+  "C1": {
+   "lib_id": "MicrasBluetoothModuleLib:C0603",
+   "value": "10µF",
+   "mpn": "HGC0603R5106K350NTHJ",
+   "manufacturer": "Chinocera(华瓷)",
+   "lcsc": "C22367826",
+   "description": "Capacitor - 35V 10uF X5R ±10% 0603 Ceramic Capacitors RoHS",
+   "sheet": "MicrasBluetoothModule",
+   "side": "top",
+   "x": 151.921115,
+   "y": 109.935495,
+   "rotation": 0.0,
+   "dnp": false,
+   "exclude_from_bom": false,
+   "in_jlc_bom": false,
+   "in_schematic": true,
+   "pads": {
+    "1": "GND",
+    "2": "3V3"
+   }
+  },
+  "C2": {
+   "lib_id": "MicrasBluetoothModuleLib:C0603",
+   "value": "100nF",
+   "mpn": "0603B104K500NT",
+   "manufacturer": "Fenghua Advanced Technology (Holding) CO.",
+   "lcsc": null,
+   "description": "Capacitor - 100nF 50V X7R ±10% 0603 Multilayer Ceramic Capacitors MLCC - SMD/SMT ROHS",
+   "sheet": "MicrasBluetoothModule",
+   "side": "top",
+   "x": 151.921115,
+   "y": 108.307635,
+   "rotation": 0.0,
+   "dnp": false,
+   "exclude_from_bom": false,
+   "in_jlc_bom": false,
+   "in_schematic": true,
+   "pads": {
+    "1": "GND",
+    "2": "3V3"
+   }
+  },
+  "D1": {
+   "lib_id": "MicrasBluetoothModuleLib:LED0603-RD_BLUE",
+   "value": "LED BLUE 0603 - SMLD12BN1WT86",
+   "mpn": "SMLD12BN1WT86",
+   "manufacturer": "ROHM(罗姆)",
+   "lcsc": "C2837822",
+   "description": "LED - 5mA 40mcd 470nm Blue 2.9V 66mW 0603 LED Indication - Discrete RoHS",
+   "sheet": "MicrasBluetoothModule",
+   "side": "top",
+   "x": 149.335115,
+   "y": 109.071955,
+   "rotation": -90.0,
+   "dnp": false,
+   "exclude_from_bom": false,
+   "in_jlc_bom": false,
+   "in_schematic": true,
+   "pads": {
+    "1": "GND",
+    "2": "NetD1_2"
+   }
+  },
+  "OP1": {
+   "lib_id": "MicrasBluetoothModuleLib:OPENPAD",
+   "value": "Open Pad",
+   "mpn": null,
+   "manufacturer": null,
+   "lcsc": null,
+   "description": "Open Pad for shorcutting",
+   "sheet": "MicrasBluetoothModule",
+   "side": "bottom",
+   "x": 148.561075,
+   "y": 94.389615,
+   "rotation": 180.0,
+   "dnp": false,
+   "exclude_from_bom": false,
+   "in_jlc_bom": false,
+   "in_schematic": true,
+   "pads": {
+    "1": "NetOP1_1",
+    "2": "GND"
+   }
+  },
+  "R1": {
+   "lib_id": "MicrasLib:RESC1608X50N",
+   "value": "1kΩ",
+   "mpn": "RC0603FR-071KL",
+   "manufacturer": "YAGEO",
+   "lcsc": null,
+   "description": "Resistor - 1kΩ 75V 100mW -55℃~+155℃ Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS",
+   "sheet": "MicrasBluetoothModule",
+   "side": "top",
+   "x": 145.798255,
+   "y": 109.121525,
+   "rotation": 90.0,
+   "dnp": false,
+   "exclude_from_bom": false,
+   "in_jlc_bom": false,
+   "in_schematic": true,
+   "pads": {
+    "1": "UART_TX",
+    "2": "NetR1_2"
+   }
+  },
+  "R2": {
+   "lib_id": "MicrasLib:RESC1608X50N",
+   "value": "1kΩ",
+   "mpn": "RC0603FR-071KL",
+   "manufacturer": "YAGEO",
+   "lcsc": null,
+   "description": "Resistor - 1kΩ 75V 100mW -55℃~+155℃ Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS",
+   "sheet": "MicrasBluetoothModule",
+   "side": "top",
+   "x": 144.128115,
+   "y": 109.121525,
+   "rotation": 90.0,
+   "dnp": false,
+   "exclude_from_bom": false,
+   "in_jlc_bom": false,
+   "in_schematic": true,
+   "pads": {
+    "1": "UART_RX",
+    "2": "NetR2_2"
+   }
+  },
+  "R3": {
+   "lib_id": "MicrasLib:RESC1608X50N",
+   "value": "680Ω",
+   "mpn": "RC0603FR-07680RL",
+   "manufacturer": "KEMET",
+   "lcsc": null,
+   "description": "Resistor - 680Ω 75V 100mW -55℃~+155℃ Thick Film Resistor ±1% ±100ppm/℃ 0603 Chip Resistor - Surface Mount ROHS",
+   "sheet": "MicrasBluetoothModule",
+   "side": "top",
+   "x": 147.468395,
+   "y": 109.121525,
+   "rotation": -90.0,
+   "dnp": false,
+   "exclude_from_bom": false,
+   "in_jlc_bom": false,
+   "in_schematic": true,
+   "pads": {
+    "1": "NetR3_1",
+    "2": "NetD1_2"
+   }
+  },
+  "U1": {
+   "lib_id": "MicrasBluetoothModuleLib:HM-19",
+   "value": "HM-19",
+   "mpn": null,
+   "manufacturer": null,
+   "lcsc": null,
+   "description": null,
+   "sheet": "MicrasBluetoothModule",
+   "side": "top",
+   "x": 148.501095,
+   "y": 105.503595,
+   "rotation": 0.0,
+   "dnp": false,
+   "exclude_from_bom": false,
+   "in_jlc_bom": false,
+   "in_schematic": true,
+   "pads": {
+    "1": null,
+    "2": "NetR1_2",
+    "3": null,
+    "4": "NetR2_2",
+    "5": null,
+    "6": null,
+    "7": null,
+    "8": null,
+    "9": "3V3",
+    "10": "3V3",
+    "11": null,
+    "12": "GND",
+    "13": null,
+    "14": null,
+    "15": "NetR3_1",
+    "16": "NetOP1_1"
+   }
+  },
+  "USB1": {
+   "lib_id": "MicrasBluetoothModuleLib:USB-C-SMD_918-118A2021Y40006",
+   "value": "USB TYPE C Male - 918-118A2021Y40006",
+   "mpn": "918-118A2021Y40006",
+   "manufacturer": "精拓金",
+   "lcsc": "C399938",
+   "description": null,
+   "sheet": "MicrasBluetoothModule",
+   "side": "top",
+   "x": 148.501075,
+   "y": 115.343615,
+   "rotation": 0.0,
+   "dnp": false,
+   "exclude_from_bom": false,
+   "in_jlc_bom": false,
+   "in_schematic": true,
+   "pads": {
+    "1": "GND",
+    "2": null,
+    "3": null,
+    "4": "UART_RX",
+    "5": "UART_TX",
+    "6": "3V3",
+    "7": null,
+    "8": "GND",
+    "9": "GND",
+    "10": null,
+    "11": null,
+    "12": "UART_RX",
+    "13": "UART_TX",
+    "14": "3V3",
+    "15": null,
+    "16": "GND",
+    "17": "GND",
+    "18": "GND"
+   }
+  }
+ },
+ "unnamed": {}
+}

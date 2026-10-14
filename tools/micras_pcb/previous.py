@@ -1,20 +1,22 @@
 """The previous board revision as a committed reference, and a connectivity comparator against it.
 
-The main and encoder boards are replicated from their previous revisions (Altium, in `hw_debug`).
-`snapshot` reads a board's previous revision once and writes `boards/<board>/previous/board.json`,
-so the checks never need `hw_debug`. `compare` proves the new board connects exactly what the
-old one did, except for the changes declared in `boards/<board>/changes.toml`.
+The main, encoder and Bluetooth boards are replicated from their previous revisions (Altium,
+in `hw_debug`). `snapshot` reads a board's previous revision once and writes
+`boards/<board>/previous/board.json`, so the checks never need `hw_debug`. `compare` proves the
+new board connects exactly what the old one did, except for the changes declared in
+`boards/<board>/changes.toml`.
 
-    MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot          # (re)write main's board.json
-    MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot encoder  # the encoder's
-    MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot --check  # fail if it is stale
-    micras-pcb previous compare main                                       # new board vs previous
+    MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot            # (re)write main's board.json
+    MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot encoder    # the encoder's
+    MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot bluetooth  # the Bluetooth module's
+    MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot --check    # fail if it is stale
+    micras-pcb previous compare main                                         # new board vs previous
 
 Where each board's previous revision lives is in `SOURCES`: the main board as the KiCad 10
-conversion of its Altium project (`hw_debug/kicad`), the encoder as the Altium files themselves
-(`hw_debug/modules/encoder`): its PcbDoc is converted with `kicad-cli pcb import` on each run,
-its part fields come from the SchDoc's component parameters, and its netlist export must group
-the pads as the PCB does.
+conversion of its Altium project (`hw_debug/kicad`), the encoder and the Bluetooth module as
+the Altium files themselves (`hw_debug/modules/<board>`): the PcbDoc is converted with
+`kicad-cli pcb import` on each run, the part fields come from the SchDoc's component parameters,
+and the netlist export must group the pads as the PCB does.
 
 Snapshot (`board.json`, format 1). The PCB's pad nets are the ground truth: the main board's
 converted schematic merges `Motor_L_Sense-` and `Motor_R_Sense-`, the PCB keeps them apart. The
@@ -109,6 +111,11 @@ SOURCES = {
         pcb="modules/encoder/MicrasEncoder.PcbDoc",
         altium_sch="modules/encoder/Encoder.SchDoc",
         netlist="modules/encoder/Encoder.netlist.txt",
+    ),
+    "bluetooth": Source(
+        pcb="modules/bluetooth/MicrasBluetoothModule.PcbDoc",
+        altium_sch="modules/bluetooth/MicrasBluetoothModule.SchDoc",
+        netlist="modules/bluetooth/MicrasBluetoothModule.netlist.txt",
     ),
 }
 
@@ -332,13 +339,26 @@ def _cfb_stream(path: Path, name: str) -> bytes:
 
 
 def _altium_records(path: Path) -> list[dict[str, str]]:
-    """The records of an Altium SchDoc (stream FileHeader: length-prefixed |KEY=VALUE| lists)."""
+    """The records of an Altium SchDoc (stream FileHeader: length-prefixed |KEY=VALUE| lists).
+
+    Values are Latin-1; a value with characters outside it also comes as a "%UTF8%KEY" entry in
+    UTF-8, which then replaces the KEY one ("1kΩ" rather than "1k?")."""
     data, pos, out = _cfb_stream(path, "FileHeader"), 0, []
     while pos + 4 <= len(data):
         n = int.from_bytes(data[pos : pos + 3], "little")
-        text = data[pos + 4 : pos + 4 + n].rstrip(b"\0").decode("latin-1")
+        raw = data[pos + 4 : pos + 4 + n].rstrip(b"\0")
         pos += 4 + n
-        out.append(dict(kv.split("=", 1) for kv in text.split("|") if "=" in kv))
+        rec: dict[str, str] = {}
+        for kv in raw.split(b"|"):
+            key, eq, value = kv.partition(b"=")
+            if not eq:
+                continue
+            k = key.decode("latin-1")
+            if k.startswith("%UTF8%"):
+                rec[k[6:]] = value.decode("utf-8")
+            else:
+                rec.setdefault(k, value.decode("latin-1"))
+        out.append(rec)
     return out
 
 
@@ -359,12 +379,13 @@ def _altium_sch_fields(path: Path) -> dict[str, dict]:
     out = {}
     for ref in owner_ref.values():
         p, c = params.get(ref, {}), comps.get(ref, {})
+        # parameter names depend on the library the part came from (Altium's or LCSC's)
         out[ref] = {
             "value": p.get("Comment") or None,
             "description": c.get("ComponentDescription") or None,
-            "mpn": p.get("Manufacturer_Part_Number") or None,
-            "manufacturer": p.get("Manufacturer_Name") or None,
-            "lcsc": None,
+            "mpn": p.get("Manufacturer_Part_Number") or p.get("Manufacturer Part") or None,
+            "manufacturer": p.get("Manufacturer_Name") or p.get("Manufacturer") or None,
+            "lcsc": p.get("Supplier Part") if p.get("Supplier") == "LCSC" else None,
             "dnp": False,
             "exclude_from_bom": False,
         }

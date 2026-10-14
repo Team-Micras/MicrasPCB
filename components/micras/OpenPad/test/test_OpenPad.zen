@@ -1,0 +1,20 @@
+"""OpenPad package: pads 1 and 2 on P1 and P2, no BOM or placement entry, prefix OP."""
+
+OpenPad = Module("../OpenPad.zen")
+
+
+def bare_pads(module, inputs):
+    c = module.components()["OP"]
+    check(c.pins["1"].name == "A", "pad 1 must be on P1")
+    check(c.pins["2"].name == "B", "pad 2 must be on P2")
+    check(c.skip_bom, "an open pad is not a BOM line")
+    check(c.skip_pos, "an open pad is not placed")
+    check(c.prefix == "OP", "designator prefix must be OP")
+
+
+TestBench(
+    name="OpenPad",
+    module=OpenPad,
+    test_cases={"default": {"P1": Net("A"), "P2": Net("B")}},
+    checks=[bare_pads],
+)

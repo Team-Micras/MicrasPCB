@@ -1,0 +1,68 @@
+"""HM-19 - Bluetooth Low Energy 5.0 module with a UART, TI CC2640R2F inside. Bare module.
+
+Datasheet: JNHuaMao "HM Bluetooth module datasheet", Last Version V107 (2019-02): section 1
+(parameters, p3), section 3 (module table, p5), 6.5 (HM-19 schematic, p10), 6.6 (size, p10), 6.8
+(device terminal functions, p11-12), 7 (system KEY and LED functions, p13). The silicon is the TI
+CC2640R2F (datasheet SWRS204C).
+
+Pins (V107 6.8): 1 UART_RTS (DIO_9), 2 UART_TX (DIO_2), 3 UART_CTS (DIO_0), 4 UART_RX (DIO_1),
+5-6 NC (CC2640 debug), 7 NC (DIO_3), 8 KEY "System KEY" (DIO_4), 9 VCC, 10 "NC or VCC", 11 RESETB
+"Reset if low >1000ms", 12 GND, 13 PIO3 (DIO_5), 14 PIO2 (DIO_6), 15 PIO1 "System LED" (DIO_7),
+16 PIO0 "input/output pin" (DIO_8). Pin 10 joins VCC here, as in the vendor schematic (6.5).
+
+Supply: section 3 gives the HM-19 VDD as 2.1-3.7 V; section 1 says "+1.9~3.7 VDC 50mA". The
+narrower range is the declared one. Current: 50 mA (section 1), 2.6 mA in standby and active
+(section 1).
+
+The datasheet is inconsistent on the key: the pin table names pin 8 KEY, while the vendor
+schematic (6.5) and the AT command "Query/Set PIO0 function (System KEY)" put the key on PIO0
+(pin 16). A key press held over 1000 ms disconnects a connected module, and in standby restores
+the factory settings (section 7). RESETB: the CC2640R2F RESET_N has no internal pull-up
+(SWRS204C pin description); the HM-19 datasheet does not say whether the module adds one, and the
+vendor schematic leaves RESETB open.
+
+Levels: CC2640R2F VIH 0.8 VDDS, VIL 0.2 VDDS (SWRS204C 8.25); outputs 4 mA at VOH >= 2.72 V
+with VDDS = 3.0 V.
+
+Integrator-owned circuitry (vendor schematic, 6.5): 1 kOhm in series with UART_TX and UART_RX,
+10 uF and 100 nF on VCC, the status LED with its resistor on PIO1 (470 Ohm), the key on PIO0.
+Mechanics (6.6): 13.5 x 18.5 x 2.3 mm (0.8 mm board); pad 1 sits 7 mm from the top edge, which
+holds the antenna, and the footprint leaves that part of the body off the pads.
+"""
+
+load("@stdlib/interfaces.zen", "Uart")
+
+# V107 section 3: HM-19 VDD 2.1-3.7 V (section 1: 1.9-3.7 V).
+VCC = io(Power(voltage="2.1V to 3.7V"))
+GND = io(Ground)
+UART = io(Uart)
+RTS = io(Net, optional=True)
+CTS = io(Net, optional=True)
+KEY = io(Net, optional=True)
+RESETB = io(Net, optional=True)
+PIO0 = io(Net, optional=True)
+PIO1 = io(Net, optional=True)
+PIO2 = io(Net, optional=True)
+PIO3 = io(Net, optional=True)
+
+Component(
+    name="HM19",
+    prefix="U",
+    symbol=Symbol(library="HM-19.kicad_sym"),
+    footprint=File("HM-19.kicad_mod"),
+    part=Part(mpn="HM-19", manufacturer="JNHuaMao"),
+    pins={
+        "VCC": VCC,
+        "GND": GND,
+        "UART_TX": UART.TX,
+        "UART_RX": UART.RX,
+        "UART_RTS": RTS,
+        "UART_CTS": CTS,
+        "KEY": KEY,
+        "RESETB": RESETB,
+        "PIO0": PIO0,
+        "PIO1": PIO1,
+        "PIO2": PIO2,
+        "PIO3": PIO3,
+    },
+)
