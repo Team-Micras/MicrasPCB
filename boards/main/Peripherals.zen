@@ -113,6 +113,9 @@ TLV7041 = Module("github.com/Team-Micras/MicrasPCB/components/ti/TLV7041/TLV7041
 USBLC6_2SC6 = Module("github.com/Team-Micras/MicrasPCB/components/st/USBLC6-2SC6/USBLC6-2SC6.zen")
 WS2815C = Module("github.com/Team-Micras/MicrasPCB/components/worldsemi/WS2815C-2020/WS2815C-2020.zen")
 
+# Its own sheet in the board schematic (layout/main.kicad_sch); the layout stays the board's.
+Project(name="Peripherals", path="layout", layout=False)
+
 VBAT = io(Power)
 V3V3 = io(Power)
 V5V = io(Power)
