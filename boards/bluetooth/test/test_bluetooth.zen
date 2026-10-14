@@ -1,0 +1,152 @@
+"""The Bluetooth module's circuit against the HM-19 application circuit and the USB-C rules.
+
+Sources: JNHuaMao "HM Bluetooth module datasheet" V107 (2019-02); TI CC2640R2F SWRS204C (Dec 2016,
+rev. Sep 2020); ROHM SMLD12x series data sheet Rev.005 (2020.04); USB Type-C Cable and Connector
+Specification Release 2.0 (August 2019).
+
+A bench instantiates the whole board and looks parts up by designator: the instance names are the
+board's designators, so a failure message names the parts to change.
+"""
+
+BOARD = Module("../bluetooth.zen")
+
+MODULE = "U1"
+PLUG = "USB1"
+
+
+def index(module):
+    """The board as designator -> component and net name -> [(designator, pin name)]."""
+    parts = {}
+    for path, c in module.components().items():
+        parts[path.split(".")[-2]] = c
+    nets = {}
+    for name, ports in module.nets().items():
+        nets[name] = [(path.split(".")[-2], pin) for path, pin in ports]
+    return struct(parts=parts, nets=nets)
+
+
+def net(b, ref, pin):
+    return b.parts[ref].pins[pin].name
+
+
+def nets_of(c):
+    return [n.name for n in c.pins.values()]
+
+
+def two_terminal(b, kind, a, z):
+    """Designators of `kind` parts with one pin on net a and the other on net z."""
+    out = []
+    for ref, c in b.parts.items():
+        if c.type != kind or c.dnp:
+            continue
+        ns = nets_of(c)
+        if len(ns) == 2 and ((ns[0] == a and ns[1] == z) or (ns[0] == z and ns[1] == a)):
+            out.append(ref)
+    return sorted(out)
+
+
+def report(problems):
+    check(len(problems) == 0, "; ".join(problems))
+
+
+def uart_series_resistors(module, inputs):
+    # V107 6.5 (HM-19 schematic, p10): 1 kOhm in series with UART_TX (pin 2) and UART_RX (pin 4).
+    # The module's TX goes out on the plug's D- contacts and its RX comes in on D+: the main board
+    # wires D- to PA11 (UART4_RX) and D+ to PA12 (UART4_TX) (tests/test_bluetooth.py checks that end).
+    b = index(module)
+    p = []
+    for pin, contact in [("UART_TX", "D-"), ("UART_RX", "D+")]:
+        rs = two_terminal(b, "resistor", net(b, MODULE, pin), net(b, PLUG, contact))
+        if len(rs) != 1:
+            p.append("U1 " + pin + " needs one resistor to the plug's " + contact + ", found " + str(rs))
+        elif abs(b.parts[rs[0]].resistance.value - 1e3) > 0.05e3:
+            p.append(rs[0] + " is " + str(b.parts[rs[0]].resistance.value) + " Ohm, the vendor uses 1 kOhm")
+    report(p)
+
+
+def vcc_capacitors(module, inputs):
+    # V107 6.5: 10 uF and 100 nF from VCC (pins 9 and 10 joined) to GND.
+    b = index(module)
+    vcc = net(b, MODULE, "VCC")
+    caps = [b.parts[c].capacitance.value for c in two_terminal(b, "capacitor", vcc, "GND")]
+    p = []
+    for want, label in [(10e-6, "10 uF"), (100e-9, "100 nF")]:
+        if not [c for c in caps if abs(c - want) <= 0.2 * want]:
+            p.append("no " + label + " on U1 VCC (" + vcc + ")")
+    report(p)
+
+
+def status_led_current(module, inputs):
+    # V107 section 7: PIO1 is the System LED output. CC2640R2F (SWRS204C 8.25): VOH >= 2.72 V at
+    # 4 mA with VDDS = 3.0 V, so the pin sources the LED current at up to 4 mA. SMLD12BN1W (ROHM
+    # SMLD12x Rev.005 p1): VF 2.9 V typ at 5 mA, IF 20 mA max. At 3.3 V the LED current is
+    # (3.3 - VF) / R; with VF at its typical value it must stay below both limits.
+    b = index(module)
+    pio1 = net(b, MODULE, "PIO1")
+    p = []
+    rs = [r for r in b.parts if b.parts[r].type == "resistor" and pio1 in nets_of(b.parts[r])]
+    if len(rs) != 1:
+        report(["PIO1 needs one series resistor, found " + str(rs)])
+        return
+    r = rs[0]
+    anode = [n for n in nets_of(b.parts[r]) if n != pio1][0]
+    leds = [d for d in b.parts if b.parts[d].type == "led" and b.parts[d].pins["A"].name == anode]
+    if len(leds) != 1 or b.parts[leds[0]].pins["K"].name != "GND":
+        report(["PIO1 drives no LED to GND through " + r])
+        return
+    current = (3.3 - 2.9) / b.parts[r].resistance.value
+    if current > 4e-3:
+        p.append(r + " lets " + str(current * 1e3) + " mA flow, above the 4 mA the pin is specified for")
+    if current > 20e-3:
+        p.append(leds[0] + " at " + str(current * 1e3) + " mA, above its 20 mA rating")
+    report(p)
+
+
+def key_on_pio0(module, inputs):
+    # V107 6.5: the KEY switch from PIO0 (pin 16) to GND; section 7: a press over 1000 ms.
+    b = index(module)
+    pio0 = net(b, MODULE, "PIO0")
+    pads = [r for r in b.parts if r.startswith("OP") and sorted(nets_of(b.parts[r])) == sorted([pio0, "GND"])]
+    check(len(pads) == 1, "PIO0 (" + pio0 + ") needs an open pad to GND, found " + str(pads))
+
+
+def usb_c_sbu_not_a_supply(module, inputs):
+    # Type-C R2.0 Table 3-5 note 3 (p69): "Contacts A8 and B8 (SBU1 and SBU2) shall be not
+    # connected unless required for a specified purpose (e.g., Audio Adapter Accessory Mode)";
+    # section 4.3 (p139): a port's SBU pins are open or held by a weak pull-down (Table 4-28 p236:
+    # >= 950 kOhm). A device takes its supply from VBUS, which a source applies once it sees the
+    # sink's Rd on CC (sections 4.5.1.3.2, 4.5.2.2). This plug feeds the module from SBU and leaves
+    # VBUS and CC open (review M6).
+    b = index(module)
+    p = []
+    for pin in ["SBU1", "SBU2"]:
+        n = net(b, PLUG, pin)
+        if [r for r, _ in b.nets.get(n, []) if r == MODULE]:
+            p.append("USB1 " + pin + " (" + n + ") supplies U1 (the HM-19's VCC)")
+    report(p)
+
+
+def module_reset_not_floating(module, inputs):
+    # CC2640R2F SWRS204C Table 7-1 (and every package's signal table): "RESET_N ... Reset,
+    # active-low. No internal pullup." The HM-19 datasheet (V107 6.8) gives RESETB as "Reset if low
+    # >1000ms" and does not say whether the module pulls it up.
+    b = index(module)
+    reset = net(b, MODULE, "RESETB")
+    # a pin left open sits on the unnamed no-connect net
+    others = [r for r, _ in b.nets.get(reset, []) if r != MODULE] if reset else []
+    check(len(others) > 0, "U1 RESETB is left open: the CC2640R2F has no internal pull-up on RESET_N")
+
+
+TestBench(
+    name="bluetooth",
+    module=BOARD,
+    test_cases={"board": {}},
+    checks=[
+        uart_series_resistors,
+        vcc_capacitors,
+        status_led_current,
+        key_on_pio0,
+        usb_c_sbu_not_a_supply,
+        module_reset_not_floating,
+    ],
+)
