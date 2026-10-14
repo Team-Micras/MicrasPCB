@@ -15,7 +15,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import sexpr, spec, status
+from . import sexpr, spec
 from .paths import board_pcb, build_dir
 
 _NS = uuid.UUID("6f1f3c2e-8a51-4f0e-9a52-6d1c2a7e0b10")  # stable UUIDs for generated items
@@ -241,10 +241,8 @@ def run(board: str, check: bool) -> int:
             for c in changes:
                 print(f"  - {c}")
             print(f"run `micras-pcb mech {board}` and commit the result")
-            status.record(board, "Spec", False, "layout drifted from spec/" + board + ".toml")
             return 1
         print(f"{pcb}: matches spec/{board}.toml")
-        status.record(board, "Spec", True, f"layout matches spec/{board}.toml")
         return 0
     if changes:
         pcb.write_text(new)

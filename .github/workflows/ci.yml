@@ -46,7 +46,7 @@ jobs:
 
       - name: Review outputs and fab package
         if: always()
-        run: make site
+        run: make review
 
       - name: Upload build
         if: always()
@@ -54,6 +54,6 @@ jobs:
         with:
           name: micraspcb-${{ github.sha }}
           path: |
-            build/site
+            build/*/review
             build/*/fab
           retention-days: 30

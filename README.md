@@ -21,7 +21,7 @@ components/**/*.zen             (Zener)      layout/<board>.kicad_pcb <─┘ pl
                                                      │
           make check: build · tests · sync · spec · ERC · LVS · DRC · DFM · pytest · parts
                                                      │
-          make site:  renders · schematic · layers · 3D · BOM · fab zip  ──>  CI artifact
+          make review: renders · schematic · layers · 3D · BOM · fab zip ──>  CI artifact
 ```
 
 - **Zener owns the circuit.** Parts, nets, values, stackup and design rules are code, with
@@ -51,7 +51,7 @@ schematic preview of `.zen` files.
 ```sh
 make gen        # regenerate KiCad files from the sources (run after every source change)
 make check      # everything CI gates on
-make site       # build/site/index.html: the design portal for this checkout
+make review     # build/<board>/review and fab: schematic PDF, layer SVGs, renders, GLB/STEP, fab package
 make fab        # build/<board>/fab: JLCPCB gerbers zip, BOM and CPL
 pcb open boards/encoder/encoder.zen     # open the layout in KiCad
 make parts-online   # JLCPCB stock and basic/extended status (run before ordering)
@@ -73,7 +73,7 @@ make parts-online   # JLCPCB stock and basic/extended status (run before orderin
 ## CI
 
 - `.github/workflows/ci.yml`: on every push and PR, installs the pinned KiCad and Zener,
-  checks that `make gen` changes nothing, runs `make check`, builds the portal and fab package
+  checks that `make gen` changes nothing, runs `make check`, builds the review outputs and fab package
   (uploaded as the run's artifact).
 - `.github/dependabot.yml`: weekly PRs for new GitHub Actions and Python dev-tool releases.
   KiCad and Zener stay pinned in `versions.env` and are bumped by hand, since a bump can change
@@ -96,7 +96,7 @@ components/<mfr>/<P>/  reusable Zener packages: symbol, footprint (STEP embedded
 spec/                  mechanical single source of truth per board
 parts/jlc.toml         MPN -> LCSC mapping
 rules/                 JLCPCB KiCad DRC rules, DFM PDK, KiCad rule severities
-tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, outputs, site (`uv run micras-pcb --help`)
+tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, outputs (`uv run micras-pcb --help`)
 tests/                 pytest design tests
 ci/                    KiCad and toolchain install, for CI and local setup
 versions.env           pinned KiCad and Zener versions

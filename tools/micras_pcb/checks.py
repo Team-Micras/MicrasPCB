@@ -14,7 +14,6 @@ import sqlite3
 import subprocess
 import tomllib
 
-from . import status
 from .paths import ROOT, board_pcb, board_sch, board_zen, build_dir, layout_dir
 from .tools import kicad_cli, pcb
 
@@ -61,13 +60,12 @@ def _violations(report: dict) -> list[dict]:
     return [v for v in items if not v.get("excluded")]
 
 
-def _print(kind: str, board: str, items: list[dict], ok: bool) -> None:
+def _print(kind: str, board: str, items: list[dict]) -> None:
     for v in items:
         where = "; ".join(i.get("description", "") for i in v.get("items", []))
         print(f"  {kind} {v.get('severity', '?'):7} {v.get('type', '?')}: {v.get('description', '')}  [{where}]")
     summary = "clean" if not items else f"{len(items)} violation(s)"
     print(f"{board}: {kind} {summary}")
-    status.record(board, kind, ok, summary)
 
 
 def erc(board: str) -> int:
@@ -89,7 +87,7 @@ def erc(board: str) -> int:
         capture_output=True,
     )
     items = _violations(json.loads(out.read_text()))
-    _print("ERC", board, items, not items)
+    _print("ERC", board, items)
     return 1 if items else 0
 
 
@@ -114,7 +112,7 @@ def drc(board: str) -> int:
     )
     items = _violations(json.loads(out.read_text()))
     ok = not any(v.get("severity") == "error" for v in items)
-    _print("DRC", board, items, ok)
+    _print("DRC", board, items)
     return 0 if ok else 1
 
 
@@ -143,5 +141,4 @@ def dfm(board: str) -> int:
         f"{s['rules_warned']} warned; PDK {report['pdk']['revision']})"
     )
     print(f"{board}: DFM {summary}")
-    status.record(board, "DFM", r.returncode == 0, summary)
     return r.returncode

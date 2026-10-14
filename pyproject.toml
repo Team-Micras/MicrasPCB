@@ -26,6 +26,6 @@ testpaths = ["tests"]
 line-length = 120
 
 [tool.ruff.lint]
-# E501 is left to the formatter (long HTML/CSS strings in site.py stay readable on one line).
+# E501 is left to the formatter.
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "PTH", "RUF"]
 ignore = ["E501"]

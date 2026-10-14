@@ -22,7 +22,8 @@ Everything else under `boards/*/layout/` is generated: never edit `.kicad_sch`, 
 2. `make gen` regenerates the KiCad project, rules copies and spec geometry.
 3. `make check` runs every gate CI runs: format, build, Zener tests, layout sync, spec drift,
    ERC, LVS, DRC, DFM, pytest, parts mapping.
-4. `make site` builds the portal in `build/site/` (renders, schematic, 3D, BOM) to inspect.
+4. `make review` builds `build/<board>/review/` (schematic PDF, layer SVGs, renders, GLB/STEP)
+   and `build/<board>/fab/` to inspect.
 
 After each `.zen` edit a hook runs `pcb fmt` and `pcb build` and reports failures back to you.
 Do not report work as done until `make gen` leaves `git diff` clean of surprises and `make check`
