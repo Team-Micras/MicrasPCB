@@ -1,0 +1,51 @@
+"""LM66100DCKR - 1.5 V to 5.5 V, 1.5 A ideal diode with comparator chip enable, SC-70-6. Bare part.
+
+Datasheet: TI SLVSEZ8A (March 2019, revised June 2019).
+
+Pins (section 5, p3): 1 VIN, 2 GND, 3 CE (active low; do not leave floating), 4 N/C (not
+internally connected), 5 ST (active-low open-drain status, low when the device is disabled;
+connect to GND if not required), 6 VOUT.
+
+Absolute maximum ratings (section 6.1, p4): VIN -6 to 6 V; VOUT, CE, ST -0.3 to 6 V; continuous
+switch current 1.5 A (2.5 A pulsed, <= 120 ms, 2 % duty); CE and ST current 1 mA.
+Recommended operating conditions (section 6.3, p4): VIN 1.5 to 5.5 V; VOUT 1 to 5.5 V; CE and
+ST 0 to 5.5 V; TJ -40 to 125 C. RthJA 192 C/W (section 6.4).
+
+Electrical characteristics (section 6.5, p5, TJ -40 to 125 C unless noted):
+- Comparator chip enable: on when VCE - VIN < VON = -250 / -150 / -80 mV; off when
+  VCE - VIN > VOFF = 0 / 35 / 80 mV (section 8.1: CE above VIN by 80 mV disables the switch).
+- RON 79 / 95 mOhm at VIN 5 V (25 C), 91 / 110 mOhm at 3.6 V, 141 / 180 mOhm at 1.8 V (200 mA).
+- Off-state OUT-to-IN leakage 0.2 / 0.5 uA at 25 C (VOUT - VIN <= 5.5 V).
+- Body diode forward voltage 0.1 / 0.5 / 1.1 V at 10 mA (switch off).
+- Quiescent current 0.15 / 0.3 uA.
+
+Always-on reverse current blocking (section 8.3.2): with CE connected to VOUT the comparator
+switches the device off when VOUT rises above VIN by VOFF and back on when VOUT falls below
+VIN by VON. In the off state only the body diode (anode VIN, cathode VOUT) remains, so VOUT
+never feeds VIN.
+
+Integrator-owned circuitry: input capacitor, 1 uF in most cases (section 10, p13), and the
+output capacitance, both close to the pins (section 11.1); CE and ST wiring.
+"""
+
+# Section 6.3, p4: recommended operating conditions.
+VIN = io(Power(voltage="1.5V to 5.5V"))
+VOUT = io(Power(voltage="1V to 5.5V"))
+GND = io(Ground)
+CE = io(Net)
+ST = io(Net)
+
+Component(
+    name="LM66100",
+    prefix="U",
+    symbol=Symbol(library="LM66100.kicad_sym"),
+    footprint=File("Texas_DCK0006A_SC-70-6.kicad_mod"),
+    part=Part(mpn="LM66100DCKR", manufacturer="Texas Instruments"),
+    pins={
+        "VIN": VIN,
+        "GND": GND,
+        "~{CE}": CE,
+        "ST": ST,
+        "VOUT": VOUT,
+    },
+)

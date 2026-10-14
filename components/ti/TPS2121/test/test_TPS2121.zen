@@ -1,0 +1,69 @@
+"""TPS2121 package facts: pinout (SLVSEA3F Pin Functions p4-5) and the VCOMP configuration."""
+
+MUX = Module("../TPS2121.zen")
+
+# SLVSEA3F Pin Functions, VQFN-HR column.
+PADS = {
+    "1": "OUT",
+    "2": "IN2",
+    "3": "CP2",
+    "4": "OV2",
+    "5": "OV1",
+    "6": "PR1",
+    "7": "IN1",
+    "8": "OUT",
+    "9": "ST",
+    "10": "ILM",
+    "11": "SS",
+    "12": "GND",
+}
+
+
+def part(module):
+    return module.components()["TPS2121"]
+
+
+def orderable_part(module, inputs):
+    c = part(module)
+    check(c.mpn == "TPS2121RUXR", "MPN must be TPS2121RUXR, got " + str(c.mpn))
+    check(c.prefix == "U", "reference prefix must be U")
+
+
+def pad_names(module, inputs):
+    pins = part(module).pins
+    check(sorted(pins.keys()) == sorted(set(PADS.values())), "pin names: " + str(sorted(pins.keys())))
+
+
+def vcomp_wiring(module, inputs):
+    # Table 9-3: PR1 and CP2 below VREF select VCOMP (the higher valid input wins); OV1/OV2 low
+    # keep both inputs enabled; ST to GND when not used (Pin Functions).
+    pins = part(module).pins
+    for name in ["PR1", "CP2", "OV1", "OV2", "ST"]:
+        check(pins[name].name == "GND", name + " must be on GND in VCOMP mode, is on " + pins[name].name)
+    check(pins["IN1"].name == "BATTERY", "IN1 must reach the IN1 pin")
+    check(pins["IN2"].name == "USB", "IN2 must reach the IN2 pin")
+    check(pins["OUT"].name == "SYS", "OUT must reach both OUT pins")
+
+
+GND = Ground("GND")
+
+TestBench(
+    name="TPS2121_vcomp",
+    module=MUX,
+    test_cases={
+        "vcomp": {
+            "IN1": Power("BATTERY", voltage="9.9V to 12.6V"),
+            "IN2": Power("USB", voltage="4.75V to 5.25V"),
+            "OUT": Power("SYS", voltage="4.75V to 12.6V"),
+            "GND": GND,
+            "PR1": GND,
+            "CP2": GND,
+            "OV1": GND,
+            "OV2": GND,
+            "ST": GND,
+            "ILM": Net("ILM"),
+            "SS": Net("SS"),
+        },
+    },
+    checks=[orderable_part, pad_names, vcomp_wiring],
+)
