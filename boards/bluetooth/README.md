@@ -79,13 +79,13 @@ itself on CC:
   Table 56: VOH >= VDD - 0.4 V; 3V3 >= 3.27 V). No Type-C partner makes that: across a sink's Rd
   a source makes at most 2.04 V (Table 4-36, vRd-Connect, +-10 % Rd; 2.18 V with +-20 %,
   Table 4-35), and cables and accessories only add Ra or Rd to GND. The main board's detector
-  holds the peak of its CC1 through the UART's low bits, compares it with a threshold between the
-  two (about 2.3 V, ratiometric to 3V3), and switches 3V3 onto SBU through F1 only above it. Its
-  Rd stays as it is, so it is still a USB Type-C sink and its USB power input is unchanged.
+  holds the peak of its CC1 through the UART's low bits and switches 3V3 onto SBU through F1
+  when that peak rises above 2.26 V (two thirds of 3V3), and off again below 2.06 V. Its Rd stays
+  as it is, so it is still a USB Type-C sink and its USB power input is unchanged.
 - **Cost.** PA12 drives the two Rd in parallel, 2.55 kOhm (1.3 mA), while the module is plugged
-  in. The module is unpowered until the firmware starts UART4, and loses power about a quarter of
-  a second after PA12 stops driving (an MCU reset), as the detector's hold decays. Until the
-  detector switches on (a few ms), PA12 also feeds a little current into the unpowered HM-19's
+  in. The module is unpowered until the firmware starts UART4, and loses power about 0.3 s after
+  PA12 stops driving (an MCU reset held that long), as the detector's hold decays. Until the
+  detector switches on (about 15 ms), PA12 also feeds a little current into the unpowered HM-19's
   UART_RX pin through R2.
 - **Elsewhere.** Plugged into another USB-C port the module gets no supply (its VBUS is open and
   a host never drives SBU) and does nothing.
