@@ -83,16 +83,19 @@ def external_supplies(board: str) -> dict[str, str]:
         [external_supply]
         VBAT = "3S LiPo battery on J1 pin 1"
 
+        [passive_supply]      # supplied on the board through a part KiCad does not count as a source
+        VDDA = "3V3 through the ferrite bead FB1"
+
     Only power_pin_not_driven on a listed net is accepted; every other violation still fails.
     """
     path = BOARDS / board / "erc.toml"
     if not path.is_file():
         return {}
     raw = tomllib.loads(path.read_text())
-    unknown = set(raw) - {"external_supply"}
+    unknown = set(raw) - {"external_supply", "passive_supply"}
     if unknown:
         raise ValueError(f"{path.relative_to(ROOT)}: unknown tables {sorted(unknown)}")
-    return dict(raw.get("external_supply", {}))
+    return {**raw.get("external_supply", {}), **raw.get("passive_supply", {})}
 
 
 def _item_net(item: dict, power_symbols: dict[str, str], nl) -> str | None:
