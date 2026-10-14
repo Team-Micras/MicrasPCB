@@ -79,14 +79,14 @@ C_22U_0805_35V = _c("22uF 20%", "0805", "35V", "X5R", "C2012X5R1V226MT000E", man
 LED_YELLOW_0603 = {"package": "0603", "color": "yellow", "mpn": "NCD0603Y2", "manufacturer": "NationStar"}
 LED_RED_0603 = {"package": "0603", "color": "red", "mpn": "KT-0603R", "manufacturer": "KENTO"}
 
-# Ferrite bead, 0603: 600 Ohm +-25 % at 100 MHz, 450 mOhm DCR max, 200 mA (Sunlord GZ1608D601TF,
-# LCSC C1002 listing).
-FB_600R_0603 = {
-    "package": "0603",
+# Ferrite bead, 0402: 600 Ohm +-25 % at 100 MHz, 340 mOhm DCR max, 500 mA (Murata BLM15AX601SN1D,
+# LCSC C76886 listing).
+FB_600R_0402 = {
+    "package": "0402",
     "value": "600Ohm",
     "frequency": "100MHz",
-    "dcr": "450mOhm",
-    "current": "200mA",
-    "mpn": "GZ1608D601TF",
-    "manufacturer": "Sunlord",
+    "dcr": "340mOhm",
+    "current": "500mA",
+    "mpn": "BLM15AX601SN1D",
+    "manufacturer": "Murata",
 }

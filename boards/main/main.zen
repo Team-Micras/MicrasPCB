@@ -22,7 +22,7 @@ on-chip step-down converter:
 - VFBSMPS (pin 7) and VCAP1-3 (pins 33, 49, 66) all on VCORE ("All VCAP connected together",
   Figure 5), with C7, C6 and C5 100 nF at VCAP1, VCAP2 and VCAP3. The firmware selects
   PWR_DIRECT_SMPS_SUPPLY, the supply configuration this wiring provides.
-- VDDA (pin 16): 3V3 through the ferrite bead FB1 (600 Ohm at 100 MHz, 450 mOhm DCR), with
+- VDDA (pin 16): 3V3 through the ferrite bead FB1 (600 Ohm at 100 MHz, 340 mOhm DCR), with
   C10 100 nF and C11 1 uF at the pin ("VDDA can be connected to VDD through a ferrite bead",
   1 uF + 100 nF at the pin, AN5419 Table 2 p7; the MB1520 discovery kit does the same). On this
   package VREF+ is VDDA (DS13311 Figures 46-47 note 1), so the bead keeps the wall-emitter
@@ -55,7 +55,7 @@ load(
     "Stackup",
     "ViaDimension",
 )
-load("./passives.zen", "C_100N_0402", "C_10U_0603", "C_1U_0402", "C_4U7_0402", "FB_600R_0603")
+load("./passives.zen", "C_100N_0402", "C_10U_0603", "C_1U_0402", "C_4U7_0402", "FB_600R_0402")
 
 Capacitor = Module("@stdlib/generics/Capacitor.zen")
 FerriteBead = Module("@stdlib/generics/FerriteBead.zen")
@@ -222,7 +222,7 @@ Capacitor(name="C6", P1=GND, P2=VCORE, **C_100N_0402)
 Capacitor(name="C5", P1=GND, P2=VCORE, **C_100N_0402)
 Capacitor(name="C8", P1=GND, P2=V3V3, **C_100N_0402)
 Capacitor(name="C9", P1=GND, P2=V3V3, **C_1U_0402)
-FerriteBead(name="FB1", P1=V3V3, P2=VDDA, **FB_600R_0603)
+FerriteBead(name="FB1", P1=V3V3, P2=VDDA, **FB_600R_0402)
 Capacitor(name="C10", P1=GND, P2=VDDA, **C_100N_0402)
 Capacitor(name="C11", P1=GND, P2=VDDA, **C_1U_0402)
 Capacitor(name="C12", P1=GND, P2=V3V3, **C_100N_0402)
