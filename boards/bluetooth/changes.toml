@@ -1,5 +1,16 @@
 # Connectivity changes of this board against the previous revision (boards/bluetooth/previous/board.json).
 # `micras-pcb previous compare bluetooth` applies them in order and requires the result to equal this
 # board's netlist. Format: tools/micras_pcb/previous.py.
-#
-# None: the board connects every pad as the previous revision, with the same designators.
+
+[[change]]
+id = "M6"
+review = "hw_debug/schematic_review.md M6"
+summary = "Module signature for the main board's switched SBU supply: the plug's CC1 and CC2 on its D+ contacts (UART_RX, the main board's UART4 TX), so the main board's CC sits at the UART idle level, above any level a USB Type-C source makes across its Rd (Type-C R2.0 Tables 4-35, 4-36)"
+move = { "USB1.3" = "USB1.4", "USB1.11" = "USB1.4" }
+
+[[change]]
+id = "m17"
+review = "hw_debug/schematic_review.md m17"
+summary = "R4 10 kOhm pull-up from HM-19 RESETB to 3V3: the CC2640R2F RESET_N has no internal pull-up (SWRS204C Table 7-1)"
+add_parts = { R4 = { "1" = "new:RESETB", "2" = "net:3V3" } }
+move = { "U1.11" = "R4.1" }

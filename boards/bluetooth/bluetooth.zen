@@ -2,12 +2,25 @@
 
 The module plugs into the main board's USB-C receptacle U2 (boards/main, PERIPHERALS.U2) and
 uses it as a four-wire port:
-- 3V3 from the main board (its 3V3 through the PTC fuse F1) on the plug's SBU1 and SBU2;
+- 3V3 from the main board (its 3V3 through a switch and the PTC fuse F1) on the plug's SBU1 and
+  SBU2;
 - GND on the plug's GND contacts and shell;
 - UART on the USB data contacts: HM-19 UART_TX through R1 to D- (the main board's USBD_N, MCU
   PA11 = UART4_RX), HM-19 UART_RX through R2 to D+ (USBD_P, PA12 = UART4_TX). The plug joins
   both D+ and both D- contacts, and SBU1 with SBU2, so it mates the same way either side up.
-VBUS and CC1/CC2 of the plug are left open.
+VBUS of the plug is left open.
+
+Signature (review M6): the plug's CC1 and CC2 contacts are on D+ (net UART_RX), copper only.
+The main board's UART4 TX (PA12) idles high, so with the module plugged in it pulls the main
+board's CC contacts, each held by its 5.1 kOhm Rd, up to the UART idle level, about 3.2 V. No
+USB Type-C partner puts that level on a sink's CC: across the Rd a source makes at most 2.04 V
+(Type-C R2.0 Table 4-36, vRd-Connect max with a +-10 % Rd; 2.18 V with +-20 %, Table 4-35), and
+cables and accessories only add Ra or Rd to GND (Table 4-26, section 4.5.2.2). The main board
+switches 3V3 onto SBU only while its CC contact holds a level above that, so a USB host, a cable
+or an audio accessory never finds a supply on SBU (section 4.3, Table 4-28: SBU open). Both CC
+contacts carry the signature, so it shows in either orientation; a TX byte pulls it low for at
+most 9 bit times, which the main board's detector holds through. The load on PA12 is the two Rd
+in parallel, 2.55 kOhm: 1.3 mA at 3.3 V.
 
 Every part carries the designator of the MicrasBluetoothModule Altium design it replicates, and
 boards/bluetooth/previous/board.json is that design's connectivity; `micras-pcb previous compare
@@ -24,7 +37,11 @@ HM-19 application circuit (JNHuaMao HM Bluetooth module datasheet V107, section 
 - PIO0 (pin 16) on the open pad OP1 to GND: the vendor schematic's KEY switch. Bridging it for
   over 1000 ms disconnects a connected module, and in standby restores the factory settings
   (section 7).
-- RESETB (pin 11), RTS, CTS, PIO2, PIO3 and KEY (pin 8) are open, as in the vendor schematic.
+- R4 10 kOhm from RESETB (pin 11) to 3V3: the CC2640R2F's RESET_N has no internal pull-up
+  (SWRS204C Table 7-1, "Reset, active-low. No internal pullup."), and the HM-19 datasheet (6.8)
+  does not say whether the module adds one. RESETB is active low ("Reset if low >1000ms", 6.8);
+  R4 holds it at 3V3, above VIH = 0.8 VDDS (SWRS204C 8.25).
+- RTS, CTS, PIO2, PIO3 and KEY (pin 8) are open, as in the vendor schematic.
 
 Mechanical source of truth: spec/bluetooth.toml (outline extents, plug position, thickness,
 mating with the main board's U2).
@@ -43,6 +60,7 @@ load(
     "Material",
     "NetClass",
     "PredefinedSizes",
+    "Silkscreen",
     "Stackup",
     "ViaDimension",
 )
@@ -54,13 +72,15 @@ HM19 = Module("github.com/Team-Micras/MicrasPCB/components/jnhuamao/HM-19/HM-19.
 PLUG = Module("github.com/Team-Micras/MicrasPCB/components/jing-extension/918-118A2021Y40006/918-118A2021Y40006.zen")
 OpenPad = Module("github.com/Team-Micras/MicrasPCB/components/micras/OpenPad/OpenPad.zen")
 
-# The main board's 3V3 (L6981N33 / CJA1117B-3.3) through its F1, on the plug's SBU contacts.
+# The main board's 3V3 through its SBU switch and F1, on the plug's SBU contacts.
 V3V3 = Power("3V3", voltage="3.3V")
 GND = Ground("GND")
 
 # Plug side of the UART: D- carries the module's TX, D+ its RX (names as on the Altium design).
+# UART_RX, the main board's TX, also carries the CC1/CC2 signature.
 UART_TX = Net("UART_TX")
 UART_RX = Net("UART_RX")
+RESETB = Net("RESETB")
 # Module side of R1 and R2.
 MODULE_UART = Uart(TX=Net("HM19_TX"), RX=Net("HM19_RX"))
 LED_PIO = Net("LED_PIO")
@@ -69,6 +89,13 @@ KEY = Net("KEY")
 
 # 1 % 0603 thick film, 100 mW 75 V (UNI-ROYAL 0603WAF series, JLCPCB basic parts).
 R_1K = {"value": "1kOhm 1%", "package": "0603", "power": "100mW", "mpn": "0603WAF1001T5E", "manufacturer": "UNI-ROYAL"}
+R_10K = {
+    "value": "10kOhm 1%",
+    "package": "0603",
+    "power": "100mW",
+    "mpn": "0603WAF1002T5E",
+    "manufacturer": "UNI-ROYAL",
+}
 R_680 = {
     "value": "680Ohm 1%",
     "package": "0603",
@@ -85,7 +112,7 @@ HM19(
     RTS=NotConnected(),
     CTS=NotConnected(),
     KEY=NotConnected(),
-    RESETB=NotConnected(),
+    RESETB=RESETB,
     PIO0=KEY,
     PIO1=LED_PIO,
     PIO2=NotConnected(),
@@ -97,8 +124,8 @@ PLUG(
     VBUS=NotConnected(),
     GND=GND,
     SHELL=GND,
-    CC1=NotConnected(),
-    CC2=NotConnected(),
+    CC1=UART_RX,
+    CC2=UART_RX,
     SBU1=V3V3,
     SBU2=V3V3,
     USB=Usb2(D=DiffPair(P=UART_RX, N=UART_TX)),
@@ -106,6 +133,7 @@ PLUG(
 
 Resistor(name="R1", P1=UART_TX, P2=MODULE_UART.TX, **R_1K)
 Resistor(name="R2", P1=UART_RX, P2=MODULE_UART.RX, **R_1K)
+Resistor(name="R4", P1=RESETB, P2=V3V3, **R_10K)
 
 Capacitor(
     name="C1",
@@ -148,7 +176,9 @@ OpenPad(name="OP1", P1=KEY, P2=GND)
 # 2 layers, 35 um copper on a 0.7 mm FR-4 core (Dk 4.5), 10 um mask per side, 0.79 mm. Rules (the
 # Altium JLCPCB rule set): 0.1 mm clearance, 10 mil (0.254 mm) track, 0.4 mm / 0.3 mm minimum via,
 # 0.3 mm minimum hole, 0.254 mm hole to hole, 0.2 mm copper to board edge. The routing uses
-# 0.254 mm tracks and 0.6 / 0.3 mm and 0.5 / 0.3 mm vias.
+# 0.254 mm tracks and 0.6 / 0.3 mm and 0.5 / 0.3 mm vias. Silkscreen text: 0.5 mm minimum height,
+# the size of the reference designators (0.5 mm, 0.15 mm stroke), which the team reads on the
+# previous boards; JLCPCB recommends 1.0 mm, so text this small may print less sharply.
 Board(
     name="bluetooth",
     path="layout",
@@ -164,6 +194,7 @@ Board(
                     copper_to_edge_clearance=0.2,
                 ),
                 holes=Holes(minimum_through_hole=0.3, hole_to_hole_clearance=0.254),
+                silkscreen=Silkscreen(minimum_text_height=0.5),
             ),
             predefined_sizes=PredefinedSizes(
                 track_widths=[0.254],

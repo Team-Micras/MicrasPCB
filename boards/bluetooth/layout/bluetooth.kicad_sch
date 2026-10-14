@@ -1718,20 +1718,12 @@
 		(uuid "684cfc2b-788b-5ae0-a745-4db8c5ff94be")
 	)
 	(no_connect
-		(at 129.54 59.69)
-		(uuid "6e2fbaf2-189e-51e5-941f-e773fed865be")
-	)
-	(no_connect
 		(at 73.66 59.69)
 		(uuid "7ec84865-1161-52b3-a416-221557996ee0")
 	)
 	(no_connect
 		(at 73.66 80.01)
 		(uuid "8d224ab6-bb07-59e8-8404-3a568caac1a2")
-	)
-	(no_connect
-		(at 129.54 62.23)
-		(uuid "998b0784-c49f-5caf-9c62-e948729f1ecf")
 	)
 	(no_connect
 		(at 129.54 54.61)
@@ -1896,6 +1888,16 @@
 			(type default)
 		)
 		(uuid "3891fa05-af16-5c4d-8a0b-a259541c431c")
+	)
+	(wire
+		(pts
+			(xy 208.28 88.9) (xy 208.28 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3accfffe-b084-5bb3-9722-6005adf972f0")
 	)
 	(wire
 		(pts
@@ -2077,6 +2079,36 @@
 		)
 		(uuid "f4e91ec2-e2ca-5bf7-8ea5-0c0e1267ba64")
 	)
+	(label "UART_RX"
+		(at 129.54 62.23 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "03ef3cdf-6585-5b1d-b117-75edb7bf15f2")
+	)
+	(label "UART_RX"
+		(at 129.54 59.69 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "0402bc8f-1cb0-5b48-9db7-8835b28b11d1")
+	)
+	(label "RESETB"
+		(at 73.66 67.31 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "2440be91-efb0-5d45-be66-6c1a14bf47b7")
+	)
 	(label "UART_TX"
 		(at 160.02 54.61 0)
 		(effects
@@ -2206,6 +2238,16 @@
 			(justify left bottom)
 		)
 		(uuid "ca85a7d2-bc0a-5b2a-8b1c-0971800e79fb")
+	)
+	(label "RESETB"
+		(at 208.28 93.98 270)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "d5159c15-8e56-5ddf-878a-cd0b9186710f")
 	)
 	(label "UART_TX"
 		(at 137.16 121.92 90)
@@ -2596,6 +2638,188 @@
 			(project "bluetooth"
 				(path "/513d9cc1-d27a-514d-a37c-2f1ca04dddfa"
 					(reference "C1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "VCC")
+		(at 208.28 83.82 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "2636336c-e09a-5417-b179-4783b9b978de")
+		(property "Reference" "#PWR2636336ce09a5417b1794783b9b978de"
+			(at 208.28 83.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "3V3"
+			(at 208.28 80.01 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 208.28 83.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 208.28 83.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"VCC\""
+			(at 208.28 83.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "ki_keywords" "global power"
+			(at 208.28 83.82 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "134ac8e5-1654-5855-b862-d722a3f79f18")
+		)
+		(instances
+			(project "bluetooth"
+				(path "/513d9cc1-d27a-514d-a37c-2f1ca04dddfa"
+					(reference "#PWR2636336ce09a5417b1794783b9b978de")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "R_Small")
+		(at 208.28 91.44 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "30febd0f-ae2d-52b9-98ec-b3745c488391")
+		(property "Reference" "R4"
+			(at 210.82 90.805 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.016 1.016)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "10k 1% 100mW"
+			(at 210.82 92.075 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "stdlib_kicad-footprints_Resistor_SMD:R_0603_1608Metric"
+			(at 208.28 91.44 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 208.28 91.44 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "10k 1% 100mW"
+			(at 208.28 91.44 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Path" "R4.R"
+			(at 208.28 91.44 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "0739ca15-8874-5026-b65e-66a5bafa7b9c")
+		)
+		(pin "2"
+			(uuid "e457ceab-e9bb-5229-b420-b7b3bb5b9773")
+		)
+		(instances
+			(project "bluetooth"
+				(path "/513d9cc1-d27a-514d-a37c-2f1ca04dddfa"
+					(reference "R4")
 					(unit 1)
 				)
 			)
