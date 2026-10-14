@@ -1,7 +1,7 @@
 # MPN -> JLCPCB assembly data, for every part on every Micras board.
 #
 # lcsc               LCSC / JLCPCB part number
-# type               "basic" (no feeder fee) or "extended"; the weekly stock check flags a change
+# type               "basic" (no feeder fee) or "extended"; `make parts-online` flags a change
 # rotation           degrees added to KiCad's rotation in the CPL; check each part once in JLC's
 #                    placement preview, then set rotation_verified = true
 # source             where the mapping was checked
@@ -13,11 +13,11 @@ lcsc = "C2153630"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-13: extended, 288 in stock; previous board's datasheet set (hw_debug/datasheets/C2153630)"
+source = "jlcpcb.com parts search 2026-10-13: extended, 288 in stock; datasheet set in hw_debug/datasheets/C2153630"
 
 [parts."CC0603KRX7R9BB104"]
 lcsc = "C14663"
 type = "basic"
 rotation = 0
 rotation_verified = false
-source = "jlcsearch 2026-10-13: basic, 55.8 M in stock. Replaces the previous board's 0603B104K500NT (C30926, extended)"
+source = "jlcsearch 2026-10-13: basic, 55.8 M in stock"

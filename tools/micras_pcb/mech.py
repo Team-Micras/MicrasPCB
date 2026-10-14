@@ -55,7 +55,7 @@ def encoder_outline(s: dict) -> list:
         Line((ht, -d), (ht, 0)),
         Arc((ht, 0), (ht + rr, rr), (ht + 2 * rr, 0)),
         Line((ht + 2 * rr, 0), (hb, 0)),
-        # vertical tangents at both ends, matching the previous revision's spline within 0.03 mm
+        # vertical tangents at both ends, matching the Altium MicrasEncoder.PcbDoc spline within 0.03 mm
         Bezier((hb, 0), (hb, ts / 2), (hw, ts / 2), (hw, ts)),
         Line((hw, ts), (hw, top - r)),
         Arc((hw, top - r), (hw - c45, top - c45), (hw - r, top)),
