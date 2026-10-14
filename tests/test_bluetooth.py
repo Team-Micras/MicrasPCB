@@ -3,6 +3,10 @@
 The plug USB1 mates the main board's receptacle U2 contact by contact: GND, VBUS, D+ and D- land on
 the same function either side up; CC1/CC2 and SBU1/SBU2 swap when the plug is turned over (USB
 Type-C R2.0 Table 3-5 p69: the receptacle's A and B rows). Both orientations are checked.
+
+The module identifies itself to the main board with its CC contacts on its D+ contacts (review M6,
+boards/bluetooth/bluetooth.zen): the main board's UART TX, idle high, then holds the main board's
+CC above any level a USB Type-C source makes across a sink's Rd.
 """
 
 import math
@@ -40,25 +44,33 @@ def snap():
 # --- the previous revision ----------------------------------------------------------------------
 
 
-def test_no_declared_changes():
-    assert previous.load_changes("bluetooth") == []
+def test_declared_changes():
+    # Each change names its design review item (hw_debug/schematic_review.md).
+    changes = previous.load_changes("bluetooth")
+    assert [c.id for c in changes] == ["M6", "m17"]
+
+
+@pytest.fixture(scope="module")
+def expected(snap):
+    """The previous board's connectivity with boards/bluetooth/changes.toml applied."""
+    return previous.apply_changes(previous.from_snapshot(snap), previous.load_changes("bluetooth"))
 
 
 @needs_kicad
-def test_connectivity_is_the_previous_board(snap):
-    report = previous.diff(previous.from_snapshot(snap), previous.from_netlist(netlist.load("bluetooth")))
+def test_connectivity_is_the_previous_board_with_its_changes(expected):
+    report = previous.diff(expected, previous.from_netlist(netlist.load("bluetooth")))
     assert report.ok, str(report)
 
 
 @needs_kicad
-def test_named_nets_keep_their_names(snap):
+def test_named_nets_keep_their_names(snap, expected):
     nl = netlist.load("bluetooth")
     actual = {name.lstrip("/"): {(p.ref, p.pin) for p in pins} for name, pins in nl.nets.items()}
     old = previous.from_snapshot(snap)
     named = [n for n in old.nets if not n.startswith(("Net", "unconnected-"))]
     assert sorted(named) == ["3V3", "GND", "UART_RX", "UART_TX"]
-    for name in named:
-        assert actual.get(name) == set(old.nets[name]), name
+    for name in [*named, "RESETB"]:
+        assert actual.get(name) == set(expected.nets[name]), name
 
 
 @needs_kicad
@@ -137,7 +149,8 @@ def test_uart_crosses_to_the_firmware_uart(orientation):
         assert len(series) == 1, f"U1 {pin}: series resistors {series}"
         plug_net = next(n for n in bt.nets_of(series[0]).values() if n != module_net)
         for contact, a, b in _mated(orientation):
-            if a != plug_net:
+            # the data contacts; the CC contacts on D+ are the signature (test_signature_*)
+            if a != plug_net or contact not in ("D+", "D-"):
                 continue
             found = _mcu_pin(main, b)
             signal = fw["pins"].get(found[0], {}).get("signal", "") if found else ""
@@ -146,19 +159,99 @@ def test_uart_crosses_to_the_firmware_uart(orientation):
     assert not problems, "\n".join(problems)
 
 
+def _supply_path(d, net: str, target: str = "3V3", hops: int = 3) -> list[str] | None:
+    """The parts from net to the target supply through series parts: a two-pad part (resistor,
+    fuse, ferrite) or a MOSFET's drain and source. None if there is no such path."""
+    paths = [(net, [])]
+    for _ in range(hops):
+        nxt = []
+        for n, path in paths:
+            for r in sorted(d.refs_on(n) - {RECEPTACLE, *path}):
+                pads = {function(p): name for name, pins in d.nets().items() for p in pins if p.ref == r}
+                if len(pads) == 2:
+                    ends = set(pads.values())
+                elif {"D", "S"} <= set(pads):
+                    ends = {pads["D"], pads["S"]}
+                else:
+                    continue
+                if n not in ends:
+                    continue
+                for other in ends - {n}:
+                    if other == target:
+                        return [*path, r]
+                    nxt.append((other, [*path, r]))
+        paths = nxt
+    return None
+
+
 @needs_kicad
 @needs_pcb
 @pytest.mark.parametrize("orientation", ["normal", "flipped"])
 def test_module_supply_and_ground_mate(orientation):
-    # The module's VCC net mates the main board's SBU contacts, which F1 feeds from 3V3; GND mates GND.
+    # The module's VCC net mates the main board's SBU contacts, which the main board feeds from
+    # 3V3 (through F1, and the switch that the module's signature turns on); GND mates GND.
     bt, main = design("bluetooth"), design("main")
     vcc = bt.net("U1", "VCC")
     for contact, a, b in _mated(orientation):
         if a == "GND":
             assert b == "GND", f"{contact}: module GND on main board {b}"
         if a == vcc:
-            feeds = {next(n for n in main.nets_of(r).values() if n != b) for r in main.refs_on(b) if r != RECEPTACLE}
-            assert feeds == {"3V3"}, f"{contact}: module {vcc} on main board {b}, fed from {feeds}"
+            path = _supply_path(main, b)
+            assert path, f"{contact}: module {vcc} on main board {b}, which no series path feeds from 3V3"
+
+
+# --- the signature (review M6) ------------------------------------------------------------------
+
+# USB Type-C R2.0 Table 4-36: vRd-Connect max 2.04 V, the highest CC voltage a source makes across a
+# +-10 % Rd (Table 4-35: 2.18 V with +-20 %). Table 4-25: Rd = 5.1 kOhm.
+VRD_MAX = 2.18
+RD = 5.1e3
+# STM32H725 DS13311 Table 56: VOH >= VDD - 0.4 V at 8 mA (CMOS port); the main board's 3V3 is the
+# L6981C33's 3.27 V minimum (DS13554 Rev 3 p6: VFB 3.27-3.33 V at 25 C).
+VOH_MIN = 3.27 - 0.4
+
+
+@needs_kicad
+@needs_pcb
+@pytest.mark.parametrize("orientation", ["normal", "flipped"])
+def test_signature_reaches_both_main_board_cc_contacts(orientation):
+    # The module's CC contacts meet the main board's CC1 and CC2 either side up; each must land on
+    # a CC net with its Rd, and the module's side of them must be the net its D+ contact is on.
+    bt, main = design("bluetooth"), design("main")
+    dp = bt.net(PLUG, "D+")
+    cc = {contact: b for contact, a, b in _mated(orientation) if contact in ("CC1", "CC2") and a == dp}
+    assert set(cc) == {"CC1", "CC2"}, f"module CC contacts on D+ ({dp}): {sorted(cc)}"
+    for contact, b in cc.items():
+        rd = main.two_terminal("resistor", b, "GND")
+        assert rd, f"{contact}: main board net {b} has no Rd to GND"
+
+
+@needs_kicad
+@needs_pcb
+def test_signature_level_is_above_any_source():
+    # The main board's UART TX drives its CC contacts through the module (D+ to CC1 and CC2) and
+    # whatever series resistance the main board has on D+; with the TX at its minimum high level
+    # the CC voltage must still exceed every level a USB Type-C source makes across Rd.
+    bt, main, fw = design("bluetooth"), design("main"), firmware.load("main")
+    tx = next(pin for pin, f in fw["pins"].items() if f["signal"] == "UART4_TX")
+    mcu_net = main.net(MCU, tx)
+    # D+ at the receptacle: the MCU net itself or one series resistor away
+    rec_dp = main.net(RECEPTACLE, "D+")
+    series = 0.0
+    if rec_dp != mcu_net:
+        rs = [r for r in main.two_terminal("resistor", rec_dp, mcu_net)]
+        assert len(rs) == 1, f"U2 D+ ({rec_dp}) reaches {tx} ({mcu_net}) through {rs}"
+        series = main.value(rs[0], "resistance")
+    rds = [
+        main.value(r, "resistance")
+        for c in ("CC1", "CC2")
+        for r in main.two_terminal("resistor", main.net(RECEPTACLE, c), "GND")
+    ]
+    assert len(rds) == 2, f"Rd on the main board's CC contacts: {rds}"
+    load = 1 / sum(1 / r for r in rds)
+    level = VOH_MIN * load / (load + series)
+    assert level > VRD_MAX + 0.3, f"signature at {level:.2f} V, a source reaches {VRD_MAX} V"
+    assert bt.net(PLUG, "CC1") == bt.net(PLUG, "CC2") == bt.net(PLUG, "D+")
 
 
 @needs_kicad
