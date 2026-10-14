@@ -29,12 +29,13 @@ The board files are in `boards/main/` (this README sits in its `layout/` folder)
 | [`firmware.toml`](../firmware.toml) | | the firmware's pin map, supply setting, battery channel and drive duties, from MicrasFirmware (`micras-pcb firmware snapshot`) |
 | [`firmware_changes.toml`](../firmware_changes.toml) | | the firmware changes this board needs (see [Firmware changes](#firmware-changes)) |
 | [`test/`](../test) | | `pcb test` benches of the board's circuit: MCU, power, drivers, peripherals |
-| [`layout/`](.) | | this folder: the KiCad project; the `.kicad_pcb` holds placement and routing; `fixes.py` and `router.py` place and route the review fixes on it, `refine.py` and `usb_wall.py` the owner's layout decisions, `finish.py` the previous revision's pour and teardrop settings on the result, `rail_silk.py` U6's rail capacitor and the designator size |
+| [`layout/`](.) | | this folder: the KiCad project; `main.kicad_sch` is the root sheet, with one sheet per module (`REGULATORS.kicad_sch`, ...); the `.kicad_pcb` holds placement and routing; `fixes.py` and `router.py` place and route the review fixes on it, `refine.py` and `usb_wall.py` the owner's layout decisions, `finish.py` the previous revision's pour and teardrop settings on the result, `rail_silk.py` U6's rail capacitor and the designator size |
 | [`previous/`](../previous) | | the previous revision's connectivity snapshot, and the scripts that build the layout from that revision (`transfer_layout.py`, `rework.py`) |
 | [`spec/main.toml`](../../../spec/main.toml) | | mechanical interface: thickness, axle origin, extents, screw holes, encoder slots, USB-C peg holes, fan hole, wheel notches |
 
 Each sheet's docstring describes its circuit with the datasheet figure, table or equation behind
-each value.
+each value. Each module is its own sheet of the KiCad schematic (`Project(..., layout=False)` in
+its `.zen`), and the layout is the board's.
 
 ## Power
 
@@ -405,12 +406,14 @@ generic parts set them otherwise:
 
 ## Known faults
 
-The board passes every gate: build, warnings, the Zener benches, layout sync, ERC, LVS, previous,
-DRC (no errors), DFM, pytest and parts. These DRC warnings stay:
+The board passes every gate but ERC: build, warnings, the Zener benches, layout sync, LVS,
+previous, DRC (no errors), DFM, pytest and parts. ERC fails on the module sheets' labels, and
+these DRC warnings stay:
 
 | Check (gate) | Fault | Why it stays |
 |---|---|---|
 | `silk_overlap`, `silk_over_copper` (drc, warnings) | package artwork on its own outline (the W1-W4 "C"/"E" and SW1 "ON" marks), outlines of neighbouring parts touching (D9/R14, D11/D12, D4/R4, D5/R5, R13/W1, R17/W2, R44/R45/C59), and the board artwork (the slogans, the frame lines, the arcs and circles) under parts (C58, C63, C65/C66, C69/C70, D3, M3, Q7, R48, R49, the test points, and the SBU detector U7, C77, C78, D13, R51, R52, R55 with F1, which sit on the "SUCUMBINDO SINCE 2024" frame) | cosmetic: JLCPCB clips silkscreen at pads, and no reference designator is among them |
+| `same_local_global_label`, `multiple_net_names`, `label_dangling`, `similar_labels` (erc) | the pinned pcb labels a net that crosses a module sheet with global labels beside the sheet pin and the hierarchical label (48 `same_local_global_label`, 48 `multiple_net_names`), and leaves a label on the root's `GND_BAT` sheet pin that nothing else there joins (1 `label_dangling`) ([diodeinc/pcb#1520](https://github.com/diodeinc/pcb/issues/1520)); [diodeinc/pcb#1522](https://github.com/diodeinc/pcb/pull/1522) removes those. 113 `similar_labels` stay with it: a sheet pin and its hierarchical label take the module's port name (`FAN_ENABLE`), the root's label the net name (`Fan_Enable`), and KiCad reports labels that differ only in case | the net names are the firmware's pin labels, the port names follow Zener's uppercase `io()` convention, and the ERC rule stays on; generating each sheet pin under its net's name, as proposed in #1522, removes them. ERC passes once a pcb release does both |
 | `silk_edge_clearance` (drc, warning) | SW4's outline crosses the rear notch's edge | the battery switch overhangs the board edge by design, its lever outwards |
 
 Requirements without a check, and why:
