@@ -1,0 +1,61 @@
+# Bluetooth module: mechanical single source of truth for its interface to the robot.
+#
+# The Edge.Cuts outline is layout geometry (boards/bluetooth/layout/bluetooth.kicad_pcb, from the
+# Altium MicrasBluetoothModule.PcbDoc). This file holds the numbers other parts mate with, and
+# `micras-pcb mech bluetooth`:
+#   - writes the aux/grid origin and the plug USB1 (locked footprint) into the layout,
+#   - checks that the outline has the extents below and that the HM-19 sits where this file says,
+#   - exports build/bluetooth/bluetooth_mech.json for MicrasHardware and micras-simulation.
+#
+# Board frame: origin at the plug's centre (the USB1 footprint origin) on the component side; u to
+# the right and v up seen from the component side, v from the plug towards the HM-19; millimetres.
+# On the KiCad sheet: x_kicad = origin_x + u, y_kicad = origin_y - v.
+#
+# In the robot (frame of spec/main.toml: x forward, y left, z up from the main board's bottom
+# surface) the module stands upright behind the main board, its plug in the main board's USB-C
+# receptacle U2: u along +y, v along +z, the component side facing +x. The [mating] section
+# places it.
+#
+# Every value is {value, source}, as in micras-simulation's robot.toml.
+
+[pcb]
+thickness = { value = 0.79, source = "Altium MicrasBluetoothModule.PcbDoc layer stack: 0.7 mm FR-4 core, 2 x 35 um copper, 2 x 10 um mask (boards/bluetooth/previous/board.json board.thickness)" }
+copper_layers = { value = 2, source = "Altium MicrasBluetoothModule.PcbDoc layer stack" }
+
+[kicad]
+origin_x = { value = 148.501075, source = "Altium MicrasBluetoothModule.PcbDoc USB1 position (board.json parts.USB1), the KiCad coordinates the layout keeps" }
+origin_y = { value = 115.343615, source = "Altium MicrasBluetoothModule.PcbDoc USB1 position (board.json parts.USB1)" }
+aux_origin_x = { value = 144.001075, source = "Altium MicrasBluetoothModule.PcbDoc origin (board.json board.aux_axis_origin): drill and placement origin of the fab outputs" }
+aux_origin_y = { value = 117.503615, source = "Altium MicrasBluetoothModule.PcbDoc origin (board.json board.aux_axis_origin)" }
+
+[outline]
+left = { value = -8.0, source = "Altium MicrasBluetoothModule.PcbDoc Edge.Cuts extents (board.json edge_cuts_bbox, KiCad x = 140.5011)" }
+right = { value = 8.0, source = "Altium MicrasBluetoothModule.PcbDoc Edge.Cuts extents (board.json edge_cuts_bbox, KiCad x = 156.5011)" }
+top = { value = 22.84, source = "Altium MicrasBluetoothModule.PcbDoc Edge.Cuts extents (board.json edge_cuts_bbox, KiCad y = 92.5036)" }
+bottom = { value = -2.16, source = "Altium MicrasBluetoothModule.PcbDoc Edge.Cuts extents (board.json edge_cuts_bbox, KiCad y = 117.5036)" }
+
+[plug]
+# The USB-C plug: its axis is normal to the board, through the footprint origin.
+u = { value = 0.0, source = "frame origin" }
+v = { value = 0.0, source = "frame origin" }
+rotation = { value = 0, source = "Altium MicrasBluetoothModule.PcbDoc USB1 rotation" }
+path = { value = "USB1.PLUG", source = "boards/bluetooth/bluetooth.zen instance path" }
+height = { value = 8.65, source = "918-118A2021Y40006 drawing rev A0: 8.65 +- 0.20 mm above the board" }
+
+[module]
+# The HM-19, footprint origin on the module's bottom edge (components/jnhuamao/HM-19).
+u = { value = 0.0, source = "Altium MicrasBluetoothModule.PcbDoc U1 position (KiCad x = 148.501095)" }
+v = { value = 9.84, source = "Altium MicrasBluetoothModule.PcbDoc U1 position (KiCad y = 105.503595)" }
+width = { value = 13.5, source = "HM Bluetooth module datasheet V107 section 6.6: 13.5 x 18.5 mm" }
+length = { value = 18.5, source = "HM Bluetooth module datasheet V107 section 6.6: 13.5 x 18.5 mm (the top 7 mm hold the antenna)" }
+thickness = { value = 2.3, source = "HM Bluetooth module datasheet V107 section 6.6: 2.3 mm with its 0.8 mm board" }
+ref = { value = "U1", source = "boards/bluetooth/bluetooth.zen designator" }
+
+[mating]
+# The main board's receptacle U2 (GT-USB-7010ASV, boards/main PERIPHERALS.U2) and how far the plug
+# goes in. tests/test_bluetooth.py checks the U2 numbers against the main board's layout.
+receptacle_x = { value = -26.72102, source = "main board layout: U2 footprint origin at KiCad y = 140.22462 (robot x = 113.5036 - 140.22462)" }
+receptacle_y = { value = -1.749975, source = "main board layout: U2 footprint origin at KiCad x = 150.251075 (robot y = 148.5011 - 150.251075)" }
+mouth_offset = { value = 5.03006, source = "GT-USB-7010ASV drawing rev A0, L = 7.35 mm; the footprint's body outline (User.15) ends 5.03006 mm behind its origin" }
+centre_height = { value = 1.68, source = "GT-USB-7010ASV drawing rev A0: CH = 1.68 mm, the plug axis above the main board's top surface" }
+insertion = { value = 4.8, source = "GT-USB-7010ASV drawing rev A0, AFTER MATING: 6.65 mm plug shell, its overmold 1.85 mm (Ref) out of the receptacle face; 6.65 - 1.85" }

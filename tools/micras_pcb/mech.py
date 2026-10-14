@@ -97,6 +97,11 @@ def kicad_to_robot(s: dict, p: tuple[float, float]) -> tuple[float, float]:
     return s["kicad"]["origin_y"] - p[1], s["kicad"]["origin_x"] - p[0]
 
 
+def kicad_to_board(s: dict, p: tuple[float, float]) -> tuple[float, float]:
+    """KiCad to a board frame with u right and v up (the encoder's and the Bluetooth module's)."""
+    return p[0] - s["kicad"]["origin_x"], s["kicad"]["origin_y"] - p[1]
+
+
 def _place_xy(s: dict, p: dict) -> tuple[float, float]:
     return _xy(s, (p["u"], p["v"])) if "u" in p else robot_to_kicad(s, (p["x"], p["y"]))
 
@@ -120,20 +125,21 @@ def _xy_of(n: sexpr.Node | None) -> tuple[float, float]:
     return float(a[0]), float(a[1])
 
 
-def outline_elements(s: dict, root: sexpr.Node) -> list:
-    """Edge.Cuts as Line/Arc elements in the robot frame (gr_poly as its edges, gr_circle as two arcs)."""
+def outline_elements(s: dict, root: sexpr.Node, to=kicad_to_robot) -> list:
+    """Edge.Cuts as Line/Arc elements in the robot frame, or the frame `to` maps KiCad points into
+    (gr_poly as its edges, gr_circle as two arcs)."""
     out = []
     for n in edge_items(root):
         if n.head == "gr_line":
-            out.append(Line(*(kicad_to_robot(s, _xy_of(n.child(k))) for k in ("start", "end"))))
+            out.append(Line(*(to(s, _xy_of(n.child(k))) for k in ("start", "end"))))
         elif n.head == "gr_arc":
-            out.append(Arc(*(kicad_to_robot(s, _xy_of(n.child(k))) for k in ("start", "mid", "end"))))
+            out.append(Arc(*(to(s, _xy_of(n.child(k))) for k in ("start", "mid", "end"))))
         elif n.head == "gr_circle":
-            (cx, cy), (ex, ey) = kicad_to_robot(s, _xy_of(n.child("center"))), kicad_to_robot(s, _xy_of(n.child("end")))
+            (cx, cy), (ex, ey) = to(s, _xy_of(n.child("center"))), to(s, _xy_of(n.child("end")))
             far, side = (2 * cx - ex, 2 * cy - ey), (cx - (ey - cy), cy + (ex - cx))
             out += [Arc((ex, ey), side, far), Arc(far, (2 * cx - side[0], 2 * cy - side[1]), (ex, ey))]
         elif n.head == "gr_poly":
-            pts = [kicad_to_robot(s, _xy_of(p)) for p in n.child("pts").children("xy")]
+            pts = [to(s, _xy_of(p)) for p in n.child("pts").children("xy")]
             out += [Line(a, b) for a, b in zip(pts, [*pts[1:], pts[0]], strict=True)]
         else:
             raise ValueError(f"Edge.Cuts item {n.head} not handled")
@@ -231,6 +237,38 @@ def features(s: dict, root: sexpr.Node) -> list[str]:
     return problems
 
 
+def bluetooth_features(s: dict, root: sexpr.Node) -> list[str]:
+    """What the Bluetooth module's layout lacks of spec/bluetooth.toml: outline extents (board frame)
+    and the HM-19 at its position."""
+    pts = [p for e in outline_elements(s, root, kicad_to_board) for p in sample(e, 16)]
+    if not pts:
+        return ["no Edge.Cuts outline"]
+    us, vs = [p[0] for p in pts], [p[1] for p in pts]
+    o = s["outline"]
+    problems = [
+        f"outline {name} at {got:.4f}, spec {want}"
+        for name, got, want in (
+            ("left", min(us), o["left"]),
+            ("right", max(us), o["right"]),
+            ("top", max(vs), o["top"]),
+            ("bottom", min(vs), o["bottom"]),
+        )
+        if abs(got - want) > TOL
+    ]
+    m = s["module"]
+    fp = next((f for f in root.children("footprint") if f.prop("Reference") == m["ref"]), None)
+    if fp is None:
+        problems.append(f"{m['ref']} (the HM-19) is missing")
+    else:
+        u, v = kicad_to_board(s, _xy_of(fp.child("at")))
+        if math.dist((u, v), (m["u"], m["v"])) > TOL:
+            problems.append(f"{m['ref']} at ({u:.4f}, {v:.4f}), spec ({m['u']}, {m['v']})")
+    return problems
+
+
+FEATURES = {"main": features, "bluetooth": bluetooth_features}
+
+
 def footprint_checks(s: dict, root: sexpr.Node) -> list[str]:
     """Spec footprints the spec does not place: encoder slot footprints centred on their slots, hole drills."""
     problems = []
@@ -305,7 +343,7 @@ def apply(board: str, text: str) -> tuple[str, list[str], list[str]]:
             edits.append((at, at, new_edges))
     else:
         # Edge.Cuts belongs to the layout: the spec checks its features, which only KiCad can fix.
-        problems += features(s, root)
+        problems += FEATURES[board](s, root)
 
     # Aux (drill/placement) and grid origins: the spec's aux origin if it names one, else the spec
     # origin, so exports use that frame.
@@ -434,7 +472,65 @@ def main_json(s: dict, root: sexpr.Node) -> dict:
     }
 
 
-EXPORTS = {"encoder": encoder_json, "main": main_json}
+def chain(els: list, tol: float = 1e-3) -> list[tuple[float, float]]:
+    """A closed outline's elements, in any order and direction, as one polygon (arcs sampled)."""
+    left = list(els)
+    poly: list[tuple[float, float]] = []
+    end = None
+    while left:
+        if end is None:
+            e = left.pop(0)
+        else:
+            i = min(range(len(left)), key=lambda k: min(math.dist(end, left[k].a), math.dist(end, left[k].b)))
+            e = left.pop(i)
+            if math.dist(end, e.a) > math.dist(end, e.b):
+                e = Line(e.b, e.a) if isinstance(e, Line) else Arc(e.b, e.mid, e.a)
+            if math.dist(end, e.a) > tol:
+                raise ValueError(f"outline gap at {end}")
+        poly += sample(e, 16)
+        end = e.b
+    return poly
+
+
+def bluetooth_json(s: dict, root: sexpr.Node) -> dict:
+    """The module in its board frame (outline from the layout, the rest from the spec), and where the
+    mating puts that frame in the robot."""
+    poly: list[tuple[float, float]] = []
+    for p in chain(outline_elements(s, root, kicad_to_board)):
+        if not poly or math.dist(p, poly[-1]) >= 0.02:
+            poly.append(p)
+    m, pl, mt = s["module"], s["plug"], s["mating"]
+    main = spec.load("main")
+    face_x = mt["receptacle_x"] - mt["mouth_offset"] + mt["insertion"] - pl["height"]
+    return {
+        "frame": "board: origin at the plug centre on the component side, u right and v up seen from the component side; mm",
+        "thickness": s["pcb"]["thickness"],
+        "outline": [_r(p) for p in poly],
+        "plug": {"u": pl["u"], "v": pl["v"], "height": pl["height"], "side": "top"},
+        "module": {
+            "u": m["u"],
+            "v": m["v"],
+            "width": m["width"],
+            "length": m["length"],
+            "thickness": m["thickness"],
+            "side": "top",
+            "note": "footprint origin on the module's bottom edge; the module extends length up from it",
+        },
+        "robot": {
+            "frame": "spec/main.toml robot frame: x forward, y left, z up from the main board's bottom surface",
+            "origin": [
+                round(face_x, 4),
+                mt["receptacle_y"],
+                round(main["pcb"]["thickness"] + mt["centre_height"], 4),
+            ],
+            "u": [0, 1, 0],
+            "v": [0, 0, 1],
+            "component_side": [1, 0, 0],
+        },
+    }
+
+
+EXPORTS = {"encoder": encoder_json, "main": main_json, "bluetooth": bluetooth_json}
 
 
 def mech_json(board: str, text: str | None = None) -> dict:
