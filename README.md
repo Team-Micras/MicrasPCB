@@ -127,8 +127,11 @@ revisions, faults included. Their READMEs
   `make parts-online` before ordering.
 
 To look at a board, download the run's artifact, or open the project in KiCad
-(`pcb open boards/<board>/<board>.zen`). A self-hosted [KiCad Prism](https://github.com/krishna-swaroop/KiCAD-Prism)
-is the planned online viewer; there is none yet.
+(`pcb open boards/<board>/<board>.zen`). The boards are also viewed online in a self-hosted
+[KiCad Prism](https://github.com/krishna-swaroop/KiCAD-Prism), which takes each board's layout
+folder as a project: its `.prism.json` gives Prism the board's name and description. Prism only
+reads a README from inside the project folder (a `../` path fails its commit view), so the board
+READMEs do not show there.
 
 ## Working with Claude Code
 
@@ -142,7 +145,8 @@ pin-1 checks, placement and routing, and the fab order.
 ## Repository
 
 ```text
-boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb is KiCad-owned, the rest generated)
+boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb is KiCad-owned, .prism.json is
+                       Prism's project config, the rest generated)
 boards/<board>/previous/  snapshot of the board's previous revision (board.json) for the connectivity comparison,
                        and the scripts that build its layout from that revision (transfer_layout.py; main: rework.py)
 boards/main/layout/fixes.py, router.py, refine.py, usb_wall.py, finish.py  the one-off scripts that place
