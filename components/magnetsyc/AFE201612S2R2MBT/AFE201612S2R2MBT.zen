@@ -1,0 +1,40 @@
+"""AFE201612S2R2MBT - 2.2 uH 20 % molded power inductor, 0806 (2.0 x 1.6 x 1.2 mm). Bare part.
+
+Datasheet: Magnetsyc (metal-lions) AFE2016 series, Rev.01 (LCSC C41347750).
+
+Electrical properties (page 3 table, AFE201612S2R2MBT row; notes page 4): L0 2.2 uH +-20 %
+at 0 A, 1 MHz; Rdc 77 mOhm typ / 90 mOhm max; heat-rating current Irms 3.3 A typ / 2.9 A
+(40 C rise, note 3); saturation current Isat 3.1 A typ / 2.7 A (L0 drop of about 30 %,
+note 4). Rated current is the lower of Isat and Irms (note 7). Operating temperature -40 to
++125 C including self-heating (page 1; note 6).
+
+Dimensions (page 1): 2.0 +- 0.2 x 1.6 +- 0.2 mm, 1.20 mm max height.
+"""
+
+load("@stdlib/units.zen", "Current", "Inductance", "Resistance")
+load("@stdlib/utils.zen", "format_value")
+
+P1 = io(Net)
+P2 = io(Net)
+
+# Page 3: the table gives a typical and a "Max" column; the "Max" values are the lower ones
+# (Irms 2.9 A, Isat 2.7 A) and are used here as the rated current.
+inductance = Inductance("2.2uH 20%")
+isat = Current("2.7A")
+dcr = Resistance("90mOhm")
+
+Component(
+    name="AFE201612S2R2MBT",
+    prefix="L",
+    symbol=Symbol(library="AFE201612S2R2MBT.kicad_sym"),
+    footprint=File("IND-SMD_L2.0-W1.6-B.kicad_mod"),
+    part=Part(mpn="AFE201612S2R2MBT", manufacturer="Magnetsyc"),
+    pins={"1": P1, "2": P2},
+    properties={
+        "value": format_value(inductance, isat),
+        "inductance": inductance,
+        "current": isat,
+        "dcr": dcr,
+    },
+    type="inductor",
+)

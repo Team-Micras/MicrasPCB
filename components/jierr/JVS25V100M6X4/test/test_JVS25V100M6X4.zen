@@ -1,0 +1,40 @@
+"""Package-level facts of the JVS25V100M6X4 (JIERR JVS series)."""
+
+CAP = Module("../JVS25V100M6X4.zen")
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def net_of(module, pin):
+    for name, ports in module.nets().items():
+        for _, p in ports:
+            if p == pin:
+                return name
+    error(pin + " is not connected")
+
+
+def polarity(module, inputs):
+    # Pin 1 is +: the chamfered, "+"-marked side of the footprint.
+    check(net_of(module, "+") == "V20", "+ must be on POS")
+    check(net_of(module, "-") == "GND", "- must be on NEG")
+
+
+def ratings(module, inputs):
+    # Page 2 part number: 25 V, 100 uF, M = +-20 %.
+    c = part(module)
+    check(c.type == "capacitor", "type")
+    check(c.properties["capacitance"].matches("100uF 20%"), "capacitance")
+    check(c.properties["voltage"].matches("25V"), "rated voltage")
+    check(c.prefix == "C", "reference prefix must be C")
+
+
+TestBench(
+    name="JVS25V100M6X4",
+    module=CAP,
+    test_cases={"boost_bulk": {"POS": Power("V20", voltage="19.6V"), "NEG": Ground("GND")}},
+    checks=[polarity, ratings],
+)

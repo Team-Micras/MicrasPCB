@@ -1,0 +1,46 @@
+"""CJA1117B-3.3 - 1 A low-dropout linear regulator, fixed 3.3 V output, SOT-89-3. Bare part.
+
+Datasheet: JCET (Jiangsu Changjiang Electronics Technology) CJA1117B-XXX, rev. E, March 2016.
+
+Pins (page 1, SOT-89-3L): 1 ADJ/GND, 2 OUTPUT, 3 IN. The tab is the OUTPUT lead: the
+footprint draws tab and centre lead as one copper pad numbered 2, plus a small anchor pad 2.
+
+Absolute maximum ratings (page 2): input voltage 20 V; junction temperature 150 C.
+Recommended operating conditions (page 2): input voltage 15 V max; TJ -25 to 125 C;
+RthJA 250 C/W (page 3 note: 46 to > 90 C/W with copper area over a plane).
+
+Electrical characteristics (page 3, TJ = 25 C): output 3.234 / 3.3 / 3.366 V for
+10 mA <= IOUT <= 1 A and 4.8 V <= VIN <= 12 V (3.251 / 3.3 / 3.350 V at 10 mA, VIN = 5.3 V);
+dropout 1.3 V max at 1 A; current limit 1 A min at VIN - VOUT = 2 V; quiescent current
+5 / 10 mA; ripple rejection 60 / 75 dB at 120 Hz measured with COUT = 22 uF tantalum.
+
+Output capacitor: the CJA1117B datasheet gives no capacitance or ESR requirement; its only
+reference is the 22 uF tantalum of the ripple-rejection test (page 3). For the same 1117
+architecture, TI LM1117 (SNOS412Q, section 9.2.2.1.3, p15) requires an output capacitor ESR
+of 0.3 to 22 Ohm, and the AMS1117 datasheet (Advanced Monolithic Systems, p4 "Stability")
+asks for 22 uF solid tantalum on the output. A board that uses this part must show that its
+output capacitor meets one of these, or accept the stability risk explicitly.
+Input capacitor: not specified by JCET; TI LM1117 recommends 10 uF tantalum on the input
+(SNOS412Q, section 9.2.2.1.1, p14).
+
+Integrator-owned circuitry: input and output capacitors.
+"""
+
+# Page 2 (recommended input voltage, 15 V max) and page 3 (output specified for
+# 4.8 V <= VIN, 10 mA to 1 A).
+VIN = io(Power(voltage="4.8V to 15V"))
+VOUT = io(Power(voltage="3.234V to 3.366V"))
+GND = io(Ground)
+
+Component(
+    name="CJA1117B",
+    prefix="U",
+    symbol=Symbol(library="CJA1117B.kicad_sym"),
+    footprint=File("SOT-89-3_L4.5-W2.5-P1.50-LS4.2-BR.kicad_mod"),
+    part=Part(mpn="CJA1117B-3.3", manufacturer="JCET"),
+    pins={
+        "ADJ/GND": GND,
+        "OUTPUT": VOUT,
+        "IN": VIN,
+    },
+)

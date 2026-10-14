@@ -1,0 +1,45 @@
+"""Package-level facts of the CJA1117B-3.3 (JCET CJA1117B-XXX, rev. E)."""
+
+CJA1117B = Module("../CJA1117B.zen")
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def net_of(module, pin):
+    for name, ports in module.nets().items():
+        for _, p in ports:
+            if p == pin:
+                return name
+    error(pin + " is not connected")
+
+
+def pinout(module, inputs):
+    # Page 1, SOT-89-3L: 1 ADJ/GND, 2 OUTPUT (and tab), 3 IN.
+    check(net_of(module, "ADJ/GND") == "GND", "ADJ/GND must be on GND (fixed version)")
+    check(net_of(module, "OUTPUT") == "V3V3", "OUTPUT must be on VOUT")
+    check(net_of(module, "IN") == "V5", "IN must be on VIN")
+    check(len(part(module).pins) == 3, "the symbol has 3 pins; the tab is pad 2 (OUTPUT)")
+
+
+def identity(module, inputs):
+    c = part(module)
+    check(c.mpn == "CJA1117B-3.3", "MPN")
+    check(c.prefix == "U", "reference prefix must be U")
+
+
+TestBench(
+    name="CJA1117B",
+    module=CJA1117B,
+    test_cases={
+        "usb_5v": {
+            "VIN": Power("V5", voltage="5V"),
+            "VOUT": Power("V3V3", voltage="3.3V"),
+            "GND": Ground("GND"),
+        },
+    },
+    checks=[pinout, identity],
+)

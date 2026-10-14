@@ -1,0 +1,92 @@
+"""TPS61178x - 20 V 10 A fully integrated synchronous boost converter, VQFN-HR 13 pins. Bare part.
+
+Datasheet: TI SLVSDA7E (February 2017, revised August 2019).
+
+Variants (section 5 Device Comparison Table, p3; same RNW pinout and footprint):
+- TPS611781RNWR (default): forced PWM at light load; the high-side FET stays on even when
+  the inductor current goes negative (section 8.4.3, p15). Its current limit is typically
+  0.8 A lower than the TPS61178 for the same RLIMIT (section 8.3.5, p13).
+- TPS61178RNWR: auto PFM at light load.
+
+Pins (section 6 Pin Functions, p3): 1 FREQ/SYNC, 2 AGND, 3 ILIMIT, 4 COMP, 5 FB, 6 PGND,
+7 SW, 8 VOUT, 9 DISDRV, 10 VCC, 11 EN, 12 VIN, 13 BST. AGND and PGND are both on GND (the
+datasheet joins them at a single point, pin table p3). FREQ/SYNC cannot float (p3).
+DISDRV drives an optional output-disconnect P-FET and is left floating when that is not used
+(p3): pass NotConnected() to DISDRV. EN has an internal 800 kOhm pull-down (REN, section
+7.5, p6).
+
+Absolute maximum ratings (section 7.1, p4): VIN, SW, VOUT, EN -0.3 to 23 V; VCC, FB, COMP,
+FREQ/SYNC, ILIMIT -0.3 to 7 V; BST -0.3 V to SW + 7 V; TJ -40 to 150 C.
+
+Recommended operating conditions (section 7.3, p4): VIN 2.7 to 20 V; VOUT 4.5 to 20 V;
+effective inductance 0.47 to 3.3 uH; low-side feedback resistor RDOWN <= 200 kOhm;
+TJ -40 to 125 C.
+
+Electrical characteristics (section 7.5, p5-6): VIN UVLO rising 2.6 to 2.7 V, falling 2.2 to
+2.3 V; VCC 6 V typ; output OVP 20.5 / 21 / 21.5 V; VREF (PWM) 1.180 / 1.198 / 1.210 V;
+FB leakage 10 to 60 nA; RDS(on) 16 mOhm typ / 25 mOhm max each FET; switch current limit at
+RLIMIT = 80.6 kOhm: TPS61178 6.4 / 8 / 9.4 A, TPS611781 5.7 / 7.4 / 8.7 A; EN high 1.2 V,
+low 0.4 V. Switching (section 7.7, p6): RFREQ = 342 kOhm gives 400 / 500 / 600 kHz,
+75 kOhm gives 1.9 / 2.2 / 2.5 MHz; minimum on time 135 ns max. Start-up (section 7.6,
+section 8.3.3, p6 and p11): pre-charge to 1.1 x VIN in 2.6 ms typ, then 3.2 ms soft-start.
+RthJA 60.2 C/W (section 7.4, p4).
+
+Integrator-owned circuitry: RFREQ (FREQ/SYNC to AGND), RLIMIT (ILIMIT to AGND), FB divider,
+COMP network (RC, CC, optional CP; section 9.2.4.4, p21-24), VCC capacitor > 1 uF
+(pin table p3), BST to SW capacitor >= 0.1 uF, X5R/X7R, >= 10 V (section 8.3.12, p14),
+inductor, input capacitor (22 uF is sufficient for most applications, section 9.2.4.3,
+p21), output capacitors (for instance 3 x 22 uF X5R/X7R effective, section 9.2.4.2, p21).
+
+Design equations a board must satisfy:
+- Eq. 1 (section 8.3.5, p12): RLIMIT[kOhm] = 745 / ILIMIT[A] (TPS61178); the TPS611781 limit
+  is typically 0.8 A lower (p13) and the minimum about 1.6 A below typical (section 9.2.3,
+  p17).
+- Eq. 2-3 (section 8.3.7, p13-14): 1 / fSW = k * CFREQ * RFREQ + TDELAY, with k = 3,
+  CFREQ = 1.8 pF, TDELAY = 50 ns.
+- Eq. 4 (section 9.2.4, p17-18): VOUT = VREF * (1 + RUP / RDOWN); RDOWN < 100 kOhm is
+  recommended so the divider current is >= 100 x the FB leakage.
+- Eq. 5 (section 9.2.4.1, p18): dIL = VIN * D / (L * fSW), D = 1 - VIN * eta / VOUT;
+  dIL peak-to-peak must stay below 4 A or the slope compensation may be inadequate (p19).
+- Eq. 8-10 (p19): IPEAK = IIN + dIL / 2 must stay below the inductor saturation current.
+"""
+
+Mpn = enum("TPS611781RNWR", "TPS61178RNWR")
+mpn = config(Mpn, default="TPS611781RNWR", help="Fitted variant: TPS611781 = forced PWM, TPS61178 = auto PFM")
+
+# Section 7.3, p4: recommended VIN and VOUT ranges. VCC: section 7.5, p5 (6 V regulation,
+# 7 V absolute maximum).
+VIN = io(Power(voltage="2.7V to 20V"))
+VOUT = io(Power(voltage="4.5V to 20V"))
+VCC = io(Power(voltage="6V"))
+GND = io(Ground)
+EN = io(Net)
+SW = io(Net)
+BST = io(Net)
+FB = io(Net)
+COMP = io(Net)
+FREQ = io(Net)
+ILIMIT = io(Net)
+DISDRV = io(Net)
+
+Component(
+    name="TPS61178",
+    prefix="U",
+    symbol=Symbol(library="TPS61178.kicad_sym", name=mpn.value),
+    footprint=File("RNW0013A.kicad_mod"),
+    part=Part(mpn=mpn.value, manufacturer="Texas Instruments"),
+    pins={
+        "FREQ/SYNC": FREQ,
+        "AGND": GND,
+        "ILIMIT": ILIMIT,
+        "COMP": COMP,
+        "FB": FB,
+        "PGND": GND,
+        "SW": SW,
+        "VOUT": VOUT,
+        "DISDRV": DISDRV,
+        "VCC": VCC,
+        "EN": EN,
+        "VIN": VIN,
+        "BST": BST,
+    },
+)

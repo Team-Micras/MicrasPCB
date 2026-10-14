@@ -1,0 +1,40 @@
+"""Package-level facts of the VT1C221M0605 (ACMECON VT series data sheet v1.0)."""
+
+CAP = Module("../VT1C221M0605.zen")
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def net_of(module, pin):
+    for name, ports in module.nets().items():
+        for _, p in ports:
+            if p == pin:
+                return name
+    error(pin + " is not connected")
+
+
+def polarity(module, inputs):
+    # Pin 1 is +: the chamfered, "+"-marked side of the footprint.
+    check(net_of(module, "+") == "VBAT", "+ must be on POS")
+    check(net_of(module, "-") == "GND", "- must be on NEG")
+
+
+def ratings(module, inputs):
+    # Page 1: 220 uF +-20 %, rated 16 V.
+    c = part(module)
+    check(c.type == "capacitor", "type")
+    check(c.properties["capacitance"].matches("220uF 20%"), "capacitance")
+    check(c.properties["voltage"].matches("16V"), "rated voltage")
+    check(c.prefix == "C", "reference prefix must be C")
+
+
+TestBench(
+    name="VT1C221M0605",
+    module=CAP,
+    test_cases={"battery_bulk": {"POS": Power("VBAT", voltage="12.6V"), "NEG": Ground("GND")}},
+    checks=[polarity, ratings],
+)

@@ -1,0 +1,44 @@
+"""VT1C221M0605 - 220 uF 16 V 20 % SMD aluminium electrolytic capacitor, D6.3 x 5.4 mm. Bare part.
+
+Datasheet: ACMECON VT series product data sheet VT1C221M0605, v1.0, 2023-07-27 (page 1).
+
+Ratings (page 1): rated voltage 16 V; surge voltage 18.4 V DC; 220 uF +-20 % (120 Hz, 20 C);
+category temperature -55 to +105 C; leakage <= 35.2 uA after 2 minutes; tan delta <= 0.20
+at 120 Hz (ESR about 1.2 Ohm at 120 Hz from tan delta / (2 pi f C); no 100 kHz ESR is given);
+ripple current 72 mA rms at 120 Hz, 105 C (x1.30 at 10 kHz and up); endurance 2000 h at
+105 C. Case D6.3 x L5.4 mm, base 6.6 x 6.6 mm, land spacing 7.3 mm (dimension table, page 1).
+
+Polarity: pin 1 (POS) is the + terminal, on the chamfered side of the footprint, which is
+also marked "+" on the silkscreen. The package warns when the voltage across POS and NEG
+exceeds the 16 V rating.
+"""
+
+load("@stdlib/units.zen", "Capacitance", "Voltage")
+load("@stdlib/utils.zen", "format_value")
+
+POS = io(Net)
+NEG = io(Net)
+
+capacitance = Capacitance("220uF 20%")
+voltage = Voltage("16V")
+
+if POS.voltage and NEG.voltage and voltage < POS.voltage.diff(NEG.voltage):
+    warn(
+        f"VT1C221M0605 rated {voltage} is below the voltage across it ({POS.voltage.diff(NEG.voltage)})",
+        kind="capacitor.voltage_rating",
+    )
+
+Component(
+    name="VT1C221M0605",
+    prefix="C",
+    symbol=Symbol(library="VT1C221M0605.kicad_sym"),
+    footprint=File("CAP-SMD_BD6.3-L6.6-W6.6-LS7.3-FD.kicad_mod"),
+    part=Part(mpn="VT1C221M0605", manufacturer="ACMECON"),
+    pins={"+": POS, "-": NEG},
+    properties={
+        "value": format_value(capacitance, voltage),
+        "capacitance": capacitance,
+        "voltage": voltage,
+    },
+    type="capacitor",
+)

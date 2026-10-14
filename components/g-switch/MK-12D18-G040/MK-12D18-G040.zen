@@ -1,0 +1,29 @@
+"""MK-12D18-G040 - SPDT right-angle slide switch, 4.0 mm actuator, through hole. Bare part.
+
+Datasheet: G-Switch drawing MK-12D18-GXXX, rev. X1, 2019-05-29 (one page).
+
+Pins (circuit diagram): pin 2, the centre pin, is the common. Position A joins pins 1 and
+2; position B joins pins 2 and 3. Three pins at 2.5 mm pitch, 0.6 mm wide, 0.3 mm thick
+(side and front views); no mounting pegs. "G040" is the 4.0 mm switch height.
+
+Ratings ("G-Switch Specification"): DC 12 V 0.5 A / DC 6 V 1.0 A; contact resistance
+100 mOhm max; insulation resistance 100 MOhm at 100 V DC; withstand AC 250 V for 1 min;
+ambient -20 to +70 C; reflow 250 C max; life 10,000 operations.
+"""
+
+COM = io(Net)
+A = io(Net)
+B = io(Net)
+
+Component(
+    name="MK-12D18-G040",
+    prefix="SW",
+    symbol=Symbol(library="MK-12D18-G040.kicad_sym"),
+    footprint=File("SW-TH_MK-12D18-G040.kicad_mod"),
+    part=Part(mpn="MK-12D18-G040", manufacturer="G-Switch"),
+    pins={
+        "A": A,
+        "COM": COM,
+        "B": B,
+    },
+)

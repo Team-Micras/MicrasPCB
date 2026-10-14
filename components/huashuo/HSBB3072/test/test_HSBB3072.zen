@@ -1,0 +1,40 @@
+"""Package-level facts of the HSBB3072 (HUASHUO, Ver 3.0)."""
+
+HSBB3072 = Module("../HSBB3072.zen")
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def net_of(module, pin):
+    for name, ports in module.nets().items():
+        for _, p in ports:
+            if p == pin:
+                return name
+    error(pin + " is not connected")
+
+
+def terminals(module, inputs):
+    # Page 1, PRPAK3*3 pin configuration: gate, source (3 leads), drain (4 leads and tab);
+    # one symbol pin per terminal, the footprint repeats pad numbers 2 and 3.
+    check(net_of(module, "G") == "GATE", "G")
+    check(net_of(module, "S") == "SOURCE", "S")
+    check(net_of(module, "D") == "DRAIN", "D")
+    check(len(part(module).pins) == 3, "three terminals")
+
+
+def identity(module, inputs):
+    c = part(module)
+    check(c.mpn == "HSBB3072", "MPN")
+    check(c.prefix == "Q", "reference prefix must be Q")
+
+
+TestBench(
+    name="HSBB3072",
+    module=HSBB3072,
+    test_cases={"default": {"G": Net("GATE"), "S": Net("SOURCE"), "D": Net("DRAIN")}},
+    checks=[terminals, identity],
+)

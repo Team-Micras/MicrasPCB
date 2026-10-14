@@ -1,0 +1,40 @@
+"""Package-level facts of the MK-12D18-G040 (G-Switch drawing MK-12D18-GXXX, rev. X1)."""
+
+MK12D18 = Module("../MK-12D18-G040.zen")
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def net_of(module, pin):
+    for name, ports in module.nets().items():
+        for _, p in ports:
+            if p == pin:
+                return name
+    error(pin + " is not connected")
+
+
+def common_is_centre_pin(module, inputs):
+    # Circuit diagram: the centre pin (2) is the common; A joins 1-2, B joins 2-3.
+    c = part(module)
+    check(net_of(module, "COM") == "COMMON", "COM")
+    check(net_of(module, "A") == "THROW_A", "A")
+    check(net_of(module, "B") == "THROW_B", "B")
+    check(len(c.pins) == 3, "three pins, no mounting pegs")
+
+
+def identity(module, inputs):
+    c = part(module)
+    check(c.mpn == "MK-12D18-G040", "MPN")
+    check(c.prefix == "SW", "reference prefix must be SW")
+
+
+TestBench(
+    name="MK-12D18-G040",
+    module=MK12D18,
+    test_cases={"default": {"COM": Net("COMMON"), "A": Net("THROW_A"), "B": Net("THROW_B")}},
+    checks=[common_is_centre_pin, identity],
+)

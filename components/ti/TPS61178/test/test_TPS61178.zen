@@ -1,0 +1,74 @@
+"""Package-level facts of the TPS61178x (TI SLVSDA7E)."""
+
+TPS61178 = Module("../TPS61178.zen")
+
+VBAT = Power(voltage="12V")
+NETS = {
+    "VIN": VBAT,
+    "VOUT": Power("V20", voltage="19.6V"),
+    "VCC": Power("VCC", voltage="6V"),
+    "GND": Ground("GND"),
+    "EN": VBAT,
+    "SW": Net("SW"),
+    "BST": Net("BST"),
+    "FB": Net("FB"),
+    "COMP": Net("COMP"),
+    "FREQ": Net("FREQ"),
+    "ILIMIT": Net("ILIMIT"),
+}
+
+
+def case(**configs):
+    inputs = dict(NETS)
+    inputs["DISDRV"] = NotConnected()
+    inputs.update(configs)
+    return inputs
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def net_of(module, pin):
+    for name, ports in module.nets().items():
+        for _, p in ports:
+            if p == pin:
+                return name
+    return None
+
+
+def grounds_tied(module, inputs):
+    # Pin Functions, p3: AGND (2) and PGND (6) join on the board ground.
+    check(net_of(module, "AGND") == "GND", "AGND must be on GND")
+    check(net_of(module, "PGND") == "GND", "PGND must be on GND")
+
+
+def disdrv_may_float(module, inputs):
+    # Pin Functions, p3: "Leave it floating if not using the load disconnect function."
+    n = net_of(module, "DISDRV")
+    check(n == None or len(module.nets()[n]) == 1, "DISDRV must not reach another pin when unused")
+
+
+def thirteen_pins(module, inputs):
+    # Section 6, p3: 13-pin VQFN (RNW), one footprint pad per pin.
+    check(len(part(module).pins) == 13, "the TPS61178 has 13 pins")
+
+
+def variant(module, inputs):
+    # Section 5, p3: TPS61178 (auto PFM) and TPS611781 (forced PWM) share the RNW pinout.
+    c = part(module)
+    want = inputs.get("mpn", "TPS611781RNWR")
+    check(c.mpn == want, "MPN " + c.mpn + " != " + want)
+    check(c.symbol_name == want, "symbol " + c.symbol_name + " != " + want)
+    check(c.manufacturer == "Texas Instruments", "manufacturer")
+    check(c.prefix == "U", "reference prefix must be U")
+
+
+TestBench(
+    name="TPS61178",
+    module=TPS61178,
+    test_cases={"forced_pwm_default": case(), "auto_pfm": case(mpn="TPS61178RNWR")},
+    checks=[grounds_tied, disdrv_may_float, thirteen_pins, variant],
+)
