@@ -38,7 +38,7 @@ components/**/*.zen             (Zener)      layout/<board>.kicad_pcb <─┘ pl
 ## Setup (Linux / WSL2)
 
 ```sh
-sudo add-apt-repository ppa:kicad/kicad-10.0-releases && sudo apt install kicad   # KiCad 10, see versions.env
+./ci/install-kicad.sh                                                                # KiCad 10 from the PPA, see versions.env
 curl -fsSL https://raw.githubusercontent.com/diodeinc/pcb/main/install.sh | bash      # Zener toolchain launcher
 make setup                                                                            # uv env + pinned pcb toolchain
 ```
@@ -98,7 +98,7 @@ parts/jlc.toml         MPN -> LCSC mapping
 rules/                 JLCPCB KiCad DRC rules and DFM PDK
 tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, outputs, site (`uv run micras-pcb --help`)
 tests/                 pytest design tests
-ci/setup.sh            toolchain install for CI and containers
+ci/                    KiCad and toolchain install, for CI and local setup
 versions.env           pinned KiCad and Zener versions
 docs/research/         toolchain research report and notes
 ```
