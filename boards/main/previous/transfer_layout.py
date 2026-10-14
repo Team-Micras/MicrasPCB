@@ -17,9 +17,10 @@ generated layout boards/main/layout/main.kicad_pcb, and rewrites the layout:
    (KiCad R_/C_/LED_ libraries) is fitted so its pads land on the old pad centres by pad number:
    the least-squares translation for each candidate rotation (old rotation + k x 90, k x 90), the
    one with the smallest residual wins. The reference designator text takes the old one's
-   position, size, layer and orientation. The screw holes H1-H4 go to the previous board's
-   unnamed footprints (in board.json order). The aux and grid origins are the previous board's.
-   Zones are refilled.
+   position, size, layer and orientation. The screw holes H1-H4 (the previous board's unnamed
+   footprints, in board.json order) go where spec/main.toml puts them, locked, as
+   `micras-pcb mech main` does. The aux and grid origins are the previous board's. Zones are
+   refilled.
 3. `pcb layout` syncs the result, which normalises the file the way `make gen` writes it.
 
 The script is a fixed point: running it on its own output changes nothing (step 1 removes the
@@ -44,7 +45,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from micras_pcb import sexpr  # noqa: E402
+from micras_pcb import mech, sexpr, spec  # noqa: E402
 
 import rework  # noqa: E402
 
@@ -216,6 +217,12 @@ def place(path: Path, old_path: Path, ren: dict[str, str]) -> list[str]:
         (fp for fp in old.GetFootprints() if not fp.GetReference()), key=lambda f: (f.GetPosition().y, f.GetPosition().x)
     )
     back = {v: k for k, v in ren.items()}
+    s = spec.load("main")
+    spec_holes = {
+        p["path"].split(".")[0]: mech.robot_to_kicad(s, (p["x"], p["y"]))
+        for p in mech.placements(s).values()
+        if re.fullmatch(r"H\d+\.MH", p["path"])
+    }
     report = []
     for fp in new.GetFootprints():
         ref = fp.GetReference()
@@ -252,6 +259,10 @@ def place(path: Path, old_path: Path, ren: dict[str, str]) -> list[str]:
         nf.SetAttributes(of)
         nf.SetPosition(of.GetPosition())
         nf.SetVisible(of.IsVisible() and bool(of.GetText()))
+        if ref in spec_holes:
+            # spec/main.toml owns the screw holes (`micras-pcb mech main` writes them the same way)
+            fp.SetPosition(pcbnew.VECTOR2I(*(pcbnew.FromMM(v) for v in spec_holes[ref])))
+            fp.SetLocked(True)
     ds = new.GetDesignSettings()
     ods = old.GetDesignSettings()
     ds.SetAuxOrigin(ods.GetAuxOrigin())
