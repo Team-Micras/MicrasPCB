@@ -79,12 +79,178 @@ OUTLINES = {"encoder": encoder_outline}
 
 
 def placements(s: dict) -> dict[str, dict]:
-    """Footprints the spec positions, keyed by their Zener instance path."""
-    return {s[k]["path"]: s[k] for k in ("sensor", "connector") if k in s}
+    """Footprints the spec positions (sections with a path and a position), keyed by instance path."""
+    return {v["path"]: v for v in s.values() if isinstance(v, dict) and "path" in v and ("u" in v or "x" in v)}
 
 
 def _xy(s: dict, p: tuple[float, float]) -> tuple[float, float]:
+    """Spec frame of the encoder (u right, v up) to KiCad."""
     return s["kicad"]["origin_x"] + p[0], s["kicad"]["origin_y"] - p[1]
+
+
+def robot_to_kicad(s: dict, p: tuple[float, float]) -> tuple[float, float]:
+    """Robot frame of the main board (x forward, y left) to KiCad."""
+    return s["kicad"]["origin_x"] - p[1], s["kicad"]["origin_y"] - p[0]
+
+
+def kicad_to_robot(s: dict, p: tuple[float, float]) -> tuple[float, float]:
+    return s["kicad"]["origin_y"] - p[1], s["kicad"]["origin_x"] - p[0]
+
+
+def _place_xy(s: dict, p: dict) -> tuple[float, float]:
+    return _xy(s, (p["u"], p["v"])) if "u" in p else robot_to_kicad(s, (p["x"], p["y"]))
+
+
+# ---------------------------------------------------------------------------------------------
+# main board: interface features of a layout-owned outline
+
+TOL = 1e-3  # mm: the spec rounds the Altium numbers to 0.1 um, KiCad stores 1 nm
+
+
+def edge_items(root: sexpr.Node) -> list[sexpr.Node]:
+    return [
+        n
+        for n in root.children()
+        if n.head and n.head.startswith("gr_") and (layer := n.child("layer")) and layer.atoms() == ["Edge.Cuts"]
+    ]
+
+
+def _xy_of(n: sexpr.Node | None) -> tuple[float, float]:
+    a = n.atoms()
+    return float(a[0]), float(a[1])
+
+
+def outline_elements(s: dict, root: sexpr.Node) -> list:
+    """Edge.Cuts as Line/Arc elements in the robot frame (gr_poly as its edges, gr_circle as two arcs)."""
+    out = []
+    for n in edge_items(root):
+        if n.head == "gr_line":
+            out.append(Line(*(kicad_to_robot(s, _xy_of(n.child(k))) for k in ("start", "end"))))
+        elif n.head == "gr_arc":
+            out.append(Arc(*(kicad_to_robot(s, _xy_of(n.child(k))) for k in ("start", "mid", "end"))))
+        elif n.head == "gr_circle":
+            (cx, cy), (ex, ey) = kicad_to_robot(s, _xy_of(n.child("center"))), kicad_to_robot(s, _xy_of(n.child("end")))
+            far, side = (2 * cx - ex, 2 * cy - ey), (cx - (ey - cy), cy + (ex - cx))
+            out += [Arc((ex, ey), side, far), Arc(far, (2 * cx - side[0], 2 * cy - side[1]), (ex, ey))]
+        elif n.head == "gr_poly":
+            pts = [kicad_to_robot(s, _xy_of(p)) for p in n.child("pts").children("xy")]
+            out += [Line(a, b) for a, b in zip(pts, [*pts[1:], pts[0]], strict=True)]
+        else:
+            raise ValueError(f"Edge.Cuts item {n.head} not handled")
+    return out
+
+
+def _circle(e: Arc) -> tuple[float, float, float]:
+    (x1, y1), (x2, y2), (x3, y3) = e.a, e.mid, e.b
+    d = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2))
+    cx = ((x1**2 + y1**2) * (y2 - y3) + (x2**2 + y2**2) * (y3 - y1) + (x3**2 + y3**2) * (y1 - y2)) / d
+    cy = ((x1**2 + y1**2) * (x3 - x2) + (x2**2 + y2**2) * (x1 - x3) + (x3**2 + y3**2) * (x2 - x1)) / d
+    return cx, cy, math.hypot(x1 - cx, y1 - cy)
+
+
+def _sweep(e: Arc) -> float:
+    cx, cy, _ = _circle(e)
+    a1, am, a2 = (math.atan2(y - cy, x - cx) for x, y in (e.a, e.mid, e.b))
+    tau = 2 * math.pi
+    full = (a2 - a1) % tau
+    return full if (am - a1) % tau < full else tau - full
+
+
+def _has_line(lines: list[Line], a, b) -> bool:
+    return any(
+        (math.dist(e.a, a) < TOL and math.dist(e.b, b) < TOL) or (math.dist(e.a, b) < TOL and math.dist(e.b, a) < TOL)
+        for e in lines
+    )
+
+
+def slots(s: dict) -> dict[str, tuple[float, float]]:
+    """Encoder slot centres in the robot frame, keyed by the slot footprint's instance path."""
+    e = s["encoder_slots"]
+    return {e["right_path"]: (0.0, -e["y"]), e["left_path"]: (0.0, e["y"])}
+
+
+def pegs(s: dict) -> list[tuple[float, float]]:
+    p = s["usb_pegs"]
+    return [(p["x"], p["left_y"]), (p["x"], p["right_y"])]
+
+
+def features(s: dict, root: sexpr.Node) -> list[str]:
+    """Every spec feature the Edge.Cuts outline lacks, as one line each (empty: all present)."""
+    els = outline_elements(s, root)
+    lines = [e for e in els if isinstance(e, Line)]
+    arcs = [e for e in els if isinstance(e, Arc)]
+    problems = []
+
+    pts = [p for e in els for p in sample(e, 64)]
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    o = s["outline"]
+    for name, got, want in (
+        ("front", max(xs), o["front"]),
+        ("rear", min(xs), o["rear"]),
+        ("left side", max(ys), o["width"] / 2),
+        ("right side", min(ys), -o["width"] / 2),
+    ):
+        if abs(got - want) > TOL:
+            problems.append(f"outline {name} at {got:.4f}, spec {want}")
+
+    e = s["encoder_slots"]
+    hl, hw = e["length"] / 2, e["width"] / 2
+    for path, (cx, cy) in slots(s).items():
+        c = [(cx - hl, cy - hw), (cx + hl, cy - hw), (cx + hl, cy + hw), (cx - hl, cy + hw)]
+        if not all(_has_line(lines, a, b) for a, b in zip(c, [*c[1:], c[0]], strict=True)):
+            problems.append(f"no {e['length']} x {e['width']} mm encoder slot at ({cx}, {cy}) for {path}")
+
+    p = s["usb_pegs"]
+    for cx, cy in pegs(s):
+        near = [q for el in lines for q in (el.a, el.b) if math.dist(q, (cx, cy)) < p["diameter"]]
+        r = [math.dist(q, (cx, cy)) for q in near]
+        # a polygon with flats on the nominal diameter: vertices sit up to 2.5 % further out
+        if len(near) < 16 or min(r) < p["diameter"] / 2 - TOL or max(r) > p["diameter"] / 2 * 1.025 + TOL:
+            problems.append(f"no {p['diameter']} mm USB-C peg hole at ({cx}, {cy})")
+
+    f = s["fan_hole"]
+    ring = [
+        a
+        for a in arcs
+        if math.dist(_circle(a)[:2], (f["x"], 0.0)) < TOL and abs(_circle(a)[2] - f["diameter"] / 2) < TOL
+    ]
+    if abs(sum(map(_sweep, ring)) - 2 * math.pi) > 1e-3:
+        problems.append(f"no {f['diameter']} mm fan hole at ({f['x']}, 0)")
+
+    n = s["wheel_notches"]
+    inner, half, r = n["inner_y"], n["half_length"], n["corner_radius"]
+    for sign in (1, -1):
+        y0, y1 = sign * inner, sign * (o["width"] / 2)
+        want = [
+            ((half - r, y0), (-(half - r), y0)),  # inner face
+            ((half, y0 + sign * r), (half, y1 - sign * r)),  # front side
+            ((-half, y0 + sign * r), (-half, y1 - sign * r)),  # rear side
+        ]
+        if not all(_has_line(lines, a, b) for a, b in want):
+            problems.append(f"no wheel notch {inner} mm from the centre line on the {'left' if sign > 0 else 'right'}")
+    return problems
+
+
+def footprint_checks(s: dict, root: sexpr.Node) -> list[str]:
+    """Spec footprints the spec does not place: encoder slot footprints centred on their slots, hole drills."""
+    problems = []
+    fps = {fp.prop("Path"): fp for fp in root.children("footprint")}
+    if "encoder_slots" in s:
+        for path, centre in slots(s).items():
+            fp = fps.get(path)
+            if fp is None:
+                problems.append(f"{path} (encoder slot footprint) is missing")
+                continue
+            got = kicad_to_robot(s, _xy_of(fp.child("at")))
+            if math.dist(got, centre) > TOL:
+                problems.append(f"{path} at ({got[0]:.4f}, {got[1]:.4f}), not on its slot centre {centre}")
+    if "holes" in s:
+        for path in placements(s):
+            fp = fps.get(path)
+            drills = [float(d.atoms()[0]) for pad in fp.children("pad") if (d := pad.child("drill"))] if fp else []
+            if drills != [s["holes"]["diameter"]]:
+                problems.append(f"{path}: drill {drills}, spec {s['holes']['diameter']} mm")
+    return problems
 
 
 def _pt(s, p) -> str:
@@ -118,32 +284,34 @@ def _edge_key(n: sexpr.Node) -> tuple:
     return (n.head, tuple(sorted(pts)))
 
 
-def apply(board: str, text: str) -> tuple[str, list[str]]:
-    """Return the layout text with the spec applied, and the list of changes made."""
+def apply(board: str, text: str) -> tuple[str, list[str], list[str]]:
+    """The layout text with the spec applied, the changes made, and the problems only KiCad can fix."""
     s = spec.load(board)
     root = sexpr.parse(text)
-    edits, changes = [], []
+    edits, changes, problems = [], [], []
 
-    # Edge.Cuts: the spec owns the whole layer.
-    old_edges = [
-        n
-        for n in root.children()
-        if n.head and n.head.startswith("gr_") and (layer := n.child("layer")) and layer.atoms() == ["Edge.Cuts"]
-    ]
-    new_items = [_edge_item(s, e, i) for i, e in enumerate(OUTLINES[board](s))]
-    new_edges = "".join(new_items)
-    # compared as geometry: KiCad re-sorts board graphics and normalises arc direction when it saves
-    if sorted(map(_edge_key, old_edges)) != sorted(_edge_key(sexpr.parse(i)) for i in new_items):
-        changes.append(f"Edge.Cuts outline ({len(old_edges)} -> {new_edges.count('(layer')} items)")
-        for n in old_edges:
-            edits.append((*sexpr.line_span(text, n), ""))
-        anchor = root.children("footprint")[0] if root.children("footprint") else None
-        at = sexpr.line_span(text, anchor)[0] if anchor else root.end - 1
-        edits.append((at, at, new_edges))
+    old_edges = edge_items(root)
+    if board in OUTLINES:
+        # Edge.Cuts: the spec owns the whole layer.
+        new_items = [_edge_item(s, e, i) for i, e in enumerate(OUTLINES[board](s))]
+        new_edges = "".join(new_items)
+        # compared as geometry: KiCad re-sorts board graphics and normalises arc direction when it saves
+        if sorted(map(_edge_key, old_edges)) != sorted(_edge_key(sexpr.parse(i)) for i in new_items):
+            changes.append(f"Edge.Cuts outline ({len(old_edges)} -> {new_edges.count('(layer')} items)")
+            for n in old_edges:
+                edits.append((*sexpr.line_span(text, n), ""))
+            anchor = root.children("footprint")[0] if root.children("footprint") else None
+            at = sexpr.line_span(text, anchor)[0] if anchor else root.end - 1
+            edits.append((at, at, new_edges))
+    else:
+        # Edge.Cuts belongs to the layout: the spec checks its features, which only KiCad can fix.
+        problems += features(s, root)
 
-    # Aux (drill/placement) and grid origins on the spec origin, so exports use the spec frame.
+    # Aux (drill/placement) and grid origins: the spec's aux origin if it names one, else the spec
+    # origin, so exports use that frame.
     setup = root.child("setup")
-    ox, oy = sexpr.fmt(s["kicad"]["origin_x"]), sexpr.fmt(s["kicad"]["origin_y"])
+    k = s["kicad"]
+    ox, oy = sexpr.fmt(k.get("aux_origin_x", k["origin_x"])), sexpr.fmt(k.get("aux_origin_y", k["origin_y"]))
     for key in ("aux_axis_origin", "grid_origin"):
         node = setup.child(key)
         want = f"({key} {ox} {oy})"
@@ -172,11 +340,11 @@ def apply(board: str, text: str) -> tuple[str, list[str]]:
             raise SystemExit(f"{path}: must be on the top side (flip it back in KiCad)")
         if not math.isclose(rot % 360, p["rotation"] % 360, abs_tol=1e-6):
             raise SystemExit(f"{path}: rotation {rot} != spec {p['rotation']} (rotate it in KiCad, then rerun)")
-        x, y = _xy(s, (p["u"], p["v"]))
+        x, y = _place_xy(s, p)
         want_at = f"(at {sexpr.fmt(x)} {sexpr.fmt(y)}" + (f" {sexpr.fmt(rot)})" if len(a) > 2 else ")")
         if text[at.start : at.end] != want_at:
             edits.append((at.start, at.end, want_at))
-            changes.append(f"{path} moved to ({p['u']}, {p['v']})")
+            changes.append(f"{path} moved to ({sexpr.fmt(x)}, {sexpr.fmt(y)})")
         if fp.child("locked") is None:
             layer = fp.child("layer")
             pos = sexpr.line_span(text, layer)[0]
@@ -188,8 +356,9 @@ def apply(board: str, text: str) -> tuple[str, list[str]]:
             f"footprints named in spec/{board}.toml are missing from the layout: {sorted(missing)} "
             "(run `pcb apply` first)"
         )
+    problems += footprint_checks(s, root)
 
-    return sexpr.splice(text, edits), changes
+    return sexpr.splice(text, edits), changes, problems
 
 
 def sample(e, n: int = 16) -> list[tuple[float, float]]:
@@ -215,20 +384,64 @@ def sample(e, n: int = 16) -> list[tuple[float, float]]:
     return pts
 
 
-def mech_json(board: str) -> dict:
-    """The board for MicrasHardware and micras-simulation, in the spec frame."""
-    s = spec.load(board)
-    poly = [pt for e in OUTLINES[board](s) for pt in sample(e)]
+def _r(p) -> list[float]:
+    return [round(p[0], 4), round(p[1], 4)]
+
+
+def encoder_json(s: dict, root: sexpr.Node) -> dict:
+    poly = [pt for e in OUTLINES["encoder"](s) for pt in sample(e)]
     return {
-        "board": board,
-        "source": f"MicrasPCB spec/{board}.toml",
         "frame": "origin at the tab centre on the main board top surface; u right (chip side view), v up; mm",
         "thickness": s["pcb"]["thickness"],
-        "outline": [[round(u, 4), round(v, 4)] for u, v in poly],
+        "outline": [_r(p) for p in poly],
         "top": s["outline"]["top"],
         "tab": {"width": s["tab"]["width"], "depth": s["tab"]["depth"]},
         "sensor": {"u": s["sensor"]["u"], "v": s["sensor"]["v"], "side": "top"},
     }
+
+
+def main_json(s: dict, root: sexpr.Node) -> dict:
+    """The main board in the robot frame: the Edge.Cuts outline from the layout, the rest from the spec
+    (which `features` and the placements have checked against the layout)."""
+    edge = []
+    for e in outline_elements(s, root):
+        if isinstance(e, Line):
+            edge.append({"type": "line", "start": _r(e.a), "end": _r(e.b)})
+        else:
+            edge.append({"type": "arc", "start": _r(e.a), "mid": _r(e.mid), "end": _r(e.b)})
+    sl, n = s["encoder_slots"], s["wheel_notches"]
+    holes = [v for v in s.values() if isinstance(v, dict) and v.get("path", "").startswith("H")]
+    return {
+        "frame": "robot: origin at the wheel-axle midpoint on the board's bottom surface, x forward, y left, z up; mm",
+        "kicad_origin": [s["kicad"]["origin_x"], s["kicad"]["origin_y"]],
+        "thickness": s["pcb"]["thickness"],
+        "extents": {"front": s["outline"]["front"], "rear": s["outline"]["rear"], "width": s["outline"]["width"]},
+        "edge": edge,
+        "holes": [
+            {"name": h["path"].split(".")[0], "pos": [h["x"], h["y"]], "drill": s["holes"]["diameter"]} for h in holes
+        ],
+        "encoder_slots": [
+            {"name": path.split(".")[1], "centre": list(c), "length": sl["length"], "width": sl["width"]}
+            for path, c in slots(s).items()
+        ],
+        "usb_pegs": [{"centre": list(c), "diameter": s["usb_pegs"]["diameter"]} for c in pegs(s)],
+        "fan_hole": {"centre": [s["fan_hole"]["x"], 0.0], "diameter": s["fan_hole"]["diameter"]},
+        "wheel_notches": {
+            "inner_y": n["inner_y"],
+            "x": [-n["half_length"], n["half_length"]],
+            "corner_radius": n["corner_radius"],
+        },
+    }
+
+
+EXPORTS = {"encoder": encoder_json, "main": main_json}
+
+
+def mech_json(board: str, text: str | None = None) -> dict:
+    """The board for MicrasHardware and micras-simulation, in the spec frame."""
+    s = spec.load(board)
+    root = sexpr.parse(text if text is not None else board_pcb(board).read_text())
+    return {"board": board, "source": f"MicrasPCB spec/{board}.toml", **EXPORTS[board](s, root)}
 
 
 def run(board: str, check: bool) -> int:
@@ -237,7 +450,9 @@ def run(board: str, check: bool) -> int:
         return 0
     pcb = board_pcb(board)
     text = pcb.read_text()
-    new, changes = apply(board, text)
+    new, changes, problems = apply(board, text)
+    for p in problems:
+        print(f"  - {p}")
     if check:
         if changes:
             print(f"{pcb}: drifted from spec/{board}.toml:")
@@ -245,14 +460,20 @@ def run(board: str, check: bool) -> int:
                 print(f"  - {c}")
             print(f"run `micras-pcb mech {board}` and commit the result")
             return 1
+        if problems:
+            print(f"{pcb}: does not match spec/{board}.toml (fix the layout in KiCad or the spec)")
+            return 1
         print(f"{pcb}: matches spec/{board}.toml")
         return 0
     if changes:
         pcb.write_text(new)
         for c in changes:
             print(f"  {c}")
+    if problems:
+        print(f"{pcb}: does not match spec/{board}.toml (fix the layout in KiCad or the spec)")
+        return 1
     out = build_dir(board) / f"{board}_mech.json"
-    out.write_text(json.dumps(mech_json(board), indent=1) + "\n")
+    out.write_text(json.dumps(mech_json(board, new), indent=1) + "\n")
     print(
         f"{pcb}: {'updated' if changes else 'already matches the spec'}; wrote {out.relative_to(Path.cwd()) if out.is_relative_to(Path.cwd()) else out}"
     )

@@ -1,0 +1,20 @@
+"""Mounting hole for an M2 screw: a 2.4 mm non-plated drill with no copper.
+
+Footprint from the Micras main board's four screw holes (Altium MicrasMainBoard.PcbDoc: one
+2.4 mm NPTH pad, no pad copper), the clearance hole for the M2 flat-head screws that hold the
+board to the chassis (MicrasHardware micras/params.py Board.hole_d = 2.4 mm). The board's
+mechanical spec places each hole.
+
+Not a purchased part and not electrically connected: no pins, excluded from the BOM and the
+placement file.
+"""
+
+Component(
+    name="MH",
+    prefix="H",
+    symbol=Symbol(library="MountingHole.kicad_sym"),
+    footprint=File("MountingHole_2.4mm_NPTH.kicad_mod"),
+    pins={},
+    skip_bom=True,
+    skip_pos=True,
+)

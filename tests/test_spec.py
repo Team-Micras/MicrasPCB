@@ -4,8 +4,8 @@ import math
 import tomllib
 
 import pytest
-from micras_pcb import mech, spec
-from micras_pcb.paths import ROOT
+from micras_pcb import mech, sexpr, spec
+from micras_pcb.paths import ROOT, board_pcb
 
 SPECS = sorted(p.stem for p in (ROOT / "spec").glob("*.toml"))
 
@@ -42,3 +42,71 @@ def test_sensor_fits_on_the_board():
     # TSSOP-14 courtyard is about 7.7 x 5.5 mm
     assert s["sensor"]["v"] + 2.75 < s["outline"]["top"]
     assert abs(s["sensor"]["u"]) + 3.85 < s["outline"]["width"] / 2
+
+
+# ---------------------------------------------------------------------------------------------
+# main board
+
+
+@pytest.fixture(scope="module")
+def main_spec():
+    return spec.load("main")
+
+
+@pytest.fixture(scope="module")
+def main_layout():
+    return sexpr.parse(board_pcb("main").read_text())
+
+
+def test_encoder_tab_fits_the_main_board_slots(main_spec):
+    enc, slot = spec.load("encoder"), main_spec["encoder_slots"]
+    # the tab stands in the slot: its width along the slot, the encoder board's thickness across it
+    length_play = slot["length"] - enc["tab"]["width"]
+    width_play = slot["width"] - enc["pcb"]["thickness"]
+    assert 0 < length_play <= 0.2
+    assert 0 < width_play <= 0.2
+    # the tab is not deeper than the main board is thick, so it does not stick out below
+    assert enc["tab"]["depth"] <= main_spec["pcb"]["thickness"]
+
+
+def test_slots_are_symmetric_about_the_axle(main_spec):
+    centres = sorted(mech.slots(main_spec).values())
+    assert centres == [(0.0, -main_spec["encoder_slots"]["y"]), (0.0, main_spec["encoder_slots"]["y"])]
+
+
+def test_screw_holes_are_symmetric_and_on_the_board(main_spec, main_layout):
+    holes = [(p["x"], p["y"]) for p in mech.placements(main_spec).values()]
+    assert len(holes) == 4
+    assert sorted(holes) == sorted((x, -y) for x, y in holes)
+    outline = [p for e in mech.outline_elements(main_spec, main_layout) for p in mech.sample(e, 64)]
+    r = main_spec["holes"]["diameter"] / 2
+    for h in holes:
+        assert min(math.dist(h, p) for p in outline) > r + 0.5, f"hole {h} too close to the board edge"
+
+
+def test_hole_diameter_is_the_mounting_hole_footprint(main_spec):
+    fp = sexpr.parse((ROOT / "components/micras/MountingHole/MountingHole_2.4mm_NPTH.kicad_mod").read_text())
+    (pad,) = fp.children("pad")
+    assert float(pad.child("drill").atoms()[0]) == main_spec["holes"]["diameter"]
+
+
+def test_main_layout_has_every_spec_feature(main_spec, main_layout):
+    assert mech.features(main_spec, main_layout) == []
+    assert mech.footprint_checks(main_spec, main_layout) == []
+
+
+def test_main_layout_matches_the_spec(main_spec):
+    text = board_pcb("main").read_text()
+    new, changes, problems = mech.apply("main", text)
+    assert (changes, problems) == ([], [])
+    assert new == text
+
+
+def test_main_mech_export_is_in_the_robot_frame(main_spec):
+    m = mech.mech_json("main")
+    xs = [p[0] for e in m["edge"] for k in ("start", "end") for p in [e[k]]]
+    ys = [p[1] for e in m["edge"] for k in ("start", "end") for p in [e[k]]]
+    assert max(xs) == pytest.approx(main_spec["outline"]["front"], abs=1e-3)
+    assert min(xs) == pytest.approx(main_spec["outline"]["rear"], abs=1e-3)
+    assert max(ys) - min(ys) == pytest.approx(main_spec["outline"]["width"], abs=1e-3)
+    assert [h["name"] for h in m["holes"]] == ["H1", "H2", "H3", "H4"]

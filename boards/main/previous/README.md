@@ -3,8 +3,18 @@
 `board.json` is a machine-readable snapshot of the previous Micras main board: every footprint
 with its designator, part fields, placement and pad nets. The replicated board (`boards/main`) is
 checked against it with `micras-pcb previous compare main`, which must find exactly the changes
-declared in `boards/main/changes.toml`. The layout transfer reads positions from it. The format
-is documented in `tools/micras_pcb/previous.py`.
+declared in `boards/main/changes.toml`. The format is documented in
+`tools/micras_pcb/previous.py`.
+
+[`transfer_layout.py`](transfer_layout.py) builds the board's layout from the previous revision's
+KiCad PCB, and [`rework.py`](rework.py) holds the copper of the declared changes C1 and C2; both
+are described in [`../README.md`](../README.md#layout). They need KiCad's `pcbnew` Python module
+and the previous revision:
+
+```sh
+python3 boards/main/previous/transfer_layout.py --previous ~/codes/hw_debug/kicad/MicrasMainBoard.kicad_pcb
+make gen && make check
+```
 
 Do not edit `board.json` by hand. Regenerate it from the previous revision (not in this repo):
 

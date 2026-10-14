@@ -1,0 +1,66 @@
+(footprint "MountingHole_2.4mm_NPTH"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "Mounting hole for an M2 screw, 2.4 mm non-plated drill, no pad (Micras main board screw holes, Altium MicrasMainBoard.PcbDoc)")
+	(tags "mounting hole M2 NPTH")
+	(property "Reference" "REF**"
+		(at 0 -1.8 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(uuid "7464fe8f-a6a4-5631-903e-de2d54739c51")
+		(effects
+			(font
+				(size 0.5 0.5)
+				(thickness 0.1)
+			)
+		)
+	)
+	(property "Value" "MountingHole_2.4mm_NPTH"
+		(at 0 1.8 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "7e199a83-7a4d-524e-ad61-ab48bf8e9ef9")
+		(effects
+			(font
+				(size 0.5 0.5)
+				(thickness 0.1)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "caf26ac7-4f18-5afa-b01e-59697241cc31")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Description" "M2 screw hole, 2.4 mm NPTH"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "7e43f0ea-6982-5b94-a20e-e4ee952ce702")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(attr exclude_from_pos_files exclude_from_bom)
+	(duplicate_pad_numbers_are_jumpers no)
+	(pad "" np_thru_hole circle
+		(at 0 0)
+		(size 2.4 2.4)
+		(drill 2.4)
+		(layers "*.Cu" "*.Mask")
+		(thermal_bridge_angle 90)
+		(uuid "1763f324-3be0-5512-9d5e-4bd83dc9fc2e")
+	)
+	(embedded_fonts no)
+)

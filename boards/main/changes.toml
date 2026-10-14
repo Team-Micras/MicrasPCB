@@ -18,3 +18,8 @@ merge = [["IC1.7", "IC1.33", "IC1.49", "IC1.66"]]
 id = "TP"
 summary = "Test point designators get a number: a refdes is prefix + number, and these prefixes are the old names"
 rename_parts = { "FAN_PWM" = "FAN_PWM1", "FAN_ENABLE" = "FAN_ENABLE1", "FAN_OVERCURRENT" = "FAN_OVERCURRENT1", "20V" = "20V1" }
+
+[[change]]
+id = "H"
+summary = "The four M2 screw holes (previous/board.json unnamed NONAME1-NONAME4, footprints without a designator) are circuit parts H1-H4, placed by spec/main.toml"
+add_parts = { H1 = {}, H2 = {}, H3 = {}, H4 = {} }
