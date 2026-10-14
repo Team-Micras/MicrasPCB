@@ -61,11 +61,13 @@ def encoder_outline(s: dict) -> list:
         Arc((hw, top - r), (hw - c45, top - c45), (hw - r, top)),
     ]
     left = [_mirror(e) for e in reversed(right[1:])]
-    return right + [Line((hw - r, top), (-(hw - r), top))] + left
+    return [*right, Line((hw - r, top), (-(hw - r), top)), *left]
 
 
 def _mirror(e):
-    m = lambda p: (-p[0], p[1])
+    def m(p):
+        return (-p[0], p[1])
+
     if isinstance(e, Line):
         return Line(m(e.b), m(e.a))
     if isinstance(e, Arc):
@@ -209,7 +211,7 @@ def sample(e, n: int = 16) -> list[tuple[float, float]]:
     for i in range(n):
         t = i / n
         k = [(1 - t) ** 3, 3 * (1 - t) ** 2 * t, 3 * (1 - t) * t**2, t**3]
-        pts.append(tuple(sum(w * p[j] for w, p in zip(k, (e.a, e.c1, e.c2, e.b))) for j in (0, 1)))
+        pts.append(tuple(sum(w * p[j] for w, p in zip(k, (e.a, e.c1, e.c2, e.b), strict=True)) for j in (0, 1)))
     return pts
 
 

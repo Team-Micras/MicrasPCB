@@ -1,7 +1,7 @@
 # Vendored skills
 
 `zener-language`, `librarian` and `spice-sim` are copied from
-[diodeinc/pcb](https://github.com/diodeinc/pcb/tree/main/skills) at commit `513ed09` (pcb v0.4.77),
+[diodeinc/pcb](https://github.com/diodeinc/pcb/tree/main/skills) at commit `e7525c1` (pcb v0.4.81),
 MIT License, Copyright (c) Diode Computers, Inc. Refresh them when bumping `PCB_TOOLCHAIN` in
 `versions.env`.
 

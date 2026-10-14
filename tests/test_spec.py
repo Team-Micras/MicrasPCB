@@ -24,7 +24,7 @@ def _ends(e):
 
 def test_encoder_outline_is_closed():
     outline = mech.encoder_outline(spec.load("encoder"))
-    for prev, nxt in zip(outline, outline[1:] + outline[:1]):
+    for prev, nxt in zip(outline, [*outline[1:], outline[0]], strict=True):
         assert math.dist(_ends(prev)[1], _ends(nxt)[0]) < 1e-9
 
 

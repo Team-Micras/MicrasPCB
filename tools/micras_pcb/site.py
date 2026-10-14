@@ -1,4 +1,4 @@
-"""Static design portal: build/site/, one page per board, published by CI to GitHub Pages.
+"""Static design portal: build/site/, one page per board, uploaded by CI as the run artifact.
 
 Each page shows the check results, schematic, layers, 3D model, BOM with JLCPCB data, the
 mechanical spec with its sources, and every download, for one commit. Interactive schematic/PCB
@@ -60,7 +60,7 @@ def _page(title: str, meta: str, body: str, scripts: str = "") -> str:
 def _git(*args: str) -> str:
     try:
         return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except subprocess.CalledProcessError, FileNotFoundError:
         return ""
 
 

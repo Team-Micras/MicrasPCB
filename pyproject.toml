@@ -2,24 +2,30 @@
 name = "micras-pcb"
 version = "0.1.0"
 description = "Checks, generators and fab outputs for the Micras PCBs (Zener + KiCad 10)"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 dependencies = []
 
 [project.scripts]
 micras-pcb = "micras_pcb.cli:main"
 
 [dependency-groups]
-dev = ["pytest", "ruff"]
+dev = ["pytest>=9.1", "ruff>=0.17"]
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
 
-[tool.hatch.build.targets.wheel]
-packages = ["tools/micras_pcb"]
+[tool.uv.build-backend]
+module-root = "tools"
+module-name = "micras_pcb"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 120
+
+[tool.ruff.lint]
+# E501 is left to the formatter (long HTML/CSS strings in site.py stay readable on one line).
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "PTH", "RUF"]
+ignore = ["E501"]
