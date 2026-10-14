@@ -12,8 +12,11 @@ board's frame (spec/bluetooth.toml [kicad]). The steps, in order:
 2. RESETB pull-up (m17): R4 in the free strip between the HM-19's bottom edge and C2, pad 2
    straight down to C2's 3V3 pad, pad 1 under the module to U1 pad 11 from the inside of the
    pad row (the right edge leaves no room outside it). C2's reference moves to C2's right, where
-   R4 now sits; R4's reference takes the size of the others (0.5 mm, 0.154 mm stroke).
-3. The copper pours are refilled.
+   R4 now sits; R4's reference takes the attributes of the others.
+3. Designators: every reference designator 0.5 mm high with a 0.125 mm stroke (DESIGNATOR), the
+   owner's choice and the board's minimum (bluetooth.zen Silkscreen, rules/kicad-severities.toml
+   [design.bluetooth]); they keep their places.
+4. The copper pours are refilled.
 
 It is the record of the edit, not a fixed point: it refuses a layout that already has the
 signature tracks. To rebuild the layout, run the transfer script, then this one, then `make gen`
@@ -36,6 +39,7 @@ LAYOUT = ROOT / "boards/bluetooth/layout/bluetooth.kicad_pcb"
 
 B: pcbnew.BOARD = None
 TRACK = 0.254  # the board's track width (Default net class)
+DESIGNATOR = (0.5, 0.125)  # reference designator height and stroke, mm
 
 
 def mm(v: float) -> int:
@@ -118,6 +122,14 @@ def reset_pullup() -> None:
     track("RESETB", "R4.1", (x1, 104.7), (x1 + 2.754, 104.7 - 2.754), (x1 + 2.754, 101.504), "U1.11")
 
 
+def designators() -> None:
+    h, stroke = DESIGNATOR
+    for f in B.GetFootprints():
+        r = f.Reference()
+        r.SetTextSize(pcbnew.VECTOR2I(mm(h), mm(h)))
+        r.SetTextThickness(mm(stroke))
+
+
 def fill() -> None:
     pcbnew.ZONE_FILLER(B).Fill(B.Zones())
 
@@ -130,6 +142,7 @@ def main() -> int:
     B = pcbnew.LoadBoard(str(LAYOUT))
     signature()
     reset_pullup()
+    designators()
     fill()
     pcbnew.SaveBoard(str(LAYOUT), B)
     if not a.no_sync:

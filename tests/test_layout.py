@@ -285,10 +285,10 @@ def _silk_texts(node: sexpr.Node, owner: str = ""):
 
 
 # The board's silkscreen limits, written into its .kicad_pro: the height by Zener
-# (main.zen Silkscreen), the stroke by `micras-pcb rules` (rules/kicad-severities.toml
-# [design.main]). KiCad's stroke font draws a text's stroke at most a quarter of its smaller size,
-# so the stroke that reaches the Gerbers is min(thickness, size / 4).
-@pytest.mark.parametrize("board", ["main"])
+# (<board>.zen Silkscreen), the stroke by `micras-pcb rules` (rules/kicad-severities.toml
+# [design.<board>]). KiCad's stroke font draws a text's stroke at most a quarter of its smaller
+# size, so the stroke that reaches the Gerbers is min(thickness, size / 4).
+@pytest.mark.parametrize("board", ["main", "bluetooth"])
 def test_silkscreen_text_meets_the_board_minimum(board):
     rules = json.loads((layout_dir(board) / f"{board}.kicad_pro").read_text())["board"]["design_settings"]["rules"]
     min_h, min_t = rules["min_text_height"], rules["min_text_thickness"]

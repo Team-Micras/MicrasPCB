@@ -180,8 +180,9 @@ OpenPad(name="OP1", P1=KEY, P2=GND)
 # 0.3 mm minimum hole, 0.254 mm hole to hole, 0.2 mm copper to board edge, 0.02 mm solder mask
 # expansion (rule SolderMaskExpansion, 0.7874 mil). The routing uses 0.254 mm tracks and
 # 0.6 / 0.3 mm and 0.5 / 0.3 mm vias. Silkscreen text: 0.5 mm minimum height, the size of the
-# reference designators (0.5 mm, 0.15 mm stroke), which the team reads on the previous boards;
-# JLCPCB recommends 1.0 mm, so text this small may print less sharply.
+# reference designators (0.5 mm, 0.125 mm stroke, the owner's choice; the stroke minimum is in
+# rules/kicad-severities.toml [design.bluetooth]); JLCPCB recommends 1.0 mm, so text this small
+# may print less sharply.
 Board(
     name="bluetooth",
     path="layout",

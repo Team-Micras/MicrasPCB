@@ -106,7 +106,7 @@ and white silkscreen (Zener's 2-layer defaults, the owner's choice).
 The layout is the Altium MicrasBluetoothModule.PcbDoc's, in the same KiCad coordinates, built by
 [`previous/transfer_layout.py`](previous/transfer_layout.py) from KiCad's conversion of that PCB
 (running the script again changes nothing), with the review fixes made on it by
-[`layout/fixes.py`](layout/fixes.py).
+[`layout/fixes.py`](layout/fixes.py), which also sets the designators' size.
 
 - **Top**: U1 near the top edge, with the antenna end of the module (the 7 mm above pad 1, V107
   6.6) 5.5 mm beyond the board's top edge; R2, R1, R3, D1, C2, C1 in a row below it, R4 above C2;
@@ -126,10 +126,10 @@ The layout is the Altium MicrasBluetoothModule.PcbDoc's, in the same KiCad coord
 - The Edge.Cuts outline is the Altium one without its seven duplicated vertices (lines of 1-12 nm,
   which KiCad reads as a malformed, self-intersecting outline); the lines next to them meet within
   12 nm of where they did.
-- Silkscreen: the reference designators are 0.5 mm high with a 0.15 mm stroke, the size the team
-  reads on the previous boards, and the board's minimum text height is 0.5 mm
-  (`bluetooth.zen`, `Silkscreen(minimum_text_height=0.5)`). JLCPCB recommends 1.0 mm text, so
-  these may print less sharply; that is accepted.
+- Silkscreen: the reference designators are 0.5 mm high with a 0.125 mm stroke (the owner's
+  choice), and so is the board's minimum (`bluetooth.zen`, `Silkscreen(minimum_text_height=0.5)`;
+  the stroke in `rules/kicad-severities.toml`). JLCPCB recommends 1.0 mm text, so these may print
+  less sharply; that is accepted.
 
 ## Differences from the Altium board
 
@@ -158,15 +158,13 @@ shell, 1.85 mm Ref from the plug overmold to the receptacle face) and the plug's
 
 ## Known faults
 
-ERC, LVS, previous, DRC and layout-check (one warning, below), DFM, the warnings gate and the
-module's test benches pass. One check still fails, on the main board's side of the joint:
+Every gate passes, the joint's checks against the main board included (its signature detector,
+`usb_c_sbu_open`, and PA11's firmware pull-up, `test_uart_rx_is_held_with_the_module_unplugged`).
+DRC and layout-check report one warning:
 
 | Check (gate) | Fault | Requirement | Fix |
 |---|---|---|---|
-| `test_uart_rx_is_held_with_the_module_unplugged` (pytest) | with the module unplugged PA11 (UART4_RX) ends at an open contact: the firmware sets no pull and the main board has no resistor (m17) | a UART input idles high; a floating input feeds noise bytes to the circular DMA | the firmware enables PA11's internal pull-up (`GPIO_PULLUP`), declared in the main board's `firmware_changes.toml` (its review fixes, #13) |
 | `copper_sliver` (drc, warning) | 1: a teardrop outline overrunning its track on F.Cu; the teardrops are plain zones, which KiCad does not exempt from the sliver test | no copper sliver | trim the outline |
-
-The main board's own checks (`usb_c_sbu_open`, M6) pass once its signature detector is in.
 
 Requirements without a check, and why:
 
