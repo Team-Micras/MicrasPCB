@@ -192,8 +192,10 @@ def test_uart_rx_is_held_with_the_module_unplugged():
     # With the module unplugged the MCU's UART RX input (PA11) ends at an open contact, and an input
     # without a pull floats, so the receiver collects noise bytes (hw_debug/schematic_review.md m17,
     # review_research/04 section 9: PA11 has no GPIO_PuPd). The firmware's pin map or the board
-    # must hold it high (the UART idle level).
-    main, fw = design("main"), firmware.load("main")
+    # must hold it high (the UART idle level). The firmware's pin map counts with the changes the
+    # board declares for it (boards/main/firmware_changes.toml).
+    main = design("main")
+    fw = firmware.apply_changes(firmware.load("main"), firmware.load_changes("main"))
     problems = []
     for pin, f in sorted(fw["pins"].items()):
         if not f["signal"].startswith("UART") or not f["signal"].endswith("_RX"):
