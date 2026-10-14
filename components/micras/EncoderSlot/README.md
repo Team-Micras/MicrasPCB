@@ -31,9 +31,10 @@ Integration notes:
   radius) on the board's Edge.Cuts, centred on the footprint origin, long along Y; the footprint only
   draws it on F.Fab. The board's `spec/` file must place the slot together with this footprint.
 - Slot size: JLCPCB mills non-plated slots at least 1.0 mm wide, so the ends are rounded with at
-  least a 0.5 mm radius (jlcpcb.com/capabilities/pcb-capabilities). The 0.80 mm encoder board
-  (`spec/encoder.toml`, +0.1 mm thickness tolerance) fits the width, and the 5.0 mm tab's corners lie
-  0.46 mm from the end-radius centres, inside the 0.5 mm radius. The 8.0 mm shoulder of the encoder
+  least a 0.5 mm radius (jlcpcb.com/capabilities/pcb-capabilities). The 0.79 mm encoder board
+  (`spec/encoder.toml`, up to 0.89 mm with JLCPCB's +-0.1 mm thickness tolerance) fits the width,
+  and the 5.0 mm tab's corners lie 0.46 mm from the end-radius centres, inside the 0.5 mm radius
+  (`tests/test_spec.py` checks the fit at the worst case of both boards' tolerances). The 8.0 mm shoulder of the encoder
   board rests on the main board 1.1 mm beyond each slot end.
 - Pad inner edges sit 0.21 mm from the slot walls (JLCPCB copper to board edge: 0.20 mm,
   `rules/jlcpcb.kicad_dru`); pitch and pad size match the encoder tab, so encoder boards built to

@@ -88,19 +88,38 @@ def main_layout():
     return sexpr.parse(board_pcb("main").read_text())
 
 
+# JLCPCB PCB capabilities (jlcpcb.com/capabilities/pcb-capabilities, read 2026-10-14): board
+# thickness below 1.0 mm +-0.1 mm; non-plated slots at least 1.0 mm wide. Milled outline +-0.1 mm:
+# on the slot's width, and at each of its two ends (spec/main.toml encoder_slots.length). The spec
+# draws the slot on a 0.1 mm grid.
+JLC_THIN_BOARD_TOL = 0.1
+JLC_OUTLINE_TOL = 0.1
+JLC_MIN_SLOT = 1.0
+SPEC_GRID = 0.1
+
+
+def _open_length(length: float, radius: float, thickness: float) -> float:
+    """Length of a round-ended slot open to a board of this thickness standing in it: the straight
+    part plus what each end circle leaves at the board's half thickness."""
+    return length - 2 * radius + 2 * math.sqrt(radius**2 - (thickness / 2) ** 2)
+
+
 def test_encoder_tab_fits_the_main_board_slots(main_spec):
     enc, slot = spec.load("encoder"), main_spec["encoder_slots"]
     # The tab stands in the slot: its width along the slot, the encoder board's thickness across
-    # it. The slot's ends are milled round, so the length open to the tab is the straight part
-    # plus what the end circle leaves at the tab's half thickness. The tab is soldered to the
-    # slot's pads, which fix its position; the play only has to let it in, with at most 0.2 mm a
-    # side (the 0.1 mm JLCPCB outline tolerance on each board).
-    r, t = slot["corner_radius"], enc["pcb"]["thickness"]
-    open_length = slot["length"] - 2 * r + 2 * math.sqrt(r**2 - (t / 2) ** 2)
-    length_play = open_length - enc["tab"]["width"]
-    width_play = slot["width"] - t
-    assert 0 < length_play <= 0.4
-    assert 0 < width_play <= 0.2
+    # it. It is soldered to the slot's pads, which fix its position, so the slot only has to let
+    # it in at the worst case of both boards' tolerances, and be no larger than that needs.
+    r, t, tab = slot["corner_radius"], enc["pcb"]["thickness"], enc["tab"]["width"]
+    w, length = slot["width"], slot["length"]
+    t_max = t + JLC_THIN_BOARD_TOL
+    # worst case: the slot milled 0.1 mm narrow and 0.1 mm short at each end, the board thick
+    assert w - JLC_OUTLINE_TOL >= t_max - 1e-9, "the thickest encoder board does not enter the narrowest slot"
+    assert _open_length(length - 2 * JLC_OUTLINE_TOL, r, t_max) >= tab - 1e-9, (
+        "the tab does not enter the shortest slot"
+    )
+    # no larger than that: one grid step less fails, or the slot is at JLCPCB's minimum width
+    assert w <= JLC_MIN_SLOT + 1e-9 or w - SPEC_GRID - JLC_OUTLINE_TOL < t_max
+    assert _open_length(length - SPEC_GRID - 2 * JLC_OUTLINE_TOL, r, t_max) < tab
     # the tab is not deeper than the main board is thick, so it does not stick out below
     assert enc["tab"]["depth"] <= main_spec["pcb"]["thickness"]
 
