@@ -1,0 +1,186 @@
+"""STM32H725RGV6 - Arm Cortex-M7 MCU, 550 MHz, 1 MB flash, 564 KB RAM, VFQFPN68 8x8 mm.
+
+Bare part: symbol, footprint and pins. Decoupling, the SMPS inductor, the reset
+and boot straps and the clocks belong to the board.
+
+Documents: DS13311 Rev 5 (datasheet), AN5419 Rev 3 (power supply hardware),
+RM0468 (reference manual), ES0491 (errata: no item on the supply pins).
+
+Package (DS13311 Table 8, VFQFPN68 SMPS column; Figure 4):
+- VSS pads are connected to the exposed pad (Figure 4 note 2): pad 69 is VSS
+  and joins GND here with every other VSS, VSSA and VSSSMPS pin.
+- The VFQFPN68 variant is "DCDC only" (DS13311 page 1): there is no VDDLDO pin,
+  so the core runs from the SMPS. VDD33USB, VDD50USB, VREF+/VREF- and PDR_ON
+  are not bonded out (Table 8, no VFQFPN68 pin). VREF+/VREF- are internally
+  connected to VDDA/VSSA when the pins are not available
+  (Figures 46-47 note 1, page 202).
+- The datasheet names the three core-supply pins VCAP; this package calls them
+  VCAP1 (pad 33), VCAP2 (pad 49) and VCAP3 (pad 66), as AN5419 Figure 5 does,
+  so each can be decoupled and checked on its own.
+
+Supply ranges (DS13311 Table 13 "General operating conditions", page 116):
+- VDD 1.62-3.6 V; VDDSMPS 1.62-3.6 V with VDDSMPS = VDD.
+- VDDA 1.62-3.6 V when the ADC or comparators are used (DAC 1.8 V min, OPAMP
+  2.0 V min; 0 V allowed only when no analog peripheral is used).
+- VBAT 1.2-3.6 V (note 2: may drop to 0 V when VDD is present).
+- VCORE with the internal regulator (SMPS) on: 0.95 V (VOS3) to 1.40 V (VOS0),
+  page 117. VCAPx and VFBSMPS sit on VCORE in the Direct SMPS supply.
+- USB FS (PA11/PA12, FT_u pins) needs its USB supply at 3.0-3.6 V (Table 13,
+  VDD33USB "USB used").
+
+Direct SMPS supply (AN5419 Figure 5, page 10; Table 2, pages 7-8), what the
+board must provide:
+- VDDSMPS = VDD, 10 uF (+ 100 nF / 10 uF / 4.7 uF options) at the pin.
+- 2.2 uH inductor from VLXSMPS to VCORE, as close as possible to VLXSMPS;
+  2 x 10 uF (ESR 5 mOhm) on the VFBSMPS side of the inductor. The 220 pF on
+  VLXSMPS is for LQFP/BGA only.
+- VFBSMPS and every VCAP pin on VCORE ("All VCAP connected together"), with
+  100 nF close to each VCAP pin.
+- VDD: 100 nF per pin plus one 4.7 uF. VDDA: 1 uF + 100 nF. VBAT: 1 uF +
+  100 nF; VBAT tied to VDD when no backup supply is used.
+
+Pin types (symbol): GPIOs bidirectional, NRST bidirectional (RST, embedded
+pull-up), BOOT0 input, supplies and grounds power_in. VLXSMPS is power_out
+(AN5419 Table 1, "Supply output"). The VCORE node needs exactly one power
+output for KiCad ERC, and the inductor between VLXSMPS and VCORE is passive:
+- VFBSMPS is typed power_out. It is the SMPS regulation point ("Supply
+  regulation input", AN5419 Table 1): the net it sits on is the regulated
+  VCORE, so it marks that net as driven by the on-chip SMPS.
+- VCAP1-3 are typed power_in. In the Direct SMPS supply they take the core
+  supply from VCORE ("Supply input/output", AN5419 Table 1; DS13311 Table 13).
+  A VCAP pin left off VCORE is reported by ERC as an undriven power input, and
+  three power outputs on one net would be a pin conflict.
+"""
+
+V_CORE = "0.95V to 1.40V"
+
+VDD = io(Power(voltage="1.62V to 3.6V"))
+VDDSMPS = io(Power(voltage="1.62V to 3.6V"))
+VDDA = io(Power(voltage="1.62V to 3.6V"))
+VBAT = io(Power(voltage="1.2V to 3.6V"))
+# Switching node; AN5419 Table 2 gives its range as VCORE in the Direct SMPS supply.
+VLXSMPS = io(Power(voltage=V_CORE))
+VFBSMPS = io(Power(voltage=V_CORE))
+VCAP1 = io(Power(voltage=V_CORE))
+VCAP2 = io(Power(voltage=V_CORE))
+VCAP3 = io(Power(voltage=V_CORE))
+GND = io(Ground)
+
+NRST = io(Net)
+BOOT0 = io(Net)
+
+PA0 = io(Net)
+PA1 = io(Net)
+PA2 = io(Net)
+PA3 = io(Net)
+PA4 = io(Net)
+PA5 = io(Net)
+PA6 = io(Net)
+PA7 = io(Net)
+PA8 = io(Net)
+PA9 = io(Net)
+PA10 = io(Net)
+PA11 = io(Net)
+PA12 = io(Net)
+PA13 = io(Net)
+PA14 = io(Net)
+PA15 = io(Net)
+PB0 = io(Net)
+PB1 = io(Net)
+PB2 = io(Net)
+PB3 = io(Net)
+PB4 = io(Net)
+PB5 = io(Net)
+PB6 = io(Net)
+PB7 = io(Net)
+PB8 = io(Net)
+PB9 = io(Net)
+PB10 = io(Net)
+PB12 = io(Net)
+PB13 = io(Net)
+PB14 = io(Net)
+PB15 = io(Net)
+PC0 = io(Net)
+PC1 = io(Net)
+PC4 = io(Net)
+PC5 = io(Net)
+PC6 = io(Net)
+PC7 = io(Net)
+PC9 = io(Net)
+PC10 = io(Net)
+PC11 = io(Net)
+PC12 = io(Net)
+PC14 = io(Net)
+PC15 = io(Net)
+PD2 = io(Net)
+PH0 = io(Net)
+PH1 = io(Net)
+
+Component(
+    name="STM32H725RGV6",
+    prefix="IC",
+    symbol=Symbol(library="STM32H725RGV6.kicad_sym"),
+    part=Part(mpn="STM32H725RGV6", manufacturer="STMicroelectronics"),
+    pins={
+        "VBAT": VBAT,
+        "VDD": VDD,
+        "VDDSMPS": VDDSMPS,
+        "VDDA": VDDA,
+        "VLXSMPS": VLXSMPS,
+        "VFBSMPS": VFBSMPS,
+        "VCAP1": VCAP1,
+        "VCAP2": VCAP2,
+        "VCAP3": VCAP3,
+        "VSS": GND,
+        "VSSA": GND,
+        "VSSSMPS": GND,
+        "NRST": NRST,
+        "BOOT0": BOOT0,
+        "PA0": PA0,
+        "PA1": PA1,
+        "PA2": PA2,
+        "PA3": PA3,
+        "PA4": PA4,
+        "PA5": PA5,
+        "PA6": PA6,
+        "PA7": PA7,
+        "PA8": PA8,
+        "PA9": PA9,
+        "PA10": PA10,
+        "PA11": PA11,
+        "PA12": PA12,
+        "PA13": PA13,
+        "PA14": PA14,
+        "PA15": PA15,
+        "PB0": PB0,
+        "PB1": PB1,
+        "PB2": PB2,
+        "PB3": PB3,
+        "PB4": PB4,
+        "PB5": PB5,
+        "PB6": PB6,
+        "PB7": PB7,
+        "PB8": PB8,
+        "PB9": PB9,
+        "PB10": PB10,
+        "PB12": PB12,
+        "PB13": PB13,
+        "PB14": PB14,
+        "PB15": PB15,
+        "PC0": PC0,
+        "PC1": PC1,
+        "PC4": PC4,
+        "PC5": PC5,
+        "PC6": PC6,
+        "PC7": PC7,
+        "PC9": PC9,
+        "PC10": PC10,
+        "PC11": PC11,
+        "PC12": PC12,
+        "PC14-OSC32_IN": PC14,
+        "PC15-OSC32_OUT": PC15,
+        "PD2": PD2,
+        "PH0-OSC_IN": PH0,
+        "PH1-OSC_OUT": PH1,
+    },
+)

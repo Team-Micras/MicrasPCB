@@ -1,0 +1,26 @@
+"""PZ254V-11-04P - 1x04 male pin header, 2.54 mm pitch, vertical, through hole.
+
+Datasheet: XFCN PZ254V-11-04P, LCSC C2691448 (LCSC listing: 1x4P, 2.54 mm
+pitch, 3 A, 250 V, -40 to +105 C, black).
+
+Footprint: 2.54 mm pitch, 1.0 mm drill, 1.8 mm pads (pad 1 rounded square),
+pads along +X from pad 1. This is the KiCad PinHeader_1x04_P2.54mm_Vertical
+pitch, drill and numbering with 0.1 mm larger pads, from the Altium MicrasLib
+"HDR MALE 1x4". The prefix is a config so the header can carry a P or J
+designator.
+"""
+
+prefix = config(str, default="P", help="Reference designator prefix")
+
+P1 = io(Net)
+P2 = io(Net)
+P3 = io(Net)
+P4 = io(Net)
+
+Component(
+    name="HEADER",
+    prefix=prefix,
+    symbol=Symbol(library="PZ254V-11-04P.kicad_sym"),
+    part=Part(mpn="PZ254V-11-04P", manufacturer="XFCN"),
+    pins={"1": P1, "2": P2, "3": P3, "4": P4},
+)

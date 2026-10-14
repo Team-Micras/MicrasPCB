@@ -1,0 +1,96 @@
+"""Package-level datasheet facts of the STM32H725RGV6 (DS13311 Table 8, VFQFPN68).
+
+Pad numbers are fixed by the symbol and footprint; these checks cover the pin-to-io
+mapping. Board-level supply wiring (Direct SMPS, AN5419 Figure 5) is checked on the board.
+"""
+
+STM32 = Module("../STM32H725RGV6.zen")
+
+GPIOS = ["PA%d" % i for i in range(16)] + ["PB%d" % i for i in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15)]
+GPIOS += ["PC%d" % i for i in (0, 1, 4, 5, 6, 7, 9, 10, 11, 12, 14, 15)] + ["PD2", "PH0", "PH1"]
+
+# Table 8: pins whose name carries the oscillator function after reset.
+PIN_NAME = {
+    "PC14": "PC14-OSC32_IN",
+    "PC15": "PC15-OSC32_OUT",
+    "PH0": "PH0-OSC_IN",
+    "PH1": "PH1-OSC_OUT",
+}
+
+
+def ports_of(module, net):
+    return sorted([pin for _, pin in module.nets()[net]])
+
+
+def mcu(module):
+    return [c for path, c in module.components().items() if path.split(".")[-1] == "STM32H725RGV6"][0]
+
+
+def supplies_on_their_ios(module, inputs):
+    # Table 8: five VDD pins (9, 22, 35, 51, 68) share the VDD symbol pin name.
+    for net in ["VDD", "VDDSMPS", "VDDA", "VBAT", "VLXSMPS", "VFBSMPS", "VCAP1", "VCAP2", "VCAP3"]:
+        check(
+            ports_of(module, net) == [net],
+            net + " io must carry only the " + net + " pin(s), got " + str(ports_of(module, net)),
+        )
+
+
+def grounds_on_gnd(module, inputs):
+    # Figure 4 note 2: VSS pads are connected to the exposed pad (pad 69, named VSS).
+    check(ports_of(module, "GND") == ["VSS", "VSSA", "VSSSMPS"], "VSS, VSSA and VSSSMPS must all be on GND")
+
+
+def core_pins_separate(module, inputs):
+    # AN5419 Figure 5: the board ties VCAP1-3 and VFBSMPS; the package keeps them apart so the
+    # board's connection is explicit and checkable.
+    nets = [n for n in module.nets().keys() if n in ["VFBSMPS", "VCAP1", "VCAP2", "VCAP3"]]
+    check(len(nets) == 4, "VFBSMPS, VCAP1, VCAP2 and VCAP3 must be four ios")
+
+
+def boot_and_reset_exist(module, inputs):
+    check(ports_of(module, "BOOT0") == ["BOOT0"], "BOOT0 must be its own io")
+    check(ports_of(module, "NRST") == ["NRST"], "NRST must be its own io")
+
+
+def every_gpio_mapped(module, inputs):
+    for g in GPIOS:
+        check(ports_of(module, g) == [PIN_NAME.get(g, g)], g + " must map to pin " + PIN_NAME.get(g, g))
+
+
+def part_identity(module, inputs):
+    c = mcu(module)
+    check(c.mpn == "STM32H725RGV6", "MPN must be STM32H725RGV6")
+    check(c.manufacturer == "STMicroelectronics", "manufacturer must be STMicroelectronics")
+    check(c.prefix == "IC", "designator prefix must be IC")
+
+
+inputs = {
+    "VDD": Power("VDD", voltage="3.3V"),
+    "VDDSMPS": Power("VDDSMPS", voltage="3.3V"),
+    "VDDA": Power("VDDA", voltage="3.3V"),
+    "VBAT": Power("VBAT", voltage="3.3V"),
+    "VLXSMPS": Power("VLXSMPS", voltage="1.2V"),
+    "VFBSMPS": Power("VFBSMPS", voltage="1.2V"),
+    "VCAP1": Power("VCAP1", voltage="1.2V"),
+    "VCAP2": Power("VCAP2", voltage="1.2V"),
+    "VCAP3": Power("VCAP3", voltage="1.2V"),
+    "GND": Ground("GND"),
+    "NRST": Net("NRST"),
+    "BOOT0": Net("BOOT0"),
+}
+for g in GPIOS:
+    inputs[g] = Net(g)
+
+TestBench(
+    name="STM32H725RGV6_package",
+    module=STM32,
+    test_cases={"default": inputs},
+    checks=[
+        supplies_on_their_ios,
+        grounds_on_gnd,
+        core_pins_separate,
+        boot_and_reset_exist,
+        every_gpio_mapped,
+        part_identity,
+    ],
+)

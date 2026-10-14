@@ -1,0 +1,22 @@
+"""Test point: bare 0.8 mm round SMD pad on the top copper.
+
+Footprint from the Altium MicrasLib "TestPoint": one 0.8 mm round SMD pad with
+mask and paste openings, 1.2 mm silkscreen circle. The paste opening tins the
+pad during reflow. No part is placed: the test point is excluded from the BOM
+and the placement file.
+
+The prefix is a config so a test point can carry a functional designator.
+"""
+
+prefix = config(str, default="TP", help="Reference designator prefix")
+
+P1 = io(Net)
+
+Component(
+    name="TP",
+    prefix=prefix,
+    symbol=Symbol(library="TestPoint.kicad_sym"),
+    pins={"1": P1},
+    skip_bom=True,
+    skip_pos=True,
+)

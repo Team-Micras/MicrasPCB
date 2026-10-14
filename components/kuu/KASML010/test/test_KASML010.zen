@@ -1,0 +1,24 @@
+"""KASML010 package: two-terminal, non-polarized fuse with the F prefix."""
+
+KASML010 = Module("../KASML010.zen")
+
+
+def in_series(module, inputs):
+    nets = module.nets()
+    check([pin for _, pin in nets["IN"]] == ["1"], "pin 1 must be on P1")
+    check([pin for _, pin in nets["OUT"]] == ["2"], "pin 2 must be on P2")
+
+
+def part_identity(module, inputs):
+    c = module.components()["KASML010"]
+    check(c.mpn == "KASML010", "MPN must be KASML010")
+    check(c.manufacturer == "KUU", "manufacturer must be KUU")
+    check(c.prefix == "F", "designator prefix must be F")
+
+
+TestBench(
+    name="KASML010_series",
+    module=KASML010,
+    test_cases={"default": {"P1": Net("IN"), "P2": Net("OUT")}},
+    checks=[in_series, part_identity],
+)

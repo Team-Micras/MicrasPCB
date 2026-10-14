@@ -1,0 +1,58 @@
+"""GT-USB-7010ASV - USB Type-C receptacle, USB 2.0, 16 pins, horizontal SMD.
+
+Bare connector: the CC pull-downs, D+/D- series parts and VBUS protection
+belong to the board.
+
+Datasheet: G-Switch drawing "Horizontal Type-c 16P Female Short edition SMT
+CH=1.68 L=7.35mm", molde code GT-USB-7010ASV, rev A0 (2023-02-04), LCSC
+C2988369.
+
+Pins (drawing pin table): A1/B12 and B1/A12 GND, A4/B9 and B4/A9 VBUS, A5 CC1,
+B5 CC2, A6/B6 D+, A7/B7 D-, A8 SBU1, B8 SBU2. The footprint pads carry the
+contact names; the paired contacts share one pad (A4B9, B4A9, A1B12, B1A12).
+Pads 1-4 are the four through-hole shell tabs (SHIELD).
+
+Ratings (drawing, "G-Switch USB-C Specification"): 3 A on VBUS, 1.25 A on
+VCONN, 0.25 A on the other contacts; 24 V AC voltage rating; contact resistance
+40 mOhm max; -40 to +85 C.
+
+Mechanics: the recommended PCB layout has two 0.65 mm non-plated holes for the
+housing pegs (5.78 mm apart, on the shell-tab side of the signal row). The
+footprint draws them on F.Fab and User.1 only (no drill): the board outline
+must cut them.
+
+Symbol pin types: the cable is the source of the VBUS net, so VBUS pad A4B9 is
+power_out; VBUS pad B4A9 is passive, because KiCad ERC reports two power
+outputs on one net as a conflict even within one symbol. The shell and GND
+contacts are passive; signal contacts are bidirectional.
+"""
+
+load("@stdlib/interfaces.zen", "Usb2")
+
+# Drawing, specification 1: 24 V AC voltage rating of the contacts.
+VBUS = io(Power(voltage="0V to 24V"))
+GND = io(Ground)
+SHIELD = io(Net)
+CC1 = io(Net)
+CC2 = io(Net)
+SBU1 = io(Net)
+SBU2 = io(Net)
+USB = io(Usb2)
+
+Component(
+    name="GT-USB-7010ASV",
+    prefix="U",
+    symbol=Symbol(library="GT-USB-7010ASV.kicad_sym"),
+    part=Part(mpn="GT-USB-7010ASV", manufacturer="G-Switch"),
+    pins={
+        "VBUS": VBUS,
+        "GND": GND,
+        "SHIELD": SHIELD,
+        "CC1": CC1,
+        "CC2": CC2,
+        "SBU1": SBU1,
+        "SBU2": SBU2,
+        "D+": USB.D.P,
+        "D-": USB.D.N,
+    },
+)
