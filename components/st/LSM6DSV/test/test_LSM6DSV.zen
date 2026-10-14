@@ -1,0 +1,76 @@
+"""Datasheet facts of the LSM6DSV package (DS13476 Rev 5, Table 2 and Figure 27)."""
+
+load("@stdlib/interfaces.zen", "Spi")
+
+LSM6DSV = Module("../LSM6DSV.zen")
+
+GND = Ground("GND")
+
+
+def ports_of(module, net):
+    return sorted([pin for _, pin in module.nets()[net]])
+
+
+def pins_of(module):
+    out = {}
+    for name, ports in module.nets().items():
+        for _, pin in ports:
+            out[pin] = name
+    return out
+
+
+def spi_mapping(module, inputs):
+    # Table 2: CS mode select, SCL = SPC, SDA = SDI, SDO/SA0 = SDO.
+    check(ports_of(module, "SPI_CS") == ["CS"], "SPI CS must be pin 12 CS")
+    check(ports_of(module, "SPI_CLK") == ["SCL"], "SPI clock must be pin 13 SCL/SPC")
+    check(ports_of(module, "SPI_MOSI") == ["SDA"], "SPI MOSI must be pin 14 SDA/SDI")
+    check(ports_of(module, "SPI_MISO") == ["SDO/SA0"], "SPI MISO must be pin 1 SDO/SA0")
+
+
+def supplies(module, inputs):
+    check(ports_of(module, "VDD") == ["Vdd"], "VDD io must carry pin 8 Vdd only")
+    check(ports_of(module, "VDDIO") == ["Vdd_IO"], "VDDIO io must carry pin 5 Vdd_IO only")
+    check(
+        sorted(ports_of(module, "GND")) == ["GND", "SCx", "SDx"],
+        "GND must carry pins 6 and 7 GND (and the SDx/SCx straps)",
+    )
+
+
+def mode1_straps(module, inputs):
+    # Table 2, mode 1: SDx and SCx to Vdd_IO or GND.
+    on = pins_of(module)
+    check(on["SDx"] in ["GND", "VDDIO"], "SDx must be tied to GND or Vdd_IO in mode 1")
+    check(on["SCx"] in ["GND", "VDDIO"], "SCx must be tied to GND or Vdd_IO in mode 1")
+
+
+def aux_pins_unconnected(module, inputs):
+    # Table 2 note 2: OCS_Aux and SDO_Aux left electrically unconnected in modes 1 and 2.
+    # NotConnected() pins carry an unnamed net.
+    on = pins_of(module)
+    for pin in ["OCS_Aux", "SDO_Aux"]:
+        net = on.get(pin)
+        check(net == None or net == "", pin + " must be left unconnected")
+
+
+def interrupts(module, inputs):
+    check(ports_of(module, "INT1") == ["INT1"], "INT1 must be pin 4")
+    check(ports_of(module, "INT2") == ["INT2"], "INT2 must be pin 9")
+
+
+TestBench(
+    name="LSM6DSV_mode1_spi",
+    module=LSM6DSV,
+    test_cases={
+        "3v3": {
+            "VDD": Power("VDD", voltage="3.3V"),
+            "VDDIO": Power("VDDIO", voltage="3.3V"),
+            "GND": GND,
+            "SPI": Spi("SPI"),
+            "INT1": Net("INT1"),
+            "INT2": Net("INT2"),
+            "SDX": GND,
+            "SCX": GND,
+        },
+    },
+    checks=[spi_mapping, supplies, mode1_straps, aux_pins_unconnected, interrupts],
+)

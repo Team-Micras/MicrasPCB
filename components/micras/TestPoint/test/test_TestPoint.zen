@@ -1,0 +1,35 @@
+"""TestPoint package: one pad on P1, no BOM or placement entry, configurable prefix."""
+
+TestPoint = Module("../TestPoint.zen")
+
+SIG = Net("SIG")
+
+
+def bare_pad(module, inputs):
+    check([pin for _, pin in module.nets()["SIG"]] == ["1"], "pad 1 must be on P1")
+    c = module.components()["TP"]
+    check(c.skip_bom, "a test point is not a BOM line")
+    check(c.skip_pos, "a test point is not placed")
+
+
+def prefix_is(expected):
+    def _check(module, inputs):
+        c = module.components()["TP"]
+        check(c.prefix == expected, "designator prefix must be " + expected + ", got " + c.prefix)
+
+    return _check
+
+
+TestBench(
+    name="TestPoint_default",
+    module=TestPoint,
+    test_cases={"default": {"P1": SIG}},
+    checks=[bare_pad, prefix_is("TP")],
+)
+
+TestBench(
+    name="TestPoint_named",
+    module=TestPoint,
+    test_cases={"imu_int": {"P1": SIG, "prefix": "IMU_INT"}},
+    checks=[bare_pad, prefix_is("IMU_INT")],
+)

@@ -1,0 +1,68 @@
+"""LSM6DSV - 6-axis IMU (accelerometer + gyroscope), LGA-14L 2.5 x 3.0 mm.
+
+Bare part for connection mode 1 or 2 (primary SPI / I2C / MIPI I3C interface,
+no auxiliary SPI). Decoupling and the SDx/SCx straps belong to the board.
+
+Datasheet: ST DS13476 Rev 5 (August 2023). Orderable part LSM6DSVTR (tape and
+reel, DS13476 page 1 "Product summary").
+
+Supplies (Table 4 "Electrical characteristics", page 13):
+- Vdd 1.71-3.6 V (1.8 V typ).
+- Vdd_IO 1.08-3.6 V; logic levels are referred to Vdd_IO.
+- Absolute maximum (Table 8, page 17): Vdd -0.3 to +4.8 V, any input -0.3 V to
+  Vdd_IO + 0.3 V.
+
+Pins (Table 2 "Pin description", page 10; Figure 4 "Pin connections", page 8):
+- 1 SDO/SA0: SPI data out (4-wire), I2C/I3C address LSB.
+- 2 SDx, 3 SCx: in mode 1 "Connect to Vdd_IO or GND"; I2C master in mode 2.
+- 4 INT1, 9 INT2: programmable interrupts (INT2 can also be the DEN input).
+- 5 Vdd_IO, 8 Vdd: supplies; 100 nF filter capacitor on each (Table 2 note 1,
+  Figure 27 C1 and C2, page 44).
+- 6, 7 GND.
+- 10 OCS_Aux, 11 SDO_Aux: in modes 1 and 2 "Connect to Vdd_IO or leave
+  unconnected"; this package leaves them unconnected ("Leave pin electrically
+  unconnected and soldered to PCB", Table 2 note 2). Mode 3 (auxiliary SPI)
+  is not supported.
+- 12 CS (1: I2C/I3C, 0: SPI), 13 SCL/SPC, 14 SDA/SDI.
+
+Interface: SPI maps CS -> CS, CLK -> SCL, MOSI -> SDA, MISO -> SDO/SA0. Internal
+pin states: CS has a pull-up by default (Table 22, page 47), SDO/SA0, SDx and
+SCx have no pull-up by default, INT1/INT2 are driven low by default.
+
+Package (Figure 31, page 167): LGA-14L 2.5 x 3.0 x 0.86 mm max, 0.5 mm pitch,
+14 lands 0.475 x 0.25 mm. Land pattern guidance in ST TN0018.
+"""
+
+load("@stdlib/interfaces.zen", "Spi")
+
+VDD = io(Power(voltage="1.71V to 3.6V"))
+VDDIO = io(Power(voltage="1.08V to 3.6V"))
+GND = io(Ground)
+SPI = io(Spi)
+INT1 = io(Net)
+INT2 = io(Net)
+# Table 2, mode 1: tie to Vdd_IO or GND. Mode 2: I2C master SDA/SCL.
+SDX = io(Net)
+SCX = io(Net)
+
+Component(
+    name="LSM6DSV",
+    prefix="IC",
+    symbol=Symbol(library="LSM6DSV.kicad_sym"),
+    part=Part(mpn="LSM6DSVTR", manufacturer="STMicroelectronics"),
+    pins={
+        "Vdd": VDD,
+        "Vdd_IO": VDDIO,
+        "GND": GND,
+        "CS": SPI.CS,
+        "SCL": SPI.CLK,
+        "SDA": SPI.MOSI,
+        "SDO/SA0": SPI.MISO,
+        "INT1": INT1,
+        "INT2": INT2,
+        "SDx": SDX,
+        "SCx": SCX,
+        "OCS_Aux": NotConnected(),
+        "SDO_Aux": NotConnected(),
+    },
+)

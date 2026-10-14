@@ -1,0 +1,29 @@
+"""KASML010 - polymer PTC resettable fuse, 0402, 0.10 A hold / 0.30 A trip.
+
+Datasheet: KUU (Yongyutai) "Polymer PTC Resettable Fuse KASML010", Rev 2.0,
+LCSC C42441131.
+
+Electrical characteristics (section 2):
+- Vmax 6 Vdc: maximum voltage the device withstands at rated current.
+- Imax 40 A: maximum fault current at rated voltage.
+- I-hold 0.10 A and I-trip 0.30 A at 25 C; 0.06 A and 0.18 A at 70 C.
+- Time to trip 1.00 s max at 0.5 A, 25 C. Pd typ 0.50 W.
+- R min 0.150 Ohm before trip; R1 max 2.000 Ohm one hour after reflow.
+
+Thermal derating (section 3): I-hold 0.13 A at -40 C down to 0.05 A at 85 C;
+I-trip 0.39 A at -40 C down to 0.15 A at 85 C.
+
+Package (section 1): 0402, A 0.95-1.25 mm, B 0.45-0.75 mm, C 0.35-0.65 mm.
+The device is not polarized.
+"""
+
+P1 = io(Net)
+P2 = io(Net)
+
+Component(
+    name="KASML010",
+    prefix="F",
+    symbol=Symbol(library="KASML010.kicad_sym"),
+    part=Part(mpn="KASML010", manufacturer="KUU"),
+    pins={"1": P1, "2": P2},
+)
