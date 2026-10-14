@@ -7,7 +7,7 @@ CI.
 | Board | Status |
 |---|---|
 | `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.8 mm | routed, all checks clean, rotations not yet verified at JLCPCB |
-| `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | circuit with the design review's findings fixed, passing the circuit checks but one ([known faults](boards/main/README.md#known-faults)); layout of the previous revision, the new parts not yet placed or routed |
+| `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | circuit with the design review's findings fixed, placed and routed; passes every gate but four, each with a known cause ([known faults](boards/main/README.md#known-faults)) |
 | `bluetooth` | not started |
 
 ## How it fits together
@@ -109,7 +109,7 @@ and fails if any gate failed.
 | lint | `ruff` | Python lint and format |
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 
-The main board fails some of these until its layout catches up with its circuit;
+The main board fails four of these (test, layout-check, drc, pytest);
 [`boards/main/README.md`](boards/main/README.md#known-faults) gives the root cause of every
 failure.
 
@@ -143,6 +143,7 @@ pin-1 checks, placement and routing, and the fab order.
 boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb is KiCad-owned, the rest generated)
 boards/main/previous/  snapshot of the previous main board revision (board.json) for the connectivity comparison,
                        and the scripts that build its layout from that revision (transfer_layout.py, rework.py)
+boards/main/layout/fixes.py, router.py  the one-off script that places and routes the review fixes, and its grid router
 boards/main/firmware.toml  the firmware's pin map and drive settings (from MicrasFirmware), tested against the board
 boards/main/firmware_changes.toml  the firmware changes the board needs, applied on top of firmware.toml in the tests
 boards/<board>/test/   Zener test benches of the board's circuit

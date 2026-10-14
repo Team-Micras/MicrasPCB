@@ -26,7 +26,7 @@ compare main` checks the netlist and its net names against that design's connect
 | [`firmware.toml`](firmware.toml) | | the firmware's pin map, supply setting, battery channel and drive duties, from MicrasFirmware (`micras-pcb firmware snapshot`) |
 | [`firmware_changes.toml`](firmware_changes.toml) | | the firmware changes this board needs (see [Firmware changes](#firmware-changes)) |
 | [`test/`](test) | | `pcb test` benches of the board's circuit: MCU, power, drivers, peripherals |
-| [`layout/`](layout) | | KiCad project; the `.kicad_pcb` holds placement and routing |
+| [`layout/`](layout) | | KiCad project; the `.kicad_pcb` holds placement and routing; `fixes.py` and `router.py` place and route the review fixes on it |
 | [`previous/`](previous) | | the previous revision's connectivity snapshot, and the scripts that build the layout from that revision (`transfer_layout.py`, `rework.py`) |
 | [`spec/main.toml`](../../spec/main.toml) | | mechanical interface: thickness, axle origin, extents, screw holes, encoder slots, USB-C peg holes, fan hole, wheel notches |
 
@@ -139,8 +139,12 @@ and the firmware place the board by them, with the wheel-axle midpoint (between 
 at KiCad (148.5011, 113.5036). [`previous/transfer_layout.py`](previous/transfer_layout.py)
 builds it from the KiCad conversion of that PCB and [`previous/rework.py`](previous/rework.py)
 adds the copper of the declared changes C1 and C2; running the script again changes nothing.
-The parts and connections the review fixes add are in the layout but not yet placed or routed
-(see [Known faults](#known-faults)).
+[`layout/fixes.py`](layout/fixes.py) then places and routes the parts and connections the review
+fixes add, on the layout as the footprint update leaves it, and runs once: it redraws the
+encoder slots, places the new parts, removes the copper the changed nets contradict, spaces the
+parts whose updated courtyards overlap, and routes what remains unconnected with
+[`layout/router.py`](layout/router.py), a small grid router (0.05 mm grid, F.Cu/B.Cu, 0.12 mm
+from other copper, deterministic).
 
 | Layer | Use |
 |---|---|
@@ -170,6 +174,33 @@ teardrops of the Altium design are plain copper zones (priorities 100 and up, ab
 KiCad 10 does not save a teardrop zone's UUID and orders zones by UUID, so a board with teardrop
 zones changes on every save.
 
+The review fixes in the layout (KiCad coordinates):
+
+- **Power mux U4** between J1/U2 and the buck IC7, R46 (ILM) and C61 (SS) at its pins, C62 at
+  IN1, C63 at IN2. VSYS leaves U4 OUT through vias to a B.Cu pour that reaches IC7 pins 5/7 and
+  C52/C53; an In2.Cu finger of the VBAT plane feeds IN1.
+- **Battery divider**: R45 and C59 between the LED_ARGB and Button vias above IC1's top corner,
+  R44 next to C18's VBAT pad; PA5 (pin 24) leaves IC1 in a 0.15 mm track beside pin 23's.
+- **Wall_Sensor_2** (IC1 pin 25) runs from between W2's pads round R17 to the board's top edge,
+  along it past the LEDs D1/D2/D5, and down to W3 and R22 (47 mm, top layer): the battery
+  divider's track to VBAT closes the way past IC1's top corner it took before.
+- **NRST and PH0**: NRST (pin 12) drops to B.Cu on the axis of the unused pin 11, PH0 (pin 10,
+  USB_VBUS_Sense) a pitch further out; Current_Sensor_Left's B.Cu run passes between PH0's via and
+  pin 9's 3V3 via in 0.15 mm.
+- **SWD header P1** (1x05) 2.54 mm further from the edge than the previous 1x04, with U5/C64 in
+  the pocket below it, R13 above it and D3 next to R1/R2.
+- **Wall sensor drive** C73-C76/D9-D12 between each R11/R15/R19/R23 and its Q2-Q5; the 1206
+  resistors R3/R13/R17/R21/R25 on their previous centres.
+- **Motors_Enable** to U1 pad 11 crosses the rear half on B.Cu (R49 by R35); C65/C66 at IC5,
+  C67/C68 at IC3/IC4 pin 6, C69/C70 at EC1, C71/C72 at EC2, U6/D8 at U2, Q7/F1 for SBU, R43/C58
+  by Q6, FB1 in IC1's VDDA feed.
+- **C6** (VCAP2) sits 2.8 mm from IC1 pin 49, by its B.Cu hop's via; C14/C17 (pin 35) lie across,
+  clear of IC1's courtyard.
+- **Clean-up**: the outline's six 1-10 nm lines, the zero-length tracks, stubs left by the changed
+  nets, and teardrops that left copper slivers against a twin are gone. U2's outer GND pads are
+  1.19 mm long, 0.22 mm from the USB-C peg holes. The reference designators are off the
+  silkscreen (0.5 mm high, below JLCPCB's 0.8 mm minimum; F.Fab keeps them).
+
 Copper of the changes C1 and C2 (KiCad coordinates, as in `rework.py`):
 
 - **VBAT pin on 3V3 (C1).** IC1 pad 1 with C8 and C9 sits on a short top-layer cluster that reaches
@@ -192,52 +223,13 @@ power-tree and firmware tests) except one bench, which no change on this board c
 |---|---|---|---|
 | `main_peripherals` `usb_c_sbu_open` (test) | SBU1/SBU2 carry 3V3 through Q7 and F1 for the Bluetooth module (M6) | Type-C R2.0 section 4.3, Table 4-28: SBU open or at least 950 kOhm to GND, in every state | The Bluetooth module (MicrasBluetoothModule) takes its supply from SBU and leaves VBUS and CC open, so the board cannot tell it from a cable before powering it. Q7 removes the supply whenever a USB host powers VBUS; it remains while a host debounces the attach (VBUS is applied only after Rd is seen, Type-C R2.0 4.5.2.2.8.2), on an unpowered host and on an accessory. Compliance needs the module to change (its own connector, or power from VBUS). |
 
-The layout still holds the previous revision's placement and copper; the circuit's new parts and
-connections are not placed or routed yet. The layout gates (`layout-check`, `drc`, `dfm`) and the
-layout tests fail on these:
+The layout passes the copper, connection and DFM checks. These layout findings stay:
 
-| Check (gate) | Cause | Fix |
+| Check (gate) | Fault | Why it stays |
 |---|---|---|
-| `unconnected_items` (drc) | the 35 new parts (C58, C59, C61-C76, D8-D12, FB1, Q7, R43-R49, U4-U6) sit off the board, and the new nets (VSYS, VDDA, SWD_VDD, Battery_Voltage, USB_VBUS_Sense, the wall gate drive nets, BAT_SW_DRIVE, SBU_SW, the mux ILM/SS) have no copper | place and route them; see the placement notes below |
-| `shorting_items`, `clearance`, `hole_clearance`, `solder_mask_bridge`, `pth_inside_courtyard` (drc); copper clearance (dfm) | previous copper on pads whose net changed (C60 pad 2 on a 3V3 track, IC6 pad 12, U1 pad 11 on VBAT, IC7 pads 5/7 and C52/C53 on VBAT, C10/C11/IC1 pad 16 on 3V3, C18/C19/D1/D2 VDD on 3V3, F1 pad 1 on 3V3, SW4 pad 3 on the gate track, R11/R15/R19/R23 pad 1 on the gate tracks); the 1206 footprints of R3/R13/R17/R21/R25 reaching neighbouring copper (R13 onto C26, R17 onto the LED_Red track and via); P1 pad 5 on GND copper and vias, inside the R13/C26 courtyards | reroute those nets; move the parts clear |
-| orphaned copper | six track/via items on `Motor_Enable`, a net the circuit no longer has (`pcb apply`: "orphaned_net") | put them on `Motors_Enable` or reroute |
-| `lib_footprint_mismatch` (drc) | 42 footprints differ from their packages: the packages gained courtyards, paste fixes, edge-clear silkscreen (W1-W4), SW1 texts, and the EncoderSlot pads moved | update the footprints from the packages (keeps position and nets) |
-| `test_every_assembled_footprint_has_a_courtyard[main]` (pytest) | the board's copies of the Altium-library footprints predate their packages' F.CrtYd courtyards | as above |
-| `test_main_layout_has_every_spec_feature`, `test_main_layout_matches_the_spec` (pytest), `micras-pcb mech --check` (layout-check) | Edge.Cuts still has the 0.9 x 5.1 mm encoder slot rectangles; `spec/main.toml` asks for 1.0 x 5.8 mm slots with R0.5 ends | redraw both slots: straight sides x = centre +/- 0.5 mm from y 111.1036 to 115.9036, R0.5 end arcs through y 110.6036 and 116.4036; centres (155.401105, 113.5036) for EC1 and (141.601105, 113.5036) for EC2 |
-| `test_encoder_slots_take_the_encoder_tab` (pytest) | as above | as above |
-| `test_decoupling_sits_at_its_pin[main]` (pytest) | C15 sits 5.0 mm from IC1 pad 51 (VDD) and C6 3.7 mm from pad 49 (VCAP2); C67/C68 (IC3/IC4 VCC) are not placed. The board's reading of "close" is 3 mm | move C15 and C6; place C67 at IC3 pin 6, C68 at IC4 pin 6 |
-| `invalid_outline` (drc) | Edge.Cuts has six 1-10 nm lines between arcs and lines of the outline, left by the Altium conversion | delete the six lines (the outline geometry is unchanged) |
-| `tracks_crossing` (drc), `track_dangling` (drc, warning) | zero-length track segments from the conversion (GND, 3V3, USBD_N, USBD_P, Boot) | delete the zero-length segments |
-| `copper_edge_clearance` (drc); board-edge-to-copper (dfm) | U2's GND pads A1B12 and B1A12 sit 0.175 and 0.190 mm from the USB-C peg holes, below JLCPCB's 0.2 mm | trim the two pads, or move the peg holes per the GT-USB-7010ASV drawing |
-| `courtyards_overlap` (drc) | KiCad's generic R/C courtyards are wider than the previous footprints' spacing (C44-C47, C48-C51, R39/R40, C3/C4), and the 1206 resistors' courtyards | space the parts |
-| copper feature width (dfm), `copper_sliver` (drc, warning) | teardrop outlines overrunning their tracks | trim the teardrop outlines |
-| `silk_edge_clearance`, `silk_overlap`, `silk_over_copper`, `text_height`, `text_thickness` (drc, warnings) | the previous layout's reference texts (0.5 mm high) and package silkscreen, until the footprints are updated | update the footprints, move and enlarge the texts |
-| `padstack` (drc, warning) | U2, Q6 and SW4 pads with a -100 mm paste margin, in the board's copies of the footprints (the packages take their paste from the drawn apertures only) | update the footprints |
-
-Placement notes for the new parts:
-
-- **Power mux U4** (VQFN-HR 2 x 2.5 mm) with R46 (ILM) and C61 (SS) at its pins, C62 at IN1, C63
-  at IN2: between J1/U2 and the buck IC7, on the VBAT and +5V pours; VSYS is a new, wide net from
-  U4 OUT (pads 1, 8) to IC7 pins 5/7 and C52/C53, which leave VBAT.
-- **U5** (SC-70-6) with C64 next to P1: P1 pin 1 becomes SWD_VDD, U5 VOUT/CE on 3V3.
-- **P1** is a 1x05 header (pads along the footprint's +X from pad 1, pad 5 = NRST, 2.54 mm
-  beyond pad 4). Pad 5 lands on R13/C26 and GND copper at the board's left edge: shift P1 by
-  1.27 mm towards D3 and move C26/R13 (or D3), then route Reset to pad 5.
-- **R43** (gate series) between SW4 pad 3 and Q6's gate track, **C58** from Q6 gate to Q6 drain
-  (GND), next to Q6.
-- **R44/R45/C59** (battery divider) near IC1 pad 24 (PA5), R44 fed from VBAT.
-- **FB1** in the VDDA feed of IC1 pad 16, C10/C11 stay at the pin on the VDDA side.
-- **U6** (SOT-23-6) at U2's D+/D- pins, rail pin to 3V3; **D8** (SOD-882) at U2's VBUS pins;
-  **R47/R48** from VBUS to IC1 pad 10 (PH0); **Q7** (SOT-23) between 3V3 and F1 pad 1.
-- **R49** on Motors_Enable at IC1 pad 45 / R35; U1 pad 11 leaves VBAT for Motors_Enable.
-- **C65/C66** (0805) within 3 mm of IC5 VSA/VSB (pins 17, 14); **C67/C68** at IC3/IC4 pin 6;
-  **C69/C70** at EC1 pad 5, **C71/C72** at EC2 pad 5.
-- **C73-C76** (0402) and **D9-D12** (SOD-323) between each R11/R15/R19/R23 and its Q2-Q5 gate:
-  R1x pad 1 drives the capacitor, and the gate net is the capacitor's other pad, R12/R16/R20/
-  R24 and the clamp's cathode.
-- Footprints of a new size, sitting where the previous ones were: R3, R13, R17, R21, R25 (1206),
-  C56 (0805), P1 (1x05); the EncoderSlot pads are at x = +/-1.21 mm once the footprints are
-  updated.
+| `courtyards_overlap` (drc, and `layout-check`, which runs DRC) | J1/C36, C36/SW4, M2/SW4, IC5/M1, U2/C37: the courtyards of the connector and switch packages reach their neighbours by 0.17-0.58 mm; the bodies stay apart (M2 and SW4, the closest, by 0.16 mm) | J1, M1, M2, SW4 and U2 sit where MicrasHardware expects them; C36 sits between the right motor's Kelvin sense pair and C37/IC5 between the board edge, the bridge's charge-pump parts and C38, so none of them can move without moving a connector. Resolving it is the owner's call: exclude the five overlaps in KiCad (a reviewed exclusion in `main.kicad_pro`), or move the connectors |
+| `test_decoupling_sits_at_its_pin[main]` (pytest) | C15 (IC1 pad 51, VDD) is 5.0 mm from the pin; the board's reading of "close" is 3 mm | the 2.6 mm under pads 46-51 carries USB D+/D-, SWDIO and the VCORE/3V3 escapes, with four B.Cu tracks (r_Left_CSn, Encoder_Left_ABI_A/B, Boot) under it: an 0402 within 3 mm has no room for a ground via. Moving it needs USB D+/D- and SWDIO rerouted |
+| `silk_overlap`, `silk_over_copper` (drc, warnings) | the W1-W4 "C"/"E" and SW1 "ON" texts on their own outlines (package artwork), outlines of neighbouring parts touching (D9/R14, D11/D12, D4/R4, D5/R5, C36/SW4, M2/SW4), and the board artwork (the slogans, arcs and circles) under new parts (C58, C63, C65/C66, C69/C70, D3, Q7, R48, R49) | cosmetic: JLCPCB clips silkscreen at pads |
 
 Requirements without a check, and why:
 
@@ -264,7 +256,8 @@ Requirements without a check, and why:
       the 4-layer defaults until they are confirmed.
 - [ ] Check every part's placement rotation in JLCPCB's assembly preview, then set
       `rotation_verified = true` in `parts/jlc.toml`.
-- [ ] Place and route the new parts and fix the layout faults above.
+- [ ] Decide the five connector courtyard overlaps and C15's distance to IC1 pad 51 (see
+      [Known faults](#known-faults)).
 - [ ] Bench: confirm the L6981C33 does not lift VSYS above the probe's 3.3 V in the SWD probe mode
       (the datasheet is silent on a back-powered output; review C3), and the SBU supply turning off
       with a USB host attached.
