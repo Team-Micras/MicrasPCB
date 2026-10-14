@@ -1,18 +1,25 @@
 """The previous board revision as a committed reference, and a connectivity comparator against it.
 
-The main board is replicated from its previous revision (Altium, converted to KiCad 10 in
-`hw_debug`). `snapshot` reads that revision once and writes `boards/main/previous/board.json`,
+The main and encoder boards are replicated from their previous revisions (Altium, in `hw_debug`).
+`snapshot` reads a board's previous revision once and writes `boards/<board>/previous/board.json`,
 so the checks never need `hw_debug`. `compare` proves the new board connects exactly what the
 old one did, except for the changes declared in `boards/<board>/changes.toml`.
 
-    MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot          # (re)write board.json
+    MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot          # (re)write main's board.json
+    MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot encoder  # the encoder's
     MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot --check  # fail if it is stale
     micras-pcb previous compare main                                       # new board vs previous
 
-Snapshot (`board.json`, format 1). The PCB's pad nets are the ground truth: the converted
-schematic merges `Motor_L_Sense-` and `Motor_R_Sense-`, the PCB keeps them apart. The schematic
-and the JLCPCB BOM only add part fields. Keys are in natural order (R2 before R10), floats are
-rounded to 6 decimals, so a re-run on the same inputs is byte-identical.
+Where each board's previous revision lives is in `SOURCES`: the main board as the KiCad 10
+conversion of its Altium project (`hw_debug/kicad`), the encoder as the Altium files themselves
+(`hw_debug/modules/encoder`): its PcbDoc is converted with `kicad-cli pcb import` on each run,
+its part fields come from the SchDoc's component parameters, and its netlist export must group
+the pads as the PCB does.
+
+Snapshot (`board.json`, format 1). The PCB's pad nets are the ground truth: the main board's
+converted schematic merges `Motor_L_Sense-` and `Motor_R_Sense-`, the PCB keeps them apart. The
+schematic and the JLCPCB BOM only add part fields. Keys are in natural order (R2 before R10),
+floats are rounded to 6 decimals, so a re-run on the same inputs is byte-identical.
 
     source    root ("hw_debug") and {relative path: sha256} of every input
     board     copper layer count and names, thickness, stackup (null: the file has none),
@@ -83,6 +90,27 @@ BOM_FILE = "MicrasMainBoard-BOM-jlc.csv"
 SCH_GLOB = "kicad/*.kicad_sch"
 
 Pad = tuple[str, str]  # (designator, pad number)
+
+
+@dataclass(frozen=True)
+class Source:
+    """A board's previous revision, as paths under the hw_debug root."""
+
+    pcb: str  # a KiCad .kicad_pcb, or an Altium .PcbDoc (converted with kicad-cli on each run)
+    schematics: str | None = None  # glob of KiCad .kicad_sch conversions: part fields
+    bom: str | None = None  # JLCPCB BOM (.csv): LCSC numbers
+    altium_sch: str | None = None  # Altium .SchDoc: part fields from its component parameters
+    netlist: str | None = None  # Altium netlist export (.txt): must group the pads as the PCB does
+
+
+SOURCES = {
+    "main": Source(pcb=PCB_FILE, schematics=SCH_GLOB, bom=BOM_FILE),
+    "encoder": Source(
+        pcb="modules/encoder/MicrasEncoder.PcbDoc",
+        altium_sch="modules/encoder/Encoder.SchDoc",
+        netlist="modules/encoder/Encoder.netlist.txt",
+    ),
+}
 
 
 def default_source() -> Path:
@@ -261,16 +289,131 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def build_snapshot(source: Path) -> dict:
-    pcb_path, bom_path = source / PCB_FILE, source / BOM_FILE
-    sch_paths = sorted(p for p in source.glob(SCH_GLOB) if p.name != ".kicad_sch")
-    inputs = [pcb_path, bom_path, *sch_paths]
+def _cfb_stream(path: Path, name: str) -> bytes:
+    """One stream of an OLE compound file (MS-CFB), the container of Altium's binary documents."""
+    data = path.read_bytes()
+    if data[:8] != bytes.fromhex("d0cf11e0a1b11ae1"):
+        raise ValueError(f"{path}: not a compound file")
+
+    def num(buf: bytes, at: int, size: int = 4) -> int:
+        return int.from_bytes(buf[at : at + size], "little")
+
+    size = 1 << num(data, 0x1E, 2)
+
+    def sector(n: int) -> bytes:
+        return data[(n + 1) * size : (n + 2) * size]
+
+    difat = [num(data, 0x4C + 4 * i) for i in range(109)]
+    nxt = num(data, 0x44)
+    while nxt < 0xFFFFFFFA:
+        s = sector(nxt)
+        difat += [num(s, i) for i in range(0, size - 4, 4)]
+        nxt = num(s, size - 4)
+    fat = [num(sector(s), i) for s in difat[: num(data, 0x2C)] for i in range(0, size, 4)]
+
+    def chain(start: int) -> bytes:
+        out, n = [], start
+        while n < 0xFFFFFFFA:
+            out.append(sector(n))
+            n = fat[n]
+        return b"".join(out)
+
+    directory = chain(num(data, 0x30))
+    for o in range(0, len(directory), 128):
+        e = directory[o : o + 128]
+        if num(e, 64, 2) < 2:
+            continue
+        if e[: num(e, 64, 2) - 2].decode("utf-16-le") == name:
+            start, length = num(e, 116), num(e, 120)
+            if length < num(data, 0x38):
+                raise ValueError(f"{path}: stream {name} is in the mini stream, not supported")
+            return chain(start)[:length]
+    raise ValueError(f"{path}: no stream {name}")
+
+
+def _altium_records(path: Path) -> list[dict[str, str]]:
+    """The records of an Altium SchDoc (stream FileHeader: length-prefixed |KEY=VALUE| lists)."""
+    data, pos, out = _cfb_stream(path, "FileHeader"), 0, []
+    while pos + 4 <= len(data):
+        n = int.from_bytes(data[pos : pos + 3], "little")
+        text = data[pos + 4 : pos + 4 + n].rstrip(b"\0").decode("latin-1")
+        pos += 4 + n
+        out.append(dict(kv.split("=", 1) for kv in text.split("|") if "=" in kv))
+    return out
+
+
+def _altium_sch_fields(path: Path) -> dict[str, dict]:
+    """Per designator: value (Comment), description and part number from the SchDoc's components."""
+    records = _altium_records(path)
+    owner_ref = {
+        r["OwnerIndex"]: r["Text"] for r in records if r.get("RECORD") == "34" and r.get("Name") == "Designator"
+    }
+    params: dict[str, dict[str, str]] = {}
+    for r in records:
+        if r.get("RECORD") == "41" and r.get("OwnerIndex") in owner_ref and r.get("Text"):
+            params.setdefault(owner_ref[r["OwnerIndex"]], {})[r["Name"]] = r["Text"]
+    # the component record (RECORD=1) is the one its designator's OwnerIndex points at (index 0: header)
+    comps = {
+        owner_ref[str(i - 1)]: r for i, r in enumerate(records) if r.get("RECORD") == "1" and str(i - 1) in owner_ref
+    }
+    out = {}
+    for ref in owner_ref.values():
+        p, c = params.get(ref, {}), comps.get(ref, {})
+        out[ref] = {
+            "value": p.get("Comment") or None,
+            "description": c.get("ComponentDescription") or None,
+            "mpn": p.get("Manufacturer_Part_Number") or None,
+            "manufacturer": p.get("Manufacturer_Name") or None,
+            "lcsc": None,
+            "dnp": False,
+            "exclude_from_bom": False,
+        }
+    return out
+
+
+def _altium_netlist(path: Path) -> set[frozenset[Pad]]:
+    """The multi-pad nets of an Altium netlist export: lines "['NET'] -> ['IC1.1(CSN)', ...]"."""
+    out = set()
+    for line in path.read_text().splitlines():
+        if " -> " not in line:
+            continue
+        pads = re.findall(r"'([^'.]+)\.([^'(]+)\([^']*\)'", line.split(" -> ", 1)[1])
+        if len(pads) > 1:
+            out.add(frozenset(pads))
+    return out
+
+
+def _altium_pcb(path: Path) -> str:
+    """An Altium PcbDoc as KiCad board text (kicad-cli's importer; UUIDs differ on every run)."""
+    import subprocess
+    import tempfile
+
+    from .tools import kicad_cli
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "previous.kicad_pcb"
+        subprocess.run(
+            [kicad_cli(), "pcb", "import", "--format", "altium", "-o", str(out), str(path)],
+            check=True,
+            capture_output=True,
+        )
+        return out.read_text()
+
+
+def build_snapshot(source: Path, board: str = "main") -> dict:
+    src = SOURCES[board]
+    pcb_path = source / src.pcb
+    sch_paths = sorted(p for p in source.glob(src.schematics) if p.name != ".kicad_sch") if src.schematics else []
+    extra = [source / f for f in (src.bom, src.altium_sch, src.netlist) if f]
+    inputs = [pcb_path, *extra, *sch_paths]
     for p in inputs:
         if not p.is_file():
             raise FileNotFoundError(p)
-    root = sexpr.parse(pcb_path.read_text())
+    root = sexpr.parse(_altium_pcb(pcb_path) if pcb_path.suffix.lower() == ".pcbdoc" else pcb_path.read_text())
     sym = _symbol_fields(sch_paths)
-    bom = _bom(bom_path)
+    if src.altium_sch:
+        sym.update(_altium_sch_fields(source / src.altium_sch))
+    bom = _bom(source / src.bom) if src.bom else {}
 
     parts: dict[str, dict] = {}
     unnamed: list[dict] = []
@@ -318,6 +461,15 @@ def build_snapshot(source: Path) -> dict:
     missing = sorted(set(bom) - set(parts), key=natural_key)
     if missing:
         raise ValueError(f"BOM designators missing from the PCB: {missing}")
+    if src.netlist:
+        pcb_groups = groups({"parts": parts})
+        sch_groups = _altium_netlist(source / src.netlist)
+        if pcb_groups != sch_groups:
+            raise ValueError(
+                f"{src.netlist} groups the pads differently from the PCB: "
+                f"only in the netlist {sorted(map(sorted, sch_groups - pcb_groups))}, "
+                f"only on the PCB {sorted(map(sorted, pcb_groups - sch_groups))}"
+            )
     unnamed.sort(key=lambda u: (u["y"], u["x"]))
     return {
         "format": FORMAT,
@@ -342,10 +494,10 @@ def load(board: str = "main", path: Path | None = None) -> dict:
 def snapshot(source: Path | None = None, board: str = "main", check: bool = False) -> int:
     source = (source or default_source()).resolve()
     out = snapshot_path(board)
-    text = dumps(build_snapshot(source))
+    text = dumps(build_snapshot(source, board))
     if check:
         if not out.is_file() or out.read_text() != text:
-            print(f"{out.relative_to(ROOT)} is stale: run micras-pcb previous snapshot")
+            print(f"{out.relative_to(ROOT)} is stale: run micras-pcb previous snapshot {board}")
             return 1
         print(f"{out.relative_to(ROOT)} matches {source}")
         return 0

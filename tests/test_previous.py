@@ -1,6 +1,7 @@
 """The previous-revision snapshot and the connectivity comparator (no hw_debug, KiCad or board needed)."""
 
 import os
+import shutil
 from pathlib import Path
 
 import pytest
@@ -296,3 +297,61 @@ SOURCE = Path(os.environ.get("MICRAS_PREVIOUS", previous.default_source()))
 @pytest.mark.skipif(not (SOURCE / previous.PCB_FILE).is_file(), reason="previous revision (hw_debug) not available")
 def test_snapshot_matches_its_sources():
     assert previous.dumps(previous.build_snapshot(SOURCE.resolve())) == previous.snapshot_path("main").read_text()
+
+
+# --- the committed snapshot of the previous encoder board ------------------------------------
+
+# Encoder.netlist.txt, the Altium netlist export of the previous encoder board.
+ENCODER_NETS = {
+    "Encoder_CSn": {("IC1", "1"), ("J1", "1")},
+    "SPI_SCK": {("IC1", "2"), ("J1", "2")},
+    "SPI_MISO": {("IC1", "3"), ("J1", "3")},
+    "SPI_MOSI": {("IC1", "4"), ("J1", "4")},
+    "GND": {("C1", "2"), ("IC1", "13"), ("IC1", "5"), ("J1", "6")},
+    "Encoder_ABI_B": {("IC1", "6"), ("J1", "8")},
+    "Encoder_ABI_A": {("IC1", "7"), ("J1", "7")},
+    "3V3": {("C1", "1"), ("IC1", "11"), ("IC1", "12"), ("J1", "5")},
+}
+
+
+@pytest.fixture(scope="module")
+def encoder_snap():
+    return previous.load("encoder")
+
+
+def test_encoder_snapshot_parts(encoder_snap):
+    assert list(encoder_snap["parts"]) == ["C1", "IC1", "J1"]
+    assert encoder_snap["unnamed"] == {}
+    p = encoder_snap["parts"]
+    assert (p["IC1"]["mpn"], p["IC1"]["manufacturer"]) == ("AS5047U-HTSM", "ams OSRAM")
+    assert (p["C1"]["mpn"], p["C1"]["value"]) == ("0603B104K500NT", "100nF")
+    assert p["J1"]["mpn"] is None  # the edge tab: copper on the board
+
+
+def test_encoder_snapshot_nets_are_the_altium_netlist(encoder_snap):
+    conn = from_snapshot(encoder_snap)
+    assert groups(conn) == {frozenset(v) for v in ENCODER_NETS.values()}
+    for name, pads in ENCODER_NETS.items():
+        assert conn.nets[name] == pads
+    # AS5047U DS v1-00 Figure 4: W/PWM 8, V 9, U 10 and I/PWM 14 left open
+    assert [n for n, net in encoder_snap["parts"]["IC1"]["pads"].items() if net is None] == ["8", "9", "10", "14"]
+
+
+def test_encoder_board_facts(encoder_snap):
+    b = encoder_snap["board"]
+    assert b["copper_layers"] == 2 and b["thickness"] == 0.79
+    (x0, y0), (x1, y1) = b["edge_cuts_bbox"]["min"], b["edge_cuts_bbox"]["max"]
+    assert (x1 - x0, y1 - y0) == pytest.approx((9.6, 14.1), abs=1e-4)
+
+
+def test_encoder_snapshot_formatting_is_stable(encoder_snap):
+    assert previous.dumps(encoder_snap) == previous.snapshot_path("encoder").read_text()
+
+
+@pytest.mark.skipif(
+    not (SOURCE / previous.SOURCES["encoder"].pcb).is_file() or shutil.which("kicad-cli") is None,
+    reason="previous revision (hw_debug) or kicad-cli not available",
+)
+def test_encoder_snapshot_matches_its_sources():
+    text = previous.dumps(previous.build_snapshot(SOURCE.resolve(), "encoder"))
+    assert text == previous.snapshot_path("encoder").read_text()
