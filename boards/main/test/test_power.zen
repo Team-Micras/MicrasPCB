@@ -1,0 +1,309 @@
+"""Power stage: 3V3 buck IC7, 20 V boost U1, USB LDO U3, battery switch Q6, capacitor ratings.
+
+Sources: ST DS13554 Rev 3 (L6981), TI SLVSDA7E (TPS61178), TI SNOS412Q (LM1117, the 1117
+reference the CJA1117B package cites), Huashuo HSBB3072 Ver 3.0, ST DS14341 Rev 1 (STSPIN958).
+Each value comes from the part's Zener model; net voltage ranges are the ones main.zen declares
+(VBAT 9.9-12.6 V for the 3S pack).
+"""
+
+load(
+    "./helpers.zen",
+    "eng",
+    "farads",
+    "index",
+    "net",
+    "ohms",
+    "refs_on",
+    "report",
+    "total",
+    "two_terminal",
+)
+
+MAIN = Module("../main.zen")
+
+BUCK = "IC7"
+BOOST = "U1"
+LDO = "U3"
+
+
+def _sum_caps(b, name):
+    return total([farads(b, r) for r in two_terminal(b, "capacitor", name, "GND")])
+
+
+def buck_output_capacitance(module, inputs):
+    # DS13554 section 8.4.3 p28: the internal compensation is stable for
+    # COUT between Eq. 42, 4.02 / ((fSW / 10) * VOUT), and Eq. 43, 0.48e-3 / VOUT; fSW 400 kHz
+    # (Table 6). Every capacitor on the output net counts. Nominal values: the model has no
+    # DC-bias derating, which only lowers the effective value.
+    b = index(module)
+    out = net(b, BUCK, "VOUT/FB")
+    vout = 3.3
+    lo, hi = 4.02 / (40e3 * vout), 0.48e-3 / vout
+    total = _sum_caps(b, out)
+    p = []
+    if total > hi:
+        big = [r for r in two_terminal(b, "capacitor", out, "GND") if farads(b, r) >= 10e-6]
+        p.append(
+            out
+            + " carries "
+            + eng(total, "F")
+            + ", above the "
+            + eng(hi, "F")
+            + " the L6981 compensation supports "
+            + "(DS13554 Eq. 43); largest: "
+            + ", ".join([r + " " + eng(farads(b, r), "F") for r in big])
+        )
+    if total < lo:
+        p.append(out + " carries " + eng(total, "F") + ", below the " + eng(lo, "F") + " of DS13554 Eq. 42")
+    report(p)
+
+
+def buck_inductor_current(module, inputs):
+    # DS13554 Eq. 36: dIL = (VIN - VOUT) / L * D / fSW with D = VOUT / VIN; section 8.4.2: ripple
+    # at most 40 % of IOUT (1.5 A); Eq. 39: IOUT + dIL / 2 below the 2.0 A minimum peak current
+    # limit (Table 6). Worst case at the highest VIN.
+    b = index(module)
+    sw = net(b, BUCK, "SW")
+    out = net(b, BUCK, "VOUT/FB")
+    coils = two_terminal(b, "inductor", sw, out)
+    if len(coils) != 1:
+        report(["expected one inductor from SW (" + sw + ") to " + out + ", found " + str(coils)])
+        return
+    l = b.parts[coils[0]].inductance.value
+    vin = b.parts[BUCK].pins["VIN"].voltage.max
+    ripple = (vin - 3.3) / l * (3.3 / vin) / 400e3
+    p = []
+    if ripple > 0.4 * 1.5:
+        p.append(coils[0] + " ripple " + eng(ripple, "A") + " at VIN " + eng(vin, "V") + " is above 40 % of 1.5 A")
+    if 1.5 + ripple / 2 > 2.0:
+        p.append("IC7 peak inductor current " + eng(1.5 + ripple / 2, "A") + " reaches the 2.0 A current limit")
+    report(p)
+
+
+def _boost_divider(b):
+    fb = net(b, BOOST, "FB")
+    out = net(b, BOOST, "VOUT")
+    up = two_terminal(b, "resistor", out, fb)
+    down = two_terminal(b, "resistor", fb, "GND")
+    if len(up) != 1 or len(down) != 1:
+        error("U1 FB divider: expected one resistor from " + out + " and one to GND, found " + str(up + down))
+    return up[0], down[0]
+
+
+def boost_output_voltage(module, inputs):
+    # SLVSDA7E Eq. 4 p17: VOUT = VREF * (1 + RUP / RDOWN), VREF 1.180-1.210 V (section 7.5), plus
+    # the FB leakage (60 nA max) through RUP. Recommended VOUT is at most 20 V (section 7.3) and
+    # the output overvoltage protection trips from 20.5 V (section 7.5).
+    b = index(module)
+    up, down = _boost_divider(b)
+    ru, rd = b.parts[up].resistance, b.parts[down].resistance
+    vmax = 1.210 * (1 + ru.max / rd.min) + 60e-9 * ru.max
+    vmin = 1.180 * (1 + ru.min / rd.max)
+    p = []
+    if vmax > 20.0:
+        p.append(
+            up
+            + "/"
+            + down
+            + " ("
+            + eng(ru.value, "Ohm")
+            + " / "
+            + eng(rd.value, "Ohm")
+            + ") set +20V to "
+            + eng(vmin, "V")
+            + "-"
+            + eng(vmax, "V")
+            + ", above the TPS61178's 20 V maximum output (SLVSDA7E 7.3)"
+        )
+    if vmax >= 20.5:
+        p.append("+20V can reach the 20.5 V overvoltage threshold")
+    report(p)
+
+
+def boost_feedback_divider_current(module, inputs):
+    # SLVSDA7E section 9.2.4 p18: RDOWN smaller than 100 kOhm, so the divider current is at least
+    # 100 times the FB leakage and the FB node resists noise pickup.
+    b = index(module)
+    up, down = _boost_divider(b)
+    report(
+        []
+        if ohms(b, down) < 100e3
+        else [down + " is " + eng(ohms(b, down), "Ohm") + ": RDOWN must be below 100 kOhm (SLVSDA7E 9.2.4)"]
+    )
+
+
+def boost_inductor_ripple(module, inputs):
+    # SLVSDA7E section 9.2.4.1 p19: inductor ripple "below 4 A" or the slope compensation may be
+    # inadequate. Eq. 5: dIL = VIN * D / (L * fSW), D = 1 - VIN * eta / VOUT, taken with eta = 1
+    # (the smallest duty, so the smallest ripple). Eq. 2-3: 1 / fSW = 3 * 1.8 pF * RFREQ + 50 ns.
+    # Nominal L and fSW over the VBAT range.
+    b = index(module)
+    freq = two_terminal(b, "resistor", net(b, BOOST, "FREQ/SYNC"), "GND")
+    coils = two_terminal(b, "inductor", net(b, BOOST, "SW"), net(b, BOOST, "VIN"))
+    if len(freq) != 1 or len(coils) != 1:
+        report(["U1: expected one RFREQ and one inductor, found " + str(freq + coils)])
+        return
+    fsw = 1 / (3 * 1.8e-12 * ohms(b, freq[0]) + 50e-9)
+    up, down = _boost_divider(b)
+    vout = 1.198 * (1 + ohms(b, up) / ohms(b, down))
+    l = b.parts[coils[0]].inductance.value
+    v = b.parts[BOOST].pins["VIN"].voltage
+    worst, at = 0.0, 0.0
+    for i in range(41):
+        vin = v.min + (v.max - v.min) * i / 40
+        ripple = vin * (1 - vin / vout) / (l * fsw)
+        if ripple > worst:
+            worst, at = ripple, vin
+    report(
+        [
+            coils[0]
+            + " "
+            + eng(l, "H")
+            + " at "
+            + eng(fsw, "Hz")
+            + " ("
+            + freq[0]
+            + " "
+            + eng(ohms(b, freq[0]), "Ohm")
+            + ") ripples "
+            + eng(worst, "A")
+            + " p-p at VIN "
+            + eng(at, "V")
+            + ", above the 4 A of SLVSDA7E 9.2.4.1",
+        ]
+        if worst > 4.0
+        else [],
+    )
+
+
+def boost_enable_not_from_its_input(module, inputs):
+    # The board must keep the motor supply off when only the debugger (P1) or USB powers 3V3
+    # (hw_debug/schematic_review.md, operating modes). 3V3 then reaches VBAT through IC7's
+    # high-side body diode (DS13554 Figure 19) at about 2.6-2.9 V, above the boost's 2.7 V UVLO
+    # (SLVSDA7E 7.5). EN tied to VIN starts the boost. EN must come from an MCU pin (the internal
+    # 800 kOhm pull-down holds it off in reset) or from a divider that stays below VEN_L 0.4 V at
+    # 3.3 V and above VEN_H 1.2 V at the lowest battery voltage.
+    b = index(module)
+    en, vin = net(b, BOOST, "EN"), net(b, BOOST, "VIN")
+    p = []
+    if en == vin:
+        p.append("U1 EN is tied to its input " + vin + ": the boost runs whenever VBAT is above 2.7 V")
+    elif "IC1" not in refs_on(b, en):
+        up = two_terminal(b, "resistor", vin, en)
+        down = two_terminal(b, "resistor", en, "GND")
+        if len(up) != 1 or len(down) != 1:
+            p.append("U1 EN (" + en + ") is neither an MCU pin nor a divider from " + vin)
+        else:
+            ratio = ohms(b, down[0]) / (ohms(b, up[0]) + ohms(b, down[0]))
+            vbat_min = b.parts[BOOST].pins["VIN"].voltage.min
+            if 3.3 * ratio >= 0.4:
+                p.append("U1 EN divider gives " + eng(3.3 * ratio, "V") + " from a 3.3 V back-feed, above VEN_L 0.4 V")
+            if vbat_min * ratio <= 1.2:
+                p.append("U1 EN divider gives " + eng(vbat_min * ratio, "V") + " at the lowest VBAT, below VEN_H 1.2 V")
+    report(p)
+
+
+def ldo_input_capacitor(module, inputs):
+    # The CJA1117B datasheet is silent on the input capacitor; for the same 1117 regulator TI
+    # LM1117 (SNOS412Q section 9.2.2.1.1 p14) recommends 10 uF on the input. The input here is
+    # the USB VBUS, at the end of a cable.
+    b = index(module)
+    vin = net(b, LDO, "IN")
+    total = _sum_caps(b, vin)
+    report(
+        []
+        if total >= 10e-6 * 0.99
+        else ["U3 input " + vin + " has " + eng(total, "F") + " to GND, 10 uF recommended (LM1117 9.2.2.1.1)"]
+    )
+
+
+def ldo_output_capacitor_esr(module, inputs):
+    # CJA1117B package docstring: the datasheet gives no output-capacitor rule; TI LM1117 (SNOS412Q
+    # section 9.2.2.1.3 p15) requires an output capacitor ESR of 0.3-22 Ohm, and the AMS1117
+    # (p4 "Stability") asks for 22 uF solid tantalum. Ceramic capacitors (mOhm ESR) alone are
+    # outside both.
+    b = index(module)
+    out = net(b, LDO, "OUTPUT")
+    ok = []
+    for r in two_terminal(b, "capacitor", out, "GND"):
+        c = b.parts[r]
+        if hasattr(c, "esr") and c.esr and c.esr.value >= 0.3 and c.esr.value <= 22:
+            ok.append(r)
+    report(
+        []
+        if ok
+        else [
+            "U3 output "
+            + out
+            + " has no capacitor with 0.3-22 Ohm ESR (LM1117 9.2.2.1.3); its "
+            + str(len(two_terminal(b, "capacitor", out, "GND")))
+            + " capacitors are ceramic"
+        ],
+    )
+
+
+def battery_switch_slew(module, inputs):
+    # STSPIN958 VS on VBAT: dVS/dt at most 0.5 V/us (DS14341 Table 1, absolute maximum). Q6
+    # switches the pack onto the board; its drain slews at the Miller plateau with
+    # IG / CGD, IG <= VBAT / RG: dV/dt <= VBAT / (RG * (Crss + external CGD)), Crss 229 pF at
+    # VDS 15 V (HSBB3072 p2, larger at lower VDS, which only slows the edge).
+    b = index(module)
+    gate = net(b, "Q6", "G")
+    drive = net(b, "SW4", "B")
+    if drive == gate:
+        report(
+            [
+                "SW4 drives Q6's gate ("
+                + gate
+                + ") directly: VBAT steps onto the STSPIN958 VS with no slew limit (0.5 V/us max)"
+            ]
+        )
+        return
+    rg = two_terminal(b, "resistor", drive, gate)
+    if len(rg) != 1:
+        report(["Q6 gate: expected one series resistor from SW4 to " + gate + ", found " + str(rg)])
+        return
+    cgd = 229e-12 + total([farads(b, r) for r in two_terminal(b, "capacitor", gate, net(b, "Q6", "D"))])
+    vbat = b.parts["SW4"].pins["COM"].voltage.max
+    slew = vbat / (ohms(b, rg[0]) * cgd)
+    report(
+        []
+        if slew <= 0.5e6
+        else ["Q6 turn-on slews VBAT at up to " + eng(slew / 1e6, "V/us") + " (" + rg[0] + "), above 0.5 V/us"]
+    )
+
+
+def capacitor_voltage_ratings(module, inputs):
+    # Every capacitor's rated voltage must cover the largest voltage across it, from the
+    # declared ranges of the nets it joins (nets without a declared range are skipped).
+    b = index(module)
+    p = []
+    for ref, c in b.parts.items():
+        if c.type != "capacitor" or not hasattr(c, "voltage") or not c.voltage:
+            continue
+        vs = [n.voltage for n in c.pins.values()]
+        if len(vs) != 2 or not vs[0] or not vs[1]:
+            continue
+        worst = max(abs(vs[0].max - vs[1].min), abs(vs[1].max - vs[0].min))
+        if c.voltage.value < worst:
+            p.append(ref + " rated " + eng(c.voltage.value, "V") + " sees up to " + eng(worst, "V"))
+    report(p)
+
+
+TestBench(
+    name="main_power",
+    module=MAIN,
+    test_cases={"board": {}},
+    checks=[
+        buck_output_capacitance,
+        buck_inductor_current,
+        boost_output_voltage,
+        boost_feedback_divider_current,
+        boost_inductor_ripple,
+        boost_enable_not_from_its_input,
+        ldo_input_capacitor,
+        ldo_output_capacitor_esr,
+        battery_switch_slew,
+        capacitor_voltage_ratings,
+    ],
+)

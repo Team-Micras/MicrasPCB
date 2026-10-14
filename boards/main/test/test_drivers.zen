@@ -1,0 +1,259 @@
+"""Motor drivers: L6205D bridges IC5, STSPIN958 fan driver IC6, TSC2020 current amplifiers IC3/IC4.
+
+Sources: ST L6205 datasheet (September 2003, LCSC C962257 copy), ST DS14341 Rev 1 (STSPIN958),
+ST DS14393 Rev 7 (TSC2020), ST RM0468 Rev 3 (STM32H725 GPIO reset state).
+"""
+
+load(
+    "./helpers.zen",
+    "eng",
+    "farads",
+    "index",
+    "net",
+    "ohms",
+    "other_net",
+    "refs_on",
+    "report",
+    "touching",
+    "two_terminal",
+)
+
+MAIN = Module("../main.zen")
+
+BRIDGE = "IC5"
+FAN = "IC6"
+
+
+def _ceramic(b, ref):
+    return hasattr(b.parts[ref], "dielectric") and b.parts[ref].dielectric
+
+
+def l6205_supply_decoupling(module, inputs):
+    # L6205 p12 and Table 2: "a high quality ceramic capacitor in the range of 100 to 200 nF"
+    # between VSA/VSB and ground, plus the 100 uF bulk (C1). VSA and VSB share one supply (p4).
+    b = index(module)
+    vs = net(b, BRIDGE, "VSA")
+    p = []
+    if net(b, BRIDGE, "VSB") != vs:
+        p.append("IC5 VSA and VSB must be on the same supply")
+    caps = two_terminal(b, "capacitor", vs, "GND")
+    if not [r for r in caps if _ceramic(b, r) and farads(b, r) >= 99e-9 and farads(b, r) <= 201e-9]:
+        p.append(vs + " has no 100-200 nF ceramic for IC5")
+    if not [r for r in caps if farads(b, r) >= 99e-6]:
+        p.append(vs + " has no 100 uF bulk capacitor for IC5")
+    report(p)
+
+
+def l6205_charge_pump(module, inputs):
+    # L6205 p8 Table 1 and Figure 3: D1 from VS to the pump node, D2 from the node to VBOOT,
+    # CBOOT 220 nF from VBOOT to VS, RP 100 Ohm + CP 10 nF from the node to VCP.
+    b = index(module)
+    vs, vboot, vcp = net(b, BRIDGE, "VSA"), net(b, BRIDGE, "VBOOT"), net(b, BRIDGE, "VCP")
+    p = []
+    d1 = [r for r in touching(b, "diode", vs) if net(b, r, "A") == vs] + [
+        r for r in refs_on(b, vs) if r.startswith("D") and "A" in b.parts[r].pins and net(b, r, "A") == vs
+    ]
+    d1 = sorted(set(d1))
+    if len(d1) != 1:
+        p.append("expected one diode with its anode on " + vs + " (charge pump D1), found " + str(d1))
+    else:
+        node = net(b, d1[0], "K")
+        d2 = [
+            r
+            for r in refs_on(b, node)
+            if r.startswith("D") and r != d1[0] and net(b, r, "A") == node and net(b, r, "K") == vboot
+        ]
+        if not d2:
+            p.append("no diode from the pump node " + node + " to VBOOT " + vboot)
+        rp = touching(b, "resistor", node)
+        if len(rp) != 1 or abs(ohms(b, rp[0]) - 100) > 1:
+            p.append("RP: expected 100 Ohm on the pump node, found " + str(rp))
+        else:
+            cp = two_terminal(b, "capacitor", other_net(b, rp[0], node), vcp)
+            if len(cp) != 1 or abs(farads(b, cp[0]) - 10e-9) > 1e-9:
+                p.append("CP: expected 10 nF from " + rp[0] + " to VCP, found " + str(cp))
+    cboot = two_terminal(b, "capacitor", vboot, vs)
+    if len(cboot) != 1 or abs(farads(b, cboot[0]) - 220e-9) > 22e-9:
+        p.append("CBOOT: expected 220 nF from VBOOT to VS, found " + str(cboot))
+    report(p)
+
+
+def _enable_network(b, pin):
+    """(REN, MCU-side net) of an L6205 enable pin driven through a series resistor."""
+    en = net(b, BRIDGE, pin)
+    for r in touching(b, "resistor", en):
+        other = other_net(b, r, en)
+        if "IC1" in refs_on(b, other):
+            return r, other
+    return None, None
+
+
+def l6205_enable_network(module, inputs):
+    # L6205 p4 note 6, p8 Figure 6: ENx is an open-drain fault output too, so it is driven
+    # through REN (2.2-180 kOhm) with CEN to GND, never straight from a push-pull pin.
+    b = index(module)
+    p = []
+    for pin in ["ENA", "ENB"]:
+        en = net(b, BRIDGE, pin)
+        ren, _ = _enable_network(b, pin)
+        if not ren:
+            p.append("IC5 " + pin + " (" + en + ") is not driven from the MCU through a resistor")
+        elif ohms(b, ren) < 2.2e3 or ohms(b, ren) > 180e3:
+            p.append(ren + " is " + eng(ohms(b, ren), "Ohm") + ", REN must be 2.2-180 kOhm")
+        if not two_terminal(b, "capacitor", en, "GND"):
+            p.append("IC5 " + pin + " has no CEN to GND")
+    report(p)
+
+
+def l6205_enable_off_in_reset(module, inputs):
+    # The MCU's pins are in analog mode (no drive, no pull) during and after reset (RM0468 section
+    # 11.3.1 p511), and the L6205 inputs have no internal pull (Figure 4 p8: ESD structure and
+    # comparator only). The bridges' enable must have its own pull-down so they stay off while
+    # the MCU is in reset or being flashed with the battery on. On the MCU side of REN any value
+    # works; on the EN node it must leave EN above Vth(ON) 2.0 V max when driven: 3.3 V *
+    # Rpd / (Rpd + REN) >= 2.0 V (p5).
+    b = index(module)
+    p = []
+    ren, mcu_side = _enable_network(b, "ENA")
+    if not ren:
+        report(["IC5 ENA has no REN from the MCU"])
+        return
+    en = net(b, BRIDGE, "ENA")
+    if two_terminal(b, "resistor", mcu_side, "GND"):
+        report([])
+        return
+    on_node = two_terminal(b, "resistor", en, "GND")
+    good = [r for r in on_node if 3.3 * ohms(b, r) / (ohms(b, r) + ohms(b, ren)) >= 2.0]
+    if not good:
+        p.append(
+            "the L6205 enable ("
+            + mcu_side
+            + " -> "
+            + ren
+            + " -> "
+            + en
+            + ") floats while the MCU is in reset: "
+            + "add a pull-down to GND on "
+            + mcu_side
+        )
+    report(p)
+
+
+def _level(b, name):
+    vdd = net(b, FAN, "VDD")
+    return "H" if name == vdd else ("L" if name == "GND" else "?")
+
+
+def stspin958_phase_matches_load(module, inputs):
+    # DS14341 Table 8: MODE1 H, MODE2 L selects the parallel half-bridge. Sections 5.6.1.2 and
+    # 5.6.2.2, Figures 11 and 14: PWM2/PH = 0 goes with the load between OUT and LSS (the high
+    # side drives it, the limiter recirculates through the low side); PH = 1 goes with the load
+    # between VS and OUT. The other pairing leaves the output high-Z on a limiter trip with its
+    # resume condition already true (section 5.6.2.2).
+    b = index(module)
+    mode = _level(b, net(b, FAN, "MODE1")) + _level(b, net(b, FAN, "MODE2"))
+    if mode != "HL":
+        report([])
+        return
+    out, lss, vs = net(b, FAN, "OUT1"), net(b, FAN, "LSS1"), net(b, FAN, "VS")
+    loads = [r for r in refs_on(b, out) if r.startswith("M") and r in refs_on(b, lss)]
+    ph = _level(b, net(b, FAN, "PWM2/PH"))
+    p = []
+    if loads and ph != "L":
+        p.append(
+            loads[0] + " sits between OUT and LSS, so PWM2/PH must be low (GND); it is on " + net(b, FAN, "PWM2/PH")
+        )
+    loads_vs = [r for r in refs_on(b, out) if r.startswith("M") and r in refs_on(b, vs)]
+    if loads_vs and ph != "H":
+        p.append(loads_vs[0] + " sits between VS and OUT, so PWM2/PH must be high")
+    if out != net(b, FAN, "OUT2") or lss != net(b, FAN, "LSS2"):
+        p.append("parallel mode needs OUT1 = OUT2 and LSS1 = LSS2 (section 5.4.3)")
+    report(p)
+
+
+def stspin958_external_parts(module, inputs):
+    # DS14341 Table 12 and Figure 22: CS 2 x 470 nF and CBULK 220 uF on VS, CDD 220 nF on VDD,
+    # CCP 100 nF from CP1 to CP2, CBOOT 1 uF from VBOOT to VSPUMP, REN 39 kOhm pull-up and CEN
+    # 10 nF on EN/nFAULT, RSNS from LSS to GND.
+    b = index(module)
+    p = []
+    vs, vdd = net(b, FAN, "VS"), net(b, FAN, "VDD")
+    vs_caps = two_terminal(b, "capacitor", vs, "GND")
+    if len([r for r in vs_caps if abs(farads(b, r) - 470e-9) <= 47e-9]) < 2:
+        p.append(vs + " needs 2 x 470 nF for IC6")
+    if not [r for r in vs_caps if farads(b, r) >= 219e-6]:
+        p.append(vs + " needs a 220 uF bulk for IC6")
+    if not [r for r in two_terminal(b, "capacitor", vdd, "GND") if abs(farads(b, r) - 220e-9) <= 22e-9]:
+        p.append(vdd + " needs 220 nF for IC6 VDD")
+    for a, z, f, what in [("CP1", "CP2", 100e-9, "CCP"), ("VBOOT", "VSPUMP", 1e-6, "CBOOT")]:
+        found = two_terminal(b, "capacitor", net(b, FAN, a), net(b, FAN, z))
+        if len(found) != 1 or abs(farads(b, found[0]) - f) > 0.1 * f:
+            p.append(what + ": expected " + eng(f, "F") + " from " + a + " to " + z + ", found " + str(found))
+    en = net(b, FAN, "EN/~{FAULT}")
+    if not [r for r in two_terminal(b, "resistor", en, vdd) if abs(ohms(b, r) - 39e3) <= 0.4e3]:
+        p.append("EN/nFAULT needs the 39 kOhm pull-up to VDD")
+    if not [r for r in two_terminal(b, "capacitor", en, "GND") if abs(farads(b, r) - 10e-9) <= 1e-9]:
+        p.append("EN/nFAULT needs 10 nF to GND")
+    if len(two_terminal(b, "resistor", net(b, FAN, "LSS1"), "GND")) != 1:
+        p.append("LSS needs one sense resistor to GND")
+    report(p)
+
+
+def stspin958_current_limit(module, inputs):
+    # DS14341 section 5.6 Eq. 1: VREF = Ipeak * RSNS * ACL (OFFSET low), ACL 9.5-10.5 (Table 5).
+    # REF must sit within 0.1 V to VDD (Table 2); the limit must engage before the 7 A minimum
+    # overcurrent shutdown (IOC, Table 5) and keep VLSS within the 1 V recommended maximum.
+    b = index(module)
+    ref, vdd = net(b, FAN, "REF"), net(b, FAN, "VDD")
+    up = two_terminal(b, "resistor", vdd, ref)
+    down = two_terminal(b, "resistor", ref, "GND")
+    rs = two_terminal(b, "resistor", net(b, FAN, "LSS1"), "GND")
+    if len(up) != 1 or len(down) != 1 or len(rs) != 1 or net(b, FAN, "OFFSET") != "GND":
+        report(["IC6 REF: expected a divider from VDD, one sense resistor and OFFSET on GND"])
+        return
+    ru, rd, rsns = b.parts[up[0]].resistance, b.parts[down[0]].resistance, b.parts[rs[0]].resistance
+    vref_max = 3.3 * rd.max / (rd.max + ru.min)
+    vref_min = 3.3 * rd.min / (rd.min + ru.max)
+    ipk = vref_max / (rsns.min * 9.5)
+    p = []
+    if vref_min < 0.1 or vref_max > 3.3:
+        p.append("REF " + eng(vref_min, "V") + "-" + eng(vref_max, "V") + " outside 0.1 V to VDD")
+    if ipk >= 7.0:
+        p.append("current limit up to " + eng(ipk, "A") + " reaches the 7 A overcurrent shutdown")
+    if ipk * rsns.max > 1.0:
+        p.append("VLSS reaches " + eng(ipk * rsns.max, "V") + ", above the 1 V recommended maximum")
+    report(p)
+
+
+def tsc2020_inputs_and_reference(module, inputs):
+    # DS14393 section 5.8: no input filter is needed, and any input resistor stays at 10 Ohm or
+    # below (gain error 1 - 700 / (Rs + 700)); section 5.12: the inputs sense a shunt below 1 Ohm.
+    # Section 5.11: VREF1/VREF2 from a low-impedance source (here the supply rails, Figure 56).
+    b = index(module)
+    p = []
+    for amp in ["IC3", "IC4"]:
+        a, z = net(b, amp, "IN+"), net(b, amp, "IN-")
+        shunts = [r for r in two_terminal(b, "resistor", a, z) if ohms(b, r) < 1]
+        if len(shunts) != 1:
+            p.append(amp + ": expected one shunt below 1 Ohm across IN+/IN-, found " + str(shunts))
+        for pin in ["VREF1", "VREF2"]:
+            if net(b, amp, pin) not in [net(b, amp, "VCC"), "GND"]:
+                p.append(amp + " " + pin + " is on " + net(b, amp, pin) + ", not a supply rail")
+    report(p)
+
+
+TestBench(
+    name="main_drivers",
+    module=MAIN,
+    test_cases={"board": {}},
+    checks=[
+        l6205_supply_decoupling,
+        l6205_charge_pump,
+        l6205_enable_network,
+        l6205_enable_off_in_reset,
+        stspin958_phase_matches_load,
+        stspin958_external_parts,
+        stspin958_current_limit,
+        tsc2020_inputs_and_reference,
+    ],
+)
