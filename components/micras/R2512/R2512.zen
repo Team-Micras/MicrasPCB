@@ -1,0 +1,45 @@
+"""Chip resistor, 2512 (6332 metric), on the Micras Altium land pattern RESC6432X89N.
+
+The stdlib `Resistor` generic with `package="2512"` places KiCad's R_2512_6332Metric (1.225 x
+3.35 mm pads); this package is the same two-terminal resistor on the land pattern of the Micras
+Altium library (MicrasLib RESC6432X89N: 1.45 x 3.45 mm pads, centres 5.8 mm apart), the pads
+the MicrasMainBoard current-sense shunts R31-R33 were routed and soldered on. Its configs,
+properties and component type match the generic, so the board tests read its resistance the
+same way.
+
+The part comes from the instance (`mpn`, `manufacturer`, `value`, `power`): the land pattern
+fits any 2512 chip resistor. The datasheet ratings of each part are cited where it is used.
+"""
+
+load("@stdlib/units.zen", "Power", "Resistance", "Voltage")
+load("@stdlib/utils.zen", "format_value")
+
+value = config(Resistance)
+mpn = config(str, optional=True, help="Manufacturer Part Number")
+manufacturer = config(str, optional=True, help="Manufacturer")
+voltage = config(Voltage, optional=True, help="Maximum operating voltage")
+power = config(Power, optional=True, help="Maximum power dissipation")
+
+properties = {
+    "value": format_value(value, voltage, power),
+    "package": "2512",
+    "resistance": value,
+}
+if voltage:
+    properties["voltage"] = voltage
+if power:
+    properties["power"] = power
+
+P1 = io(Net)
+P2 = io(Net)
+
+Component(
+    name="R",
+    part=Part(mpn=mpn, manufacturer=manufacturer) if mpn and manufacturer else None,
+    prefix="R",
+    symbol=Symbol(library="R2512.kicad_sym"),
+    footprint=File("RESC6432X89N.kicad_mod"),
+    pins={"1": P1, "2": P2},
+    properties=properties,
+    type="resistor",
+)
