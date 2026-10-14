@@ -1,0 +1,37 @@
+"""HSBB3072 - 30 V 100 A N-channel MOSFET, PRPAK3x3-8L. Bare part.
+
+Datasheet: HUASHUO HSBB3072, Ver 3.0.
+
+Pins (page 1, "PRPAK3*3 Pin Configuration"): package pins 1-3 source, 4 gate, 5-8 and the
+exposed tab drain. Footprint pad numbers: 1 = gate (one pad); 2 = source (three pads);
+3 = drain (four leads, the 2.6 x 2.0 mm exposed pad and the two side tabs).
+
+Absolute maximum ratings (page 1): VDS 30 V; VGS +-20 V; ID 100 A at TC = 25 C (65 A at
+100 C); IDM 240 A; PD 42 W at TC = 25 C; TJ and TSTG -55 to 150 C. Thermal (page 1): RthJA
+70 C/W max on 1 in2 of 2 oz FR-4; RthJC 3 C/W max.
+
+Electrical characteristics (page 2, TJ = 25 C): RDS(on) 2.0 / 2.4 mOhm at VGS = 10 V,
+2.9 / 3.8 mOhm at VGS = 4.5 V (ID = 20 A); VGS(th) 1.0 / 1.7 / 2.3 V; IDSS 1 uA max at
+VDS = 24 V; IGSS +-100 nA at VGS = +-20 V; Qg 26 nC at 4.5 V; Ciss 2860 pF, Coss 1300 pF,
+Crss 229 pF at VDS = 15 V; td(on) 11 ns, tr 46 ns at RG = 3.3 Ohm; body diode VSD 1.2 V max
+at IS = 1 A.
+
+A board must keep |VGS| <= 20 V and VDS <= 30 V including transients.
+"""
+
+G = io(Net)
+D = io(Net)
+S = io(Net)
+
+Component(
+    name="HSBB3072",
+    prefix="Q",
+    symbol=Symbol(library="HSBB3072.kicad_sym"),
+    footprint=File("PRPAK-8_L3.0-W3.0-P0.65-BL-EP.kicad_mod"),
+    part=Part(mpn="HSBB3072", manufacturer="HUASHUO"),
+    pins={
+        "G": G,
+        "S": S,
+        "D": D,
+    },
+)

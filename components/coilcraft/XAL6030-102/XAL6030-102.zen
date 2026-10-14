@@ -1,0 +1,37 @@
+"""XAL6030-102MEB - 1.0 uH 20 % shielded power inductor, Coilcraft XAL6030 (6.5 x 6.3 mm). Bare part.
+
+Datasheet: Coilcraft XAL60xx series (the URL in pcb.toml).
+
+TODO: the Coilcraft datasheet could not be retrieved while writing this package. The values
+below are the LCSC listing of C2938919 (the JLCPCB part): 1 uH +-20 %, 23 A, 5.62 mOhm,
+AEC-Q200, 6.5 x 6.3 mm. The listing does not say whether 23 A is the saturation or the
+heating current; confirm Isat (and its inductance-drop definition), Irms and DCR max against
+the Coilcraft table before a check relies on them.
+"""
+
+load("@stdlib/units.zen", "Current", "Inductance", "Resistance")
+load("@stdlib/utils.zen", "format_value")
+
+P1 = io(Net)
+P2 = io(Net)
+
+# LCSC C2938919 listing (see TODO above).
+inductance = Inductance("1uH 20%")
+current = Current("23A")
+dcr = Resistance("5.62mOhm")
+
+Component(
+    name="XAL6030-102",
+    prefix="L",
+    symbol=Symbol(library="XAL6030-102.kicad_sym"),
+    footprint=File("XAL6030.kicad_mod"),
+    part=Part(mpn="XAL6030-102MEB", manufacturer="Coilcraft"),
+    pins={"1": P1, "2": P2},
+    properties={
+        "value": format_value(inductance, current),
+        "inductance": inductance,
+        "current": current,
+        "dcr": dcr,
+    },
+    type="inductor",
+)

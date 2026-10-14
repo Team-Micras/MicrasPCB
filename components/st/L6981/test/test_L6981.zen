@@ -1,0 +1,68 @@
+"""Package-level facts of the L6981x33DR (ST DS13554 Rev 3)."""
+
+L6981 = Module("../L6981.zen")
+
+VBAT = Power(voltage="12V")
+NETS = {
+    "VIN": VBAT,
+    "VOUT": Power("V3V3", voltage="3.3V"),
+    "VCC": Power("VCC", voltage="3.3V"),
+    "GND": Ground("GND"),
+    "EN": VBAT,
+    "SW": Net("SW"),
+    "BOOT": Net("BOOT"),
+}
+
+
+def case(**configs):
+    inputs = dict(NETS)
+    inputs.update(configs)
+    return inputs
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def net_of(module, pin):
+    for name, ports in module.nets().items():
+        for _, p in ports:
+            if p == pin:
+                return name
+    error(pin + " is not connected")
+
+
+def grounds_tied(module, inputs):
+    # Table 1, p3: AGND (6) and PGND (8); Table 3, p5: PGND to AGND within +-0.3 V.
+    check(net_of(module, "AGND") == "GND", "AGND must be on GND")
+    check(net_of(module, "PGND") == "GND", "PGND must be on GND")
+
+
+def fixed_output_sense(module, inputs):
+    # Figure 4, p4: fixed-output versions sense the output directly on VOUT/FB.
+    check(net_of(module, "VOUT/FB") == "V3V3", "VOUT/FB must be on the VOUT io")
+
+
+def eight_pins(module, inputs):
+    # Figure 2, p3: SO-8.
+    check(len(part(module).pins) == 8, "the L6981 has 8 pins")
+
+
+def variant(module, inputs):
+    # Table 11, p45: LNM and LCM order codes share the symbol pinout; the config selects both.
+    c = part(module)
+    want = inputs.get("mpn", "L6981N33DR")
+    check(c.mpn == want, "MPN " + c.mpn + " != " + want)
+    check(c.symbol_name == want, "symbol " + c.symbol_name + " != " + want)
+    check(c.manufacturer == "STMicroelectronics", "manufacturer")
+    check(c.prefix == "IC", "reference prefix must be IC")
+
+
+TestBench(
+    name="L6981",
+    module=L6981,
+    test_cases={"lnm_default": case(), "lcm": case(mpn="L6981C33DR")},
+    checks=[grounds_tied, fixed_output_sense, eight_pins, variant],
+)

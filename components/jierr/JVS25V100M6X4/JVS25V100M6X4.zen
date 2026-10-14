@@ -1,0 +1,47 @@
+"""JVS25V100M6X4 - 100 uF 25 V 20 % SMD aluminium electrolytic capacitor, D6.3 x 4.5 mm. Bare part.
+
+Datasheet: JIERR JVS series aluminium electrolytic capacitors (LCSC C51953404), pages 1-2.
+
+Ratings (page 1, specifications): operating temperature -55 to +105 C; capacitance
+tolerance +-20 % (120 Hz, 20 C); leakage I <= 0.01 CV or 3 uA, whichever is greater (25 uA
+here) after 2 minutes at rated voltage; tan delta <= 0.18 at 120 Hz for 25 V (ESR about
+2.4 Ohm at 120 Hz from tan delta / (2 pi f C); no 100 kHz ESR is given); endurance 1000 h
+at 105 C. Part number (page 2): JVS series, 25 V, 100 uF, M = +-20 %, 6X4 case. Case
+D6.3 x L4.5 mm, base 6.6 x 6.6 mm, land spacing 7.3 mm (page 2 dimension table, D = 6.3,
+L = 4.5 row). Ripple current: 54 mA at 120 Hz per the LCSC listing; the page 2 ripple table
+did not extract to text (TODO: confirm against the PDF).
+
+Polarity: pin 1 (POS) is the + terminal, on the chamfered side of the footprint, which is
+also marked "+" on the silkscreen. The package warns when the voltage across POS and NEG
+exceeds the 25 V rating.
+"""
+
+load("@stdlib/units.zen", "Capacitance", "Voltage")
+load("@stdlib/utils.zen", "format_value")
+
+POS = io(Net)
+NEG = io(Net)
+
+capacitance = Capacitance("100uF 20%")
+voltage = Voltage("25V")
+
+if POS.voltage and NEG.voltage and voltage < POS.voltage.diff(NEG.voltage):
+    warn(
+        f"JVS25V100M6X4 rated {voltage} is below the voltage across it ({POS.voltage.diff(NEG.voltage)})",
+        kind="capacitor.voltage_rating",
+    )
+
+Component(
+    name="JVS25V100M6X4",
+    prefix="C",
+    symbol=Symbol(library="JVS25V100M6X4.kicad_sym"),
+    footprint=File("CAP-SMD_BD6.3-L6.6-W6.6-LS7.3-FD_JVS25V100M6X4.kicad_mod"),
+    part=Part(mpn="JVS25V100M6X4", manufacturer="JIERR"),
+    pins={"+": POS, "-": NEG},
+    properties={
+        "value": format_value(capacitance, voltage),
+        "capacitance": capacitance,
+        "voltage": voltage,
+    },
+    type="capacitor",
+)

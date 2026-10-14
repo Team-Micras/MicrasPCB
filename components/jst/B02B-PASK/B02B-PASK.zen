@@ -1,0 +1,27 @@
+"""B02B-PASK(LF)(SN) - JST PA series 2-pin 2.00 mm top-entry through-hole header. Bare part.
+
+Datasheet: JST PA connector catalogue (URL in pcb.toml). Ratings from the LCSC C158050
+listing: 2 positions, 2.00 mm pitch, 3 A, 250 V, -25 to +85 C, tin-plated, through hole.
+TODO: confirm current rating and wire range against the JST PA catalogue.
+
+Footprint: 0.7 mm holes, 1.2 mm pads, 2.00 mm pitch; pad 1 round, pad 2 square. Pin
+numbers are the footprint pad numbers.
+
+The same part serves as battery and motor connector, so the reference prefix is a config:
+"J" for the battery connector, "M" for the motor and fan connectors.
+"""
+
+prefix = config(str, default="J", allowed=["J", "M"], help="Reference designator prefix")
+
+P1 = io(Net)
+P2 = io(Net)
+
+Component(
+    name="B02B-PASK",
+    prefix=prefix,
+    symbol=Symbol(library="B02B-PASK.kicad_sym"),
+    footprint=File("JST_PA_B02B-PASK_1x02_P2.00mm_Vertical.kicad_mod"),
+    part=Part(mpn="B02B-PASK(LF)(SN)", manufacturer="JST"),
+    pins={"Pin_1": P1, "Pin_2": P2},
+    type="connector",
+)

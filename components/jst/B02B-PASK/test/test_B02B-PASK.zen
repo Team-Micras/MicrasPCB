@@ -1,0 +1,44 @@
+"""Package-level facts of the B02B-PASK(LF)(SN) (JST PA, 2 pins)."""
+
+B02B = Module("../B02B-PASK.zen")
+
+P1 = Net("PIN1")
+P2 = Net("PIN2")
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def net_of(module, pin):
+    for name, ports in module.nets().items():
+        for _, p in ports:
+            if p == pin:
+                return name
+    error(pin + " is not connected")
+
+
+def pins(module, inputs):
+    check(net_of(module, "Pin_1") == "PIN1", "Pin_1 on P1")
+    check(net_of(module, "Pin_2") == "PIN2", "Pin_2 on P2")
+    check(len(part(module).pins) == 2, "two pins")
+
+
+def prefix(module, inputs):
+    # Battery connector J, motor and fan connectors M.
+    want = inputs.get("prefix", "J")
+    check(part(module).prefix == want, "prefix " + part(module).prefix + " != " + want)
+    check(part(module).mpn == "B02B-PASK(LF)(SN)", "MPN")
+
+
+TestBench(
+    name="B02B-PASK",
+    module=B02B,
+    test_cases={
+        "battery_default": {"P1": P1, "P2": P2},
+        "motor": {"P1": P1, "P2": P2, "prefix": "M"},
+    },
+    checks=[pins, prefix],
+)

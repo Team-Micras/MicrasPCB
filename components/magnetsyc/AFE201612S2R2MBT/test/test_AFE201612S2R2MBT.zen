@@ -1,0 +1,28 @@
+"""Package-level facts of the AFE201612S2R2MBT (Magnetsyc AFE2016 series, Rev.01)."""
+
+INDUCTOR = Module("../AFE201612S2R2MBT.zen")
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def ratings(module, inputs):
+    # Page 3, AFE201612S2R2MBT row: 2.2 uH +-20 %, Isat 2.7 A (lower column), Rdc 90 mOhm max.
+    c = part(module)
+    check(c.type == "inductor", "type")
+    check(c.properties["inductance"].matches("2.2uH 20%"), "inductance")
+    check(c.properties["current"].matches("2.7A"), "rated current")
+    check(c.properties["dcr"].matches("90mOhm"), "DCR max")
+    check(c.prefix == "L", "reference prefix must be L")
+    check(len(c.pins) == 2, "two terminals")
+
+
+TestBench(
+    name="AFE201612S2R2MBT",
+    module=INDUCTOR,
+    test_cases={"default": {"P1": Net("A"), "P2": Net("B")}},
+    checks=[ratings],
+)

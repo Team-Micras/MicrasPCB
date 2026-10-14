@@ -1,0 +1,41 @@
+"""YSPIA0645-220M - 22 uH 20 % molded power inductor, 6.5 x 6.0 x 4.5 mm. Bare part.
+
+Datasheet: YJYCOIN SMD Power Inductors YSPIA0645 series (LCSC C2839926).
+
+Electrical (page 2, YSPIA0645-220 row): 22 uH at 100 kHz, tolerance M = +-20 % (page 1,
+product identification); DC resistance 100 mOhm typ / 130 mOhm max; heat-rating current
+2.8 A (40 C temperature rise); saturation current 4.5 A (the page 2 note defines it as the
+DC current at which the inductance decreases to 30 %, at 20 C). Operating temperature -40 to
++125 C (page 1).
+
+Dimensions and land (page 2): A 6.5 +- 0.5, B 6.0 +- 0.3, C 4.5 max (height), D 1.3 +- 0.3,
+E 2.5 +- 0.3 mm; land F 3.5, G 7.5, H 3.2 mm (reference). The footprint pads are
+2.15 x 3.5 mm at 5.35 mm pitch: 7.5 mm outer and 3.2 mm inner span, matching F, G and H.
+"""
+
+load("@stdlib/units.zen", "Current", "Inductance", "Resistance")
+load("@stdlib/utils.zen", "format_value")
+
+P1 = io(Net)
+P2 = io(Net)
+
+# Page 2: rated current is the lower of the heat-rating (2.8 A) and saturation (4.5 A) values.
+inductance = Inductance("22uH 20%")
+current = Current("2.8A")
+dcr = Resistance("130mOhm")
+
+Component(
+    name="YSPIA0645-220M",
+    prefix="L",
+    symbol=Symbol(library="YSPIA0645-220M.kicad_sym"),
+    footprint=File("IND-SMD_L6.5-W6.0.kicad_mod"),
+    part=Part(mpn="YSPIA0645-220M", manufacturer="YJYCOIN"),
+    pins={"1": P1, "2": P2},
+    properties={
+        "value": format_value(inductance, current),
+        "inductance": inductance,
+        "current": current,
+        "dcr": dcr,
+    },
+    type="inductor",
+)

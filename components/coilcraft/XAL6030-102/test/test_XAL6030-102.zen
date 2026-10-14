@@ -1,0 +1,27 @@
+"""Package-level facts of the XAL6030-102MEB (values from the LCSC C2938919 listing)."""
+
+INDUCTOR = Module("../XAL6030-102.zen")
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def ratings(module, inputs):
+    c = part(module)
+    check(c.type == "inductor", "type")
+    check(c.properties["inductance"].matches("1uH 20%"), "inductance")
+    check(c.properties["current"].matches("23A"), "rated current")
+    check(c.mpn == "XAL6030-102MEB", "MPN")
+    check(c.prefix == "L", "reference prefix must be L")
+    check(len(c.pins) == 2, "two terminals")
+
+
+TestBench(
+    name="XAL6030-102",
+    module=INDUCTOR,
+    test_cases={"default": {"P1": Net("A"), "P2": Net("B")}},
+    checks=[ratings],
+)

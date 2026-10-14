@@ -1,0 +1,79 @@
+"""L6981x33DR - 38 V 1.5 A synchronous buck converter, fixed 3.3 V output, SO-8. Bare part.
+
+Datasheet: ST DS13554 Rev 3 (December 2022).
+
+Variants (Table 11, p45; same SO-8 pinout and footprint):
+- L6981N33DR (default): LNM, low-noise mode. Forced PWM at every load (section 6.4.2,
+  p14). The low-side switch sinks inductor current down to IVY_SINK = 1.25 to 1.75 A
+  (Table 6, p6; section 6.6.2, p18), so the converter regulates an output that another
+  source pulls above the set point by sinking current into VIN.
+- L6981C33DR: LCM, low-consumption mode. Pulse skipping below ISKIP = 0.35 A; the low-side
+  switch turns off at zero inductor current (section 6.4.1, p10-11). It sinks current only
+  in output overvoltage (section 6.6.1, p17).
+
+Pins (Figure 2 and Table 1, p3): 1 SW, 2 BOOT, 3 VCC, 4 VOUT/FB, 5 EN/CLKIN, 6 AGND, 7 VIN,
+8 PGND. AGND and PGND are both on GND (PGND to AGND within +-0.3 V, Table 3). VOUT/FB of a
+fixed version senses the output through the internal divider and supplies the internal
+circuitry (section 6.5, p16). EN/CLKIN is VIN compatible (section 6.1, p9); CLKIN
+synchronisation (200 to 500 kHz) exists only on LNM parts (Table 6, p7).
+
+Absolute maximum ratings (Table 3, p5): VIN -0.3 to 42 V; EN -0.3 V to VIN + 0.3 V;
+SW -0.85 V to VIN + 0.3 V (-3.9 V for 0.5 ns); VOUT/FB -0.3 to 8 V; VCC -0.3 V to
+min(VIN + 0.3 V, 4 V); BOOT SW - 0.3 V to SW + 4 V; high/low-side RMS switch current 1.5 A;
+TJ -40 to 150 C.
+
+Operating values (Table 6, p6-7): VIN 3.5 to 38 V; output (VOUT/FB, fixed 3.3 V,
+TJ -40 to 125 C) 3.284 / 3.3 / 3.346 V; fSW 360 / 400 / 440 kHz; peak current limit
+2.0 to 2.3 A (no slope contribution); valley current limit 1.7 / 2.0 / 2.3 A; EN rising
+threshold 1.08 / 1.2 / 1.32 V; VCC LDO 3.0 / 3.3 / 3.6 V; VCC rising (UVLO) threshold 2.3
+to 3.3 V; soft-start 1.0 / 1.3 / 1.6 ms after an 800 us typ setup delay (section 6.2, p9);
+RDSON high side 0.175 Ohm, low side 0.125 Ohm. RthJA 65 C/W on the ST 2-layer demo board
+(Table 5, p5).
+
+Integrator-owned circuitry (Table 1, p3; Table 2, p4): BOOT to SW capacitor (100 nF typ);
+VCC ceramic capacitor >= 1 uF to GND; input capacitor (10 uF typ); inductor (33 uH in
+Table 2); output capacitor (22 uF in Table 2).
+
+Design equations a board must satisfy (section 8.4, p26-28):
+- Eq. 35: CIN,min = IOUT / (4 * VPP,max * fSW); VPP typically 5 % of VIN,max.
+- Eq. 36: dIL = (VIN - VOUT) / L * TON = VOUT / L * TOFF; ripple 20 % to 40 % of IOUT
+  (section 8.4.2); Eq. 37: Lmin = VOUT / dIL,max * (1 - Dmin) / fSW.
+- Eq. 38: 0.4 <= QP <= 1.33 (QP from Eq. 13, section 7.1) bounds the inductor value for the
+  internal slope compensation.
+- Eq. 39: IL,PK = IOUT + dIL / 2 must stay below the current limit (Table 6).
+- Eq. 42: COUT,BW,min = 4.02 / ((fSW / 10) * VOUT) = 30.5 uF at 400 kHz and 3.3 V.
+- Eq. 43: COUT,BW,max = 0.48e-3 / VOUT = 145 uF at 3.3 V: the largest output capacitance
+  the internal compensation network supports.
+"""
+
+load("@stdlib/units.zen", "Voltage")
+
+Mpn = enum("L6981N33DR", "L6981C33DR")
+mpn = config(Mpn, default="L6981N33DR", help="Fitted variant: N = low-noise (LNM), C = low-consumption (LCM)")
+
+# Table 6, p6-7: VIN operating range, fixed 3.3 V output (TJ -40 to 125 C), VCC LDO output.
+VIN = io(Power(voltage="3.5V to 38V"))
+VOUT = io(Power(voltage="3.284V to 3.346V"))
+VCC = io(Power(voltage="3.0V to 3.6V"))
+GND = io(Ground)
+EN = io(Net)
+SW = io(Net)
+BOOT = io(Net)
+
+Component(
+    name="L6981",
+    prefix="IC",
+    symbol=Symbol(library="L6981.kicad_sym", name=mpn.value),
+    footprint=File("SOIC127P600X175-8N.kicad_mod"),
+    part=Part(mpn=mpn.value, manufacturer="STMicroelectronics"),
+    pins={
+        "SW": SW,
+        "BOOT": BOOT,
+        "VCC": VCC,
+        "VOUT/FB": VOUT,
+        "EN/CLKIN": EN,
+        "AGND": GND,
+        "VIN": VIN,
+        "PGND": GND,
+    },
+)

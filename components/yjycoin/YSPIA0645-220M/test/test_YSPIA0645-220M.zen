@@ -1,0 +1,28 @@
+"""Package-level facts of the YSPIA0645-220M (YJYCOIN YSPIA0645 series)."""
+
+INDUCTOR = Module("../YSPIA0645-220M.zen")
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def ratings(module, inputs):
+    # Page 2, YSPIA0645-220 row: 22 uH, DCR 130 mOhm max, heat rating 2.8 A, saturation 4.5 A.
+    c = part(module)
+    check(c.type == "inductor", "type")
+    check(c.properties["inductance"].matches("22uH 20%"), "inductance")
+    check(c.properties["current"].matches("2.8A"), "rated current (lower of heat rating and saturation)")
+    check(c.properties["dcr"].matches("130mOhm"), "DCR max")
+    check(c.prefix == "L", "reference prefix must be L")
+    check(len(c.pins) == 2, "two terminals")
+
+
+TestBench(
+    name="YSPIA0645-220M",
+    module=INDUCTOR,
+    test_cases={"default": {"P1": Net("A"), "P2": Net("B")}},
+    checks=[ratings],
+)
