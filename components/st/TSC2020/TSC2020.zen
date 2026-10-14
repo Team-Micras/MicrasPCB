@@ -1,0 +1,73 @@
+"""TSC2020 - 100 V bidirectional current-sense amplifier, gain 20 V/V, MiniSO8.
+
+Datasheet: ST DS14393 Rev 7 (April 2025), TSC2020/TSC2021/TSC2022 (LCSC
+C27345609 copy). Orderable part: TSC2020IYST = gain 20, MiniSO8, AEC-Q100
+(Table 9, p.42).
+
+Package: MiniSO8 (MSOP-8). Pin numbers follow the SO8/MiniSO8 column of Table 1
+(p.2): 1 IN-, 2 GND, 3 VREF2, 4 NC, 5 OUT, 6 VCC, 7 VREF1, 8 IN+. The TSSOP8
+variants (TSC2020IPT, TSC2020IYPT) number the same functions differently, so
+they do not fit this symbol. NC (pin 4) is typed no_connect and left open.
+
+Absolute maximum ratings (Table 2, p.3):
+- VCC -0.3 to 5.8 V.
+- VICM (IN+, IN-) -10 to 105 V; differential IN+ - IN- +-70 V.
+- VREF1, VREF2, OUT: GND - 0.3 V to VCC + 0.3 V.
+- TJ 150 C. RthJA MiniSO8 190 C/W.
+
+Operating conditions (Table 3, p.3):
+- VCC 2.7 to 5.5 V.
+- VICM -4 to +100 V, independent of VCC.
+- VREF (output offset adjustment) 0 to VCC.
+- Ambient -40 to 125 C.
+
+Electrical characteristics (Table 4, p.4-5, VCC 2.7 V, VICM 48 V):
+- Gain G = 20 V/V; gain error 0.3 % max (0.335 % over temperature), measured
+  for VOUT from 100 mV to VCC - 100 mV. Linear Vsense range with Eg <= 0.3 %:
+  123.6 mV.
+- ICC 1.7 mA typ, 2.3 mA max. Input bias current 100-240 uA per input.
+- Offset 150 uV max (VICM 12 V), 400 uV max (VICM 48 V).
+- VREF gain RT 0.5 V/V per VREF pin; with one VREF pin on VCC and the other
+  on GND the midscale accuracy is 0.2 %.
+- Maximum capacitive load on OUT 1 nF (no sustained oscillation); bandwidth
+  350 kHz min; slew rate 1 V/us min over temperature.
+
+Transfer function (section 5.4, equation 3, Figure 56 "split supply"):
+VOUT = (IN+ - IN-) x 20 + (VREF1 + VREF2) / 2. VREF1 = VCC with VREF2 = GND
+gives a bidirectional output centred on VCC/2, ratiometric to VCC.
+
+Required external parts (integrator-owned):
+- VCC: 100 nF bypass capacitor between VCC and GND, as close as possible to
+  the supply pins (section 5.11, p.31).
+- VREF1/VREF2: driven from a low-impedance source; a 10 nF bypass capacitor
+  is optional (section 5.11). A resistor divider must be buffered (Figure 58).
+- Input filtering is not required; if used, filter the output rather than the
+  inputs, and keep any input resistor at 10 ohm or lower (section 5.8).
+- Shunts below 1 ohm use a 4-wire (Kelvin) connection, with the IN+/IN-
+  traces routed as a matched pair without vias (section 5.12).
+"""
+
+VCC = io(Power(voltage="2.7V to 5.5V"))
+GND = io(Ground)
+IN_P = io(Net)
+IN_N = io(Net)
+VREF1 = io(Net)
+VREF2 = io(Net)
+OUT = io(Net)
+
+Component(
+    name="TSC2020",
+    symbol=Symbol(library="TSC2020.kicad_sym"),
+    footprint=File("SOP65P490X110-8N.kicad_mod"),
+    part=Part(mpn="TSC2020IYST", manufacturer="STMicroelectronics"),
+    prefix="IC",
+    pins={
+        "IN-": IN_N,
+        "GND": GND,
+        "VREF2": VREF2,
+        "OUT": OUT,
+        "VCC": VCC,
+        "VREF1": VREF1,
+        "IN+": IN_P,
+    },
+)

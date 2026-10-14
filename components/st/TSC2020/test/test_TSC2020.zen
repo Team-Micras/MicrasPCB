@@ -1,0 +1,68 @@
+"""Package-level facts of the TSC2020IYST (ST DS14393 Rev 7)."""
+
+TSC2020 = Module("../TSC2020.zen")
+
+VCC = Power("VCC", voltage="3.3V")
+GND = Ground("GND")
+
+
+def part(module):
+    return module.components()["TSC2020"]
+
+
+def net_of(module, pin):
+    for name, ports in module.nets().items():
+        for path, p in ports:
+            if path.endswith(".TSC2020") and p == pin:
+                return name
+    error("TSC2020." + pin + " is not connected")
+
+
+def orderable_part(module, inputs):
+    # Table 9: TSC2020IYST = gain 20 V/V, MiniSO8, AEC-Q100
+    c = part(module)
+    check(c.mpn == "TSC2020IYST", "MPN must be TSC2020IYST, got " + str(c.mpn))
+    check(c.manufacturer == "STMicroelectronics", "manufacturer must be STMicroelectronics")
+    check(c.prefix == "IC", "reference prefix must be IC")
+
+
+def miniso8_pins(module, inputs):
+    # Table 1, SO8/MiniSO8 column
+    expected = ["IN-", "GND", "VREF2", "NC", "OUT", "VCC", "VREF1", "IN+"]
+    pins = part(module).pins
+    check(sorted(pins.keys()) == sorted(expected), "pin names differ from Table 1: " + str(sorted(pins.keys())))
+
+
+def nc_left_open(module, inputs):
+    # Table 1: pin 4 is not connected; the no_connect symbol pin keeps it alone on its own net
+    check(len(module.nets()[net_of(module, "NC")]) == 1, "NC must not share a net with anything")
+
+
+def inputs_polarity(module, inputs):
+    # Equation 3: VOUT = (IN+ - IN-) x G + (VREF1 + VREF2) / 2; IN_P is IN+, IN_N is IN-
+    check(net_of(module, "IN+") == "SENSE_P", "IN_P must drive IN+")
+    check(net_of(module, "IN-") == "SENSE_N", "IN_N must drive IN-")
+
+
+def split_supply_reference(module, inputs):
+    # Figure 56: VREF1 = VCC, VREF2 = GND gives a VCC/2 midscale
+    check(net_of(module, "VREF1") == "VCC", "VREF1 must be on VCC in the split-supply case")
+    check(net_of(module, "VREF2") == "GND", "VREF2 must be on GND in the split-supply case")
+
+
+TestBench(
+    name="TSC2020_split_supply",
+    module=TSC2020,
+    test_cases={
+        "split_supply": {
+            "VCC": VCC,
+            "GND": GND,
+            "IN_P": Net("SENSE_P"),
+            "IN_N": Net("SENSE_N"),
+            "VREF1": VCC,
+            "VREF2": GND,
+            "OUT": Net("OUT"),
+        },
+    },
+    checks=[orderable_part, miniso8_pins, nc_left_open, inputs_polarity, split_supply_reference],
+)
