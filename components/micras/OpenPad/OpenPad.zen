@@ -1,0 +1,20 @@
+"""Open pad: two bare 0.8 mm square SMD pads, 1.5 mm apart, that a person bridges by hand.
+
+Footprint from the Altium MicrasBluetoothModuleLib "OPENPAD" (designator OP1 on the Micras
+Bluetooth module): pads 1 and 2 with mask and paste openings, so reflow tins them, and two
+silkscreen arcs around them. No part is placed: the pad pair is excluded from the BOM and the
+placement file.
+"""
+
+P1 = io(Net)
+P2 = io(Net)
+
+Component(
+    name="OP",
+    prefix="OP",
+    symbol=Symbol(library="OpenPad.kicad_sym"),
+    footprint=File("OpenPad.kicad_mod"),
+    pins={"1": P1, "2": P2},
+    skip_bom=True,
+    skip_pos=True,
+)

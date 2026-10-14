@@ -1,0 +1,61 @@
+"""Contact table of the 918-118A2021Y40006 drawing (rev A0): contacts on the right ios."""
+
+load("@stdlib/interfaces.zen", "Usb2")
+
+PLUG = Module("../918-118A2021Y40006.zen")
+
+
+def part(module):
+    return module.components()["PLUG"]
+
+
+def pins_on(module, net):
+    return sorted([pin for _, pin in module.nets()[net]])
+
+
+def contacts(module, inputs):
+    pins = part(module).pins
+    expect = {
+        "VBUS": "VBUS",
+        "GND": "GND",
+        "SHELL": "SHELL",
+        "CC1": "CC1",
+        "CC2": "CC2",
+        "SBU1": "SBU1",
+        "SBU2": "SBU2",
+        "D+": "USB_D_P",
+        "D-": "USB_D_N",
+    }
+    for pin, net in expect.items():
+        check(pins[pin].name == net, pin + " must be on " + net + ", got " + pins[pin].name)
+
+
+def orientation_pins_separate(module, inputs):
+    # One CC and one SBU contact per plug orientation: they stay separate ios.
+    for net in ["CC1", "CC2", "SBU1", "SBU2"]:
+        check(pins_on(module, net) == [net], net + " must be its own io")
+
+
+def identity(module, inputs):
+    c = part(module)
+    check(c.mpn == "918-118A2021Y40006", "MPN")
+    check(c.prefix == "USB", "designator prefix must be USB")
+
+
+TestBench(
+    name="918-118A2021Y40006_contacts",
+    module=PLUG,
+    test_cases={
+        "default": {
+            "VBUS": Net("VBUS"),
+            "GND": Ground("GND"),
+            "SHELL": Net("SHELL"),
+            "CC1": Net("CC1"),
+            "CC2": Net("CC2"),
+            "SBU1": Net("SBU1"),
+            "SBU2": Net("SBU2"),
+            "USB": Usb2("USB"),
+        },
+    },
+    checks=[contacts, orientation_pins_separate, identity],
+)
