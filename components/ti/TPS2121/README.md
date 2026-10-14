@@ -31,7 +31,8 @@ Reference prefix `U`.
 
 | Pad | Name | Symbol type | io |
 |---|---|---|---|
-| 1, 8 | OUT | power_out | `OUT` |
+| 1 | OUT | power_out | `OUT` |
+| 8 | OUT | passive | `OUT` |
 | 2 | IN2 | power_in | `IN2` |
 | 3 | CP2 | input | `CP2` |
 | 4 | OV2 | input | `OV2` |
@@ -42,6 +43,9 @@ Reference prefix `U`.
 | 10 | ILM | passive | `ILM` |
 | 11 | SS | passive | `SS` |
 | 12 | GND | power_in | `GND` |
+
+Pad 8 is the second OUT pad: typed passive, so KiCad's ERC does not see two power outputs
+driving one net.
 
 ## Footprint
 
