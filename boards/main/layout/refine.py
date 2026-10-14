@@ -268,6 +268,10 @@ def silkscreen() -> list[str]:
     """Every reference designator on F.Silkscreen at REF_SIZE / REF_STROKE, clear of pads, of the
     other silkscreen and of the board edge: on its previous board's spot where that is free, else
     the nearest free spot off every part's body, else the nearest free spot. Returns the parts without a free spot (their designator stays hidden)."""
+    # SW1's "ON" marks take the 0.15 mm stroke of its package (components/kangshen/DSHP04TJGER)
+    for g in fp("SW1").GraphicalItems():
+        if g.GetClass() == "PCB_TEXT" and g.GetText() == "ON":
+            g.SetTextThickness(fx.mm(REF_STROKE))
     space = SilkSpace(fx.B)
     courtyards = []
     for f in fx.B.GetFootprints():
