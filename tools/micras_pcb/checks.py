@@ -26,11 +26,14 @@ PDK = ROOT / "rules" / "jlcpcb-pdk.toml"
 SEVERITIES = ROOT / "rules" / "kicad-severities.toml"
 
 
-def _with_severities(project: dict) -> dict:
+def _with_severities(project: dict, board_name: str) -> dict:
+    """The reviewed rule severities, and the board's design-rule constraints that Zener cannot
+    set ([design.<board>], written into the project's board.design_settings.rules)."""
     sev = tomllib.loads(SEVERITIES.read_text())
     project.setdefault("erc", {}).setdefault("rule_severities", {}).update(sev.get("erc", {}))
     board = project.setdefault("board", {}).setdefault("design_settings", {})
     board.setdefault("rule_severities", {}).update(sev.get("drc", {}))
+    board.setdefault("rules", {}).update(sev.get("design", {}).get(board_name, {}))
     return project
 
 
@@ -39,14 +42,14 @@ def rules(board: str, check: bool) -> int:
     dst = layout_dir(board) / f"{board}.kicad_dru"
     pro = layout_dir(board) / f"{board}.kicad_pro"
     text = pro.read_text()
-    want = json.dumps(_with_severities(json.loads(text)), indent=2) + "\n"
+    want = json.dumps(_with_severities(json.loads(text), board), indent=2) + "\n"
     if check:
         status = 0
         if not dst.exists() or not filecmp.cmp(RULES, dst, shallow=False):
             print(f"{dst.relative_to(ROOT)} differs from rules/jlcpcb.kicad_dru: run `micras-pcb rules {board}`")
             status = 1
         if text != want:
-            print(f"{pro.relative_to(ROOT)} severities differ from rules/kicad-severities.toml: run `micras-pcb rules`")
+            print(f"{pro.relative_to(ROOT)} differs from rules/kicad-severities.toml: run `micras-pcb rules`")
             status = 1
         return status
     shutil.copyfile(RULES, dst)
