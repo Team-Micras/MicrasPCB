@@ -1,0 +1,29 @@
+"""FUET-5030 package facts (BZ-DS p.2): + on pad 1, - on pad 2, pad 3 left without a net."""
+
+Buzzer = Module("../FUET-5030.zen")
+
+
+def polarity(module, inputs):
+    got = {}
+    for net, ports in module.nets().items():
+        for path, pin in ports:
+            if path.endswith(".BUZZER"):
+                got[pin] = net
+    check(got.get("+") == "BZ_POS", "+ terminal on POS")
+    check(got.get("-") == "BZ_NEG", "- terminal on NEG")
+    # pad 3 is no_connect: it never joins a signal net
+    check(got.get("NC") not in ("BZ_POS", "BZ_NEG"), "pad 3 must stay off the coil nets")
+
+
+def sourcing(module, inputs):
+    bz = [c for path, c in module.components().items() if path.endswith("BUZZER")][0]
+    check(bz.mpn == "FUET-5030", "MPN")
+    check(bz.prefix == "BZ", "reference prefix BZ")
+
+
+TestBench(
+    name="FUET5030",
+    module=Buzzer,
+    test_cases={"default": {"POS": Net("BZ_POS"), "NEG": Net("BZ_NEG")}},
+    checks=[polarity, sourcing],
+)

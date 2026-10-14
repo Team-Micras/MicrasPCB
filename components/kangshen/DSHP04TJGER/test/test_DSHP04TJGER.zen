@@ -1,0 +1,42 @@
+"""DSHP04TJGER package facts: four independent switches, each between its A and B pins."""
+
+DSHP04TJGER = Module("../DSHP04TJGER.zen")
+
+
+def every_switch_wired(module, inputs):
+    got = {}
+    for net, ports in module.nets().items():
+        for path, pin in ports:
+            if path.endswith(".DIP"):
+                got[pin] = net
+    for n in range(1, 5):
+        a, b = "S{}_A".format(n), "S{}_B".format(n)
+        check(got.get(a) == "SW{}".format(n), a + " on switch " + str(n) + "'s line")
+        check(got.get(b) == "GND", b + " on the common side")
+
+
+def sourcing(module, inputs):
+    dip = [c for path, c in module.components().items() if path.endswith("DIP")][0]
+    check(dip.mpn == "DSHP04TJGER", "MPN")
+    check(dip.prefix == "SW", "reference prefix SW")
+
+
+GND = Ground("GND")
+
+TestBench(
+    name="DSHP04TJGER_to_GND",
+    module=DSHP04TJGER,
+    test_cases={
+        "four_inputs_to_ground": {
+            "S1_A": Net("SW1"),
+            "S2_A": Net("SW2"),
+            "S3_A": Net("SW3"),
+            "S4_A": Net("SW4"),
+            "S1_B": GND,
+            "S2_B": GND,
+            "S3_B": GND,
+            "S4_B": GND,
+        },
+    },
+    checks=[every_switch_wired, sourcing],
+)

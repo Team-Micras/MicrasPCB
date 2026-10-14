@@ -1,0 +1,40 @@
+"""FUET-5030 - 4 kHz passive electromagnetic buzzer, 5.0 x 5.0 x 3.0 mm SMD.
+
+Datasheet: Fusheng Electronics "Specification of product" FUET-5030, drawing
+FST-5030 (2018-08-28), LCSC C391031 ("BZ-DS").
+
+Specification (BZ-DS p.2, table 1): oscillation frequency 4000 Hz with a 1/2-duty
+square wave; operating voltage 2-4 Vo-p; rated voltage 3 Vo-p; current 110 mA
+max at the rated voltage; sound pressure 80 dB min at 10 cm at the rated
+voltage; coil resistance 12 +/- 3 ohm; -20 to +70 C operating.
+
+Drive (BZ-DS p.4, "Recommend Driving Circuit"): + to the supply, - to a
+low-side transistor driven into saturation by a 1/2-duty square wave (180 ohm
+base resistor, hFE >= 200), and a diode across the coil (anode on -, cathode
+on +). The switch and the diode belong to the board circuit.
+Reflow (p.4): 260 C peak for 10 s max, twice at most; hand soldering 350 C
+within 5 s.
+
+Pins (BZ-DS p.2, appearance drawing): seen from the top, "+POLARITY" is the
+bottom-left terminal and "-POLARITY" the bottom-right one; the bottom view shows
+a third pad in the remaining corner. Footprint (LCSC/EasyEDA BUZ-SMD_FST-5030,
+Altium MicrasLib): pad 1 (-1.75, +1.75) = +, pad 2 (+1.75, +1.75) = -,
+pad 3 (-1.75, -1.75) = third pad. BZ-DS states no electrical function for
+pad 3, so the symbol types it no_connect: it is soldered as a mechanical anchor
+and left without a net.
+"""
+
+POS = io(Net)
+NEG = io(Net)
+
+Component(
+    name="BUZZER",
+    prefix="BZ",
+    symbol=Symbol(library="FUET-5030.kicad_sym"),
+    footprint=File("BUZ-SMD_FST-5030.kicad_mod"),
+    part=Part(mpn="FUET-5030", manufacturer="FUET"),
+    pins={
+        "+": POS,
+        "-": NEG,
+    },
+)

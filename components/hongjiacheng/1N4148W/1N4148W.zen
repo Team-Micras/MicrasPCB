@@ -1,0 +1,40 @@
+"""1N4148W - fast switching diode, 100 V, 150 mA, SOD-123.
+
+Datasheet: Zhuhai Hongjiacheng Technology (R+O) 1N4148W Rev 2.0, LCSC C7420318
+("DIO-DS").
+
+Maximum ratings (DIO-DS p.1, Ta = 25 C): VRRM 100 V, VRMS 75 V, IF(AV) 150 mA,
+IFRM 300 mA, IFSM 2.0 A at tp = 1 us and 0.5 A at tp = 1 s, Pd 400 mW,
+Tj -55 to +150 C, RthJA 315 C/W.
+Characteristics (DIO-DS p.2): VF max 0.715 V at 1 mA, 0.855 V at 10 mA, 1.0 V
+at 50 mA, 1.25 V at 150 mA; IR max 25 nA at 20 V, 1.0 uA at 75 V; CT 4.0 pF max
+at 0 V; trr 4.0 ns max (IF = IR = 10 mA, Irr = 0.1 IR, RL = 100 ohm).
+Polarity (p.1): the cathode line marks the cathode end.
+
+Pins: pad 1 anode (A), pad 2 cathode (K). The footprint (LCSC/EasyEDA
+SOD-123_L2.7-W1.6-LS3.7-FD, Altium MicrasLib) marks the cathode at pad 2 with
+its silkscreen arrow and bar, and its STEP model has the cathode band at pad 2.
+Pads 0.88 x 0.96 mm at x = +/-1.61 mm (2.34 mm gap). DIO-DS p.3 "Suggested Pad
+Layout" asks for 0.91 mm min pad length (J), 2.36 mm max gap (K) and 1.22 mm
+min pad width (M): the gap fits, the pads are 0.03 mm shorter and 0.26 mm
+narrower than suggested.
+
+This is the stdlib Rectifier generic's part, packaged because the generic
+cannot carry an MPN and numbers the KiCad SOD-123 footprint cathode-first
+(pad 1 = K), the reverse of this footprint.
+"""
+
+A = io(Net)
+K = io(Net)
+
+Component(
+    name="D",
+    prefix="D",
+    symbol=Symbol(library="1N4148W.kicad_sym"),
+    footprint=File("SOD-123_L2.7-W1.6-LS3.7-FD.kicad_mod"),
+    part=Part(mpn="1N4148W", manufacturer="Hongjiacheng"),
+    pins={
+        "A": A,
+        "K": K,
+    },
+)

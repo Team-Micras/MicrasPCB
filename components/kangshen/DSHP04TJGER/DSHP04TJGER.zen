@@ -1,0 +1,53 @@
+"""DSHP04TJGER - 4-position SPST DIP switch, SMD, 1.27 mm pitch, 6.7 x 5.4 mm body.
+
+Datasheet: Kangshen DSHP04TJGER drawing DSHP-004-J-A, Rev A (2017-03-24),
+LCSC C3293150 ("DIP-DS"). Part number key (DIP-DS note 4): 04 positions,
+T = low actuator with sealing tape, J = J-lead, G = gold-plated terminals,
+E = 3 u" gold on the contacts and 1-2 u" on the solder tails, R = reel.
+
+Ratings (DIP-DS notes 1 and 3): switching 25 mA at 24 VDC, non-switching
+100 mA at 50 VDC, contact resistance 50 mohm initial (100 mohm after life),
+insulation 100 Mohm min at 100 VDC, 300 VAC for 60 s dielectric, 5 pF max
+between switches, 1000 cycles mechanical life, -30 to +85 C operating,
+260 C for 3-5 s soldering.
+
+Pins: each switch connects one pad on one row to the facing pad on the other
+row (DIP-DS "[Schematic]"; the drawing numbers the pins in pairs, switch n
+between its pins 2n-1 and 2n). The footprint (LCSC/EasyEDA
+SW-SMD_8P-L6.7-W5.4-P1.27-LS5.6, Altium MicrasLib) numbers the rows instead:
+pads 1-4 on one row, 5-8 on the other, pad 1 facing pad 8. Switch n is
+therefore between pads n and 9-n; the symbol names them Sn_A (pad n) and Sn_B
+(pad 9-n). Which body marking (1-4) sits over which pad pair is not stated in
+DIP-DS; the footprint's order is assumed to follow it.
+
+Footprint pads are 0.762 x 1.5 mm at y = +/-2.825 mm (2.075-3.575 mm from the
+centre line). DIP-DS "[P.C.B. LAYOUT]" gives 0.76 mm wide pads spanning
+2.60 mm (inner) to 7.90 mm (outer), i.e. 1.30-3.95 mm from the centre line.
+"""
+
+S1_A = io(Net)
+S1_B = io(Net)
+S2_A = io(Net)
+S2_B = io(Net)
+S3_A = io(Net)
+S3_B = io(Net)
+S4_A = io(Net)
+S4_B = io(Net)
+
+Component(
+    name="DIP",
+    prefix="SW",
+    symbol=Symbol(library="DSHP04TJGER.kicad_sym"),
+    footprint=File("SW-SMD_8P-L6.7-W5.4-P1.27-LS5.6.kicad_mod"),
+    part=Part(mpn="DSHP04TJGER", manufacturer="Kangshen"),
+    pins={
+        "S1_A": S1_A,
+        "S1_B": S1_B,
+        "S2_A": S2_A,
+        "S2_B": S2_B,
+        "S3_A": S3_A,
+        "S3_B": S3_B,
+        "S4_A": S4_A,
+        "S4_B": S4_B,
+    },
+)

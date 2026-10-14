@@ -1,0 +1,32 @@
+"""GT-TC048B-H025-L1 package facts (drawing "CIRCUIT DIAGRAM").
+
+Pads 1-2 are joined inside the switch and so are pads 3-4: the symbol gives
+each pair one pin name (A = pads 1, 2; B = pads 3, 4), so the two pads of a
+side always land on one net and the switch is the only path from A to B.
+"""
+
+Switch = Module("../GT-TC048B-H025-L1.zen")
+
+
+def one_net_per_side(module, inputs):
+    sides = {}
+    for net, ports in module.nets().items():
+        for path, pin in ports:
+            if path.endswith(".SW"):
+                sides.setdefault(pin, []).append(net)
+    check(sorted(sides.keys()) == ["A", "B"], "two sides, A (pads 1-2) and B (pads 3-4): " + str(sides))
+    check(sides["A"] == ["BUTTON"] and sides["B"] == ["GND"], "each side on exactly one net: " + str(sides))
+
+
+def sourcing(module, inputs):
+    sw = [c for path, c in module.components().items() if path.endswith("SW")][0]
+    check(sw.mpn == "GT-TC048B-H025-L1", "MPN")
+    check(sw.prefix == "SW", "reference prefix SW")
+
+
+TestBench(
+    name="GT_TC048_pushbutton",
+    module=Switch,
+    test_cases={"to_ground": {"A": Net("BUTTON"), "B": Ground("GND")}},
+    checks=[one_net_per_side, sourcing],
+)

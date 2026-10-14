@@ -1,0 +1,27 @@
+"""1N4148W package facts: anode and cathode by name, sourced part (DIO-DS Rev 2.0)."""
+
+Diode = Module("../1N4148W.zen")
+
+
+def flyback_orientation(module, inputs):
+    # A coil freewheel diode: anode on the switched end, cathode on the supply.
+    got = {}
+    for net, ports in module.nets().items():
+        for path, pin in ports:
+            if path.endswith(".D"):
+                got[pin] = net
+    check(got == {"A": "SW_NODE", "K": "VSUPPLY"}, "pinout changed: " + str(got))
+
+
+def sourcing(module, inputs):
+    d = [c for path, c in module.components().items() if path.endswith("D")][0]
+    check(d.mpn == "1N4148W", "MPN")
+    check(d.prefix == "D", "reference prefix D")
+
+
+TestBench(
+    name="1N4148W_flyback",
+    module=Diode,
+    test_cases={"default": {"A": Net("SW_NODE"), "K": Power("VSUPPLY", voltage="3.3V")}},
+    checks=[flyback_orientation, sourcing],
+)

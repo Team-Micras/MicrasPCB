@@ -1,0 +1,72 @@
+"""Micras wall sensor: an SFH 4550 IR LED stacked over a TPS601A phototransistor, through-hole.
+
+A custom part: the two leaded devices are bent 90 degrees to lie flat and look
+forward over the board edge, the LED (pads 1-2) above the phototransistor
+(pads 3-4). Footprint and STEP (WALL_SENSOR_STACKED) from the Altium MicrasLib.
+
+Pins (pad = symbol pin):
+| Pad | Pin | Device |
+|---|---|---|
+| 1 | LED_A | SFH 4550 anode |
+| 2 | LED_K | SFH 4550 cathode (the package's marked lead, SFH-DS p.10) |
+| 3 | PT_C | TPS601A collector (pin 2 of the TPS601A) |
+| 4 | PT_E | TPS601A emitter (pin 1 of the TPS601A) |
+
+The footprint's pad numbers are not the manufacturers' lead numbers: the SFH
+4550 recommended solder pad calls the cathode "Pad 1" (SFH-DS p.11), and the
+TPS601A numbers its emitter 1 and collector 2 (TPS-DS p.1, "Pin Connection").
+Fit each lead to the pad named above.
+
+SFH 4550, 850 nm IR emitter, radial T1 3/4 (ams-OSRAM SFH 4550 datasheet
+Version 1.9, 2022-08-09, "SFH-DS"):
+- Maximum ratings (p.4): IF 100 mA DC; IF pulse 1 A at tp <= 400 us, D <= 0.005;
+  VR 5 V; Ptot 180 mW; Tj 100 C; -40 to +100 C operating.
+- Characteristics (p.5): VF 1.5 V typ, 1.7 V max at 100 mA (tp = 20 ms);
+  2.4 V typ, 2.9 V max at 1 A (tp = 100 us); half angle +/-3 deg;
+  tr = tf = 12 ns; RthJA 450 K/W.
+- Pulse handling: "Permissible Pulse Handling Capability" chart (p.8) gives the
+  allowed pulse current against tp and duty cycle.
+
+TPS601A(F), NPN phototransistor, TO-18 metal can (Toshiba TPS601A(F) datasheet,
+2004-02-06, "TPS-DS"):
+- Maximum ratings (p.1): VCEO 40 V, VECO 5 V, IC 50 mA, PC 150 mW
+  (-1.2 mW/C above 25 C), -40 to +125 C operating.
+- Characteristics (p.2): light current IL at VCE = 3 V, E = 0.1 mW/cm2:
+  100 uA min (no rank), A 100-300 uA, B 200-600 uA, C 400-1200 uA;
+  VCE(sat) 0.4 V max at IC = 30 uA; tr = tf = 2 us typ at VCC = 5 V,
+  IC = 10 mA, RL = 100 ohm; peak sensitivity 800 nm; half angle +/-10 deg.
+- Lead forming (p.2, Precaution 2): bend at least 2 mm from the body, before
+  soldering.
+
+The emitter series resistor, the LED switch and the phototransistor load belong
+to the board circuit.
+
+Sourcing: the parts are bought separately (SFH 4550 from ams-OSRAM, TPS601A(F)
+from Toshiba) and hand-soldered after the leads are formed, so the component is
+excluded from the JLCPCB BOM and placement file (skip_bom). Each fitted sensor
+takes one SFH 4550 and one TPS601A(F).
+"""
+
+LED_A = io(Net)
+LED_K = io(Net)
+PT_C = io(Net)
+PT_E = io(Net)
+
+Component(
+    name="WALL",
+    prefix="W",
+    symbol=Symbol(library="WallSensor.kicad_sym"),
+    footprint=File("WallSensor_SFH4550_TPS601A_THT.kicad_mod"),
+    pins={
+        "LED_A": LED_A,
+        "LED_K": LED_K,
+        "PT_C": PT_C,
+        "PT_E": PT_E,
+    },
+    properties={
+        "emitter": "SFH 4550 (ams-OSRAM)",
+        "detector": "TPS601A(F) (Toshiba)",
+        "assembly": "hand-soldered, leads formed",
+    },
+    skip_bom=True,
+)

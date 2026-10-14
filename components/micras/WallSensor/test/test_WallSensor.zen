@@ -1,0 +1,36 @@
+"""Wall sensor package facts: pin functions and the hand-assembly BOM decision."""
+
+WallSensor = Module("../WallSensor.zen")
+
+
+def pins_by_function(module, inputs):
+    got = {}
+    for net, ports in module.nets().items():
+        for path, pin in ports:
+            if path.endswith(".WALL"):
+                got[pin] = net
+    # Pads 1-2: SFH 4550 anode/cathode; pads 3-4: TPS601A collector/emitter.
+    check(got == {"LED_A": "LED_A", "LED_K": "LED_K", "PT_C": "PT_C", "PT_E": "PT_E"}, "pinout changed: " + str(got))
+
+
+def hand_assembled(module, inputs):
+    wall = [c for path, c in module.components().items() if path.endswith("WALL")][0]
+    check(wall.skip_bom, "hand-soldered THT pair: not in the JLCPCB BOM")
+    check(wall.prefix == "W", "the wall sensor keeps the W reference prefix")
+    check("SFH 4550" in wall.properties["emitter"], "emitter is an SFH 4550")
+    check("TPS601A" in wall.properties["detector"], "detector is a TPS601A")
+
+
+TestBench(
+    name="WallSensor_pins",
+    module=WallSensor,
+    test_cases={
+        "default": {
+            "LED_A": Net("LED_A"),
+            "LED_K": Net("LED_K"),
+            "PT_C": Net("PT_C"),
+            "PT_E": Net("PT_E"),
+        },
+    },
+    checks=[pins_by_function, hand_assembled],
+)
