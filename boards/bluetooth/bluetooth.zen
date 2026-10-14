@@ -43,6 +43,7 @@ load(
     "Material",
     "NetClass",
     "PredefinedSizes",
+    "SolderMask",
     "Stackup",
     "ViaDimension",
 )
@@ -145,10 +146,12 @@ Led(
 OpenPad(name="OP1", P1=KEY, P2=GND)
 
 # Stackup and rules from the Altium MicrasBluetoothModule.PcbDoc (layer stack and design rules):
-# 2 layers, 35 um copper on a 0.7 mm FR-4 core (Dk 4.5), 10 um mask per side, 0.79 mm. Rules (the
+# 2 layers, 35 um copper on a 0.7 mm FR-4 core (Dk 4.5). Zener writes a 10 um solder mask a side
+# (not configurable): 0.79 mm; Altium's 0.5 mil (12.7 um) resist makes it 0.7954 mm. Rules (the
 # Altium JLCPCB rule set): 0.1 mm clearance, 10 mil (0.254 mm) track, 0.4 mm / 0.3 mm minimum via,
-# 0.3 mm minimum hole, 0.254 mm hole to hole, 0.2 mm copper to board edge. The routing uses
-# 0.254 mm tracks and 0.6 / 0.3 mm and 0.5 / 0.3 mm vias.
+# 0.3 mm minimum hole, 0.254 mm hole to hole, 0.2 mm copper to board edge, 0.02 mm solder mask
+# expansion (rule SolderMaskExpansion, 0.7874 mil). The routing uses 0.254 mm tracks and
+# 0.6 / 0.3 mm and 0.5 / 0.3 mm vias.
 Board(
     name="bluetooth",
     path="layout",
@@ -164,6 +167,7 @@ Board(
                     copper_to_edge_clearance=0.2,
                 ),
                 holes=Holes(minimum_through_hole=0.3, hole_to_hole_clearance=0.254),
+                solder_mask=SolderMask(clearance=0.02),
             ),
             predefined_sizes=PredefinedSizes(
                 track_widths=[0.254],

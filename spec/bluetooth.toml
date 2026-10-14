@@ -19,7 +19,7 @@
 # Every value is {value, source}, as in micras-simulation's robot.toml.
 
 [pcb]
-thickness = { value = 0.79, source = "Altium MicrasBluetoothModule.PcbDoc layer stack: 0.7 mm FR-4 core, 2 x 35 um copper, 2 x 10 um mask (boards/bluetooth/previous/board.json board.thickness)" }
+thickness = { value = 0.79, source = "Altium MicrasBluetoothModule.PcbDoc layer stack: 0.7 mm FR-4 core, 2 x 35 um copper, 2 x 10 um mask in the KiCad stackup (Altium's 12.7 um resist gives 0.7954 mm); ordered as JLCPCB's 0.8 mm board (boards/bluetooth/previous/board.json board.thickness)" }
 copper_layers = { value = 2, source = "Altium MicrasBluetoothModule.PcbDoc layer stack" }
 
 [kicad]
