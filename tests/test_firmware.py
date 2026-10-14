@@ -79,8 +79,8 @@ def test_the_board_uses_no_pin_the_firmware_leaves_unconfigured(wired):
 
 
 def test_net_names_follow_the_firmware_labels(wired):
-    # The board's net names are the firmware's pin labels (boards/main/README.md), so a reader
-    # can follow a signal from the code to the copper.
+    # The board's net names are the firmware's pin labels (boards/main/layout/README.md), so a
+    # reader can follow a signal from the code to the copper.
     wrong = [
         f"{pin}: board net {wired.get(pin)!r}, firmware label {f['label']!r}"
         for pin, f in FW["pins"].items()

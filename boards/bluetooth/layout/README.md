@@ -7,20 +7,23 @@ receptacle U2 and stands upright behind the robot, and gives the firmware a wire
 
 The circuit replicates the MicrasBluetoothModule Altium design part for part: every part keeps its
 designator, and `micras-pcb previous compare bluetooth` checks the netlist against that design's
-connectivity ([`previous/board.json`](previous/board.json)); [`changes.toml`](changes.toml)
+connectivity ([`previous/board.json`](../previous/board.json)); [`changes.toml`](../changes.toml)
 declares no change.
 
 ## Files
 
+The board files are in `boards/bluetooth/` (this README sits in its `layout/` folder);
+`spec/` is at the repository root.
+
 | File | Contents |
 |---|---|
-| [`bluetooth.zen`](bluetooth.zen) | the circuit (U1 HM-19, USB1 plug, R1-R3, C1, C2, D1, OP1), board stackup and rules |
-| [`erc.toml`](erc.toml) | 3V3 and GND come from the main board through the plug (the PWR_FLAG role for ERC) |
-| [`changes.toml`](changes.toml) | connectivity changes against the previous revision: none |
-| [`test/`](test) | `pcb test` bench of the circuit: HM-19 application circuit, LED current, USB-C SBU, RESETB |
-| [`layout/`](layout) | KiCad project; the `.kicad_pcb` holds placement and routing |
-| [`previous/`](previous) | the previous revision's snapshot and [`transfer_layout.py`](previous/transfer_layout.py), which builds the layout from it |
-| [`spec/bluetooth.toml`](../../spec/bluetooth.toml) | mechanics: thickness, outline extents, plug and HM-19 positions, mating with the main board's U2 |
+| [`bluetooth.zen`](../bluetooth.zen) | the circuit (U1 HM-19, USB1 plug, R1-R3, C1, C2, D1, OP1), board stackup and rules |
+| [`erc.toml`](../erc.toml) | 3V3 and GND come from the main board through the plug (the PWR_FLAG role for ERC) |
+| [`changes.toml`](../changes.toml) | connectivity changes against the previous revision: none |
+| [`test/`](../test) | `pcb test` bench of the circuit: HM-19 application circuit, LED current, USB-C SBU, RESETB |
+| [`layout/`](.) | this folder: the KiCad project; the `.kicad_pcb` holds placement and routing |
+| [`previous/`](../previous) | the previous revision's snapshot and [`transfer_layout.py`](../previous/transfer_layout.py), which builds the layout from it |
+| [`spec/bluetooth.toml`](../../../spec/bluetooth.toml) | mechanics: thickness, outline extents, plug and HM-19 positions, mating with the main board's U2 |
 
 `tests/test_bluetooth.py` checks the board against its previous revision, its joint with the main
 board, and the spec.
@@ -28,7 +31,7 @@ board, and the spec.
 ## Circuit
 
 The HM-19 application circuit of its datasheet (JNHuaMao "HM Bluetooth module datasheet" V107,
-section 6.5); the docstring of [`bluetooth.zen`](bluetooth.zen) cites each value.
+section 6.5); the docstring of [`bluetooth.zen`](../bluetooth.zen) cites each value.
 
 | Part | Function |
 |---|---|
@@ -74,7 +77,7 @@ rule set; `rules/jlcpcb.kicad_dru` adds JLCPCB's limits on top.
 ## Layout
 
 The layout is the Altium MicrasBluetoothModule.PcbDoc's, in the same KiCad coordinates, built by
-[`previous/transfer_layout.py`](previous/transfer_layout.py) from KiCad's conversion of that PCB;
+[`previous/transfer_layout.py`](../previous/transfer_layout.py) from KiCad's conversion of that PCB;
 running the script again changes nothing.
 
 - **Top**: U1 near the top edge, with the antenna end of the module (the 7 mm above pad 1, V107
@@ -110,7 +113,7 @@ PcbDoc, the board differs in:
 
 ## Mechanics
 
-[`spec/bluetooth.toml`](../../spec/bluetooth.toml) places the board frame on the plug centre and
+[`spec/bluetooth.toml`](../../../spec/bluetooth.toml) places the board frame on the plug centre and
 exports `build/bluetooth/bluetooth_mech.json` (outline polygon, plug, HM-19, and where the board
 sits in the robot). Mated, the module's component side faces the main board's rear edge at the USB
 notch: the plug axis is on U2's axis (robot y = -1.75 mm) at 1.68 mm above the main board's top
