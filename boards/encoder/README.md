@@ -105,11 +105,13 @@ the right seen from the chip side, v up. The Edge.Cuts outline is layout geometr
 mech encoder` checks its features (9.6 mm width, 13.1 mm top with 1 mm corner radii, 8.0 mm
 shoulder, the tapers to 7.457 mm, the 5.0 x 1.0 mm tab with 0.1 mm reliefs) and exports the layout
 outline to `build/encoder/encoder_mech.json`. The stackup is the PcbDoc's: 0.70 mm core, 35 um
-copper and 10 um mask a side, 0.79 mm; it is ordered as JLCPCB's 0.8 mm 2-layer board.
+copper and 10 um mask a side, 0.79 mm; it is ordered as JLCPCB's 0.8 mm 2-layer board, ENIG
+finish, black solder mask and white silkscreen (Zener's 2-layer defaults, the owner's choice).
 
 The joint with the main board (`tests/test_joint.py`, `tests/test_layout.py`): the tab pads carry
 the slot pads' signals (`components/micras/EncoderSlot`), face them pad for pad (0.95 mm pitch,
-0.6 mm wide) and run from 0.8 mm into the slot to 1.2 mm above the main board's surface.
+0.6 mm wide) and run from 0.8 mm into the slot to 1.2 mm above the main board's surface. J1's
+pads carry paste openings on both sides, so assembly pre-tins the tab pads for that joint.
 
 ## Known faults
 
@@ -124,13 +126,6 @@ Requirements without a check on this board, and why:
 
 ## Open items
 
-- [ ] Solder mask colour and surface finish: not recorded in the Altium design. The board takes
-      Zener's 2-layer defaults (ENIG, black mask, white silkscreen) until they are confirmed.
-- [ ] Solder paste on the tab: J1's pads carry paste openings on both sides (the Altium
-      ENCODER_CONN's), so an assembled board gets reflowed solder on the top-side tab pads,
-      0.8 mm of which go into the main board's slot. Decide whether the tab is pre-tinned this
-      way or left bare for hand soldering (then drop F.Paste/B.Paste from
-      `components/micras/EncoderTab`).
 - [ ] Check the IC1, C1 and R1-R3 placement rotations in JLCPCB's assembly preview, then set
       `rotation_verified = true` in `parts/jlc.toml` (correct `rotation` first if needed).
 - [ ] MicrasHardware models the board as a 9.6 x 13.1 mm rectangle, 0.77 mm thick, with the
