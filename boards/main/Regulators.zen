@@ -1,0 +1,143 @@
+"""Battery input, battery switch, 3.3 V buck, 20 V boost and the USB 3.3 V LDO.
+
+Battery input and switch. J1 takes the 3S LiPo: pack + on VBAT, pack - on GND_BAT. Q6
+(HSBB3072, 30 V N-MOSFET) is a low-side switch from GND_BAT to the board GND, its gate
+pulled to GND_BAT by R41 (100 kOhm) and switched to VBAT by the slide switch SW4. The gate
+then sits at the pack voltage, inside the +-20 V VGS rating (HSBB3072 p1); the body diode
+points from GND_BAT to GND, so the switch blocks battery current when off.
+
+3V3 buck, IC7 (L6981N33DR, fixed 3.3 V, DS13554). VIN and EN on VBAT, so the converter runs
+whenever the switch is on and VBAT is above the EN threshold (1.2 V typ, Table 6 p7).
+Integrator parts per DS13554 Table 1 p3 and Table 2 p4:
+- C55 100 nF BOOT to SW (100 nF typ);
+- C54 1 uF on VCC (>= 1 uF);
+- L3 22 uH (YSPIA0645-220M, 4.5 A Isat). Ripple by Eq. 36: 0.26-0.28 A for VIN 11.1-12.6 V,
+  18 % of the 1.5 A rating, inside the 20-40 % guidance of section 8.4.2 p27;
+- input: C52 10 uF + C53 1 uF next to IC7, besides the boost input bank on VBAT;
+- output: C56 220 uF 6.3 V 1206 and C57 22 uF 25 V on 3V3. Eq. 42/43 bound the output
+  capacitance the internal compensation supports to 30.5-145 uF at 3.3 V.
+
+20 V boost, U1 (TPS611781RNWR, SLVSDA7E). VIN and EN on VBAT, VOUT on +20V for the L6205
+bridges. Integrator parts:
+- R36 150 kOhm FREQ/SYNC to GND: Eq. 2-3 p13-14, 1.15 MHz measured on the bench;
+- R37 56 kOhm ILIMIT to GND: Eq. 1 p12, 745 / 56 = 13.3 A for the TPS61178, about 0.8 A
+  lower for the TPS611781 (p13);
+- R39 2 MOhm / R40 130 kOhm FB divider: Eq. 4 p17, VOUT = 1.198 V x (1 + 2000 / 130) =
+  19.63 V typ, 18.99-20.32 V over VREF and resistor tolerance;
+- R38 68 kOhm + C42 470 pF COMP network (section 9.2.4.4 p21-24; CP omitted, which p24
+  allows below 10 pF);
+- C43 220 nF BST to SW (0.1-1 uF, >= 10 V: section 8.3.12 p14);
+- C48 4.7 uF on VCC (> 1 uF, pin table p3);
+- L2 1 uH (XAL6030-102, 23 A Isat);
+- input C49-C51 3 x 22 uF on VBAT (section 9.2.4.3 p21), output C44/C45 10 uF 50 V and
+  C46/C47 22 uF 35 V on +20V (section 9.2.4.2 p21);
+- DISDRV unconnected: there is no output-disconnect FET (pin table p3).
+
+USB LDO, U3 (CJA1117B-3.3): +5V from the USB-C VBUS to 3V3, so the board runs from USB with
+the battery switch off. Its output shares 3V3 with IC7.
+"""
+
+load(
+    "./passives.zen",
+    "C_100N_0402",
+    "C_10U_0603",
+    "C_10U_0805",
+    "C_1U_0402",
+    "C_220N_0603",
+    "C_220U_1206",
+    "C_22U_0805_25V",
+    "C_22U_0805_35V",
+    "C_470P_0402",
+    "C_4U7_0805",
+    "R_100K_0402",
+    "R_130K_0603",
+    "R_150K_0402",
+    "R_2M_0603",
+    "R_56K_0402",
+    "R_68K_0402",
+)
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+B02B_PASK = Module("github.com/Team-Micras/MicrasPCB/components/jst/B02B-PASK/B02B-PASK.zen")
+CJA1117B = Module("github.com/Team-Micras/MicrasPCB/components/cj/CJA1117B/CJA1117B.zen")
+HSBB3072 = Module("github.com/Team-Micras/MicrasPCB/components/huashuo/HSBB3072/HSBB3072.zen")
+L6981 = Module("github.com/Team-Micras/MicrasPCB/components/st/L6981/L6981.zen")
+MK_12D18_G040 = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/MK-12D18-G040/MK-12D18-G040.zen")
+TPS61178 = Module("github.com/Team-Micras/MicrasPCB/components/ti/TPS61178/TPS61178.zen")
+XAL6030_102 = Module("github.com/Team-Micras/MicrasPCB/components/coilcraft/XAL6030-102/XAL6030-102.zen")
+YSPIA0645_220M = Module("github.com/Team-Micras/MicrasPCB/components/yjycoin/YSPIA0645-220M/YSPIA0645-220M.zen")
+
+VBAT = io(Power)
+V3V3 = io(Power)
+V5V = io(Power)
+V20V = io(Power)
+GND = io(Ground)
+GND_BAT = io(Net)
+
+BAT_SW_GATE = Net("BAT_SW_GATE")
+BUCK_SW = Net("BUCK_SW")
+BUCK_BOOT = Net("BUCK_BOOT")
+# The L6981 VCC LDO output, 3.3 V typ (DS13554 Table 6 p7).
+BUCK_VCC = Power("BUCK_VCC", voltage="3.0V to 3.6V")
+BOOST_SW = Net("BOOST_SW")
+BOOST_BST = Net("BOOST_BST")
+# The TPS61178 VCC LDO output, 6 V typ (SLVSDA7E section 7.5 p5).
+BOOST_VCC = Power("BOOST_VCC", voltage="6V")
+BOOST_FREQ = Net("BOOST_FREQ")
+BOOST_ILIM = Net("BOOST_ILIM")
+BOOST_FB = Net("BOOST_FB")
+BOOST_COMP = Net("BOOST_COMP")
+BOOST_COMP_RC = Net("BOOST_COMP_RC")
+
+# Battery input and switch.
+B02B_PASK(name="J1", prefix="J", P1=VBAT, P2=GND_BAT)
+MK_12D18_G040(name="SW4", A=NotConnected(), COM=VBAT, B=BAT_SW_GATE)
+HSBB3072(name="Q6", G=BAT_SW_GATE, S=GND_BAT, D=GND)
+Resistor(name="R41", P1=GND_BAT, P2=BAT_SW_GATE, **R_100K_0402)
+
+# 3V3 buck.
+L6981(name="IC7", VIN=VBAT, EN=VBAT, VOUT=V3V3, VCC=BUCK_VCC, GND=GND, SW=BUCK_SW, BOOT=BUCK_BOOT)
+Capacitor(name="C55", P1=BUCK_BOOT, P2=BUCK_SW, **C_100N_0402)
+Capacitor(name="C54", P1=GND, P2=BUCK_VCC, **C_1U_0402)
+YSPIA0645_220M(name="L3", P1=BUCK_SW, P2=V3V3)
+Capacitor(name="C52", P1=GND, P2=VBAT, **C_10U_0603)
+Capacitor(name="C53", P1=GND, P2=VBAT, **C_1U_0402)
+Capacitor(name="C56", P1=GND, P2=V3V3, **C_220U_1206)
+Capacitor(name="C57", P1=GND, P2=V3V3, **C_22U_0805_25V)
+
+# 20 V boost.
+TPS61178(
+    name="U1",
+    VIN=VBAT,
+    EN=VBAT,
+    VOUT=V20V,
+    VCC=BOOST_VCC,
+    GND=GND,
+    SW=BOOST_SW,
+    BST=BOOST_BST,
+    FB=BOOST_FB,
+    COMP=BOOST_COMP,
+    FREQ=BOOST_FREQ,
+    ILIMIT=BOOST_ILIM,
+    DISDRV=NotConnected(),
+)
+Resistor(name="R36", P1=GND, P2=BOOST_FREQ, **R_150K_0402)
+Resistor(name="R37", P1=GND, P2=BOOST_ILIM, **R_56K_0402)
+Resistor(name="R39", P1=BOOST_FB, P2=V20V, **R_2M_0603)
+Resistor(name="R40", P1=GND, P2=BOOST_FB, **R_130K_0603)
+Resistor(name="R38", P1=BOOST_COMP_RC, P2=BOOST_COMP, **R_68K_0402)
+Capacitor(name="C42", P1=GND, P2=BOOST_COMP_RC, **C_470P_0402)
+Capacitor(name="C43", P1=BOOST_SW, P2=BOOST_BST, **C_220N_0603)
+Capacitor(name="C48", P1=GND, P2=BOOST_VCC, **C_4U7_0805)
+XAL6030_102(name="L2", P1=BOOST_SW, P2=VBAT)
+Capacitor(name="C49", P1=GND, P2=VBAT, **C_22U_0805_25V)
+Capacitor(name="C50", P1=GND, P2=VBAT, **C_22U_0805_25V)
+Capacitor(name="C51", P1=GND, P2=VBAT, **C_22U_0805_25V)
+Capacitor(name="C44", P1=GND, P2=V20V, **C_10U_0805)
+Capacitor(name="C45", P1=GND, P2=V20V, **C_10U_0805)
+Capacitor(name="C46", P1=GND, P2=V20V, **C_22U_0805_35V)
+Capacitor(name="C47", P1=GND, P2=V20V, **C_22U_0805_35V)
+
+# USB LDO.
+CJA1117B(name="U3", VIN=V5V, VOUT=V3V3, GND=GND)

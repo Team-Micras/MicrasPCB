@@ -7,7 +7,7 @@ CI.
 | Board | Status |
 |---|---|
 | `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.8 mm | routed, all checks clean, rotations not yet verified at JLCPCB |
-| `main` | not started |
+| `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | circuit done, same connectivity as the previous revision plus two declared changes; placement and routing not yet transferred |
 | `bluetooth` | not started |
 
 ## How it fits together
@@ -18,7 +18,7 @@ spec/<board>.toml ──────────────┐ outline, tab, sp
 boards/<board>/<board>.zen ──> pcb apply ──> layout/<board>.kicad_sch   │
 components/**/*.zen             (Zener)      layout/<board>.kicad_pcb <─┘ placement + routing in KiCad
                                                      │
-          make check: build · tests · sync · spec · ERC · LVS · DRC · DFM · pytest · parts
+          make check: build · tests · sync · spec · ERC · LVS · previous · DRC · DFM · pytest · parts
                                                      │
           make review: renders · schematic · layers · 3D · BOM · fab zip ──>  CI artifact
 ```
@@ -95,8 +95,9 @@ make parts-online   # JLCPCB stock and basic/extended status (run before orderin
 | test benches | `pcb test` | datasheet requirements per component (e.g. AS5047U TEST pin grounded, VDD/VDD3V3 tied, 100 nF) |
 | layout sync | `pcb layout --check` | layout no longer matches the netlist |
 | spec drift | `micras-pcb mech --check` | outline or spec-placed parts moved |
-| ERC | `kicad-cli sch erc` | schematic electrical rules |
+| ERC | `kicad-cli sch erc` | schematic electrical rules; `boards/<board>/erc.toml` names the nets supplied from off the board (the PWR_FLAG role) |
 | LVS | `micras-pcb lvs` | schematic and PCB connect different pads |
+| previous | `micras-pcb previous compare main` | the main board connects anything differently from its previous revision, except the changes in `boards/main/changes.toml` |
 | DRC | `kicad-cli pcb drc` + `rules/jlcpcb.kicad_dru` | JLCPCB clearances, widths, drills, edge distances |
 | DFM | `pcb dfm` + `rules/jlcpcb-pdk.toml` | geometry-level manufacturability (Diode's sourced JLCPCB PDK) |
 | design tests | `pytest` | board contracts (encoder tab pinout), decoupling, single-pin nets, spec geometry |

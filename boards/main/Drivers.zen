@@ -1,0 +1,172 @@
+"""Locomotion motor bridges (L6205D), their current shunts, and the fan driver (STSPIN958).
+
+Locomotion, IC5 (L6205D dual full bridge, ST L6205 datasheet, September 2003):
+- VSA/VSB on +20V, decoupled by C38 100 nF at the pins and C37 100 uF bulk (p12 Table 2:
+  C1 100 uF, C2 100 nF).
+- Charge pump (p8 Table 1, Figure 3): D6 from VS to the pump node, D7 from the pump node to
+  VBOOT, C39 220 nF CBOOT from VBOOT to VS, R34 100 Ohm + C40 10 nF from the pump node to VCP.
+- ENA and ENB tied together on BRIDGE_EN and driven from Motor_Enable (PA10) through R35
+  100 kOhm, with C41 10 nF to GND: the push-pull drive of Figure 6 p8. An overcurrent on
+  either bridge pulls both enables low.
+- Bridge A (IN1A/IN2A = Motor_Left_PWM_FW/BW) drives connector M1 from OUT2A, back through
+  M1 pin 2 and the 40 mOhm shunt R32 to OUT1A. Bridge B (IN1B/IN2B = Motor_Right_PWM_FW/BW)
+  drives M2 the same way through R33. SENSEA and SENSEB are grounded: the current is sensed
+  in line with the motor, by the TSC2020 amplifiers on the sensors sheet, across R32 (nets
+  Motor_R_Sense+/-) and R33 (Motor_L_Sense+/-).
+
+Fan, IC6 (STSPIN958, DS14341 Rev 1), driving connector M3:
+- MODE1 = H, MODE2 = L, MODE3 = H: single half-bridge, parallel mode, PWM trimming
+  (Table 8 p12). OUT1/OUT2 and LSS1/LSS2 are tied (section 5.4.3).
+- M3 between OUT (FAN_OUT) and LSS (FAN_LSS); R31 50 mOhm 3 W from LSS to GND (Table 12:
+  RSNS 50 mOhm, 3 W).
+- REF from the R28 24 kOhm / R29 75 kOhm divider on 3V3: 3.3 x 75 / 99 = 2.50 V; with
+  OFFSET low, Eq. 1 (section 5.6) gives I_peak = 2.50 / (0.05 x 10) = 5.0 A.
+- SR: R30 5.6 kOhm, 0.6 V/ns (Table 7).
+- EN/nFAULT: R27 39 kOhm to 3V3 and C30 10 nF (Table 12), on Fan_Enable (PB14). TOFF is a
+  digital output in PWM trimming (section 5.6.2), read on Fan_Overcurrent (PB13). PWM1 on
+  Fan_PWM (PB15); PWM2/PH and nSTBY on 3V3.
+- VS on VBAT with C34/C35 470 nF and C36 220 uF bulk (Table 12: CS 470 nF, CBULK 220 uF).
+  VDD on 3V3 with C31 220 nF. C32 100 nF CP1-CP2 flying capacitor and C33 1 uF from
+  VSPUMP to VBOOT (Table 12; VSPUMP to CBOOT only, as in Figure 22).
+- V1 and V2 (current-amplifier outputs) are not used.
+"""
+
+load(
+    "./passives.zen",
+    "C_100N_0402",
+    "C_10N_0402",
+    "C_1U_0402",
+    "C_220N_0402",
+    "C_220N_0805",
+    "C_470N_0603",
+    "R_100K_0402",
+    "R_100_0402",
+    "R_24K_0402",
+    "R_39K_0402",
+    "R_40M_2512",
+    "R_50M_2512",
+    "R_5K6_0402",
+    "R_75K_0402",
+)
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+B02B_PASK = Module("github.com/Team-Micras/MicrasPCB/components/jst/B02B-PASK/B02B-PASK.zen")
+D1N4148W = Module("github.com/Team-Micras/MicrasPCB/components/hongjiacheng/1N4148W/1N4148W.zen")
+JVS25V100M6X4 = Module("github.com/Team-Micras/MicrasPCB/components/jierr/JVS25V100M6X4/JVS25V100M6X4.zen")
+L6205D = Module("github.com/Team-Micras/MicrasPCB/components/st/L6205D/L6205D.zen")
+STSPIN958 = Module("github.com/Team-Micras/MicrasPCB/components/st/STSPIN958/STSPIN958.zen")
+VT1C221M0605 = Module("github.com/Team-Micras/MicrasPCB/components/acmecon/VT1C221M0605/VT1C221M0605.zen")
+
+VBAT = io(Power)
+V3V3 = io(Power)
+V20V = io(Power)
+GND = io(Ground)
+
+MOTOR_LEFT_PWM_FW = io(Net)
+MOTOR_LEFT_PWM_BW = io(Net)
+MOTOR_RIGHT_PWM_FW = io(Net)
+MOTOR_RIGHT_PWM_BW = io(Net)
+MOTOR_ENABLE = io(Net)
+MOTOR_R_SENSE_P = io(Net)
+MOTOR_R_SENSE_N = io(Net)
+MOTOR_L_SENSE_P = io(Net)
+MOTOR_L_SENSE_N = io(Net)
+
+FAN_PWM = io(Net)
+FAN_ENABLE = io(Net)
+FAN_OVERCURRENT = io(Net)
+
+BRIDGE_EN = Net("BRIDGE_EN")
+BRIDGE_VCP = Net("BRIDGE_VCP")
+BRIDGE_VBOOT = Net("BRIDGE_VBOOT")
+BRIDGE_PUMP = Net("BRIDGE_PUMP")
+BRIDGE_PUMP_RC = Net("BRIDGE_PUMP_RC")
+BRIDGE_OUT2A = Net("BRIDGE_OUT2A")
+BRIDGE_OUT2B = Net("BRIDGE_OUT2B")
+
+FAN_OUT = Net("FAN_OUT")
+FAN_LSS = Net("FAN_LSS")
+FAN_CP1 = Net("FAN_CP1")
+FAN_CP2 = Net("FAN_CP2")
+FAN_VSPUMP = Net("FAN_VSPUMP")
+FAN_VBOOT = Net("FAN_VBOOT")
+FAN_REF = Net("FAN_REF")
+FAN_SR = Net("FAN_SR")
+
+# Locomotion bridges.
+L6205D(
+    name="IC5",
+    VS=V20V,
+    GND=GND,
+    VBOOT=BRIDGE_VBOOT,
+    VCP=BRIDGE_VCP,
+    IN1A=MOTOR_LEFT_PWM_FW,
+    IN2A=MOTOR_LEFT_PWM_BW,
+    ENA=BRIDGE_EN,
+    IN1B=MOTOR_RIGHT_PWM_FW,
+    IN2B=MOTOR_RIGHT_PWM_BW,
+    ENB=BRIDGE_EN,
+    OUT1A=MOTOR_R_SENSE_P,
+    OUT2A=BRIDGE_OUT2A,
+    SENSEA=GND,
+    OUT1B=MOTOR_L_SENSE_P,
+    OUT2B=BRIDGE_OUT2B,
+    SENSEB=GND,
+)
+Capacitor(name="C38", P1=GND, P2=V20V, **C_100N_0402)
+JVS25V100M6X4(name="C37", POS=V20V, NEG=GND)
+D1N4148W(name="D6", A=V20V, K=BRIDGE_PUMP)
+D1N4148W(name="D7", A=BRIDGE_PUMP, K=BRIDGE_VBOOT)
+Capacitor(name="C39", P1=BRIDGE_VBOOT, P2=V20V, **C_220N_0805)
+Resistor(name="R34", P1=BRIDGE_PUMP, P2=BRIDGE_PUMP_RC, **R_100_0402)
+Capacitor(name="C40", P1=BRIDGE_PUMP_RC, P2=BRIDGE_VCP, **C_10N_0402)
+Resistor(name="R35", P1=BRIDGE_EN, P2=MOTOR_ENABLE, **R_100K_0402)
+Capacitor(name="C41", P1=BRIDGE_EN, P2=GND, **C_10N_0402)
+
+B02B_PASK(name="M1", prefix="M", P1=BRIDGE_OUT2A, P2=MOTOR_R_SENSE_N)
+Resistor(name="R32", P1=MOTOR_R_SENSE_N, P2=MOTOR_R_SENSE_P, **R_40M_2512)
+B02B_PASK(name="M2", prefix="M", P1=BRIDGE_OUT2B, P2=MOTOR_L_SENSE_N)
+Resistor(name="R33", P1=MOTOR_L_SENSE_N, P2=MOTOR_L_SENSE_P, **R_40M_2512)
+
+# Fan driver.
+STSPIN958(
+    name="IC6",
+    VS=VBAT,
+    VDD=V3V3,
+    GND=GND,
+    VSPUMP=FAN_VSPUMP,
+    VBOOT=FAN_VBOOT,
+    CP1=FAN_CP1,
+    CP2=FAN_CP2,
+    OUT1=FAN_OUT,
+    OUT2=FAN_OUT,
+    LSS1=FAN_LSS,
+    LSS2=FAN_LSS,
+    V1=NotConnected(),
+    V2=NotConnected(),
+    PWM1=FAN_PWM,
+    PWM2_PH=V3V3,
+    EN_NFAULT=FAN_ENABLE,
+    NSTBY=V3V3,
+    MODE1=V3V3,
+    MODE2=GND,
+    MODE3=V3V3,
+    OFFSET=GND,
+    REF=FAN_REF,
+    TOFF=FAN_OVERCURRENT,
+    SR=FAN_SR,
+)
+Capacitor(name="C34", P1=VBAT, P2=GND, **C_470N_0603)
+Capacitor(name="C35", P1=VBAT, P2=GND, **C_470N_0603)
+VT1C221M0605(name="C36", POS=VBAT, NEG=GND)
+Capacitor(name="C31", P1=GND, P2=V3V3, **C_220N_0402)
+Capacitor(name="C32", P1=FAN_CP1, P2=FAN_CP2, **C_100N_0402)
+Capacitor(name="C33", P1=FAN_VSPUMP, P2=FAN_VBOOT, **C_1U_0402)
+Resistor(name="R27", P1=V3V3, P2=FAN_ENABLE, **R_39K_0402)
+Capacitor(name="C30", P1=GND, P2=FAN_ENABLE, **C_10N_0402)
+Resistor(name="R28", P1=V3V3, P2=FAN_REF, **R_24K_0402)
+Resistor(name="R29", P1=GND, P2=FAN_REF, **R_75K_0402)
+Resistor(name="R30", P1=GND, P2=FAN_SR, **R_5K6_0402)
+Resistor(name="R31", P1=FAN_LSS, P2=GND, **R_50M_2512)
+B02B_PASK(name="M3", prefix="M", P1=FAN_OUT, P2=FAN_LSS)

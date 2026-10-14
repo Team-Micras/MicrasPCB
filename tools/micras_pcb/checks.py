@@ -2,19 +2,23 @@
 
 Each check writes its JSON report to build/<board>/ and prints one line per violation. A
 violation fails the check unless it is excluded in KiCad (exclusions live in the .kicad_pro, so
-every exclusion is a reviewed, committed decision).
+every exclusion is a reviewed, committed decision), or, for ERC, it is an undriven power input on
+a net the board declares as supplied from off the board (boards/<board>/erc.toml, see
+`external_supplies`).
 """
 
 from __future__ import annotations
 
 import filecmp
 import json
+import re
 import shutil
 import sqlite3
 import subprocess
 import tomllib
 
-from .paths import ROOT, board_pcb, board_sch, board_zen, build_dir, layout_dir
+from . import sexpr
+from .paths import BOARDS, ROOT, board_pcb, board_sch, board_zen, build_dir, layout_dir
 from .tools import kicad_cli, pcb
 
 RULES = ROOT / "rules" / "jlcpcb.kicad_dru"
@@ -68,6 +72,68 @@ def _print(kind: str, board: str, items: list[dict]) -> None:
     print(f"{board}: {kind} {summary}")
 
 
+def external_supplies(board: str) -> dict[str, str]:
+    """Nets a board declares as supplied from off the board: {net: where the supply comes from}.
+
+    KiCad reports a power input with no power output on its net (power_pin_not_driven); a
+    hand-drawn schematic silences it with a PWR_FLAG symbol, which Zener cannot place (a Zener
+    part needs a footprint, and a net symbol must be a power input). boards/<board>/erc.toml
+    plays that role instead, as reviewed source:
+
+        [external_supply]
+        VBAT = "3S LiPo battery on J1 pin 1"
+
+    Only power_pin_not_driven on a listed net is accepted; every other violation still fails.
+    """
+    path = BOARDS / board / "erc.toml"
+    if not path.is_file():
+        return {}
+    raw = tomllib.loads(path.read_text())
+    unknown = set(raw) - {"external_supply"}
+    if unknown:
+        raise ValueError(f"{path.relative_to(ROOT)}: unknown tables {sorted(unknown)}")
+    return dict(raw.get("external_supply", {}))
+
+
+def _item_net(item: dict, power_symbols: dict[str, str], nl) -> str | None:
+    """The net of an ERC item "Symbol <ref> Pin <n> [...]": a power symbol's value, or the pin's net."""
+    m = re.match(r"Symbol (\S+) Pin (\S+)", item.get("description", ""))
+    if not m:
+        return None
+    ref, pin = m.groups()
+    if ref in power_symbols:
+        return power_symbols[ref]
+    net = nl.net_of(ref, pin)
+    return net.lstrip("/") if net else None
+
+
+def _accept_external_supplies(board: str, items: list[dict]) -> tuple[list[dict], list[str]]:
+    supplies = external_supplies(board)
+    if not supplies:
+        return items, []
+    from . import netlist
+
+    nl = netlist.load(board)
+    names = {n.lstrip("/") for n in nl.nets}
+    missing = sorted(set(supplies) - names)
+    if missing:
+        raise ValueError(f"boards/{board}/erc.toml: external_supply names nets the board does not have: {missing}")
+    sch = sexpr.parse(board_sch(board).read_text())
+    power_symbols = {
+        s.prop("Reference"): s.prop("Value")
+        for s in sch.children("symbol")
+        if (s.prop("Reference") or "").startswith("#")
+    }
+    kept, accepted = [], []
+    for v in items:
+        nets = {_item_net(i, power_symbols, nl) for i in v.get("items", [])}
+        if v.get("type") == "power_pin_not_driven" and len(nets) == 1 and (net := nets.pop()) in supplies:
+            accepted.append(f"  accepted power_pin_not_driven on {net}: supplied by {supplies[net]}")
+        else:
+            kept.append(v)
+    return kept, accepted
+
+
 def erc(board: str) -> int:
     out = build_dir(board) / "erc.json"
     subprocess.run(
@@ -86,7 +152,9 @@ def erc(board: str) -> int:
         check=True,
         capture_output=True,
     )
-    items = _violations(json.loads(out.read_text()))
+    items, accepted = _accept_external_supplies(board, _violations(json.loads(out.read_text())))
+    for line in accepted:
+        print(line)
     _print("ERC", board, items)
     return 1 if items else 0
 

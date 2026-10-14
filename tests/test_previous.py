@@ -159,6 +159,16 @@ def test_diff_reports_a_pad_joining_from_unconnected():
     assert dict(rep.joins)["GND"]["unconnected-(U1-Pad4) (unconnected)"] == {("U1", "4")}
 
 
+def test_a_single_pin_net_is_unconnected_whatever_its_name():
+    # Zener names a no-connect pin's net (here "U1.NC_4"), and a lone pin may sit on a named net:
+    # neither connects anything, so both equal the previous board's netless pad.
+    assert diff(from_snapshot(SNAP), conn({**BASE, "U1.NC_4": ["U1.4"]})).ok
+    assert diff(from_snapshot(SNAP), conn({**BASE, "SPARE": ["U1.4"]})).ok
+    # ... but a previous single-pin net that now joins others is a difference
+    rep = diff(from_snapshot(SNAP), conn({**BASE, "SIG": [*BASE["SIG"], "U1.4"]}))
+    assert list(dict(rep.joins)) == ["SIG"]
+
+
 def test_extra_part_is_a_difference_unless_declared():
     actual = conn({**BASE, "GND": [*BASE["GND"], "C9.2"], "VCC": [*BASE["VCC"], "C9.1"]})
     assert diff(from_snapshot(SNAP), actual).only_actual == ["C9"]

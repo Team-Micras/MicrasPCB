@@ -228,8 +228,7 @@ def check_parts(online: bool) -> int:
             if kind != e.get("type"):
                 flag = "TYPE    "
                 status = 1
-            if info["stock"] == 0:
-                status = 1
+            # Zero stock is information, not a failure: some parts are bought elsewhere and consigned.
             print(f"{flag} {mpn} {e['lcsc']}: {kind}, {info['stock']} in stock, ${info['price']:.4f} (1 pc)")
     if status == 0:
         print(f"parts/jlc.toml covers {len(used)} part(s) on {len(boards())} board(s)")

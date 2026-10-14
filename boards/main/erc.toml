@@ -1,0 +1,7 @@
+# Nets supplied from off the board, the role a PWR_FLAG has in a hand-drawn KiCad schematic.
+# `micras-pcb erc` accepts a power_pin_not_driven violation only on these nets; see
+# tools/micras_pcb/checks.py `external_supplies`.
+
+[external_supply]
+VBAT = "the 3S LiPo battery, pack + on J1 pin 1"
+GND = "the battery, pack - on J1 pin 2 through the battery switch Q6; in USB and debug use, the USB host (U2) or the debugger (P1 pin 2)"

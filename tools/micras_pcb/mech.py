@@ -232,6 +232,9 @@ def mech_json(board: str) -> dict:
 
 
 def run(board: str, check: bool) -> int:
+    if not (spec.SPEC_DIR / f"{board}.toml").is_file():
+        print(f"{board}: no spec/{board}.toml, no spec-owned mechanics to apply or check")
+        return 0
     pcb = board_pcb(board)
     text = pcb.read_text()
     new, changes = apply(board, text)
