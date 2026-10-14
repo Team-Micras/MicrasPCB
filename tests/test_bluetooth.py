@@ -150,15 +150,40 @@ def test_uart_crosses_to_the_firmware_uart(orientation):
 @needs_pcb
 @pytest.mark.parametrize("orientation", ["normal", "flipped"])
 def test_module_supply_and_ground_mate(orientation):
-    # The module's VCC net mates the main board's SBU contacts, which F1 feeds from 3V3; GND mates GND.
+    # The module's VCC net mates the main board's SBU contacts, fed from 3V3 through the fuse F1 and
+    # the switch Q7 (review M6: off while a host powers VBUS); GND mates GND.
     bt, main = design("bluetooth"), design("main")
     vcc = bt.net("U1", "VCC")
     for contact, a, b in _mated(orientation):
         if a == "GND":
             assert b == "GND", f"{contact}: module GND on main board {b}"
         if a == vcc:
-            feeds = {next(n for n in main.nets_of(r).values() if n != b) for r in main.refs_on(b) if r != RECEPTACLE}
+            feeds = _sources(main, b)
             assert feeds == {"3V3"}, f"{contact}: module {vcc} on main board {b}, fed from {feeds}"
+
+
+def _sources(d, net: str) -> set[str]:
+    """The board nets that feed a sheet-local net (PERIPHERALS.*) through series parts (a fuse, a
+    resistor: not a capacitor) and switches (a transistor's drain on the net, fed from its source),
+    followed upstream through the sheet's local nets."""
+    out, seen, todo = set(), {net}, [net]
+    while todo:
+        n = todo.pop()
+        if not n.startswith("PERIPHERALS."):
+            out.add(n)
+            continue
+        for ref, _, name in d.on(n):
+            if ref == RECEPTACLE or d.kind(ref) == "capacitor":
+                continue
+            pads = d.nets_of(ref)
+            ups = [m for m in pads.values() if m != n] if len(pads) == 2 else []
+            if name == "D" and d.net(ref, "S"):
+                ups = [d.net(ref, "S")]
+            for m in ups:
+                if m not in seen:
+                    seen.add(m)
+                    todo.append(m)
+    return out
 
 
 @needs_kicad
