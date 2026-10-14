@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 import pytest
-from micras_pcb import previous
+from micras_pcb import netlist, previous
 from micras_pcb.previous import ChangeError, Connectivity, apply_changes, diff, from_snapshot, groups, parse_changes
 
 # --- the comparator on a small synthetic board ------------------------------------------------
@@ -27,6 +27,15 @@ def conn(nets: dict[str, list[str]], parts=None) -> Connectivity:
     return Connectivity(set(refs), pads)
 
 
+def _netlist(nets: dict[str, list[str]]) -> netlist.Netlist:
+    nl = netlist.Netlist()
+    for name, pads in nets.items():
+        nl.nets[name] = [netlist.Pin(*p.split(".", 1), "", "passive") for p in pads]
+        for p in pads:
+            nl.parts.setdefault(p.split(".")[0], None)
+    return nl
+
+
 BASE = {"VCC": ["U1.1", "C1.1", "R1.1"], "GND": ["U1.2", "C1.2", "R2.2"], "SIG": ["U1.3", "R1.2", "R2.1"]}
 
 
@@ -46,9 +55,34 @@ def test_no_change_is_equal():
     assert rep.ok, str(rep)
 
 
-def test_names_do_not_matter():
-    renamed = {f"/{k.lower()}": v for k, v in BASE.items()}
-    assert diff(from_snapshot(SNAP), conn(renamed)).ok
+def test_names_are_compared():
+    # the root sheet's "/" is not part of the name; anything else is
+    assert diff(from_snapshot(SNAP), previous.from_netlist(_netlist({f"/{k}": v for k, v in BASE.items()}))).ok
+    rep = diff(from_snapshot(SNAP), conn({"SUPPLY": BASE["VCC"], "GND": BASE["GND"], "SIG": BASE["SIG"]}))
+    assert rep.renamed == [("VCC", "SUPPLY")]
+    assert "renamed: net VCC is SUPPLY" in str(rep)
+
+
+def test_automatic_names_are_not_compared():
+    snap = {
+        "parts": {
+            r: {"pads": {k: ("NetR1_2" if v == "SIG" else v) for k, v in p["pads"].items()}}
+            for r, p in SNAP["parts"].items()
+        }
+    }
+    assert diff(from_snapshot(snap), conn(BASE)).ok
+
+
+def test_rename_nets():
+    exp = changed('[[change]]\nid = "X"\nsummary = "s"\nrename_nets = { VCC = "SUPPLY" }')
+    assert "VCC" not in exp.nets and exp.nets["SUPPLY"] == {("U1", "1"), ("C1", "1"), ("R1", "1")}
+    assert diff(exp, conn({"SUPPLY": BASE["VCC"], "GND": BASE["GND"], "SIG": BASE["SIG"]})).ok
+
+
+def test_rename_nets_swaps_two_names():
+    exp = changed('[[change]]\nid = "X"\nsummary = "s"\nrename_nets = { VCC = "SIG", SIG = "VCC" }')
+    assert exp.nets["SIG"] == {("U1", "1"), ("C1", "1"), ("R1", "1")}
+    assert exp.nets["VCC"] == {("U1", "3"), ("R1", "2"), ("R2", "1")}
 
 
 def test_move_to_the_net_of_another_pad():
@@ -114,6 +148,9 @@ def test_add_remove_and_rename_parts():
         'rename_parts = { R1 = "R2" }',  # target exists
         'add_parts = { R1 = { "1" = "net:GND" } }',  # exists
         'add_parts = { R3 = { "1" = "R9.1" } }',
+        'rename_nets = { VDD = "SUPPLY" }',  # unknown net
+        'rename_nets = { VCC = "GND" }',  # target exists and is not renamed away
+        'rename_nets = { VCC = "X", SIG = "X" }',  # two nets onto one name
     ],
 )
 def test_bad_references_are_errors(toml):
