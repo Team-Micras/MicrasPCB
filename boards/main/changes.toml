@@ -48,10 +48,10 @@ add_parts = { U4 = { "1" = "new:REGULATORS.VSYS", "8" = "net:REGULATORS.VSYS", "
 [[change]]
 id = "m7"
 review = "hw_debug/schematic_review.md m7"
-summary = "SWD header P1 with NRST on pin 5 (5-pin PZ254V-11-05P), so a probe connects under reset"
-part_numbers = { P1 = "PZ254V-11-05P" }
+summary = "SWD connector P1 with NRST on pin 5, so a probe connects under reset: a JST SH 5-pin side-entry header (SM05B-SRSS-TB) on the board edge, its reinforcement pads on GND"
+part_numbers = { P1 = "SM05B-SRSS-TB(LF)(SN)" }
 remove_parts = ["P1"]
-add_parts = { P1 = { "1" = "new:SWD_VDD", "2" = "net:GND", "3" = "net:SWDIO", "4" = "net:SWCLK", "5" = "net:Reset" } }
+add_parts = { P1 = { "1" = "new:SWD_VDD", "2" = "net:GND", "3" = "net:SWDIO", "4" = "net:SWCLK", "5" = "net:Reset", "MP" = "net:GND" } }
 
 [[change]]
 id = "C5"
