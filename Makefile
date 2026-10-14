@@ -5,10 +5,13 @@ PCB := pcb +$(PCB_TOOLCHAIN)
 TOOL := uv run micras-pcb
 BOARDS := $(notdir $(patsubst %/pcb.toml,%,$(wildcard boards/*/pcb.toml)))
 
-.PHONY: help setup gen check build test layout-check erc lvs previous drc dfm pytest lint parts parts-online outputs fab review all clean
+.PHONY: help setup gen check build warnings test layout-check erc lvs previous drc dfm pytest lint parts parts-online outputs fab review all clean
+
+# The gates `make check` runs, in order. Each runs even when an earlier one fails.
+GATES := build warnings test layout-check erc lvs previous drc dfm pytest lint parts
 
 help: ## list targets
-	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-13s %s\n", $$1, $$2}'
+	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-13s %s\n", $$1, $$2}'
 
 setup: ## install the Python tools and the pinned Zener toolchain
 	uv sync
@@ -24,16 +27,17 @@ gen: ## regenerate every generated file from the sources (Zener, spec, rules)
 build: ## evaluate the Zener sources
 	$(PCB) fmt --check .
 	$(PCB) sync --check
-	@for b in $(BOARDS); do $(PCB) build boards/$$b/$$b.zen || exit 1; done
+	@status=0; for b in $(BOARDS); do $(PCB) build boards/$$b/$$b.zen || status=1; done; exit $$status
 
-test: ## Zener test benches
-	$(PCB) test components
-	$(PCB) test boards
+warnings: ## no build warnings (voltage ranges outside a part's operating range, capacitor ratings)
+	@status=0; for b in $(BOARDS); do $(PCB) build -D warnings boards/$$b/$$b.zen || status=1; done; exit $$status
+
+test: ## Zener test benches (components, then each board's test/ benches)
+	@status=0; $(PCB) test components || status=1; for b in $(BOARDS); do $(PCB) test boards/$$b || status=1; done; exit $$status
 
 layout-check: ## layouts in sync with the netlist and the spec
-	@for b in $(BOARDS); do $(PCB) layout --check boards/$$b/$$b.zen || exit 1; done
-	$(TOOL) rules --check
-	$(TOOL) mech --check
+	@status=0; for b in $(BOARDS); do $(PCB) layout --check boards/$$b/$$b.zen || status=1; done; \
+	$(TOOL) rules --check || status=1; $(TOOL) mech --check || status=1; exit $$status
 
 erc: ## KiCad ERC on the generated schematics
 	$(TOOL) erc
@@ -54,8 +58,7 @@ pytest: ## Python design tests
 	uv run pytest -q
 
 lint: ## Python lint and format
-	uv run ruff check tools tests
-	uv run ruff format --check tools tests
+	@status=0; uv run ruff check tools tests || status=1; uv run ruff format --check tools tests || status=1; exit $$status
 
 parts: ## every part mapped to an LCSC number
 	$(TOOL) parts
@@ -63,7 +66,13 @@ parts: ## every part mapped to an LCSC number
 parts-online: ## JLCPCB stock and basic/extended status for every part (run before ordering)
 	$(TOOL) parts --online
 
-check: build test layout-check erc lvs previous drc dfm pytest lint parts ## every gate CI runs
+check: ## every gate CI runs: all of them, then a summary; fails if any gate failed
+	@failed=""; for g in $(GATES); do \
+		echo "=== gate $$g"; $(MAKE) --no-print-directory $$g || failed="$$failed $$g"; \
+	done; \
+	echo "=== gates"; \
+	for g in $(GATES); do case " $$failed " in *" $$g "*) echo "  FAIL  $$g";; *) echo "  pass  $$g";; esac; done; \
+	test -z "$$failed"
 
 outputs: ## review outputs (schematic, layers, renders, 3D)
 	$(TOOL) outputs
