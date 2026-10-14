@@ -60,7 +60,15 @@ def export(board: str) -> Path:
     return out
 
 
+def design_net_name(kicad_name: str) -> str:
+    """The design's name of a KiCad net. KiCad prefixes a net named by a sheet-local label with
+    its sheet path ("/" on the root sheet, "/REGULATORS/" on a module sheet) and writes a "/"
+    inside a name as {slash}, so the name is what follows the last "/"."""
+    return kicad_name.rsplit("/", 1)[-1]
+
+
 def parse(path: Path) -> Netlist:
+    """The netlist, with each net under its design name (`design_net_name`)."""
     root = sexpr.parse(path.read_text())
     nl = Netlist()
     for comp in root.child("components").children("comp"):
@@ -83,7 +91,10 @@ def parse(path: Path) -> Netlist:
             dnp="dnp" in flags,
         )
     for net in root.child("nets").children("net"):
-        name = net.child("name").atoms()[0]
+        kicad_name = net.child("name").atoms()[0]
+        name = design_net_name(kicad_name)
+        if name in nl.nets:
+            raise ValueError(f"{path}: two nets are named {name} once the sheet path is dropped ({kicad_name})")
         nl.nets[name] = [
             Pin(
                 n.child("ref").atoms()[0],
