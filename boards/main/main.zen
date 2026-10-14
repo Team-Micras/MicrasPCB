@@ -51,6 +51,7 @@ Capacitor = Module("@stdlib/generics/Capacitor.zen")
 AFE201612S2R2MBT = Module("github.com/Team-Micras/MicrasPCB/components/magnetsyc/AFE201612S2R2MBT/AFE201612S2R2MBT.zen")
 PZ254V_11_04P = Module("github.com/Team-Micras/MicrasPCB/components/xfcn/PZ254V-11-04P/PZ254V-11-04P.zen")
 STM32H725RGV6 = Module("github.com/Team-Micras/MicrasPCB/components/st/STM32H725RGV6/STM32H725RGV6.zen")
+MountingHole = Module("github.com/Team-Micras/MicrasPCB/components/micras/MountingHole/MountingHole.zen")
 TestPoint = Module("github.com/Team-Micras/MicrasPCB/components/micras/TestPoint/TestPoint.zen")
 Regulators = Module("./Regulators.zen")
 Drivers = Module("./Drivers.zen")
@@ -221,6 +222,12 @@ TestPoint(name="FAN_PWM", prefix="FAN_PWM", P1=FAN_PWM)
 TestPoint(name="FAN_ENABLE", prefix="FAN_ENABLE", P1=FAN_ENABLE)
 TestPoint(name="FAN_OVERCURRENT", prefix="FAN_OVERCURRENT", P1=FAN_OVERCURRENT)
 TestPoint(name="20V", prefix="20V", P1=NotConnected())
+
+# M2 screw holes to the chassis; spec/main.toml places them.
+MountingHole(name="H1")
+MountingHole(name="H2")
+MountingHole(name="H3")
+MountingHole(name="H4")
 
 Regulators(
     name="REGULATORS",

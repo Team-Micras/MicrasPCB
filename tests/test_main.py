@@ -8,8 +8,9 @@ from micras_pcb import jlc, netlist, previous
 
 from .conftest import needs_kicad
 
-# The functional changes (C1, C2) and the designator renames the toolchain forces (TP).
-CHANGE_IDS = ["C1", "C2", "TP"]
+# The functional changes (C1, C2), the designator renames the toolchain forces (TP) and the screw
+# holes that the previous board had as footprints without a designator (H).
+CHANGE_IDS = ["C1", "C2", "TP", "H"]
 
 # Test points: a designator is prefix + number, so the ones without a trailing number gain a 1.
 TP_RENAMES = {"FAN_PWM": "FAN_PWM1", "FAN_ENABLE": "FAN_ENABLE1", "FAN_OVERCURRENT": "FAN_OVERCURRENT1", "20V": "20V1"}
@@ -35,9 +36,9 @@ def nl():
     return netlist.load("main")
 
 
-def test_declared_changes_are_c1_c2_and_the_test_point_renames(changes):
+def test_declared_changes_are_c1_c2_the_test_point_renames_and_the_holes(snap, changes):
     assert [c.id for c in changes] == CHANGE_IDS
-    c1, c2, tp = changes
+    c1, c2, tp, holes = changes
     # C1: VBAT pin to 3V3 (pad 68 is VDD on 3V3), with its two capacitors.
     assert c1.move == {"IC1.1": "IC1.68", "C8.2": "IC1.68", "C9.2": "IC1.68"}
     assert not (c1.merge or c1.isolate or c1.add_parts or c1.remove_parts or c1.rename_parts)
@@ -46,6 +47,9 @@ def test_declared_changes_are_c1_c2_and_the_test_point_renames(changes):
     assert not (c2.move or c2.isolate or c2.add_parts or c2.remove_parts or c2.rename_parts)
     assert tp.rename_parts == TP_RENAMES
     assert not (tp.move or tp.merge or tp.isolate or tp.add_parts or tp.remove_parts)
+    # H: one padless part per unnamed footprint of the previous board, connecting nothing.
+    assert holes.add_parts == {f"H{i}": {} for i in range(1, len(snap["unnamed"]) + 1)}
+    assert not (holes.move or holes.merge or holes.isolate or holes.remove_parts or holes.rename_parts)
 
 
 def test_c1_moves_exactly_the_vbat_pin_and_its_capacitors(snap, changes):

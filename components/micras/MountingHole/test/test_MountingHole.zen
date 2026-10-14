@@ -1,0 +1,19 @@
+"""MountingHole package: no pins, no BOM or placement entry, H prefix."""
+
+MountingHole = Module("../MountingHole.zen")
+
+
+def mechanical_only(module, inputs):
+    c = module.components()["MH"]
+    check(c.skip_bom, "a mounting hole is not a BOM line")
+    check(c.skip_pos, "a mounting hole is not placed by the assembler")
+    check(c.prefix == "H", "designator prefix must be H, got " + c.prefix)
+    check(len(module.nets()) == 0, "a mounting hole connects to no net")
+
+
+TestBench(
+    name="MountingHole_default",
+    module=MountingHole,
+    test_cases={"default": {}},
+    checks=[mechanical_only],
+)
