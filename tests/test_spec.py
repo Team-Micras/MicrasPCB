@@ -60,10 +60,16 @@ def main_layout():
 
 def test_encoder_tab_fits_the_main_board_slots(main_spec):
     enc, slot = spec.load("encoder"), main_spec["encoder_slots"]
-    # the tab stands in the slot: its width along the slot, the encoder board's thickness across it
-    length_play = slot["length"] - enc["tab"]["width"]
-    width_play = slot["width"] - enc["pcb"]["thickness"]
-    assert 0 < length_play <= 0.2
+    # The tab stands in the slot: its width along the slot, the encoder board's thickness across
+    # it. The slot's ends are milled round, so the length open to the tab is the straight part
+    # plus what the end circle leaves at the tab's half thickness. The tab is soldered to the
+    # slot's pads, which fix its position; the play only has to let it in, with at most 0.2 mm a
+    # side (the 0.1 mm JLCPCB outline tolerance on each board).
+    r, t = slot["corner_radius"], enc["pcb"]["thickness"]
+    open_length = slot["length"] - 2 * r + 2 * math.sqrt(r**2 - (t / 2) ** 2)
+    length_play = open_length - enc["tab"]["width"]
+    width_play = slot["width"] - t
+    assert 0 < length_play <= 0.4
     assert 0 < width_play <= 0.2
     # the tab is not deeper than the main board is thick, so it does not stick out below
     assert enc["tab"]["depth"] <= main_spec["pcb"]["thickness"]

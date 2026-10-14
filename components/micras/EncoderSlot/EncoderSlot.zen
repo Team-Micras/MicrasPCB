@@ -15,22 +15,29 @@ main board, and its tab pads are soldered to 8 pads on the main board's top side
 | 7 | A | top |
 | 8 | B | top |
 
-Geometry (Altium MicrasLib ENCODER_CONNECTOR, MicrasMainBoard.PcbDoc):
+Geometry:
 - Pads 1.0 x 0.6 mm, 0.95 mm pitch along the slot (Y), the same pitch and
-  0.6 mm width as the tab pads. Pads 1-4 at x = -1.16 mm, pads 5-8 at
-  x = +1.16 mm, both rows from y = -1.425 mm (pads 1, 5) to y = +1.425 mm
-  (pads 4, 8). Inner pad edges at x = +/-0.66 mm, 0.21 mm from the slot wall.
-- The slot is a 0.90 x 5.10 mm rectangle on the board's Edge.Cuts, centred on
-  the footprint origin and long along Y. It is board outline, not part of this
-  footprint (the footprint draws it on F.Fab only), so the board's mechanical
-  spec must place it with the footprint.
+  0.6 mm width as the tab pads (pad size and pitch from the Altium MicrasLib
+  ENCODER_CONNECTOR). Pads 1-4 at x = -1.21 mm, pads 5-8 at x = +1.21 mm, both
+  rows from y = -1.425 mm (pads 1, 5) to y = +1.425 mm (pads 4, 8). Inner pad
+  edges at x = +/-0.71 mm, 0.21 mm from the slot wall, above the 0.20 mm
+  copper-to-edge minimum of rules/jlcpcb.kicad_dru.
+- The slot is 1.0 mm wide and 5.8 mm long with fully rounded ends (0.5 mm
+  radius), on the board's Edge.Cuts, centred on the footprint origin and long
+  along Y. It is board outline, not part of this footprint (the footprint
+  draws it on F.Fab only), so the board's mechanical spec must place it with
+  the footprint.
 - The encoder board's chip side faces +X: seen from that side, tab pad 5
   (u = +1.425 mm in spec/encoder.toml's frame) lands at y = -1.425 mm, on pad 5.
 
-Fit against spec/encoder.toml: tab width 5.0 mm in a 5.10 mm slot (0.05 mm per
-end) and board thickness 0.80 mm in a 0.90 mm slot (0.05 mm per side), drawn
-with square corners. A milled slot's ends are rounded by the router radius,
-which shortens the full-width length available to the tab.
+Slot size (JLCPCB PCB capabilities, jlcpcb.com/capabilities/pcb-capabilities,
+read 2026-10-14): a non-plated slot is at least 1.0 mm wide and is milled, so
+its ends are rounded with at least half the slot width. Fit against
+spec/encoder.toml: the 0.80 mm encoder board (+0.1 mm thickness tolerance for
+boards below 1.0 mm) in the 1.0 mm slot; the 5.0 mm tab's corners
+(+/-2.5, +/-0.45) lie 0.46 mm from the centres (+/-2.4, 0) of the 0.5 mm end
+radii, inside the rounded ends. The encoder board's 8.0 mm shoulder rests on
+the board top 1.1 mm beyond each slot end.
 
 Not a purchased part: copper and a cut-out on the main board, so it is excluded
 from the BOM and the placement file.
