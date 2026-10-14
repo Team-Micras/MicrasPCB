@@ -26,8 +26,9 @@ Prepare these for review; never sign them off.
   examples. Version bumps go in their own PR.
 - KiCad 10 has no headless layout or schematic API: the IPC API needs a running KiCad, and the
   SWIG `pcbnew` module is deprecated and goes away in KiCad 11. New tools use `kicad-cli` and
-  `micras_pcb.sexpr` (span-preserving s-expression edits, so diffs stay small); do not import
-  `pcbnew`. A layout change still runs only as a script the user approved.
+  `micras_pcb.sexpr` (span-preserving s-expression edits, so diffs stay small) rather than
+  `pcbnew`; a one-off layout script may use `pcbnew`. A layout change runs only as a script the
+  user approved.
 - `.kicad_pcb` files do not merge in git. Do not rebase or merge across someone else's layout
   edits; ask.
 
