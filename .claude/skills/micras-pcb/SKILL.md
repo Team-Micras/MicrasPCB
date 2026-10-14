@@ -11,10 +11,17 @@ where its limits are.
 ## Trust the gates, not your own reading
 
 Models sound confident about circuits that would never work. Every claim about a board is
-checked by a deterministic tool: `pcb build` (types, voltage ranges), `pcb test` (datasheet
-requirements), ERC, LVS, DRC, DFM and pytest. When a requirement matters and no gate covers it,
-add one: a `pcb test` bench for a component's datasheet rule, a pytest in `tests/` for a
-board-level rule (pinout of a board-to-board joint, decoupling, spec geometry).
+checked by a deterministic tool: `pcb build` (types, voltage ranges; `make warnings` fails on any
+warning), `pcb test` (datasheet requirements), ERC, LVS, DRC, DFM and pytest. When a requirement
+matters and no gate covers it, add one: a `pcb test` bench for a component's datasheet rule, a
+bench in `boards/<board>/test/` for an application circuit (it instantiates the whole board and
+computes values with the datasheet equations), a pytest in `tests/` for a netlist, layout or
+cross-file rule (power tree, a board-to-board joint, the firmware pin map, decoupling distance,
+spec geometry). Each check cites its source and names the parts in its failure message.
+
+`boards/main/firmware.toml` is the firmware's pin map and drive settings. When MicrasFirmware
+changes them, regenerate it (`MICRAS_FIRMWARE=<checkout> uv run micras-pcb firmware snapshot`);
+`tests/test_firmware.py` then shows what the board must change.
 
 People own three things: footprint and pin-1 checks, placement and routing, and the fab order.
 Prepare these for review; never sign them off.
