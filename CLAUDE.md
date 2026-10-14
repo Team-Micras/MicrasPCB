@@ -34,7 +34,7 @@ passes; say which checks you could not run.
   or table in the `.zen` docstring or a comment. Do not invent part numbers, URLs or values; if a
   fact is unknown, say so and leave a visible TODO.
 - Every part on a board needs an MPN + manufacturer in Zener and an entry in `parts/jlc.toml`.
-  Check stock with `uv run micras-pcb parts --online`; prefer JLCPCB *basic* parts.
+  Check stock with `make parts-online`; prefer JLCPCB *basic* parts.
 - New components: `components/<manufacturer>/<NAME>/` with `pcb.toml`, `.zen`, `.kicad_sym`
   (KiCad 10 format), `.kicad_mod` with the STEP embedded (`pcb embed-step`), `README.md`, and a
   test bench in `test/` for the datasheet requirements. Follow `.claude/skills/librarian`.

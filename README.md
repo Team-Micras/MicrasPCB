@@ -21,7 +21,7 @@ components/**/*.zen             (Zener)      layout/<board>.kicad_pcb <─┘ pl
                                                      │
           make check: build · tests · sync · spec · ERC · LVS · DRC · DFM · pytest · parts
                                                      │
-          make site:  renders · schematic · layers · 3D · BOM · fab zip  ──>  GitHub Pages
+          make site:  renders · schematic · layers · 3D · BOM · fab zip  ──>  CI artifact
 ```
 
 - **Zener owns the circuit.** Parts, nets, values, stackup and design rules are code, with
@@ -54,7 +54,7 @@ make check      # everything CI gates on
 make site       # build/site/index.html: the design portal for this checkout
 make fab        # build/<board>/fab: JLCPCB gerbers zip, BOM and CPL
 pcb open boards/encoder/encoder.zen     # open the layout in KiCad
-uv run micras-pcb parts --online        # JLCPCB stock and basic/extended status
+make parts-online   # JLCPCB stock and basic/extended status (run before ordering)
 ```
 
 | Gate | Tool | Catches |
@@ -74,9 +74,12 @@ uv run micras-pcb parts --online        # JLCPCB stock and basic/extended status
 
 - `.github/workflows/ci.yml`: on every push and PR, installs the pinned KiCad and Zener,
   checks that `make gen` changes nothing, runs `make check`, builds the portal and fab package
-  (uploaded as the run's artifact), and on `main` publishes the portal to GitHub Pages.
-- `.github/workflows/parts.yml`: every Monday, checks JLCPCB stock and library type for every
-  part and opens an issue if something changed.
+  (uploaded as the run's artifact).
+- `.github/dependabot.yml`: weekly PRs for new GitHub Actions and Python dev-tool releases.
+  KiCad and Zener stay pinned in `versions.env` and are bumped by hand, since a bump can change
+  the generated files.
+- JLCPCB stock is not checked in CI (it changes daily and the API is undocumented): run
+  `make parts-online` before ordering.
 
 ## Working with Claude Code
 

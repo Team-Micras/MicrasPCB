@@ -240,7 +240,7 @@ def jlc_lookup(lcsc: str) -> dict | None:
     """Stock, price and library type from JLCPCB's public parts search.
 
     This is the endpoint jlcpcb.com/parts uses: undocumented and unauthenticated, so it can change
-    without notice. A failure here should not block a design change, only the weekly stock check.
+    without notice. A failure here should not block a design change, only `make parts-online`.
     """
     req = urllib.request.Request(
         "https://jlcpcb.com/api/overseas-pcb-order/v1/shoppingCart/smtGood/selectSmtComponentList",
