@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Tools on top of the kicad/kicad image (CI and the devcontainer): curl/zstd, uv and the pinned
-# Zener toolchain from versions.env. Run as root; installs into $HOME of the invoking user.
+# Tools on top of KiCad (CI and local setup): curl/zstd/make, uv and the pinned Zener toolchain
+# from versions.env. CI installs uv with astral-sh/setup-uv first; this script then skips it.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 . ./versions.env

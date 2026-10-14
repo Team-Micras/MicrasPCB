@@ -1,4 +1,4 @@
-"""Review outputs for a board: what the portal and PR comments show.
+"""Review outputs for a board, uploaded by CI with the fab package as the run artifact.
 
 build/<board>/review/:
   <board>-schematic.pdf / .svg   generated schematic

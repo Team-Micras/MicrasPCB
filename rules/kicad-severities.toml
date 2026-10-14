@@ -1,0 +1,14 @@
+# KiCad rule severities that `micras-pcb rules` writes into every board's .kicad_pro; `--check`
+# fails if a project drifts. Everything not listed keeps KiCad's default. Each entry says why.
+
+[erc]
+# Zener embeds every symbol in the generated .kicad_sch; there is no symbol library table to match.
+lib_symbol_issues = "ignore"
+# Footprints are embedded in the .kicad_pcb and kept in step by `pcb layout`. The library table pcb
+# writes at build time (layout/fp-lib-table) points into the toolchain and is not committed, so a
+# fresh clone, or any tool that reads only the committed files, cannot resolve the links.
+footprint_link_issues = "ignore"
+
+[drc]
+# Same as footprint_link_issues above, from the board side.
+lib_footprint_issues = "ignore"

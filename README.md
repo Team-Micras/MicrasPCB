@@ -21,7 +21,7 @@ components/**/*.zen             (Zener)      layout/<board>.kicad_pcb <─┘ pl
                                                      │
           make check: build · tests · sync · spec · ERC · LVS · DRC · DFM · pytest · parts
                                                      │
-          make site:  renders · schematic · layers · 3D · BOM · fab zip  ──>  GitHub Pages
+          make review: renders · schematic · layers · 3D · BOM · fab zip ──>  CI artifact
 ```
 
 - **Zener owns the circuit.** Parts, nets, values, stackup and design rules are code, with
@@ -38,7 +38,7 @@ components/**/*.zen             (Zener)      layout/<board>.kicad_pcb <─┘ pl
 ## Setup (Linux / WSL2)
 
 ```sh
-sudo add-apt-repository ppa:kicad/kicad-10.0-releases && sudo apt install kicad   # KiCad 10, see versions.env
+./ci/install-kicad.sh                                                                # KiCad 10 from the PPA, see versions.env
 curl -fsSL https://raw.githubusercontent.com/diodeinc/pcb/main/install.sh | bash      # Zener toolchain launcher
 make setup                                                                            # uv env + pinned pcb toolchain
 ```
@@ -51,10 +51,10 @@ schematic preview of `.zen` files.
 ```sh
 make gen        # regenerate KiCad files from the sources (run after every source change)
 make check      # everything CI gates on
-make site       # build/site/index.html: the design portal for this checkout
+make review     # build/<board>/review and fab: schematic PDF, layer SVGs, renders, GLB/STEP, fab package
 make fab        # build/<board>/fab: JLCPCB gerbers zip, BOM and CPL
 pcb open boards/encoder/encoder.zen     # open the layout in KiCad
-uv run micras-pcb parts --online        # JLCPCB stock and basic/extended status
+make parts-online   # JLCPCB stock and basic/extended status (run before ordering)
 ```
 
 | Gate | Tool | Catches |
@@ -73,10 +73,13 @@ uv run micras-pcb parts --online        # JLCPCB stock and basic/extended status
 ## CI
 
 - `.github/workflows/ci.yml`: on every push and PR, installs the pinned KiCad and Zener,
-  checks that `make gen` changes nothing, runs `make check`, builds the portal and fab package
-  (uploaded as the run's artifact), and on `main` publishes the portal to GitHub Pages.
-- `.github/workflows/parts.yml`: every Monday, checks JLCPCB stock and library type for every
-  part and opens an issue if something changed.
+  checks that `make gen` changes nothing, runs `make check`, builds the review outputs and fab package
+  (uploaded as the run's artifact).
+- `.github/dependabot.yml`: weekly PRs for new GitHub Actions and Python dev-tool releases.
+  KiCad and Zener stay pinned in `versions.env` and are bumped by hand, since a bump can change
+  the generated files.
+- JLCPCB stock is not checked in CI (it changes daily and the API is undocumented): run
+  `make parts-online` before ordering.
 
 ## Working with Claude Code
 
@@ -92,10 +95,10 @@ boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb
 components/<mfr>/<P>/  reusable Zener packages: symbol, footprint (STEP embedded), .zen, test bench, README
 spec/                  mechanical single source of truth per board
 parts/jlc.toml         MPN -> LCSC mapping
-rules/                 JLCPCB KiCad DRC rules and DFM PDK
-tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, outputs, site (`uv run micras-pcb --help`)
+rules/                 JLCPCB KiCad DRC rules, DFM PDK, KiCad rule severities
+tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, outputs (`uv run micras-pcb --help`)
 tests/                 pytest design tests
-ci/setup.sh            toolchain install for CI and containers
+ci/                    KiCad and toolchain install, for CI and local setup
 versions.env           pinned KiCad and Zener versions
 docs/research/         toolchain research report and notes
 ```

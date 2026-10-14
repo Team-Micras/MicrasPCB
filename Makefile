@@ -5,7 +5,7 @@ PCB := pcb +$(PCB_TOOLCHAIN)
 TOOL := uv run micras-pcb
 BOARDS := $(notdir $(patsubst %/pcb.toml,%,$(wildcard boards/*/pcb.toml)))
 
-.PHONY: help setup gen check build test layout-check erc lvs drc dfm pytest lint parts outputs fab site all clean
+.PHONY: help setup gen check build test layout-check erc lvs drc dfm pytest lint parts parts-online outputs fab review all clean
 
 help: ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-13s %s\n", $$1, $$2}'
@@ -57,6 +57,9 @@ lint: ## Python lint and format
 parts: ## every part mapped to an LCSC number
 	$(TOOL) parts
 
+parts-online: ## JLCPCB stock and basic/extended status for every part (run before ordering)
+	$(TOOL) parts --online
+
 check: build test layout-check erc lvs drc dfm pytest lint parts ## every gate CI runs
 
 outputs: ## review outputs (schematic, layers, renders, 3D)
@@ -65,10 +68,9 @@ outputs: ## review outputs (schematic, layers, renders, 3D)
 fab: ## JLCPCB fab package
 	$(TOOL) fab
 
-site: outputs fab ## static design portal in build/site
-	$(TOOL) site
+review: outputs fab ## review outputs and fab package (what CI uploads)
 
-all: gen check site ## regenerate, check and build everything
+all: gen check review ## regenerate, check and build everything
 
 clean:
 	rm -rf build

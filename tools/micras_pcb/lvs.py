@@ -9,7 +9,7 @@ only reports that naming difference.
 
 from __future__ import annotations
 
-from . import netlist, sexpr, status
+from . import netlist, sexpr
 from .paths import board_pcb
 
 
@@ -50,5 +50,4 @@ def run(board: str) -> int:
     bad = bool(only_sch or only_pcb or missing)
     summary = "FAILED" if bad else f"clean ({len(sch_multi)} nets)"
     print(f"{board}: LVS {summary}")
-    status.record(board, "LVS", not bad, summary)
     return 1 if bad else 0
