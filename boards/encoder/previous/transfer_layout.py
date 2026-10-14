@@ -21,11 +21,13 @@ boards/encoder/layout/encoder.kicad_pcb, and rewrites the layout:
    is fitted so its pads land on the previous pad centres by pad number (the least-squares
    translation for each candidate rotation, the smallest residual wins). Each reference
    designator text takes the previous one's position, size, layer and orientation. The aux and
-   grid origins are the spec's (the previous board's). Zones are refilled.
+   grid origins are the spec's (the previous board's). Parts the previous board does not have
+   (R1-R3, boards/encoder/changes.toml) stay where the netlist sync put them. Zones are refilled.
 3. `pcb layout` syncs the result, which normalises the file the way `make gen` writes it.
 
-The script is a fixed point: running it on its own output changes nothing. Run `make gen` and
-`make check` afterwards.
+The script is a fixed point: running it on its own output changes nothing. Its output is the
+previous layout; boards/encoder/layout/fixes.py then turns it into the board's layout. Run
+`make gen` and `make check` afterwards.
 """
 
 from __future__ import annotations
@@ -188,7 +190,12 @@ def place(path: Path, old_path: Path) -> list[str]:
     report = []
     for fp in new.GetFootprints():
         ref = fp.GetReference()
-        src = by_ref[ref]
+        src = by_ref.get(ref)
+        if src is None:
+            # a part the previous board does not have (boards/encoder/changes.toml):
+            # boards/encoder/layout/fixes.py places it
+            report.append(f"{ref}: not on the previous board, left where the netlist sync put it")
+            continue
         if fp.IsFlipped() != src.IsFlipped():
             fp.Flip(fp.GetPosition(), pcbnew.FLIP_DIRECTION_LEFT_RIGHT)
         target = _centres(src)

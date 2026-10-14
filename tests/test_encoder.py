@@ -65,20 +65,25 @@ def test_no_single_pin_nets_except_declared_no_connects(nl):
 # --- the previous revision (boards/encoder/previous/board.json) ------------------------------
 
 
-def test_no_declared_changes():
-    # the board replicates its previous revision: no connectivity change
-    assert previous.load_changes("encoder") == []
+def test_declared_changes_are_the_spi_pulls():
+    # the board keeps its previous revision's connectivity, plus the pulls the AS5047U asks for on
+    # the SPI inputs the MCU releases in reset (DS v1-00 Figure 4 notes 1-3)
+    assert [c.id for c in previous.load_changes("encoder")] == ["SPI-PULLS"]
+
+
+def _expected(snap):
+    return previous.apply_changes(previous.from_snapshot(snap), previous.load_changes("encoder"))
 
 
 @needs_kicad
-def test_connectivity_is_the_previous_board(snap, nl):
-    report = previous.diff(previous.from_snapshot(snap), previous.from_netlist(nl))
+def test_connectivity_is_the_previous_board_with_its_declared_changes(snap, nl):
+    report = previous.diff(_expected(snap), previous.from_netlist(nl))
     assert report.ok, str(report)
 
 
 @needs_kicad
 def test_nets_keep_their_previous_names(snap, nl):
-    expected = previous.from_snapshot(snap)
+    expected = _expected(snap)
     actual = {name.lstrip("/"): {(p.ref, p.pin) for p in pins} for name, pins in nl.nets.items()}
     named = [n for n in expected.nets if not n.startswith("unconnected-")]
     assert len(named) == 8

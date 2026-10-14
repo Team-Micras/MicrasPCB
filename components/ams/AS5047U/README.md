@@ -18,7 +18,8 @@ Reference prefix `IC`. MPN `AS5047U-HTSM`, ams OSRAM, LCSC C2153630.
 Integration notes:
 
 - 100 nF from the tied VDD/VDD3V3 node to GND (Figure 11, 3.3 V operation).
-- The SPI host must keep CSn, CLK and MOSI driven (datasheet note 1).
+- CSn, CLK and MOSI must never float (datasheet note 1): where the SPI host can release them
+  (an MCU in reset), pull CSn up and CLK and MOSI down (notes 2 and 3), as the encoder board does.
 - Place the package centred on the magnet axis: the Hall array is at the package centre,
   0.306 mm below the package top.
 

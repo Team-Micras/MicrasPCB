@@ -50,9 +50,36 @@ def supply_decoupled(module, inputs):
     check(abs(value - 100e-9) < 1e-12, caps[0] + " must be 100 nF, is " + str(p[caps[0]].capacitance))
 
 
+def resistors_between(module, a, b):
+    """Designators of the resistors from net a to net b."""
+    return [
+        ref
+        for ref, c in parts(module).items()
+        if c.type == "resistor" and sorted([n.name for n in c.pins.values()]) == sorted([a, b])
+    ]
+
+
+def spi_inputs_held(module, inputs):
+    # AS5047U DS v1-00 Figure 4 note 1: a floating digital input is not allowed; the MCU releases
+    # CSn, CLK and MOSI during reset (RM0468 section 11.3.1). Notes 2 and 3: a pull-up on CSn,
+    # pull-downs on CLK and MOSI. Each pull must hold its level against the input leakage
+    # (100 kOhm at most) and stay a weak load for the MCU pin that drives the line (1 kOhm at least).
+    ic = parts(module)["IC1"].pins
+    vdd, gnd = ic["VDD"].name, ic["GND"].name
+    for pin, rail in [("~{CS}", vdd), ("CLK", gnd), ("MOSI", gnd)]:
+        net = ic[pin].name
+        found = resistors_between(module, net, rail)
+        check(
+            len(found) == 1,
+            "AS5047U " + pin + " (" + net + "): expected one resistor to " + rail + ", found " + str(found),
+        )
+        r = parts(module)[found[0]].resistance.value
+        check(1e3 <= r and r <= 100e3, found[0] + " on " + net + " is " + str(r) + " Ohm, outside 1 kOhm to 100 kOhm")
+
+
 TestBench(
     name="encoder_board",
     module=ENCODER,
     test_cases={"board": {}},
-    checks=[capacitor_voltage_ratings, one_supply, supply_decoupled],
+    checks=[capacitor_voltage_ratings, one_supply, supply_decoupled, spi_inputs_held],
 )
