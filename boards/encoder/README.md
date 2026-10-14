@@ -85,17 +85,17 @@ placed by [`layout/fixes.py`](layout/fixes.py):
   the bottom pour out of the channels between the SPI tracks) and solid pad connections. The
   copper connections keep the previous teardrops as plain zones (priority 100 and up, above the
   pours), one per track end, filled with a 0.1 mm minimum width, JLCPCB's minimum copper feature.
-- Silkscreen: the pin names above the tab on each side (0.5 mm), the IC1, C1 and J1 designators
-  (0.6 mm), and the Micras logo on the bottom. R1-R3 carry their designators on F.Fab only:
+- Silkscreen: the pin names above the tab on each side and the IC1, C1 and J1 designators, all
+  0.5 mm high with a 0.125 mm stroke (the owner's choice), and the Micras logo on the bottom. R1-R3 carry their designators on F.Fab only:
   beside an 0402 on this board a 0.5 mm label cannot keep the 0.1 mm silkscreen clearance.
 - IC1 and J1 are locked where `spec/encoder.toml` puts them. The drill and placement origin of
   the fab outputs is the Altium origin, the tab's bottom left corner.
 - The Edge.Cuts outline is the Altium one without its duplicated vertex (a 1 nm line at the top
   right corner, which KiCad reads as a malformed outline).
 
-The board's silkscreen text minimum is the project's, 0.5 mm high with a 0.15 mm stroke (set in
-`encoder.zen` for DRC; the stroke is checked by `tests/test_encoder.py`); JLCPCB recommends
-1.0 mm. Regenerate the layout from the previous revision with:
+The board's silkscreen text minimum is 0.5 mm high with a 0.125 mm stroke, the owner's choice
+(the height in `encoder.zen`, the stroke in `rules/kicad-severities.toml`, both checked by DRC and
+by `tests/test_encoder.py`); JLCPCB recommends 1.0 mm. Regenerate the layout from the previous revision with:
 
 ```sh
 MICRAS_PREVIOUS=~/codes/hw_debug python3 boards/encoder/previous/transfer_layout.py

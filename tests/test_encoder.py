@@ -93,12 +93,11 @@ def test_nets_keep_their_previous_names(snap, nl):
 
 # --- the layout -----------------------------------------------------------------------------------
 
-# The project's minimum silkscreen text: 0.5 mm high, 0.15 mm stroke (the previous boards' pin
-# labels, legible on the built boards). encoder.zen sets the height as KiCad's board minimum
-# (min_text_height, checked by DRC); Zener does not set KiCad's minimum text thickness, so the
-# stroke is checked here.
+# The board's minimum silkscreen text: 0.5 mm high, 0.125 mm stroke (the owner's choice).
+# encoder.zen sets the height as KiCad's board minimum (min_text_height) and `micras-pcb rules`
+# the stroke (rules/kicad-severities.toml [design.encoder]); this checks every text against both.
 SILK_TEXT_MIN_HEIGHT_MM = 0.5
-SILK_TEXT_MIN_STROKE_MM = 0.15
+SILK_TEXT_MIN_STROKE_MM = 0.125
 SILK = {"F.SilkS", "B.SilkS"}
 
 

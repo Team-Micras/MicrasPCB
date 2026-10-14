@@ -16,8 +16,10 @@ revision, after `make gen` has added R1-R3 (packed beside the board by the netli
 3. The AS5047U's SPI input pulls (DS v1-00 Figure 4 notes 1-3): R3 (SPI_MOSI) and R2 (SPI_SCK)
    above their bottom-side tracks, each with a via onto its track; R1 (Encoder_CSn to 3V3) right
    of the supply track, with a via and a bottom-side stub to the Encoder_CSn track.
-4. Silkscreen: the IC1 and C1 designators move clear of the new parts; R1-R3 keep their
-   designators on F.Fab only (no room on the silkscreen of a 9.6 mm board).
+4. Silkscreen: every text 0.5 mm high with a 0.125 mm stroke (SILK_TEXT, the owner's choice and
+   the board's minimum): the pin labels keep their places, the IC1 and C1 designators move clear
+   of the new parts, J1's stays; R1-R3 keep their designators on F.Fab only (no room on the
+   silkscreen of a 9.6 mm board).
 
 Zones are refilled before saving. New items take their UUIDs from a seeded generator, so the
 chain transfer_layout.py, fixes.py, `make gen` rebuilds the committed layout byte for byte.
@@ -45,6 +47,7 @@ VIA_D, VIA_HOLE = 0.6, 0.3  # the board's vias (encoder.zen netclass)
 SUPPLY_W = 0.254  # top-side tracks, as the previous layout's 3V3, A and B
 SPI_W = 0.38  # bottom-side SPI tracks, as the previous layout's
 TRUNK_X = 149.9261  # the 3V3 tab pad (J1 pad 5) centre line
+SILK_TEXT = (0.5, 0.125)  # silkscreen text height and stroke, mm
 
 
 # --- helpers -------------------------------------------------------------------------------------
@@ -246,25 +249,34 @@ def routes() -> None:
     track("Encoder_CSn", "B", SUPPLY_W, csn_via, at)
 
 
-def label(ref: str, x: float, y: float, angle: float, size: float) -> None:
-    """A footprint's designator on the silkscreen, centred on (x, y); the stroke is the pin labels'
-    (0.154 mm, at least the project's 0.15 mm)."""
+def size(t) -> None:
+    h, stroke = SILK_TEXT
+    t.SetTextSize(pcbnew.VECTOR2I(mm(h), mm(h)))
+    t.SetTextThickness(mm(stroke))
+
+
+def label(ref: str, x: float, y: float, angle: float) -> None:
+    """A footprint's designator on the silkscreen, centred on (x, y), at SILK_TEXT."""
     t = fp(ref).Reference()
     t.SetVisible(True)
     t.SetHorizJustify(pcbnew.GR_TEXT_H_ALIGN_CENTER)
     t.SetVertJustify(pcbnew.GR_TEXT_V_ALIGN_CENTER)
     t.SetTextAngle(pcbnew.EDA_ANGLE(angle, pcbnew.DEGREES_T))
-    t.SetTextSize(pcbnew.VECTOR2I(mm(size), mm(size)))
-    t.SetTextThickness(mm(0.154))
+    size(t)
     t.SetPosition(pt(x, y))
 
 
 def silkscreen() -> None:
-    # IC1 above the package on the board's centre line, C1 below its GND pad (0.6 mm, as before).
-    # R1-R3 keep their designators on F.Fab only: beside an 0402 here a 0.5 mm label cannot keep
-    # the 0.1 mm silkscreen clearance to the parts' own outlines.
-    label("IC1", 148.5011, 98.75, 0, 0.6)
-    label("C1", 151.95, 106.85, 0, 0.6)
+    # IC1 above the package on the board's centre line, C1 below its GND pad, J1 where it is; the
+    # pin labels (board texts) where they are. R1-R3 keep their designators on F.Fab only: beside
+    # an 0402 here a 0.5 mm label cannot keep the 0.1 mm silkscreen clearance to the parts' own
+    # outlines.
+    label("IC1", 148.5011, 98.75, 0)
+    label("C1", 151.95, 106.85, 0)
+    size(fp("J1").Reference())
+    for d in B.GetDrawings():
+        if d.GetClass() == "PCB_TEXT" and d.GetLayer() in (pcbnew.F_SilkS, pcbnew.B_SilkS):
+            size(d)
     for r in ("R1", "R2", "R3"):
         fp(r).Reference().SetVisible(False)
 
