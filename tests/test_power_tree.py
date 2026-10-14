@@ -1,8 +1,8 @@
 """The main board's power tree: one source per supply net, and no source feeding another's input.
 
 Sources are the parts that put a supply on a net: regulators (by MPN), the connectors a supply
-arrives on, and the MCU's on-chip SMPS. Each is listed with its datasheet behaviour when the
-output is held up by something else.
+arrives on, and ORing parts (ideal diodes, power muxes) that pass a supply on from their inputs.
+Each is listed with its datasheet behaviour when its output is held up by something else.
 """
 
 import shutil
@@ -21,7 +21,7 @@ REGULATORS = {
         "VIN",
         "VOUT/FB",
         "the high-side MOSFET's body diode conducts from SW to VIN (DS13554 Figure 19; SW abs max VIN + 0.3 V, "
-        "Table 3), and the LNM variant also sinks up to 1.75 A into VIN (Table 6, section 6.6.2)",
+        "Table 3)",
     ),
     "CJA1117B": (
         "IN",
@@ -30,6 +30,21 @@ REGULATORS = {
         "CJA1117B datasheet is silent)",
     ),
     "TPS61178": ("VIN", "VOUT", None),
+}
+# Variants that also sink current from their output into their input while regulating, so they
+# fight any other source on the output: MPN prefix -> the datasheet's description.
+SINKING = {
+    "L6981N": "the LNM variant sinks up to 1.75 A into VIN to regulate an output held above its set point "
+    "(DS13554 Table 6, section 6.6.2)",
+}
+# ORing parts: MPN prefix -> (input pins, output pin, why the output cannot drive an input).
+ORING = {
+    "LM66100": (("VIN",), "VOUT", "an ideal diode with CE on VOUT blocks reverse current (SLVSEZ8A 8.3.2)"),
+    "TPS2121": (
+        ("IN1", "IN2"),
+        "OUT",
+        "back-to-back FETs per channel with always-on reverse current blocking (SLVSEA3F 9.3.6)",
+    ),
 }
 # Connectors a supply arrives on: (designator, pin, what drives it).
 OFF_BOARD = [
@@ -44,55 +59,105 @@ NOT_DRIVEN = {
 }
 
 
+def _oring_check(d, ref, mpn):
+    """An ORing part only blocks reverse current when wired for it: the LM66100's CE on VOUT."""
+    if mpn == "LM66100":
+        return d.net(ref, "3") == d.net(ref, "VOUT")  # pad 3: ~CE
+    return True
+
+
 def _sources(d):
-    """net -> [(designator, description)] of everything that drives it."""
-    out: dict[str, list[tuple[str, str]]] = {}
+    """net -> [(designator, description, blocks reverse current)] of everything that drives it."""
+    out: dict[str, list[tuple[str, str, bool]]] = {}
     for mpn, (_, pin_out, _) in REGULATORS.items():
         for ref in d.refs(mpn):
-            out.setdefault(d.net(ref, pin_out), []).append((ref, f"{d.mpn(ref)} output"))
+            out.setdefault(d.net(ref, pin_out), []).append((ref, f"{d.mpn(ref)} output", False))
+    for mpn, (pins_in, pin_out, why) in ORING.items():
+        for ref in d.refs(mpn):
+            ins = ", ".join(sorted({d.net(ref, p) for p in pins_in}))
+            blocks = _oring_check(d, ref, mpn)
+            what = f"{d.mpn(ref)} from {ins}: " + (why if blocks else "not wired to block reverse current")
+            out.setdefault(d.net(ref, pin_out), []).append((ref, what, blocks))
     for ref, pin, what in OFF_BOARD:
         net = d.net(ref, pin)
         if net:
-            out.setdefault(net, []).append((ref, what))
+            out.setdefault(net, []).append((ref, what, False))
     return out
 
 
 def test_each_supply_net_has_one_source():
     # Two regulated sources on one net fight: the higher one back-drives the other, and a
     # synchronous buck in forced PWM (L6981N, DS13554 section 6.6.2) sinks up to 1.75 A from the
-    # other source. Parallel sources need ORing (ideal diodes or a power mux) in front of the net.
+    # other source. Parallel sources need ORing (ideal diodes or a power mux) in front of the net:
+    # every source but one must block reverse current.
     d = design("main")
-    shared = {net: srcs for net, srcs in _sources(d).items() if len(srcs) > 1}
-    assert not shared, "\n".join(
-        f"{net} is driven by {len(srcs)} sources with no ORing: " + "; ".join(f"{r} ({w})" for r, w in srcs)
-        for net, srcs in sorted(shared.items())
-    )
+    problems = []
+    for net, srcs in sorted(_sources(d).items()):
+        if len(srcs) < 2:
+            continue
+        plain = [s for s in srcs if not s[2]]
+        if len(plain) > 1:
+            problems.append(
+                f"{net} is driven by {len(plain)} sources with no ORing: "
+                + "; ".join(f"{r} ({w})" for r, w, _ in plain)
+            )
+        for r, _, _ in plain:
+            sink = next((why for prefix, why in SINKING.items() if (d.mpn(r) or "").startswith(prefix)), None)
+            if sink:
+                problems.append(f"{net}: {r} shares the net with {[s[0] for s in srcs if s[0] != r]}, and {sink}")
+    assert not problems, "\n".join(problems)
 
 
 def test_no_source_back_feeds_another_supply():
     # When another source holds a regulator's output up, current flows back into the regulator's
     # input through the path listed in REGULATORS. Its input net must then carry nothing but its
-    # own input capacitors, or the other source powers every load there: with 3V3 from USB or the
-    # probe, VBAT sits at about 2.6-2.9 V and starts the boost (hw_debug/schematic_review.md C3,
-    # bench test G17); with the battery on, 3V3 reaches the USB VBUS, which a sink must not drive
-    # (USB Type-C R2.0 section 4.5.2.2.3.1 p170).
+    # own input capacitors and ORing outputs, or the other source powers every load there: with
+    # 3V3 from USB or the probe, a VBAT-fed buck lifts VBAT to about 2.6-2.9 V and starts the
+    # boost (hw_debug/schematic_review.md C3, bench test G17); with the battery on, 3V3 reaches
+    # the USB VBUS, which a sink must not drive (USB Type-C R2.0 section 4.5.2.2.3.1 p170).
     d = design("main")
     sources = _sources(d)
+    oring = {r for mpn in ORING for r in d.refs(mpn)}
     problems = []
     for mpn, (pin_in, pin_out, reverse) in REGULATORS.items():
         if reverse is None:
             continue
         for ref in d.refs(mpn):
             out, inp = d.net(ref, pin_out), d.net(ref, pin_in)
-            others = [r for r, _ in sources.get(out, []) if r != ref]
+            others = [r for r, _, _ in sources.get(out, []) if r != ref]
             if not others:
                 continue
             loads = sorted({p.ref for p in d.nets()[inp] if p.ref != ref and p.type == "power_in"})
             driven = [why for (r, pin), why in NOT_DRIVEN.items() if d.net(r, pin) == inp]
+            through = sorted({p.ref for p in d.nets()[inp] if p.ref in oring and p.ref != ref})
+            leaky = [r for r in through if not any(s[0] == r and s[2] for s in sources.get(inp, []))]
             what = [f"powers {', '.join(loads)}"] if loads else []
             what += [f"drives the connector's {inp}: {why}" for why in driven]
+            what += [f"reaches {r}'s input" for r in leaky]
             if what:
                 problems.append(
                     f"{ref}: {', '.join(others)} also drive {out}, and {reverse}; so {inp} " + "; ".join(what)
                 )
+    assert not problems, "\n".join(problems)
+
+
+def test_debug_supplies_do_not_reach_the_motor_supplies():
+    # The board runs from USB or the SWD probe for debugging with the motors unpowered
+    # (hw_debug/schematic_review.md, operating modes b and c). Every path from the USB VBUS and
+    # the probe's pin to the battery net must block: through ORing parts only, never into VBAT.
+    d = design("main")
+    vbat = d.net("J1", "1")
+    oring_in = {}
+    for mpn, (pins_in, pin_out, _) in ORING.items():
+        for ref in d.refs(mpn):
+            for p in pins_in:
+                oring_in.setdefault(d.net(ref, p), []).append((ref, d.net(ref, pin_out)))
+    problems = []
+    for ref, pin, what in OFF_BOARD[1:]:
+        net = d.net(ref, pin)
+        if net == vbat:
+            problems.append(f"{ref} {pin} ({what}) is on the battery net {vbat}")
+        for part, out in oring_in.get(net, []):
+            if out == vbat:
+                problems.append(f"{ref} {pin} ({what}) reaches {vbat} through {part}")
     assert not problems, "\n".join(problems)

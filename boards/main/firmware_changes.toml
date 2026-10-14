@@ -1,0 +1,14 @@
+# Firmware changes this board needs that MicrasFirmware does not have yet. tests/test_firmware.py
+# checks the board against firmware.toml with these applied, and flags an entry the firmware
+# already has, so it is dropped when firmware.toml is regenerated. Format: tools/micras_pcb/firmware.py.
+
+[[change]]
+id = "C1"
+summary = "Battery voltage on PA5 (ADC1/ADC2 channel 19) through the 100 kOhm / 27 kOhm divider, replacing the internal VBAT/4 channel: the VBAT pin is on 3V3"
+pins = { "PA5" = { signal = "ADCx_INP19", label = "Battery_Voltage" } }
+battery = { channel = "pin", divider = 4.703704 }
+
+[[change]]
+id = "M11"
+summary = "USB VBUS sensing on PH0 (33 kOhm / 82 kOhm divider from VBUS, AN4879 2.6.1): a GPIO input, read by a USB device stack"
+pins = { "PH0-OSC_IN" = { signal = "GPIO_Input", label = "USB_VBUS_Sense", pull = "none" } }

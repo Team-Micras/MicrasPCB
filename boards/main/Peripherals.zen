@@ -5,27 +5,47 @@ Buttons (GT-TC048B tactile switches to GND, MCU internal pull-ups):
 - SW3 on NRST with C21 100 nF to GND, the recommended NRST protection (DS13311 Figure 27
   p168: 0.1 uF; the pin has an internal 30-50 kOhm pull-up, Table 61 p167).
 - SW5 from BOOT0 to 3V3, with R42 10 kOhm from BOOT0 to GND (AN5419 Figure 19 p30) and C60
-  100 nF from BOOT0 to 3V3.
+  100 nF from BOOT0 to GND: R42 holds BOOT0 low while 3V3 ramps, so the MCU boots from flash,
+  and C60 debounces the switch.
 SW1, a 4-way DIP switch, pulls Switch_0..3 to GND.
 
 Buzzer: BZ1 (FUET-5030, 3 V electromagnetic, externally driven) from 3V3 through R3 10 Ohm to
 the low-side switch Q1 (AO3400A), driven from Buzzer (PA2, TIM15) through R1 220 Ohm with
 R2 10 kOhm gate pull-down. D3 (1N4148W) clamps the coil: anode on the coil's low side,
-cathode on 3V3.
+cathode on 3V3. R3 is a 1206 (250 mW): at the firmware's 50 % duty and low tones the coil
+current approaches 3.3 V / (9 + 10) Ohm = 174 mA with the 9 Ohm minimum coil (FUET-5030 p2),
+151 mW in R3.
 
 LEDs:
 - D1, D2: WS2815C-2020 addressable LEDs in a chain, DI of D1 on LED_ARGB (PC6), D1 DO to
-  D2 DI; VDD on 3V3 with C19 (D1) and C18 (D2) 100 nF.
-- D4 (yellow) from LED_Blue (PB12) through R4 680 Ohm; D5 (red) from 3V3 through R5 680 Ohm,
-  the power indicator.
+  D2 DI. VDD on VBAT, the 9.9-12.6 V the 3S pack gives in use, inside the 9.5-13.5 V supply
+  range (WS2815C-2020-4P V1.0 p3); C19 (D1) and C18 (D2) 100 nF 50 V on VBAT. The 3.3 V data
+  from PC6 meets VIH 2.7 V min within the -0.3 to 5.7 V input range (p3). The LEDs stay dark
+  when only USB or the SWD probe powers the board (VBAT at 0 V).
+- D4 (yellow) from LED_Red (PB12, the firmware's label) through R4 680 Ohm; D5 (red) from
+  3V3 through R5 680 Ohm, the power indicator.
 
 USB-C, U2 (GT-USB-7010ASV), a USB 2.0 device port that also carries the Bluetooth module's
 UART (UART4 on PA11/PA12):
-- VBUS on +5V for the USB LDO; R6/R7 5.1 kOhm Rd on CC1/CC2 (sink).
-- D+/D- to the MCU through R9/R8 33 Ohm, with C23/C22 18 pF to GND on the MCU side and R10
-  1.5 kOhm pull-up from D+ to 3V3.
-- SBU1/SBU2 fed from 3V3 through the 0402 PTC fuse F1 (KASML010), powering the plug-in
-  Bluetooth module.
+- VBUS on +5V, input IN2 of the power mux (regulators sheet). D8 (PESD5V0S1BL, 5 V working
+  voltage) clamps VBUS to GND at the receptacle. R6/R7 5.1 kOhm Rd on CC1/CC2 (sink).
+- VBUS sensing (AN4879 section 2.6.1): R47 33 kOhm / R48 82 kOhm from VBUS into
+  USB_VBUS_Sense (PH0, FT): 3.14-3.74 V for VBUS 4.4-5.25 V, above VIH (0.7 VDD = 2.31 V,
+  DS13311 Table 55) and within the FT input rating (DS13311 Table 10). The divider also
+  discharges VBUS after unplugging.
+- D+/D- straight to PA12/PA11: R9/R8 are 0 Ohm, the PHY includes the driver impedance and
+  the D+ pull-up (DS13311 Table 118 note 2; AN4879 section 3.1). C23/C22 (18 pF footprints on
+  the MCU side) are not fitted: no ST document calls for them.
+- U6 (USBLC6-2SC6) clamps D+ and D- at the receptacle (AN4879 section 2.3, Table 11), its rail
+  pin on 3V3, the supply of the circuit it protects (USBLC6-2 section 2.2): the UART levels
+  (0-3.3 V) never forward-bias it, whether a USB host or the Bluetooth module is plugged in.
+- SBU1/SBU2 carry 3V3 through Q7 (AO3401A P-MOSFET) and the 0402 PTC fuse F1 (KASML010),
+  powering the plug-in Bluetooth module. Q7's gate is on VBUS: with VBUS absent (the module,
+  which leaves VBUS open) Q7 is on; when a USB host supplies VBUS, Q7 turns off and SBU carries
+  no supply. A host only applies VBUS after it sees Rd on CC (Type-C R2.0 4.5.2.2.8.2), so the
+  SBU supply is present while a host debounces the attach, and on an unpowered host or an
+  accessory: Type-C R2.0 section 4.3 requires SBU open (or >= 950 kOhm to GND, Table 4-28) in
+  every state, which a module powered through SBU cannot meet.
 - The shell (pads 1-4) on GND.
 """
 
@@ -36,27 +56,32 @@ load(
     "C_18P_0402",
     "LED_RED_0603",
     "LED_YELLOW_0603",
+    "R_0_0402",
     "R_10K_0402",
-    "R_10_0603",
-    "R_1K5_0402",
+    "R_10_1206",
     "R_220_0402",
-    "R_33_0402",
+    "R_33K_0402",
     "R_5K1_0402",
     "R_680_0402",
+    "R_82K_0402",
 )
 
 Capacitor = Module("@stdlib/generics/Capacitor.zen")
 Led = Module("@stdlib/generics/Led.zen")
 Resistor = Module("@stdlib/generics/Resistor.zen")
+Tvs = Module("@stdlib/generics/Tvs.zen")
 AO3400A = Module("github.com/Team-Micras/MicrasPCB/components/aos/AO3400A/AO3400A.zen")
+AO3401A = Module("github.com/Team-Micras/MicrasPCB/components/aos/AO3401A/AO3401A.zen")
 D1N4148W = Module("github.com/Team-Micras/MicrasPCB/components/hongjiacheng/1N4148W/1N4148W.zen")
 DSHP04TJGER = Module("github.com/Team-Micras/MicrasPCB/components/kangshen/DSHP04TJGER/DSHP04TJGER.zen")
 FUET_5030 = Module("github.com/Team-Micras/MicrasPCB/components/fuet/FUET-5030/FUET-5030.zen")
 GT_TC048B = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/GT-TC048B-H025-L1/GT-TC048B-H025-L1.zen")
 GT_USB_7010ASV = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/GT-USB-7010ASV/GT-USB-7010ASV.zen")
 KASML010 = Module("github.com/Team-Micras/MicrasPCB/components/kuu/KASML010/KASML010.zen")
+USBLC6_2SC6 = Module("github.com/Team-Micras/MicrasPCB/components/st/USBLC6-2SC6/USBLC6-2SC6.zen")
 WS2815C = Module("github.com/Team-Micras/MicrasPCB/components/worldsemi/WS2815C-2020/WS2815C-2020.zen")
 
+VBAT = io(Power)
 V3V3 = io(Power)
 V5V = io(Power)
 GND = io(Ground)
@@ -70,9 +95,10 @@ SWITCH_2 = io(Net)
 SWITCH_3 = io(Net)
 BUZZER = io(Net)
 LED_ARGB = io(Net)
-LED_BLUE = io(Net)
+LED_RED = io(Net)
 USBD_P = io(Net)
 USBD_N = io(Net)
+USB_VBUS_SENSE = io(Net)
 
 BUZZER_GATE = Net("BUZZER_GATE")
 BUZZER_DRAIN = Net("BUZZER_DRAIN")
@@ -83,6 +109,7 @@ LED_RED_A = Net("LED_RED_A")
 USB = Usb2("USB_CONN")
 CC1 = Net("USB_CC1")
 CC2 = Net("USB_CC2")
+SBU_SW = Net("SBU_SW")
 SBU_PWR = Net("SBU_PWR")
 
 # Buttons and switches.
@@ -92,7 +119,7 @@ GT_TC048B(name="SW3", A=GND, B=RESET)
 Capacitor(name="C21", P1=GND, P2=RESET, **C_100N_0402)
 GT_TC048B(name="SW5", A=BOOT, B=V3V3)
 Resistor(name="R42", P1=GND, P2=BOOT, **R_10K_0402)
-Capacitor(name="C60", P1=BOOT, P2=V3V3, **C_100N_0402)
+Capacitor(name="C60", P1=BOOT, P2=GND, **C_100N_0402)
 DSHP04TJGER(
     name="SW1",
     S1_A=SWITCH_0,
@@ -107,18 +134,18 @@ DSHP04TJGER(
 
 # Buzzer.
 FUET_5030(name="BZ1", POS=V3V3, NEG=BUZZER_COIL)
-Resistor(name="R3", P1=BUZZER_DRAIN, P2=BUZZER_COIL, **R_10_0603)
+Resistor(name="R3", P1=BUZZER_DRAIN, P2=BUZZER_COIL, **R_10_1206)
 AO3400A(name="Q1", G=BUZZER_GATE, S=GND, D=BUZZER_DRAIN)
 Resistor(name="R1", P1=BUZZER_GATE, P2=BUZZER, **R_220_0402)
 Resistor(name="R2", P1=GND, P2=BUZZER_GATE, **R_10K_0402)
 D1N4148W(name="D3", A=BUZZER_COIL, K=V3V3)
 
 # LEDs.
-WS2815C(name="D1", VDD=V3V3, GND=GND, DI=LED_ARGB, DO=LED_CHAIN)
-WS2815C(name="D2", VDD=V3V3, GND=GND, DI=LED_CHAIN, DO=NotConnected())
-Capacitor(name="C19", P1=GND, P2=V3V3, **C_100N_0402)
-Capacitor(name="C18", P1=GND, P2=V3V3, **C_100N_0402)
-Resistor(name="R4", P1=LED_YELLOW_A, P2=LED_BLUE, **R_680_0402)
+WS2815C(name="D1", VDD=VBAT, GND=GND, DI=LED_ARGB, DO=LED_CHAIN)
+WS2815C(name="D2", VDD=VBAT, GND=GND, DI=LED_CHAIN, DO=NotConnected())
+Capacitor(name="C19", P1=GND, P2=VBAT, **C_100N_0402)
+Capacitor(name="C18", P1=GND, P2=VBAT, **C_100N_0402)
+Resistor(name="R4", P1=LED_YELLOW_A, P2=LED_RED, **R_680_0402)
 Led(name="D4", A=LED_YELLOW_A, K=GND, **LED_YELLOW_0603)
 Resistor(name="R5", P1=LED_RED_A, P2=V3V3, **R_680_0402)
 Led(name="D5", A=LED_RED_A, K=GND, **LED_RED_0603)
@@ -135,11 +162,24 @@ GT_USB_7010ASV(
     SBU2=SBU_PWR,
     USB=USB,
 )
+Tvs(
+    name="D8",
+    package="SOD-882",
+    direction="Bidirectional",
+    reverse_standoff_voltage="5V",
+    mpn="PESD5V0S1BL,315",
+    manufacturer="Nexperia",
+    A=GND,
+    K=V5V,
+)
 Resistor(name="R6", P1=GND, P2=CC1, **R_5K1_0402)
 Resistor(name="R7", P1=GND, P2=CC2, **R_5K1_0402)
-Resistor(name="R9", P1=USB.D.P, P2=USBD_P, **R_33_0402)
-Resistor(name="R8", P1=USB.D.N, P2=USBD_N, **R_33_0402)
-Capacitor(name="C23", P1=GND, P2=USBD_P, **C_18P_0402)
-Capacitor(name="C22", P1=GND, P2=USBD_N, **C_18P_0402)
-Resistor(name="R10", P1=USBD_P, P2=V3V3, **R_1K5_0402)
-KASML010(name="F1", P1=V3V3, P2=SBU_PWR)
+Resistor(name="R47", P1=V5V, P2=USB_VBUS_SENSE, **R_33K_0402)
+Resistor(name="R48", P1=GND, P2=USB_VBUS_SENSE, **R_82K_0402)
+USBLC6_2SC6(name="U6", IO1=USB.D.P, IO2=USB.D.N, VBUS=V3V3, GND=GND)
+Resistor(name="R9", P1=USB.D.P, P2=USBD_P, **R_0_0402)
+Resistor(name="R8", P1=USB.D.N, P2=USBD_N, **R_0_0402)
+Capacitor(name="C23", P1=GND, P2=USBD_P, dnp=True, **C_18P_0402)
+Capacitor(name="C22", P1=GND, P2=USBD_N, dnp=True, **C_18P_0402)
+AO3401A(name="Q7", G=V5V, S=V3V3, D=SBU_SW)
+KASML010(name="F1", P1=SBU_SW, P2=SBU_PWR)

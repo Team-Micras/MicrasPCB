@@ -2,14 +2,15 @@
 
 This root sheet holds the STM32H725RGV6 (IC1) with its supply network, the SWD header and the
 test points, and connects the four sheets:
-- REGULATORS (Regulators.zen): battery input and switch, 3.3 V buck, 20 V boost, USB LDO.
+- REGULATORS (Regulators.zen): battery input, switch and measurement, supply selection,
+  3.3 V buck, 20 V boost, SWD probe supply.
 - DRIVERS (Drivers.zen): L6205D locomotion bridges with their shunts, STSPIN958 fan driver.
 - SENSORS (Sensors.zen): IMU, motor current amplifiers, wall sensors, encoder slots.
 - PERIPHERALS (Peripherals.zen): buttons, DIP switch, buzzer, LEDs, USB-C.
 
-Every part carries the designator of the MicrasMainBoard Altium design it replicates, and
-boards/main/previous/board.json is that design's connectivity; `micras-pcb previous compare
-main` checks this board against it and boards/main/changes.toml.
+Parts of the MicrasMainBoard Altium design keep its designators, and the parts this board adds
+continue each series. boards/main/previous/board.json is that design's connectivity; `micras-pcb
+previous compare main` checks this board against it and boards/main/changes.toml.
 
 MCU supply (DS13311 Rev 5; AN5419 Rev 3, Table 2 p7-8 and Figure 5 p10, "Direct SMPS
 supply"). The VFQFPN68 package is SMPS-only (no VDDLDO pin), and the core runs from the
@@ -21,12 +22,21 @@ on-chip step-down converter:
 - VFBSMPS (pin 7) and VCAP1-3 (pins 33, 49, 66) all on VCORE ("All VCAP connected together",
   Figure 5), with C7, C6 and C5 100 nF at VCAP1, VCAP2 and VCAP3. The firmware selects
   PWR_DIRECT_SMPS_SUPPLY, the supply configuration this wiring provides.
-- VDDA (pin 16): 3V3 with C10 100 nF and C11 1 uF (1 uF + 100 nF at the pin).
+- VDDA (pin 16): 3V3 through the ferrite bead FB1 (600 Ohm at 100 MHz, 450 mOhm DCR), with
+  C10 100 nF and C11 1 uF at the pin ("VDDA can be connected to VDD through a ferrite bead",
+  1 uF + 100 nF at the pin, AN5419 Table 2 p7; the MB1520 discovery kit does the same). On this
+  package VREF+ is VDDA (DS13311 Figures 46-47 note 1), so the bead keeps the wall-emitter
+  pulses on 3V3 out of the ADC reference; the ADC's few mA drop under 2 mV across the DCR.
 - VBAT (pin 1): 3V3, as AN5419 Table 2 requires when no backup battery is used (VBAT
   1.2-3.6 V, DS13311 Table 13 p116; 4.0 V absolute maximum, Table 10 p114), with C8 100 nF
   and C9 1 uF at the pin.
 
-The board has no HSE or LSE crystal: PH0/PH1 and PC15 are unused, and so is PA5.
+Debug header P1 (1x05, 2.54 mm): 1 SWD_VDD (the probe's 3.3 V supply, ORed onto 3V3 by U5 on
+the regulators sheet), 2 GND, 3 SWDIO, 4 SWCLK, 5 NRST, so the probe can connect under reset
+(AN5419 Figure 21 p33).
+
+The board has no HSE or LSE crystal: PH1 and PC15 are unused. PA5 reads the battery voltage
+(Battery_Voltage, ADC12_INP19) and PH0 the USB VBUS (USB_VBUS_Sense), both from dividers.
 """
 
 load("@stdlib/interfaces.zen", "Spi")
@@ -45,11 +55,12 @@ load(
     "Stackup",
     "ViaDimension",
 )
-load("./passives.zen", "C_100N_0402", "C_10U_0603", "C_1U_0402", "C_4U7_0402")
+load("./passives.zen", "C_100N_0402", "C_10U_0603", "C_1U_0402", "C_4U7_0402", "FB_600R_0603")
 
 Capacitor = Module("@stdlib/generics/Capacitor.zen")
+FerriteBead = Module("@stdlib/generics/FerriteBead.zen")
 AFE201612S2R2MBT = Module("github.com/Team-Micras/MicrasPCB/components/magnetsyc/AFE201612S2R2MBT/AFE201612S2R2MBT.zen")
-PZ254V_11_04P = Module("github.com/Team-Micras/MicrasPCB/components/xfcn/PZ254V-11-04P/PZ254V-11-04P.zen")
+PZ254V_11_05P = Module("github.com/Team-Micras/MicrasPCB/components/xfcn/PZ254V-11-05P/PZ254V-11-05P.zen")
 STM32H725RGV6 = Module("github.com/Team-Micras/MicrasPCB/components/st/STM32H725RGV6/STM32H725RGV6.zen")
 MountingHole = Module("github.com/Team-Micras/MicrasPCB/components/micras/MountingHole/MountingHole.zen")
 TestPoint = Module("github.com/Team-Micras/MicrasPCB/components/micras/TestPoint/TestPoint.zen")
@@ -61,13 +72,18 @@ Peripherals = Module("./Peripherals.zen")
 # Supplies.
 # 3S LiPo on J1, 9.9-12.6 V in use (4.2 V per cell full; hw_debug/schematic_review.md, rework O1).
 VBAT = Power("VBAT", voltage="9.9V to 12.6V")
-# L6981N33 fixed output (DS13554 Table 6 p6: 3.284-3.346 V) and CJA1117B-3.3 output, in parallel.
+# L6981C33 fixed output (DS13554 Table 6 p6: 3.284-3.346 V), or the SWD probe's 3.3 V through U5.
 V3V3 = Power("3V3", voltage="3.3V")
-# USB VBUS from the USB-C receptacle, 5 V nominal.
-V5V = Power("+5V", voltage="5V")
-# TPS611781 output set by R39/R40: 1.198 V x (1 + 2 MOhm / 130 kOhm) = 19.63 V typ, 18.99-20.32 V
-# over VREF (1.180-1.210 V, SLVSDA7E section 7.5) and 1 % resistors.
-V20V = Power("+20V", voltage="18.99V to 20.32V")
+# The ADC and analog supply, 3V3 through FB1.
+VDDA = Power("VDDA", voltage="3.3V")
+# USB VBUS from the USB-C receptacle: 4.75-5.25 V at the host, 4.4 V minimum at a device.
+V5V = Power("+5V", voltage="4.4V to 5.25V")
+# The SWD probe's 3.3 V supply on P1 pin 1 (an ST-Link V2 clone drives its 3.3 V regulator here).
+SWD_VDD = Power("SWD_VDD", voltage="3.3V")
+# TPS61178 output set by R39/R40: 1.198 V x (1 + 1 MOhm / 68 kOhm) = 18.82 V typ; 18.19-19.42 V
+# over VREF (1.180-1.210 V, SLVSDA7E section 7.5), 1 % resistors and the 60 nA FB leakage
+# through R39.
+V20V = Power("+20V", voltage="18.19V to 19.42V")
 # STM32 core supply from the on-chip SMPS: VOS3 to VOS0 (DS13311 Table 13 p117).
 VCORE = Power("VCORE", voltage="0.95V to 1.40V")
 # SMPS switching node; AN5419 Table 2 gives its range as VCORE in the Direct SMPS supply.
@@ -86,7 +102,7 @@ USBD_N = Net("USBD_N")
 BUTTON = Net("Button")
 BUZZER = Net("Buzzer")
 LED_ARGB = Net("LED_ARGB")
-LED_BLUE = Net("LED_Blue")
+LED_RED = Net("LED_Red")
 SWITCH_0 = Net("Switch_0")
 SWITCH_1 = Net("Switch_1")
 SWITCH_2 = Net("Switch_2")
@@ -118,7 +134,7 @@ MOTOR_LEFT_PWM_FW = Net("Motor_Left_PWM_FW")
 MOTOR_LEFT_PWM_BW = Net("Motor_Left_PWM_BW")
 MOTOR_RIGHT_PWM_FW = Net("Motor_Right_PWM_FW")
 MOTOR_RIGHT_PWM_BW = Net("Motor_Right_PWM_BW")
-MOTOR_ENABLE = Net("Motor_Enable")
+MOTORS_ENABLE = Net("Motors_Enable")
 MOTOR_L_SENSE_P = Net("Motor_L_Sense+")
 MOTOR_L_SENSE_N = Net("Motor_L_Sense-")
 MOTOR_R_SENSE_P = Net("Motor_R_Sense+")
@@ -128,14 +144,17 @@ CURRENT_SENSOR_RIGHT = Net("Current_Sensor_Right")
 
 FAN_PWM = Net("Fan_PWM")
 FAN_ENABLE = Net("Fan_Enable")
-FAN_OVERCURRENT = Net("Fan_Overcurrent")
+FAN_TOFF = Net("Fan_TOFF")
+
+BATTERY_VOLTAGE = Net("Battery_Voltage")
+USB_VBUS_SENSE = Net("USB_VBUS_Sense")
 
 # MCU.
 STM32H725RGV6(
     name="IC1",
     VDD=V3V3,
     VDDSMPS=V3V3,
-    VDDA=V3V3,
+    VDDA=VDDA,
     VBAT=V3V3,
     VLXSMPS=SMPS_LX,
     VFBSMPS=VCORE,
@@ -150,12 +169,12 @@ STM32H725RGV6(
     PA2=BUZZER,
     PA3=ENCODER_LEFT_SPI.CS,
     PA4=WALL_SENSOR_3,
-    PA5=NotConnected(),
+    PA5=BATTERY_VOLTAGE,
     PA6=WALL_SENSOR_2,
     PA7=BUTTON,
     PA8=MOTOR_RIGHT_PWM_FW,
     PA9=MOTOR_RIGHT_PWM_BW,
-    PA10=MOTOR_ENABLE,
+    PA10=MOTORS_ENABLE,
     PA11=USBD_N,
     PA12=USBD_P,
     PA13=SWDIO,
@@ -172,12 +191,12 @@ STM32H725RGV6(
     PB8=WALL_SENSOR_PWM_2,
     PB9=WALL_SENSOR_PWM_3,
     PB10=SWITCH_3,
-    PB12=LED_BLUE,
-    PB13=FAN_OVERCURRENT,
+    PB12=LED_RED,
+    PB13=FAN_TOFF,
     PB14=FAN_ENABLE,
     PB15=FAN_PWM,
-    PC0=CURRENT_SENSOR_RIGHT,
-    PC1=CURRENT_SENSOR_LEFT,
+    PC0=CURRENT_SENSOR_LEFT,
+    PC1=CURRENT_SENSOR_RIGHT,
     PC4=WALL_SENSOR_1,
     PC5=SWITCH_0,
     PC6=LED_ARGB,
@@ -189,7 +208,7 @@ STM32H725RGV6(
     PC14=ENCODER_RIGHT_SPI.CS,
     PC15=NotConnected(),
     PD2=IMU_SPI.CS,
-    PH0=NotConnected(),
+    PH0=USB_VBUS_SENSE,
     PH1=NotConnected(),
 )
 
@@ -203,8 +222,9 @@ Capacitor(name="C6", P1=GND, P2=VCORE, **C_100N_0402)
 Capacitor(name="C5", P1=GND, P2=VCORE, **C_100N_0402)
 Capacitor(name="C8", P1=GND, P2=V3V3, **C_100N_0402)
 Capacitor(name="C9", P1=GND, P2=V3V3, **C_1U_0402)
-Capacitor(name="C10", P1=GND, P2=V3V3, **C_100N_0402)
-Capacitor(name="C11", P1=GND, P2=V3V3, **C_1U_0402)
+FerriteBead(name="FB1", P1=V3V3, P2=VDDA, **FB_600R_0603)
+Capacitor(name="C10", P1=GND, P2=VDDA, **C_100N_0402)
+Capacitor(name="C11", P1=GND, P2=VDDA, **C_1U_0402)
 Capacitor(name="C12", P1=GND, P2=V3V3, **C_100N_0402)
 Capacitor(name="C13", P1=GND, P2=V3V3, **C_100N_0402)
 Capacitor(name="C14", P1=GND, P2=V3V3, **C_100N_0402)
@@ -212,15 +232,15 @@ Capacitor(name="C15", P1=GND, P2=V3V3, **C_100N_0402)
 Capacitor(name="C16", P1=GND, P2=V3V3, **C_100N_0402)
 Capacitor(name="C17", P1=GND, P2=V3V3, **C_4U7_0402)
 
-# SWD header: 3V3, GND, SWDIO, SWCLK.
-PZ254V_11_04P(name="P1", P1=V3V3, P2=GND, P3=SWDIO, P4=SWCLK)
+# SWD header: probe supply, GND, SWDIO, SWCLK, NRST.
+PZ254V_11_05P(name="P1", P1=SWD_VDD, P2=GND, P3=SWDIO, P4=SWCLK, P5=RESET)
 
 # Test points (bare pads, not assembled). The 20V pad has no connection.
 TestPoint(name="IMU_INT1", prefix="IMU_INT", P1=IMU_INT1)
 TestPoint(name="IMU_INT2", prefix="IMU_INT", P1=IMU_INT2)
 TestPoint(name="FAN_PWM", prefix="FAN_PWM", P1=FAN_PWM)
 TestPoint(name="FAN_ENABLE", prefix="FAN_ENABLE", P1=FAN_ENABLE)
-TestPoint(name="FAN_OVERCURRENT", prefix="FAN_OVERCURRENT", P1=FAN_OVERCURRENT)
+TestPoint(name="FAN_OVERCURRENT", prefix="FAN_OVERCURRENT", P1=FAN_TOFF)
 TestPoint(name="20V", prefix="20V", P1=NotConnected())
 
 # M2 screw holes to the chassis; spec/main.toml places them.
@@ -235,8 +255,11 @@ Regulators(
     V3V3=V3V3,
     V5V=V5V,
     V20V=V20V,
+    SWD_VDD=SWD_VDD,
     GND=GND,
     GND_BAT=GND_BAT,
+    MOTORS_ENABLE=MOTORS_ENABLE,
+    BATTERY_VOLTAGE=BATTERY_VOLTAGE,
 )
 
 Drivers(
@@ -249,14 +272,14 @@ Drivers(
     MOTOR_LEFT_PWM_BW=MOTOR_LEFT_PWM_BW,
     MOTOR_RIGHT_PWM_FW=MOTOR_RIGHT_PWM_FW,
     MOTOR_RIGHT_PWM_BW=MOTOR_RIGHT_PWM_BW,
-    MOTOR_ENABLE=MOTOR_ENABLE,
+    MOTORS_ENABLE=MOTORS_ENABLE,
     MOTOR_R_SENSE_P=MOTOR_R_SENSE_P,
     MOTOR_R_SENSE_N=MOTOR_R_SENSE_N,
     MOTOR_L_SENSE_P=MOTOR_L_SENSE_P,
     MOTOR_L_SENSE_N=MOTOR_L_SENSE_N,
     FAN_PWM=FAN_PWM,
     FAN_ENABLE=FAN_ENABLE,
-    FAN_OVERCURRENT=FAN_OVERCURRENT,
+    FAN_TOFF=FAN_TOFF,
 )
 
 Sensors(
@@ -290,6 +313,7 @@ Sensors(
 
 Peripherals(
     name="PERIPHERALS",
+    VBAT=VBAT,
     V3V3=V3V3,
     V5V=V5V,
     GND=GND,
@@ -302,9 +326,10 @@ Peripherals(
     SWITCH_3=SWITCH_3,
     BUZZER=BUZZER,
     LED_ARGB=LED_ARGB,
-    LED_BLUE=LED_BLUE,
+    LED_RED=LED_RED,
     USBD_P=USBD_P,
     USBD_N=USBD_N,
+    USB_VBUS_SENSE=USB_VBUS_SENSE,
 )
 
 # Stackup and rules from the Altium MicrasMainBoard.PcbDoc (layer stack and design rules):
