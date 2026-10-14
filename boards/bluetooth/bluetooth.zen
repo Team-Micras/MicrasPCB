@@ -1,0 +1,195 @@
+"""Micras Bluetooth module: an HM-19 BLE module on a USB-C plug.
+
+The module plugs into the main board's USB-C receptacle U2 (boards/main, PERIPHERALS.U2) and
+uses it as a four-wire port:
+- 3V3 from the main board (its 3V3 through the PTC fuse F1) on the plug's SBU1 and SBU2;
+- GND on the plug's GND contacts and shell;
+- UART on the USB data contacts: HM-19 UART_TX through R1 to D- (the main board's USBD_N, MCU
+  PA11 = UART4_RX), HM-19 UART_RX through R2 to D+ (USBD_P, PA12 = UART4_TX). The plug joins
+  both D+ and both D- contacts, and SBU1 with SBU2, so it mates the same way either side up.
+VBUS and CC1/CC2 of the plug are left open.
+
+Every part carries the designator of the MicrasBluetoothModule Altium design it replicates, and
+boards/bluetooth/previous/board.json is that design's connectivity; `micras-pcb previous compare
+bluetooth` checks this board against it and boards/bluetooth/changes.toml.
+
+HM-19 application circuit (JNHuaMao HM Bluetooth module datasheet V107, section 6.5 schematic):
+- R1, R2: 1 kOhm in series with UART_TX and UART_RX, as the vendor schematic. With the main
+  board's 33 Ohm and 18 pF on each line the RC is about 24 ns, against 8.68 us per bit at the
+  firmware's 115 200 baud.
+- C1 10 uF and C2 100 nF on VCC (pins 9 and 10), as the vendor schematic.
+- PIO1 (pin 15, "System LED", section 7) drives the blue LED D1 through R3 680 Ohm (the vendor
+  uses 470 Ohm): about (3.3 V - 2.9 V) / 680 Ohm = 0.6 mA (SMLD12BN1W VF 2.9 V typ at 5 mA,
+  ROHM SMLD12x Rev.005 p1; IF max 20 mA).
+- PIO0 (pin 16) on the open pad OP1 to GND: the vendor schematic's KEY switch. Bridging it for
+  over 1000 ms disconnects a connected module, and in standby restores the factory settings
+  (section 7).
+- RESETB (pin 11), RTS, CTS, PIO2, PIO3 and KEY (pin 8) are open, as in the vendor schematic.
+
+Mechanical source of truth: spec/bluetooth.toml (outline extents, plug position, thickness,
+mating with the main board's U2).
+"""
+
+load("@stdlib/interfaces.zen", "DiffPair", "Uart", "Usb2")
+load(
+    "@stdlib/board_config.zen",
+    "BoardConfig",
+    "Constraints",
+    "Copper",
+    "CopperLayer",
+    "DesignRules",
+    "DielectricLayer",
+    "Holes",
+    "Material",
+    "NetClass",
+    "PredefinedSizes",
+    "Stackup",
+    "ViaDimension",
+)
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Led = Module("@stdlib/generics/Led.zen")
+HM19 = Module("github.com/Team-Micras/MicrasPCB/components/jnhuamao/HM-19/HM-19.zen")
+PLUG = Module("github.com/Team-Micras/MicrasPCB/components/jing-extension/918-118A2021Y40006/918-118A2021Y40006.zen")
+OpenPad = Module("github.com/Team-Micras/MicrasPCB/components/micras/OpenPad/OpenPad.zen")
+
+# The main board's 3V3 (L6981N33 / CJA1117B-3.3) through its F1, on the plug's SBU contacts.
+V3V3 = Power("3V3", voltage="3.3V")
+GND = Ground("GND")
+
+# Plug side of the UART: D- carries the module's TX, D+ its RX (names as on the Altium design).
+UART_TX = Net("UART_TX")
+UART_RX = Net("UART_RX")
+# Module side of R1 and R2.
+MODULE_UART = Uart(TX=Net("HM19_TX"), RX=Net("HM19_RX"))
+LED_PIO = Net("LED_PIO")
+LED_A = Net("LED_A")
+KEY = Net("KEY")
+
+# 1 % 0603 thick film, 100 mW 75 V (UNI-ROYAL 0603WAF series, JLCPCB basic parts).
+R_1K = {"value": "1kOhm 1%", "package": "0603", "power": "100mW", "mpn": "0603WAF1001T5E", "manufacturer": "UNI-ROYAL"}
+R_680 = {
+    "value": "680Ohm 1%",
+    "package": "0603",
+    "power": "100mW",
+    "mpn": "0603WAF6800T5E",
+    "manufacturer": "UNI-ROYAL",
+}
+
+HM19(
+    name="U1",
+    VCC=V3V3,
+    GND=GND,
+    UART=MODULE_UART,
+    RTS=NotConnected(),
+    CTS=NotConnected(),
+    KEY=NotConnected(),
+    RESETB=NotConnected(),
+    PIO0=KEY,
+    PIO1=LED_PIO,
+    PIO2=NotConnected(),
+    PIO3=NotConnected(),
+)
+
+PLUG(
+    name="USB1",
+    VBUS=NotConnected(),
+    GND=GND,
+    SHELL=GND,
+    CC1=NotConnected(),
+    CC2=NotConnected(),
+    SBU1=V3V3,
+    SBU2=V3V3,
+    USB=Usb2(D=DiffPair(P=UART_RX, N=UART_TX)),
+)
+
+Resistor(name="R1", P1=UART_TX, P2=MODULE_UART.TX, **R_1K)
+Resistor(name="R2", P1=UART_RX, P2=MODULE_UART.RX, **R_1K)
+
+Capacitor(
+    name="C1",
+    P1=GND,
+    P2=V3V3,
+    value="10uF 10%",
+    package="0603",
+    voltage="35V",
+    dielectric="X5R",
+    mpn="HGC0603R5106K350NTHJ",
+    manufacturer="Chinocera",
+)
+Capacitor(
+    name="C2",
+    P1=GND,
+    P2=V3V3,
+    value="100nF 10%",
+    package="0603",
+    voltage="50V",
+    dielectric="X7R",
+    mpn="CC0603KRX7R9BB104",
+    manufacturer="YAGEO",
+)
+
+Resistor(name="R3", P1=LED_PIO, P2=LED_A, **R_680)
+Led(
+    name="D1",
+    A=LED_A,
+    K=GND,
+    package="0603",
+    color="blue",
+    forward_voltage="2.9V",
+    mpn="SMLD12BN1WT86",
+    manufacturer="ROHM",
+)
+
+OpenPad(name="OP1", P1=KEY, P2=GND)
+
+# Stackup and rules from the Altium MicrasBluetoothModule.PcbDoc (layer stack and design rules):
+# 2 layers, 35 um copper on a 0.7 mm FR-4 core (Dk 4.5), 10 um mask per side, 0.79 mm. Rules (the
+# Altium JLCPCB rule set): 0.1 mm clearance, 10 mil (0.254 mm) track, 0.4 mm / 0.3 mm minimum via,
+# 0.3 mm minimum hole, 0.254 mm hole to hole, 0.2 mm copper to board edge. The routing uses
+# 0.254 mm tracks and 0.6 / 0.3 mm and 0.5 / 0.3 mm vias.
+Board(
+    name="bluetooth",
+    path="layout",
+    layers=2,
+    schematic=True,
+    config=BoardConfig(
+        design_rules=DesignRules(
+            constraints=Constraints(
+                copper=Copper(
+                    minimum_clearance=0.1,
+                    minimum_track_width=0.1,
+                    minimum_via_diameter=0.4,
+                    copper_to_edge_clearance=0.2,
+                ),
+                holes=Holes(minimum_through_hole=0.3, hole_to_hole_clearance=0.254),
+            ),
+            predefined_sizes=PredefinedSizes(
+                track_widths=[0.254],
+                via_dimensions=[
+                    ViaDimension(diameter=0.6, drill=0.3),
+                    ViaDimension(diameter=0.5, drill=0.3),
+                ],
+            ),
+            netclasses=[
+                NetClass(
+                    name="Default",
+                    clearance=0.1,
+                    track_width=0.254,
+                    via_diameter=0.6,
+                    via_drill=0.3,
+                ),
+            ],
+        ),
+        stackup=Stackup(
+            materials=[Material(name="FR-4", relative_permittivity=4.5)],
+            thickness=0.79,
+            layers=[
+                CopperLayer(thickness=0.035, role="mixed"),
+                DielectricLayer(thickness=0.7, material="FR-4", form="core"),
+                CopperLayer(thickness=0.035, role="mixed"),
+            ],
+        ),
+    ),
+)

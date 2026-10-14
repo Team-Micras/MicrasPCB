@@ -1,0 +1,175 @@
+{
+ "format": 1,
+ "source": {
+  "root": "hw_debug",
+  "files": {
+   "modules/encoder/MicrasEncoder.PcbDoc": "e814eaee97838e771bbcdb16f6cc1f89e2ccadeee6d3cba7cbd62a6157e12edc",
+   "modules/encoder/Encoder.SchDoc": "641c615865cb85f38c7ed1913ae62e323cb723f308f62d56d22404c7d981bdee",
+   "modules/encoder/Encoder.netlist.txt": "11f8de210e441138459c11f04e23efce5cd817f90485fbfb4e6f72fb870e2de1"
+  }
+ },
+ "board": {
+  "copper_layers": 2,
+  "layers": [
+   {
+    "name": "F.Cu",
+    "type": "signal",
+    "user_name": "Top Layer"
+   },
+   {
+    "name": "B.Cu",
+    "type": "signal",
+    "user_name": "Bottom Layer"
+   }
+  ],
+  "thickness": 0.79,
+  "stackup": [
+   {
+    "name": "F.SilkS",
+    "type": "Top Silk Screen"
+   },
+   {
+    "name": "F.Paste",
+    "type": "Top Solder Paste"
+   },
+   {
+    "name": "F.Mask",
+    "type": "Top Solder Mask",
+    "thickness": "0.01"
+   },
+   {
+    "name": "F.Cu",
+    "type": "copper",
+    "thickness": "0.035"
+   },
+   {
+    "name": "dielectric 1",
+    "type": "core",
+    "thickness": "0.7",
+    "material": "FR-4",
+    "epsilon_r": "4.5",
+    "loss_tangent": "0.02"
+   },
+   {
+    "name": "B.Cu",
+    "type": "copper",
+    "thickness": "0.035"
+   },
+   {
+    "name": "B.Mask",
+    "type": "Bottom Solder Mask",
+    "thickness": "0.01"
+   },
+   {
+    "name": "B.Paste",
+    "type": "Bottom Solder Paste"
+   },
+   {
+    "name": "B.SilkS",
+    "type": "Bottom Silk Screen"
+   }
+  ],
+  "aux_axis_origin": [
+   146.00114,
+   112.053605
+  ],
+  "grid_origin": [
+   146.00114,
+   112.053605
+  ],
+  "edge_cuts_bbox": {
+   "min": [
+    143.7011,
+    97.953605
+   ],
+   "max": [
+    153.3011,
+    112.053605
+   ]
+  }
+ },
+ "parts": {
+  "C1": {
+   "lib_id": "MicrasLib:CAPC1608X90N",
+   "value": "100nF",
+   "mpn": "0603B104K500NT",
+   "manufacturer": "Fenghua Advanced Technology (Holding) CO.",
+   "lcsc": null,
+   "description": "Capacitor - 100nF 50V X7R ±10% 0603 Multilayer Ceramic Capacitors MLCC - SMD/SMT ROHS",
+   "sheet": "Encoder",
+   "side": "top",
+   "x": 148.50114,
+   "y": 106.553605,
+   "rotation": 180.0,
+   "dnp": false,
+   "exclude_from_bom": false,
+   "in_jlc_bom": false,
+   "in_schematic": true,
+   "pads": {
+    "1": "3V3",
+    "2": "GND"
+   }
+  },
+  "IC1": {
+   "lib_id": "EncoderLib:SOP65P640X120-14N",
+   "value": "AS5047U-HTSM",
+   "mpn": "AS5047U-HTSM",
+   "manufacturer": "ams OSRAM",
+   "lcsc": null,
+   "description": "Integrated Circuit",
+   "sheet": "Encoder",
+   "side": "top",
+   "x": 148.50114,
+   "y": 102.053605,
+   "rotation": 0.0,
+   "dnp": false,
+   "exclude_from_bom": false,
+   "in_jlc_bom": false,
+   "in_schematic": true,
+   "pads": {
+    "1": "Encoder_CSn",
+    "2": "SPI_SCK",
+    "3": "SPI_MISO",
+    "4": "SPI_MOSI",
+    "5": "GND",
+    "6": "Encoder_ABI_B",
+    "7": "Encoder_ABI_A",
+    "8": null,
+    "9": null,
+    "10": null,
+    "11": "3V3",
+    "12": "3V3",
+    "13": "GND",
+    "14": null
+   }
+  },
+  "J1": {
+   "lib_id": "EncoderLib:ENCODER_CONN",
+   "value": "Encoder Connector",
+   "mpn": null,
+   "manufacturer": null,
+   "lcsc": null,
+   "description": "Custom connector footprint for custom made Encoder Sensor PCB",
+   "sheet": "Encoder",
+   "side": "top",
+   "x": 148.5011,
+   "y": 110.853605,
+   "rotation": 90.0,
+   "dnp": false,
+   "exclude_from_bom": false,
+   "in_jlc_bom": false,
+   "in_schematic": true,
+   "pads": {
+    "1": "Encoder_CSn",
+    "2": "SPI_SCK",
+    "3": "SPI_MISO",
+    "4": "SPI_MOSI",
+    "5": "3V3",
+    "6": "GND",
+    "7": "Encoder_ABI_A",
+    "8": "Encoder_ABI_B"
+   }
+  }
+ },
+ "unnamed": {}
+}

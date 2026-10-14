@@ -1,47 +1,53 @@
-# Encoder board: mechanical single source of truth.
+# Encoder board: mechanical single source of truth for its interface to the robot.
 #
-# Generated from this file (never edit these by hand):
-#   - boards/encoder/layout/encoder.kicad_pcb: Edge.Cuts outline, drill/aux origin, and the
-#     position of the sensor and the tab (locked footprints)
-#   - build/encoder/encoder_mech.json: the board as MicrasHardware and micras-simulation see it
+# The Edge.Cuts outline itself is layout geometry (boards/encoder/layout/encoder.kicad_pcb, from the
+# Altium MicrasEncoder.PcbDoc). This file holds the numbers other parts mate with, and
+# `micras-pcb mech encoder`:
+#   - writes the aux/grid origin and the position of the sensor IC1 and the tab J1 (locked
+#     footprints) into the layout,
+#   - checks that the outline has every feature below where this file says (fails on drift),
+#   - exports build/encoder/encoder_mech.json for MicrasHardware and micras-simulation.
 #
 # Frame: origin at the tab centre on the shoulder line, which sits on the main board's top surface.
 # u points right, seen from the chip side; v points up, away from the main board. Millimetres.
+# On the KiCad sheet: x_kicad = origin_x + u, y_kicad = origin_y - v.
 # The robot places the left board with the chip facing +y (MicrasHardware micras/layout.py).
 #
 # Every value is {value, source}, as in micras-simulation's robot.toml.
 
 [pcb]
-thickness = { value = 0.80, source = "JLCPCB standard 0.8 mm 2-layer; Altium MicrasEncoder.PcbDoc imports as 0.79 mm, MicrasHardware Board.encoder_pcb_t is 0.77 mm (measured?)" }
-copper_layers = { value = 2, source = "Altium MicrasEncoder.PcbDoc" }
+thickness = { value = 0.79, source = "Altium MicrasEncoder.PcbDoc layer stack: 0.70 mm core, 2 x 35 um copper, 2 x 10 um mask (boards/encoder/previous/board.json board.thickness); ordered as JLCPCB's 0.8 mm board (+-0.1 mm below 1.0 mm)" }
+copper_layers = { value = 2, source = "Altium MicrasEncoder.PcbDoc layer stack" }
+
+[kicad]
+origin_x = { value = 148.5011, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts: tab centre (tab sides at KiCad x = 146.0011 and 151.0011)" }
+origin_y = { value = 111.053605, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts: shoulder line (KiCad y = 111.053605)" }
+aux_origin_x = { value = 146.00114, source = "Altium MicrasEncoder.PcbDoc origin (boards/encoder/previous/board.json board.aux_axis_origin): drill and placement origin of the fab outputs" }
+aux_origin_y = { value = 112.053605, source = "Altium MicrasEncoder.PcbDoc origin (boards/encoder/previous/board.json board.aux_axis_origin), on the tab edge" }
 
 [outline]
-width = { value = 9.6, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts; MicrasHardware purchased.encoder_board()" }
-top = { value = 13.1, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts; MicrasHardware Board.encoder_top_h" }
+width = { value = 9.6, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts (KiCad x = 143.7011 to 153.3011); MicrasHardware purchased.encoder_board()" }
+top = { value = 13.1, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts (KiCad y = 97.953605); MicrasHardware Board.encoder_top_h" }
 corner_radius = { value = 1.0, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts (top corner arcs)" }
-taper_start = { value = 7.458, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts: sides leave vertical at this height" }
-base_width = { value = 8.0, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts: width at the shoulder" }
+taper_start = { value = 7.4571, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts: the sides leave vertical at KiCad y = 103.596475" }
+base_width = { value = 8.0, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts: width at the shoulder (KiCad x = 144.5011 to 152.5011)" }
+taper_control = { value = 3.27, source = "fitted to the Altium MicrasEncoder.PcbDoc Edge.Cuts tapers (758 points a side): a cubic Bezier from the shoulder to the straight side, vertical tangents at both ends, both control points at this height, within 0.021 mm" }
 
 [tab]
 width = { value = 5.0, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts; MicrasHardware purchased.encoder_board()" }
-depth = { value = 1.0, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts; main board is 1.0412 mm (MicrasHardware Board.thickness)" }
+depth = { value = 1.0, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts (tab edge at KiCad y = 112.053605); main board is 1.0412 mm (spec/main.toml pcb.thickness)" }
 relief_radius = { value = 0.1, source = "Altium MicrasEncoder.PcbDoc Edge.Cuts: half-round reliefs at the tab corners so the shoulder seats flat" }
 
 [sensor]
 # The AS5047U Hall array is at the package centre (datasheet Figure 63), so this is the point the
 # magnet axis must pass through.
-u = { value = 0.0, source = "Altium MicrasEncoder.PcbDoc IC1 position" }
-v = { value = 9.0, source = "Altium MicrasEncoder.PcbDoc IC1 position; MicrasHardware Board.encoder_chip_h" }
-rotation = { value = 0, source = "Altium MicrasEncoder.PcbDoc IC1 rotation" }
-path = { value = "SENSOR.AS5047U", source = "boards/encoder/encoder.zen instance path" }
+u = { value = 0.0, source = "Altium MicrasEncoder.PcbDoc IC1 position (KiCad x = 148.50114: 0.04 um off the tab centre, Altium rounding)" }
+v = { value = 9.0, source = "Altium MicrasEncoder.PcbDoc IC1 position (KiCad y = 102.053605); MicrasHardware Board.encoder_chip_h" }
+rotation = { value = 0, source = "Altium MicrasEncoder.PcbDoc IC1 rotation (pin 1 top left, seen from the chip side)" }
+path = { value = "IC1.AS5047U", source = "boards/encoder/encoder.zen instance path" }
 
 [connector]
-u = { value = 0.0, source = "tab centre" }
-v = { value = 0.0, source = "footprint origin is on the shoulder line" }
-rotation = { value = 0, source = "components/micras/EncoderTab footprint: +Y into the slot" }
-path = { value = "TAB.TAB", source = "boards/encoder/encoder.zen instance path" }
-
-[kicad]
-# Where the frame origin lands on the KiCad sheet.
-origin_x = { value = 100.0, source = "layout convention" }
-origin_y = { value = 100.0, source = "layout convention" }
+u = { value = 0.0, source = "Altium MicrasEncoder.PcbDoc J1 position: tab centre" }
+v = { value = 0.2, source = "Altium MicrasEncoder.PcbDoc J1 position (KiCad y = 110.853605): pad centres 0.2 mm above the shoulder line" }
+rotation = { value = 90, source = "Altium MicrasEncoder.PcbDoc J1 rotation (components/micras/EncoderTab: the footprint's -X into the slot)" }
+path = { value = "J1.TAB", source = "boards/encoder/encoder.zen instance path" }

@@ -1,0 +1,54 @@
+"""918-118A2021Y40006 - USB Type-C plug, USB 2.0, 16 contacts, vertical SMD, 8.65 mm tall.
+
+Bare connector: what a board puts on CC, VBUS and SBU is the board's.
+
+Datasheet: Shenzhen Jingtuojin Electronic (LCSC brand "Jing Extension of the Electronic Co.")
+drawing 918-118A2021Y40006, rev A0 (2019-11-23), LCSC C399938: "TYPE-C2.0 male, vertical
+8.65, fixing legs L0.7, LCP, double-row SMT, 16PIN".
+
+Contacts (drawing, recommended P.C.B. layout, two rows read left to right in the top view):
+"G V SUB1 D- D+ CC1 V G" (footprint pads 8 to 1) and "G V CC2 D+ D- SUB2 V G" (pads 9 to 16).
+So: GND 1, 8, 9, 16; VBUS 2, 7, 10, 15; CC1 3; D+ 4, 12; D- 5, 13; SBU1 6; CC2 11; SBU2 14.
+Pads 17 and 18 are the shell's two fixing legs in plated 0.6 x 1.8 mm slots (SHELL). Both D+
+contacts and both D- contacts come out on separate pads; the package ties each pair to one io.
+
+Ratings (drawing, "ELECTRICAL"): current 3 A; contact resistance 40 mOhm max; withstanding
+voltage 200 V AC; -40 to +105 C. Mating force 5-20 N, 10 000 cycles. The drawing gives no
+voltage rating, so VBUS is a plain net.
+
+Mechanics (drawing): 8.25 x 2.40 mm shell, 8.65 +- 0.20 mm above the board, fixing legs 0.70 mm
+into the board. The plug's axis is normal to the board.
+
+Symbol pin types: VBUS, GND and SHELL passive (the plug neither sources nor sinks power by
+itself); CC, D+/D- and SBU bidirectional.
+"""
+
+load("@stdlib/interfaces.zen", "Usb2")
+
+VBUS = io(Net)
+GND = io(Ground)
+SHELL = io(Net)
+CC1 = io(Net)
+CC2 = io(Net)
+SBU1 = io(Net)
+SBU2 = io(Net)
+USB = io(Usb2)
+
+Component(
+    name="PLUG",
+    prefix="USB",
+    symbol=Symbol(library="918-118A2021Y40006.kicad_sym"),
+    footprint=File("USB-C-SMD_918-118A2021Y40006.kicad_mod"),
+    part=Part(mpn="918-118A2021Y40006", manufacturer="Jing Extension of the Electronic Co."),
+    pins={
+        "VBUS": VBUS,
+        "GND": GND,
+        "SHELL": SHELL,
+        "CC1": CC1,
+        "CC2": CC2,
+        "SBU1": SBU1,
+        "SBU2": SBU2,
+        "D+": USB.D.P,
+        "D-": USB.D.N,
+    },
+)

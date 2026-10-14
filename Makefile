@@ -4,6 +4,8 @@ include versions.env
 PCB := pcb +$(PCB_TOOLCHAIN)
 TOOL := uv run micras-pcb
 BOARDS := $(notdir $(patsubst %/pcb.toml,%,$(wildcard boards/*/pcb.toml)))
+# Boards replicated from a previous revision (boards/<board>/previous/board.json + changes.toml).
+PREVIOUS_BOARDS := main encoder bluetooth
 
 .PHONY: help setup gen check build warnings test layout-check erc lvs previous drc dfm pytest lint parts parts-online outputs fab review all clean
 
@@ -45,8 +47,8 @@ erc: ## KiCad ERC on the generated schematics
 lvs: ## generated schematic vs PCB connectivity
 	$(TOOL) lvs
 
-previous: ## main board connectivity vs the previous revision + boards/main/changes.toml
-	$(TOOL) previous compare main
+previous: ## connectivity of each replicated board vs its previous revision + boards/<board>/changes.toml
+	@status=0; for b in $(PREVIOUS_BOARDS); do $(TOOL) previous compare $$b || status=1; done; exit $$status
 
 drc: ## KiCad DRC with the JLCPCB rules
 	$(TOOL) drc

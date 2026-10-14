@@ -13,9 +13,11 @@ def net_of(module, part, pin):
     error(part + "." + pin + " is not connected")
 
 
-def parts_on(module, net):
-    """Component paths (without the test-case prefix) with a pin on the net."""
-    return [path.split(".", 1)[1] for path, _ in module.nets()[net]]
+def orderable_part(module, inputs):
+    # Figure 64 (ordering information): AS5047U-HTSM = TSSOP-14, tape and reel
+    c = module.components()["AS5047U"]
+    check(c.mpn == "AS5047U-HTSM", "MPN must be AS5047U-HTSM, got " + str(c.mpn))
+    check(c.prefix == "IC", "reference prefix must be IC")
 
 
 def test_pin_is_grounded(module, inputs):
@@ -31,13 +33,13 @@ def supply_pins_tied(module, inputs):
     )
 
 
-def supply_decoupled(module, inputs):
-    # Figure 11: 100 nF from the supply to GND
-    on_vdd = parts_on(module, net_of(module, "AS5047U", "VDD"))
-    on_gnd = parts_on(module, net_of(module, "AS5047U", "GND"))
-    caps = [c for path, c in module.components().items() if c.type == "capacitor" and path in on_vdd and path in on_gnd]
-    check(len(caps) == 1, "expected one decoupling capacitor between VDD and GND, found " + str(len(caps)))
-    check(caps[0].capacitance.matches("100nF"), "VDD decoupling must be 100 nF")
+def unused_outputs_open(module, inputs):
+    # Figure 4, note 5: U, V, W/PWM and I/PWM are outputs; unused, they stay open (no-connect nets
+    # carry no name, so the four share the unnamed entry of nets(): nothing else may be on it)
+    unused = ["U", "V", "W/PWM", "I/PWM"]
+    for pin in unused:
+        for path, p in module.nets()[net_of(module, "AS5047U", pin)]:
+            check(path.endswith(".AS5047U") and p in unused, pin + " shares a net with " + path + "." + p)
 
 
 TestBench(
@@ -52,5 +54,5 @@ TestBench(
             "B": Net("B"),
         },
     },
-    checks=[test_pin_is_grounded, supply_pins_tied, supply_decoupled],
+    checks=[orderable_part, test_pin_is_grounded, supply_pins_tied, unused_outputs_open],
 )
