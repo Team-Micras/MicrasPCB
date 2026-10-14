@@ -3,7 +3,7 @@
 import shutil
 
 import pytest
-from micras_pcb import jlc, netlist, previous
+from micras_pcb import jlc, netlist, paths, previous, sexpr
 
 from .conftest import needs_kicad
 
@@ -84,6 +84,50 @@ def test_nets_keep_their_previous_names(snap, nl):
     assert len(named) == 8
     for name in named:
         assert actual.get(name) == set(expected.nets[name]), name
+
+
+# --- the layout -----------------------------------------------------------------------------------
+
+# The project's minimum silkscreen text: 0.5 mm high, 0.15 mm stroke (the previous boards' pin
+# labels, legible on the built boards). encoder.zen sets the height as KiCad's board minimum
+# (min_text_height, checked by DRC); Zener does not set KiCad's minimum text thickness, so the
+# stroke is checked here.
+SILK_TEXT_MIN_HEIGHT_MM = 0.5
+SILK_TEXT_MIN_STROKE_MM = 0.15
+SILK = {"F.SilkS", "B.SilkS"}
+
+
+def _silk_texts(root: sexpr.Node):
+    """(text, height, stroke) of every visible silkscreen text: board texts, footprint texts and
+    footprint fields."""
+    nodes = root.children("gr_text")
+    for fp in root.children("footprint"):
+        nodes += fp.children("fp_text") + fp.children("property")
+    for n in nodes:
+        layer = n.child("layer")
+        if layer is None or layer.atoms()[0] not in SILK:
+            continue
+        hide = n.child("hide")
+        effects = n.child("effects")
+        if (hide is not None and hide.atoms() == ["yes"]) or effects is None or effects.child("hide") is not None:
+            continue
+        text = n.atoms()[-1]
+        if not text:
+            continue
+        font = effects.child("font")
+        height = float(font.child("size").atoms()[1])
+        stroke = float(font.child("thickness").atoms()[0]) if font.child("thickness") else height / 8
+        yield text, height, stroke
+
+
+def test_silkscreen_text_meets_the_project_minimum():
+    root = sexpr.parse(paths.board_pcb("encoder").read_text())
+    small = [
+        f"{text!r} {h:.3f} mm high, {s:.3f} mm stroke"
+        for text, h, s in _silk_texts(root)
+        if h < SILK_TEXT_MIN_HEIGHT_MM - 1e-6 or s < SILK_TEXT_MIN_STROKE_MM - 1e-6
+    ]
+    assert not small, "\n".join(small)
 
 
 @pytest.mark.skipif(shutil.which("pcb") is None, reason="pcb not installed")
