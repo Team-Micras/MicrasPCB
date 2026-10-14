@@ -21,7 +21,9 @@ def main(argv: list[str] | None = None) -> int:
         return p
 
     board_cmd("mech", "apply spec/<board>.toml to the layout and export <board>_mech.json", check=True)
-    board_cmd("rules", "copy rules/jlcpcb.kicad_dru next to each board's project", check=True)
+    board_cmd(
+        "rules", "copy rules/jlcpcb.kicad_dru and set rules/kicad-severities.toml in each board's project", check=True
+    )
     board_cmd("erc", "KiCad ERC on the generated schematic")
     board_cmd("drc", "KiCad DRC with the JLCPCB rules and zone refill")
     board_cmd("lvs", "connectivity of the generated schematic vs the PCB")

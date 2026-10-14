@@ -95,7 +95,7 @@ boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb
 components/<mfr>/<P>/  reusable Zener packages: symbol, footprint (STEP embedded), .zen, test bench, README
 spec/                  mechanical single source of truth per board
 parts/jlc.toml         MPN -> LCSC mapping
-rules/                 JLCPCB KiCad DRC rules and DFM PDK
+rules/                 JLCPCB KiCad DRC rules, DFM PDK, KiCad rule severities
 tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, outputs, site (`uv run micras-pcb --help`)
 tests/                 pytest design tests
 ci/                    KiCad and toolchain install, for CI and local setup

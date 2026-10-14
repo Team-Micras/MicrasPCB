@@ -9,7 +9,7 @@ PCBs of the Micras micromouse, designed as code. Read `README.md` for the layout
 | Circuit (parts, nets, values, design rules, stackup) | `boards/<board>/<board>.zen`, `components/**/*.zen` | Zener; see `.claude/skills/zener-language` |
 | Board mechanics (outline, tab, spec-placed parts) | `spec/<board>.toml` | TOML, every value `{value, source}` |
 | JLCPCB sourcing (MPN -> LCSC, rotation) | `parts/jlc.toml` | TOML |
-| Fab rules | `rules/jlcpcb.kicad_dru`, `rules/jlcpcb-pdk.toml` | edit, then `make gen` |
+| Fab rules, KiCad rule severities | `rules/jlcpcb.kicad_dru`, `rules/jlcpcb-pdk.toml`, `rules/kicad-severities.toml` | edit, then `make gen` |
 | Placement, routing, zones | `boards/<board>/layout/<board>.kicad_pcb` | KiCad (the user), or a pcbnew script the user approved |
 | Tool versions | `versions.env` | bump in its own PR |
 
