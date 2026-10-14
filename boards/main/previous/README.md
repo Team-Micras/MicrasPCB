@@ -8,8 +8,8 @@ declared in `boards/main/changes.toml`. The format is documented in
 
 [`transfer_layout.py`](transfer_layout.py) builds the board's layout from the previous revision's
 KiCad PCB, and [`rework.py`](rework.py) holds the copper of the declared changes C1 and C2; both
-are described in [`../README.md`](../README.md#layout). They need KiCad's `pcbnew` Python module
-and the previous revision:
+are described in [the board README](../layout/README.md#layout). They need KiCad's `pcbnew`
+Python module and the previous revision:
 
 ```sh
 python3 boards/main/previous/transfer_layout.py --previous ~/codes/hw_debug/kicad/MicrasMainBoard.kicad_pcb
