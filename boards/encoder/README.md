@@ -54,12 +54,17 @@ From the Altium MicrasEncoder.PcbDoc, by [`previous/transfer_layout.py`](previou
 - SPI leaves IC1 pins 1-4 on the top, drops through four vias under the package and runs on the
   bottom (0.38 mm tracks) to the bottom tab pads; 3V3, A and B run on the top (0.254 mm) to the top
   pads.
-- GND pours on both layers, joined by six vias along the sides; the copper connections keep the
-  previous teardrops as plain zones (priority 100 and up, above the pours).
+- GND pours on both layers, joined by six vias along the sides, with the Altium polygons' neck
+  widths (copper narrower than 0.1 mm on the top, 0.4 mm on the bottom is not poured, which keeps
+  the bottom pour out of the channels between the SPI tracks) and solid pad connections. The
+  copper connections keep the previous teardrops as plain zones (priority 100 and up, above the
+  pours), filled with a 0.1 mm minimum width, JLCPCB's minimum copper feature.
 - Silkscreen: the pin names above the tab on each side, the designators, and the Micras logo on
   the bottom.
 - IC1 and J1 are locked where `spec/encoder.toml` puts them. The drill and placement origin of
   the fab outputs is the Altium origin, the tab's bottom left corner.
+- The Edge.Cuts outline is the Altium one without its duplicated vertex (a 1 nm line at the top
+  right corner, which KiCad reads as a malformed outline).
 
 The KiCad library footprint of C1 is fitted on the previous 0603 pads (75 um rms off, the KiCad
 pads being 0.15 mm further apart). Regenerate the layout from the previous revision with:
@@ -75,8 +80,23 @@ make gen && make check
 the right seen from the chip side, v up. The Edge.Cuts outline is layout geometry; `micras-pcb
 mech encoder` checks its features (9.6 mm width, 13.1 mm top with 1 mm corner radii, 8.0 mm
 shoulder, the tapers to 7.457 mm, the 5.0 x 1.0 mm tab with 0.1 mm reliefs) and exports the layout
-outline to `build/encoder/encoder_mech.json`. The stackup is the PcbDoc's: 0.70 mm core, 35 um
-copper and 10 um mask a side, 0.79 mm; it is ordered as JLCPCB's 0.8 mm 2-layer board.
+outline to `build/encoder/encoder_mech.json`. The stackup is the PcbDoc's: 0.70 mm FR-4 core
+(Dk 4.5) and 35 um copper; with Zener's fixed 10 um solder mask a side it is 0.79 mm (Altium's
+12.7 um resist makes 0.7954 mm). It is ordered as JLCPCB's 0.8 mm 2-layer board. Solder mask
+expansion 0.02 mm, the Altium rule.
+
+## Differences from the Altium board
+
+The board's copper, mask, paste, drills and outline match the Altium MicrasEncoder's own Gerbers
+(its CAMtastic output) except:
+
+| What | This board | Altium board | Why |
+|---|---|---|---|
+| Pour to board edge | 0.21 mm | 0.195 mm | `rules/jlcpcb.kicad_dru`: JLCPCB's 0.2 mm routed-edge clearance plus 10 um for the fill's arc approximation |
+| C1 | KiCad `C_0603_1608Metric`: 0.90 x 0.95 mm pads, its pad centres within 75 um of the Altium ones; KiCad silkscreen and 3D model (0.8 mm wide) | 0.75 x 0.94 mm pads, Altium's pad box and model (0.9 mm wide) | the stdlib generic capacitor's footprint |
+| Teardrop cusps | thinner than 0.1 mm left out (the 3V3 teardrop at (150.1, 102.1) is that thin all over and has no copper) | drawn to a point | JLCPCB's 0.1 mm minimum copper feature |
+| Texts | KiCad stroke font | Altium fonts | same strings, sizes and positions |
+| Solder mask thickness | 10 um a side | 12.7 um | Zener's stackup has no mask thickness setting |
 
 The joint with the main board (`tests/test_joint.py`, `tests/test_layout.py`): the tab pads carry
 the slot pads' signals (`components/micras/EncoderSlot`), face them pad for pad (0.95 mm pitch,
@@ -90,7 +110,6 @@ those have faults. Each failing check, its cause and the fix:
 | Check (gate) | Cause | Fix |
 |---|---|---|
 | `test_every_assembled_footprint_has_a_courtyard[encoder]` (pytest) | IC1's footprint from the Altium EncoderLib draws its courtyard on User.15 (Altium mechanical layer 15), so KiCad's courtyard checks do not see it | move the outline to F.CrtYd in `components/ams/AS5047U` |
-| `invalid_outline` (drc, layout-check; error) | a 1 nm Edge.Cuts line at the top right corner, KiCad (153.3011, 98.953604) to (153.3011, 98.953605), between the corner arc and the right side, left by the Altium conversion; KiCad reads the outline as malformed | delete the line (the outline geometry is unchanged) |
 | `copper_sliver` (drc, warning) | the two SPI_MOSI teardrops at IC1 pad 4 overlap and leave a sliver between their outlines on F.Cu; the teardrops are plain zones, which KiCad does not exempt from the sliver test | merge or trim the two outlines |
 | `text_height` (drc, warning) | the pin names (B, A, GND, 3V3 on the top; CSn, SCK, MISO, MOSI on the bottom) are 0.5 mm high, below KiCad's 0.6 mm default | larger texts, or lower the board's text limit |
 
