@@ -5,19 +5,22 @@ stands upright in a slot in the main board, facing the diametric magnet on the w
 (3.3 V), SPI and the ABI quadrature outputs leave through the 8 edge pads of its tab, soldered to
 the main board beside the slot.
 
-The board replicates the MicrasEncoder Altium design (`hw_debug/modules/encoder`) part for part:
-same designators, footprints, net names, placement, routing, pours, outline and silkscreen.
-`micras-pcb previous compare encoder` checks the netlist against that design's connectivity
-([`previous/board.json`](previous/board.json)); there are no declared changes.
+The board is the MicrasEncoder Altium design (`hw_debug/modules/encoder`): its designators,
+footprints, net names, outline, pours, sensor and tab placement, SPI and ABI routing and
+silkscreen, plus three pull resistors the AS5047U asks for on its SPI inputs (R1-R3, see
+[Circuit](#circuit)). `micras-pcb previous compare encoder` checks the netlist against that
+design's connectivity ([`previous/board.json`](previous/board.json)) with the change declared in
+[`changes.toml`](changes.toml).
 
 ## Files
 
 | File | Contents |
 |---|---|
-| [`encoder.zen`](encoder.zen) | IC1 (AS5047U), C1, the edge tab J1, net names, stackup and rules |
-| [`test/`](test) | `pcb test` bench of the board's circuit: one 3V3 supply from the tab, the 100 nF at the sensor, capacitor ratings |
-| [`layout/`](layout) | KiCad project; the `.kicad_pcb` holds placement and routing |
-| [`previous/`](previous) | the previous revision's snapshot, and [`transfer_layout.py`](previous/transfer_layout.py), which builds the layout from that revision |
+| [`encoder.zen`](encoder.zen) | IC1 (AS5047U), C1, R1-R3, the edge tab J1, net names, stackup and rules |
+| [`test/`](test) | `pcb test` bench of the board's circuit: one 3V3 supply from the tab, the 100 nF at the sensor, the SPI input pulls, capacitor ratings |
+| [`changes.toml`](changes.toml) | the connectivity this board adds to the previous revision's (R1-R3) |
+| [`layout/`](layout) | KiCad project; the `.kicad_pcb` holds placement and routing; [`fixes.py`](layout/fixes.py) is the script that turned the previous layout into this one |
+| [`previous/`](previous) | the previous revision's snapshot, and [`transfer_layout.py`](previous/transfer_layout.py), which builds the previous layout from that revision |
 | [`spec/encoder.toml`](../../spec/encoder.toml) | mechanical interface: thickness, outline, tab, sensor and tab positions |
 
 ## Circuit
@@ -26,16 +29,19 @@ same designators, footprints, net names, placement, routing, pours, outline and 
 |---|---|---|---|
 | IC1 | ams OSRAM AS5047U-HTSM ([`components/ams/AS5047U`](../../components/ams/AS5047U)) | TSSOP-14, `SOP65P640X120-14N` | 3.3 V mode: VDD and VDD3V3 on 3V3, TEST on GND, U/V/W and I/PWM open (DS v1-00 Figure 4, Figure 11) |
 | C1 | Yageo CC0603KRX7R9BB104, 100 nF 10 % 50 V X7R (LCSC C14663, JLCPCB basic) | 0603 (KiCad `C_0603_1608Metric`) | the 100 nF of DS Figure 11 on 3V3 |
+| R1 | Uni-Royal 0402WGF1002TCE, 10 kOhm 1 % (LCSC C25744, JLCPCB basic) | 0402 (KiCad `R_0402_1005Metric`) | CSn pull-up to 3V3 (DS Figure 4 notes 1, 2) |
+| R2 | Uni-Royal 0402WGF1003TCE, 100 kOhm 1 % (LCSC C25741, JLCPCB basic) | 0402 | CLK pull-down (DS Figure 4 notes 1, 3) |
+| R3 | Uni-Royal 0402WGF1003TCE, 100 kOhm 1 % (LCSC C25741, JLCPCB basic) | 0402 | MOSI pull-down (DS Figure 4 notes 1, 3) |
 | J1 | edge tab ([`components/micras/EncoderTab`](../../components/micras/EncoderTab)) | `ENCODER_CONN`, copper on the board | not in the BOM |
 
 | Net | IC1 | J1 |
 |---|---|---|
-| `Encoder_CSn` | 1 CSn | 1 (bottom) |
-| `SPI_SCK` | 2 CLK | 2 (bottom) |
+| `Encoder_CSn` | 1 CSn (and R1 pad 2) | 1 (bottom) |
+| `SPI_SCK` | 2 CLK (and R2 pad 1) | 2 (bottom) |
 | `SPI_MISO` | 3 MISO | 3 (bottom) |
-| `SPI_MOSI` | 4 MOSI | 4 (bottom) |
-| `3V3` | 11 VDD, 12 VDD3V3 (and C1 pad 1) | 5 (top) |
-| `GND` | 5 TEST, 13 GND (and C1 pad 2) | 6 (top) |
+| `SPI_MOSI` | 4 MOSI (and R3 pad 1) | 4 (bottom) |
+| `3V3` | 11 VDD, 12 VDD3V3 (and C1 pad 1, R1 pad 1) | 5 (top) |
+| `GND` | 5 TEST, 13 GND (and C1 pad 2, R2 pad 2, R3 pad 2) | 6 (top) |
 | `Encoder_ABI_A` | 7 A | 7 (top) |
 | `Encoder_ABI_B` | 6 B | 8 (top) |
 
@@ -44,28 +50,51 @@ the Yageo part has the same value, tolerance, rating, dielectric and package and
 The firmware reads the angle over SPI and the ABI outputs; the index (I/PWM) and U, V, W outputs
 stay open.
 
+A floating digital input is not allowed (DS Figure 4 note 1). CSn, CLK and MOSI are driven only by
+the main board's MCU, whose pins are in analog mode, released, during and just after reset (RM0468
+Rev 3 section 11.3.1 p511), so the board pulls them as notes 2 and 3 ask: R1 holds CSn high, the
+sensor deselected; R2 and R3 hold CLK and MOSI low, CLK at its SPI mode 1 idle level (DS Figure 18).
+The pulls sit on this board, with the part that needs them, so they hold with any host. SPI_SCK and
+SPI_MOSI are shared by both encoder boards and the IMU, whose SCL and SDA inputs have no pull-up
+by default (LSM6DSV DS13476 Rev 5 Table 22), so nothing on the bus fights the pull-downs; with both
+boards fitted the two 100 kOhm pull-downs act in parallel, 50 kOhm, 66 uA while the MCU drives a
+line high. R1's 10 kOhm loads the
+MCU's chip-select pin with 0.33 mA while it is low. The bench `spi_inputs_held` checks the three
+pulls and their range.
+
 ## Layout
 
-From the Altium MicrasEncoder.PcbDoc, by [`previous/transfer_layout.py`](previous/transfer_layout.py):
+The layout is the Altium MicrasEncoder.PcbDoc's, transferred by
+[`previous/transfer_layout.py`](previous/transfer_layout.py), with the 3V3 route, C1 and R1-R3
+placed by [`layout/fixes.py`](layout/fixes.py):
 
 - IC1 sits on the tab centre line with its centre 9.0 mm above the shoulder (the main board's top
-  surface), pin 1 top left seen from the chip side; C1 4.5 mm below it, between the supply pins and
-  the tab.
+  surface), pin 1 top left seen from the chip side.
 - SPI leaves IC1 pins 1-4 on the top, drops through four vias under the package and runs on the
-  bottom (0.38 mm tracks) to the bottom tab pads; 3V3, A and B run on the top (0.254 mm) to the top
+  bottom (0.38 mm tracks) to the bottom tab pads; A and B run on the top (0.254 mm) to the top
   pads.
+- 3V3 runs on the top (0.254 mm) straight up from its tab pad to IC1 pins 11 and 12, over the
+  bottom-side Encoder_CSn track. C1 sits right of it below IC1, pad 1 on the track, 4.0 mm from
+  pin 11 (pad centres), as close as the courtyards allow.
+- R3 and R2 sit above the bottom-side SPI_MOSI and SPI_SCK tracks, between IC1 and the tab, each
+  with a via onto its track; R1 sits right of the 3V3 track, below C1, with a via and a short
+  bottom-side track to Encoder_CSn. The vias of R2 and R3 touch the lower edge of the
+  bottom-side logo; like the four SPI vias under the logo, they are tented.
 - GND pours on both layers, joined by six vias along the sides; the copper connections keep the
-  previous teardrops as plain zones (priority 100 and up, above the pours).
-- Silkscreen: the pin names above the tab on each side, the designators, and the Micras logo on
-  the bottom.
+  previous teardrops as plain zones (priority 100 and up, above the pours), one per track end.
+- Silkscreen: the pin names above the tab on each side (0.5 mm), the IC1, C1 and J1 designators
+  (0.6 mm), and the Micras logo on the bottom. R1-R3 carry their designators on F.Fab only:
+  beside an 0402 on this board a 0.5 mm label cannot keep the 0.1 mm silkscreen clearance.
 - IC1 and J1 are locked where `spec/encoder.toml` puts them. The drill and placement origin of
   the fab outputs is the Altium origin, the tab's bottom left corner.
 
-The KiCad library footprint of C1 is fitted on the previous 0603 pads (75 um rms off, the KiCad
-pads being 0.15 mm further apart). Regenerate the layout from the previous revision with:
+The board's silkscreen text minimum is the project's, 0.5 mm high with a 0.15 mm stroke (set in
+`encoder.zen` for DRC; the stroke is checked by `tests/test_encoder.py`); JLCPCB recommends
+1.0 mm. Regenerate the layout from the previous revision with:
 
 ```sh
 MICRAS_PREVIOUS=~/codes/hw_debug python3 boards/encoder/previous/transfer_layout.py
+python3 boards/encoder/layout/fixes.py
 make gen && make check
 ```
 
@@ -84,33 +113,26 @@ the slot pads' signals (`components/micras/EncoderSlot`), face them pad for pad 
 
 ## Known faults
 
-The board keeps its previous revision's layout and footprints, so the layout checks fail where
-those have faults. Each failing check, its cause and the fix:
+None: the encoder board passes every gate of `make check` (build, warnings, its test benches,
+layout-check, ERC, LVS, previous, DRC, DFM, its pytests, parts).
 
-| Check (gate) | Cause | Fix |
-|---|---|---|
-| `test_every_assembled_footprint_has_a_courtyard[encoder]` (pytest) | IC1's footprint from the Altium EncoderLib draws its courtyard on User.15 (Altium mechanical layer 15), so KiCad's courtyard checks do not see it | move the outline to F.CrtYd in `components/ams/AS5047U` |
-| `invalid_outline` (drc, layout-check; error) | a 1 nm Edge.Cuts line at the top right corner, KiCad (153.3011, 98.953604) to (153.3011, 98.953605), between the corner arc and the right side, left by the Altium conversion; KiCad reads the outline as malformed | delete the line (the outline geometry is unchanged) |
-| `copper_sliver` (drc, warning) | the two SPI_MOSI teardrops at IC1 pad 4 overlap and leave a sliver between their outlines on F.Cu; the teardrops are plain zones, which KiCad does not exempt from the sliver test | merge or trim the two outlines |
-| `text_height` (drc, warning) | the pin names (B, A, GND, 3V3 on the top; CSn, SCK, MISO, MOSI on the bottom) are 0.5 mm high, below KiCad's 0.6 mm default | larger texts, or lower the board's text limit |
+Requirements without a check on this board, and why:
 
-Requirements without a check, and why:
-
-- AS5047U DS v1-00 p4 note 1: a floating digital input is not allowed. CSn, CLK and MOSI are
-  driven only by the main board's MCU, whose pins are in analog mode during reset (RM0468 11.3.1),
-  and neither board pulls them; the datasheet asks for the pull-up on CSn and the pull-downs on CLK
-  and MOSI only when SPI is not used (notes 2 and 3), so no check enforces them.
 - The design review (`hw_debug/schematic_review.md` m19) asks for 1 uF + 100 nF at the main
   board's encoder slots, since the encoder board's 100 nF sits at the end of the joint: a main
   board item.
 
 ## Open items
 
-- [ ] Solder mask colour and surface finish: not recorded in the Altium design; the board uses
-      the 2-layer defaults until they are confirmed.
-- [ ] Check the IC1 and C1 placement rotations in JLCPCB's assembly preview, then set
+- [ ] Solder mask colour and surface finish: not recorded in the Altium design. The board takes
+      Zener's 2-layer defaults (ENIG, black mask, white silkscreen) until they are confirmed.
+- [ ] Solder paste on the tab: J1's pads carry paste openings on both sides (the Altium
+      ENCODER_CONN's), so an assembled board gets reflowed solder on the top-side tab pads,
+      0.8 mm of which go into the main board's slot. Decide whether the tab is pre-tinned this
+      way or left bare for hand soldering (then drop F.Paste/B.Paste from
+      `components/micras/EncoderTab`).
+- [ ] Check the IC1, C1 and R1-R3 placement rotations in JLCPCB's assembly preview, then set
       `rotation_verified = true` in `parts/jlc.toml` (correct `rotation` first if needed).
 - [ ] MicrasHardware models the board as a 9.6 x 13.1 mm rectangle, 0.77 mm thick, with the
       5.0 x 4.4 mm package body turned 90 degrees from the board's (D 5.0 mm runs along v): point it
       at `build/encoder/encoder_mech.json` instead of copied numbers.
-- [ ] Fix the [known faults](#known-faults).

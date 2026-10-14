@@ -6,7 +6,7 @@ CI.
 
 | Board | Status |
 |---|---|
-| `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.79 mm | placed and routed as the previous revision, same connectivity; fails the layout checks where that revision has faults ([known faults](boards/encoder/README.md#known-faults)) |
+| `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.79 mm | the previous revision's placement and routing, plus pull resistors on the sensor's SPI inputs; passes every check ([open items](boards/encoder/README.md#open-items)) |
 | `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | placed and routed as the previous revision, same connectivity plus two declared changes (C1, C2) with their copper; fails the design checks where that revision has faults ([known faults](boards/main/README.md#known-faults)) |
 | `bluetooth`: HM-19 BLE module on a vertical USB-C plug that mates the main board's U2, 2 layers, 0.79 mm | placed and routed as the previous revision, same connectivity; fails the design checks where that revision has faults ([known faults](boards/bluetooth/README.md#known-faults)) |
 
@@ -110,9 +110,8 @@ and fails if any gate failed.
 | lint | `ruff` | Python lint and format |
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 
-The main, encoder and Bluetooth boards fail several of these by design: they replicate their
-previous revisions, faults included, and their READMEs
-([main](boards/main/README.md#known-faults), [encoder](boards/encoder/README.md#known-faults),
+The main and Bluetooth boards fail several of these by design: they replicate their previous
+revisions, faults included, and their READMEs ([main](boards/main/README.md#known-faults),
 [bluetooth](boards/bluetooth/README.md#known-faults)) give the root cause of every failure.
 
 ## CI
