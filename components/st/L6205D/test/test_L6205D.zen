@@ -1,0 +1,92 @@
+"""Package-level facts of the L6205D (ST L6205 datasheet, September 2003)."""
+
+L6205D = Module("../L6205D.zen")
+
+EN = Net("EN")
+
+
+def part(module):
+    return module.components()["L6205D"]
+
+
+def net_of(module, pin):
+    for name, ports in module.nets().items():
+        for path, p in ports:
+            if path.endswith(".L6205D") and p == pin:
+                return name
+    error("L6205D." + pin + " is not connected")
+
+
+def so20_part(module, inputs):
+    # p.1 ordering numbers: L6205D is the SO20 package; the PowerSO20 L6205PD has another pinout (p.4)
+    c = part(module)
+    check(c.mpn == "L6205D013TR", "MPN must be the SO20 part L6205D013TR, got " + str(c.mpn))
+    check(c.manufacturer == "STMicroelectronics", "manufacturer must be STMicroelectronics")
+    check(c.prefix == "IC", "reference prefix must be IC")
+
+
+def every_function_pin(module, inputs):
+    # p.4 pin description: 16 functions on 20 pins (GND on 5, 6, 15, 16)
+    expected = [
+        "IN1A",
+        "IN2A",
+        "SENSEA",
+        "OUT1A",
+        "GND",
+        "OUT1B",
+        "SENSEB",
+        "IN1B",
+        "IN2B",
+        "ENB",
+        "VBOOT",
+        "OUT2B",
+        "VSB",
+        "VSA",
+        "OUT2A",
+        "VCP",
+        "ENA",
+    ]
+    pins = part(module).pins
+    check(sorted(pins.keys()) == sorted(expected), "pin names differ from the datasheet: " + str(sorted(pins.keys())))
+
+
+def supply_pins_tied(module, inputs):
+    # p.4: VSA and VSB "must be connected to the supply voltage together"
+    check(net_of(module, "VSA") == "VS" and net_of(module, "VSB") == "VS", "VSA and VSB must both be on VS")
+
+
+def ground_pin(module, inputs):
+    check(net_of(module, "GND") == "GND", "GND pins must be on GND")
+
+
+def bridges_independent(module, inputs):
+    # Each bridge keeps its own logic inputs, outputs and sense pin
+    for a, b in [("IN1A", "IN1B"), ("IN2A", "IN2B"), ("OUT1A", "OUT1B"), ("OUT2A", "OUT2B"), ("SENSEA", "SENSEB")]:
+        check(net_of(module, a) != net_of(module, b), a + " and " + b + " must be separate ios")
+
+
+TestBench(
+    name="L6205D_SO20",
+    module=L6205D,
+    test_cases={
+        "default": {
+            "VS": Power("VS", voltage="20V"),
+            "GND": Ground("GND"),
+            "VBOOT": Net("VBOOT"),
+            "VCP": Net("VCP"),
+            "IN1A": Net("IN1A"),
+            "IN2A": Net("IN2A"),
+            "ENA": EN,
+            "IN1B": Net("IN1B"),
+            "IN2B": Net("IN2B"),
+            "ENB": EN,
+            "OUT1A": Net("OUT1A"),
+            "OUT2A": Net("OUT2A"),
+            "SENSEA": Net("SENSEA"),
+            "OUT1B": Net("OUT1B"),
+            "OUT2B": Net("OUT2B"),
+            "SENSEB": Net("SENSEB"),
+        },
+    },
+    checks=[so20_part, every_function_pin, supply_pins_tied, ground_pin, bridges_independent],
+)

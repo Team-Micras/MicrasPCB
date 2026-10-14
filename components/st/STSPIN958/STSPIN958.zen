@@ -1,0 +1,147 @@
+"""STSPIN958 - 5 A brushed DC motor driver, VFQFPN32 5 x 5 mm with exposed pad.
+
+Datasheet: ST DS14341 Rev 1 (July 2023), "Scalable 5 A full-bridge driver for
+brushed DC motors" (LCSC C20033901 copy). Orderable part: STSPIN958TR (Table 14).
+
+Pins (Figure 2, Table 6): every pad is its own symbol pin. Pads that the
+datasheet gives the same name share that name in the symbol and one io here:
+LSS1 (1, 2), LSS2 (23, 24), OUT2 (25, 26), OUT1 (31, 32) and VS (27-30). GND
+(22), GNDPUMP (3) and the exposed pad (33) all go to the GND io: Figure 22
+grounds GND and GNDPUMP, and section 8 puts the exposed pad on power ground.
+The two half-bridges stay separate ios (OUT1/OUT2, LSS1/LSS2), so a board that
+uses the parallel mode ties them itself (section 5.4.3: "This operation mode
+requires short-circuiting OUT1 and OUT2, LSS1 and LSS2").
+
+Absolute maximum ratings (Table 1, p.3):
+- VDD -0.3 to 4 V; VS -0.3 to 62 V; dVS/dt 0.5 V/us; VSPUMP = VS +- 0.1 V;
+  VBOOT -0.3 to 62 V; VOUT up to VS + 0.6 V.
+- IOUT up to 5 A rms per output; peak limited by the OC protection.
+- VLSS -0.6 to +2 V; REF, SR, TOFF -0.3 V to VDD.
+- Logic inputs -0.3 to 5.5 V, except MODE1-3 and OFFSET: -0.3 V to VDD.
+- EN/nFAULT open-drain sink up to 8 mA. Tj -40 to 150 C.
+
+Recommended operating conditions (Table 2, p.3-4):
+- VDD 2.8 to 3.6 V (3.3 V typ); VS 5.05 to 58 V; VSPUMP = VS.
+- VBOOT - VS overdrive 3 V; REF 0.1 V to VDD; VLSS -0.6 to +1 V;
+  VOUT -0.6 V to VS.
+- Logic inputs 0 to 5 V (5 V tolerant), MODE1-3 and OFFSET 0 to VDD.
+- CBOOT 1 uF, CCP 100 nF; fPWM 0 to 500 kHz; minimum PWM pulse 280 ns.
+- RTOFF 10-120 kohm and CTOFF 0.1-5.6 nF when the fixed off-time limiter is
+  used; 0 (TOFF to GND) disables the limiter (section 5.6.1).
+- Thermal: RthJA 35.8 C/W (Table 4).
+
+Electrical characteristics (Table 5, p.6-7): VSth(ON) 5.05 V with 100-300 mV
+hysteresis; VDDth(ON) 2.7 V; RDS(ON) 165 mohm per switch; VIH 2 V, VIL 0.8 V;
+VIH(EN) 2.55 V, VIL(EN) 0.4 V; EN/nFAULT pull-down 5 uA; input pull-downs
+570 kohm, MODE1-3 pull-ups 570 kohm; amplifier gain ACL 9.5 / 10 / 10.5 V/V;
+overcurrent threshold IOC 7-14 A; thermal shutdown 150 C, 30 C hysteresis.
+
+Driving mode (Table 8): MODE1/MODE2/MODE3 strapped to GND, VDD or left open
+(internal pull-ups), never changed during operation:
+- L L L dual half-bridge, fixed off-time; L H L single full-bridge, fixed
+  off-time; H L L parallel half-bridge, fixed off-time; H H L full-bridge
+  mixed decay, fixed off-time;
+- L L H dual half-bridge, PWM trimming; L H H single full-bridge, PWM
+  trimming; H L H parallel half-bridge, PWM trimming; H H H reserved.
+
+Parallel half-bridge truth table (Table 11): EN = 0 -> OUT high-Z; EN = 1:
+PWM1 = 0 -> low side on, PWM1 = 1 -> high side on.
+
+Current limiter (section 5.6): the internal comparator compares V1 (ACL x
+VLSS1) with REF. Equation 1 sets the peak current:
+VREF = I_peak x RSENSE x ACL + VAMPoffset, with VAMPoffset = 0 (OFFSET low) or
+VDD/2 (OFFSET high). In PWM-trimming mode TOFF is a digital output, low during
+the current decay (section 5.6.2).
+
+PWM2/PH in the parallel half-bridge modes (sections 5.6.1.2 and 5.6.2.2,
+Figures 11 and 14): PWM2/PH selects the decay when the limiter trips, and the
+datasheet draws a different load connection for each level:
+- PWM2/PH = 0: low side switched on (slow decay through the low-side MOSFET);
+  Figures 11 and 14 draw the load between OUT and LSS (high side drives it).
+  In PWM trimming, normal operation resumes when PWM1 is set low.
+- PWM2/PH = 1: output high-Z (current recirculates in the body diode);
+  the figures draw the load between VS and OUT (low side drives it). In PWM
+  trimming, normal operation resumes when PWM1 is set high.
+A design check can therefore require: in modes H L L / H L H, PWM2/PH low when
+the load sits between OUT and LSS, high when it sits between VS and OUT.
+
+Protections: on overcurrent the device turns off all MOSFETs and pulls
+EN/nFAULT low until that pin falls below VIL(EN) (section 5.7); UVLO and thermal
+shutdown also hold nFAULT low (sections 5.1, 5.8).
+
+Required external parts (integrator-owned; Table 12, Figure 22, section 8):
+- VS: two 470 nF low-ESR ceramics close to the VS pins plus a bulk capacitor
+  (Table 12: CBULK 220 uF). VS slew must stay below 0.5 V/us (Table 1).
+- VDD: 220 nF low-ESR ceramic close to the pin.
+- CP1-CP2: 100 nF flying capacitor rated 16 V. VBOOT-VSPUMP: 1 uF rated 16 V.
+  VSPUMP is internally connected to VS and may also be shorted to VS (Table 6,
+  Figure 4 "external optional connection").
+- RSNS from LSS to GND (Table 12: 50 mohm, 3 W), as close to the pins as
+  possible on the same layer (section 8).
+- EN/nFAULT: REN 39 kohm pull-up with CEN 10 nF (Table 12).
+- SR: RSR sets the output slew rate (Table 7: 1 k / 2.2 k / 5.6 k / 10 kohm ->
+  2 / 1.2 / 0.6 / 0.3 V/ns).
+- TOFF: ROFF/COFF to GND in fixed off-time mode (Figure 8, Figure 9).
+- nSTBY: Table 12 lists RSTBY 18 kohm / CSTBY 1 nF.
+"""
+
+VS = io(Power(voltage="5.05V to 58V"))
+VDD = io(Power(voltage="2.8V to 3.6V"))
+GND = io(Ground)
+VSPUMP = io(Net)
+VBOOT = io(Net)
+CP1 = io(Net)
+CP2 = io(Net)
+OUT1 = io(Net)
+OUT2 = io(Net)
+LSS1 = io(Net)
+LSS2 = io(Net)
+V1 = io(Net)
+V2 = io(Net)
+PWM1 = io(Net)
+PWM2_PH = io(Net)
+EN_NFAULT = io(Net)
+NSTBY = io(Net)
+MODE1 = io(Net)
+MODE2 = io(Net)
+MODE3 = io(Net)
+OFFSET = io(Net)
+REF = io(Net)
+TOFF = io(Net)
+SR = io(Net)
+
+Component(
+    name="STSPIN958",
+    symbol=Symbol(library="STSPIN958.kicad_sym"),
+    footprint=File("QFN50P500X500X100-33N-D.kicad_mod"),
+    part=Part(mpn="STSPIN958TR", manufacturer="STMicroelectronics"),
+    prefix="IC",
+    pins={
+        "LSS1": LSS1,
+        "GNDPUMP": GND,
+        "VSPUMP": VSPUMP,
+        "CP1": CP1,
+        "CP2": CP2,
+        "VBOOT": VBOOT,
+        "V1": V1,
+        "OFFSET": OFFSET,
+        "~{STBY}": NSTBY,
+        "PWM1": PWM1,
+        "PWM2/PH": PWM2_PH,
+        "VDD": VDD,
+        "EN/~{FAULT}": EN_NFAULT,
+        "REF": REF,
+        "TOFF": TOFF,
+        "V2": V2,
+        "MODE3": MODE3,
+        "MODE2": MODE2,
+        "MODE1": MODE1,
+        "SR": SR,
+        "GND": GND,
+        "LSS2": LSS2,
+        "OUT2": OUT2,
+        "VS": VS,
+        "OUT1": OUT1,
+        "EPAD": GND,
+    },
+)

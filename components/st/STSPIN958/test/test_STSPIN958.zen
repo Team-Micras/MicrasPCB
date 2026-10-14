@@ -1,0 +1,126 @@
+"""Package-level facts of the STSPIN958 (ST DS14341 Rev 1)."""
+
+STSPIN958 = Module("../STSPIN958.zen")
+
+VDD = Power("VDD", voltage="3.3V")
+GND = Ground("GND")
+OUT = Net("OUT")
+LSS = Net("LSS")
+
+
+def part(module):
+    return module.components()["STSPIN958"]
+
+
+def net_of(module, pin):
+    for name, ports in module.nets().items():
+        for path, p in ports:
+            if path.endswith(".STSPIN958") and p == pin:
+                return name
+    error("STSPIN958." + pin + " is not connected")
+
+
+def orderable_part(module, inputs):
+    # Table 14: STSPIN958TR, VFQFPN32 5 x 5 x 1, tape and reel
+    c = part(module)
+    check(c.mpn == "STSPIN958TR", "MPN must be STSPIN958TR, got " + str(c.mpn))
+    check(c.manufacturer == "STMicroelectronics", "manufacturer must be STMicroelectronics")
+    check(c.prefix == "IC", "reference prefix must be IC")
+
+
+def every_function_pin(module, inputs):
+    # Table 6: 26 pin names on 32 pads plus the exposed pad
+    expected = [
+        "LSS1",
+        "GNDPUMP",
+        "VSPUMP",
+        "CP1",
+        "CP2",
+        "VBOOT",
+        "V1",
+        "OFFSET",
+        "~{STBY}",
+        "PWM1",
+        "PWM2/PH",
+        "VDD",
+        "EN/~{FAULT}",
+        "REF",
+        "TOFF",
+        "V2",
+        "MODE3",
+        "MODE2",
+        "MODE1",
+        "SR",
+        "GND",
+        "LSS2",
+        "OUT2",
+        "VS",
+        "OUT1",
+        "EPAD",
+    ]
+    pins = part(module).pins
+    check(sorted(pins.keys()) == sorted(expected), "pin names differ from the datasheet: " + str(sorted(pins.keys())))
+
+
+def grounds(module, inputs):
+    # Figure 22: GND and GNDPUMP to ground; section 8: exposed pad to power ground
+    for pin in ["GND", "GNDPUMP", "EPAD"]:
+        check(net_of(module, pin) == "GND", pin + " must be on GND")
+
+
+def half_bridges_not_tied_inside(module, inputs):
+    # The package keeps OUT1/OUT2 and LSS1/LSS2 apart; only a board in parallel mode ties them (section 5.4.3)
+    if inputs["OUT1"] != inputs["OUT2"]:
+        check(net_of(module, "OUT1") != net_of(module, "OUT2"), "OUT1 and OUT2 must be separate ios")
+    if inputs["LSS1"] != inputs["LSS2"]:
+        check(net_of(module, "LSS1") != net_of(module, "LSS2"), "LSS1 and LSS2 must be separate ios")
+
+
+def parallel_mode_ties(module, inputs):
+    # Section 5.4.3: parallel mode requires OUT1 = OUT2 and LSS1 = LSS2; Table 8: MODE1 = H, MODE2 = L
+    mode = (net_of(module, "MODE1"), net_of(module, "MODE2"))
+    if mode == ("VDD", "GND"):
+        check(net_of(module, "OUT1") == net_of(module, "OUT2"), "parallel mode: OUT1 and OUT2 must be tied")
+        check(net_of(module, "LSS1") == net_of(module, "LSS2"), "parallel mode: LSS1 and LSS2 must be tied")
+
+
+def case(tag, mode1, mode2, mode3, out1, out2, lss1, lss2):
+    return {
+        "VS": Power(tag + "_VS", voltage="12V"),
+        "VDD": VDD,
+        "GND": GND,
+        "VSPUMP": Net(tag + "_VSPUMP"),
+        "VBOOT": Net(tag + "_VBOOT"),
+        "CP1": Net(tag + "_CP1"),
+        "CP2": Net(tag + "_CP2"),
+        "OUT1": out1,
+        "OUT2": out2,
+        "LSS1": lss1,
+        "LSS2": lss2,
+        "V1": Net(tag + "_V1"),
+        "V2": Net(tag + "_V2"),
+        "PWM1": Net(tag + "_PWM1"),
+        "PWM2_PH": Net(tag + "_PWM2_PH"),
+        "EN_NFAULT": Net(tag + "_EN_NFAULT"),
+        "NSTBY": Net(tag + "_NSTBY"),
+        "MODE1": mode1,
+        "MODE2": mode2,
+        "MODE3": mode3,
+        "OFFSET": GND,
+        "REF": Net(tag + "_REF"),
+        "TOFF": Net(tag + "_TOFF"),
+        "SR": Net(tag + "_SR"),
+    }
+
+
+TestBench(
+    name="STSPIN958_package",
+    module=STSPIN958,
+    test_cases={
+        # Table 8: L L H, dual half-bridge with PWM trimming
+        "dual_half_bridge": case("dual", GND, GND, VDD, Net("OUT1"), Net("OUT2"), Net("LSS1"), Net("LSS2")),
+        # Table 8: H L H, single half-bridge (parallel mode) with PWM trimming
+        "parallel": case("par", VDD, GND, VDD, OUT, OUT, LSS, LSS),
+    },
+    checks=[orderable_part, every_function_pin, grounds, half_bridges_not_tied_inside, parallel_mode_ties],
+)
