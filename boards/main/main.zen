@@ -42,6 +42,7 @@ load(
     "Material",
     "NetClass",
     "PredefinedSizes",
+    "SolderMask",
     "Stackup",
     "ViaDimension",
 )
@@ -309,9 +310,12 @@ Peripherals(
 
 # Stackup and rules from the Altium MicrasMainBoard.PcbDoc (layer stack and design rules):
 # 4 layers, 1 oz outer / 0.5 oz inner copper, 0.2104 mm prepreg (Dk 4.4) and 0.5 mm core
-# (Dk 4.48), 1.0412 mm with mask. Rules: 0.1 mm clearance, 10 mil (0.254 mm) preferred track,
-# 0.45 / 0.3 mm vias, 0.2 mm copper to board edge. The track widths and the other via sizes are
-# the ones its routing uses.
+# (Dk 4.48), 1.0212 mm without mask. Zener writes a 10 um solder mask a side (not configurable),
+# so the stackup totals 1.0412 mm; Altium's 0.6 mil (15.24 um) resist makes it 1.0517 mm. The
+# board is ordered as JLCPCB's 1.0 mm 4-layer stackup either way. Rules: 0.1 mm clearance,
+# 10 mil (0.254 mm) preferred track, 0.45 / 0.3 mm vias, 0.2 mm copper to board edge, 0.02 mm
+# solder mask expansion (rule SolderMaskExpansion, 0.7874 mil). The track widths and the other
+# via sizes are the ones its routing uses.
 Board(
     name="main",
     path="layout",
@@ -327,6 +331,7 @@ Board(
                     copper_to_edge_clearance=0.2,
                 ),
                 holes=Holes(minimum_through_hole=0.3, hole_to_hole_clearance=0.254),
+                solder_mask=SolderMask(clearance=0.02),
             ),
             predefined_sizes=PredefinedSizes(
                 track_widths=[0.2, 0.2248, 0.254, 0.3, 0.4, 0.6, 0.8, 1.0],

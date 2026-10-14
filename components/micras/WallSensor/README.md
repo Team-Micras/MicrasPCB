@@ -20,7 +20,11 @@ WallSensor(name="W1", LED_A=EMITTER_R, LED_K=EMITTER_SWITCH, PT_C=V3V3, PT_E=WAL
 The footprint's pad numbers are not the manufacturers' lead numbers (the SFH 4550 land pattern calls
 the cathode pad 1; the TPS601A numbers its emitter 1). Fit the leads by function as in the table.
 The silkscreen draws a diode between pads 1 and 2 with its bar at pad 2, labels pad 2 "C" (LED
-cathode) and pad 4 "E" (phototransistor emitter).
+cathode) and pad 4 "E" (phototransistor emitter) to the right of the pads, and outlines the lead
+area (4.83 x 4.70 mm around the pads). The sensor body lies forward of that area and overhangs the
+board edge at the main board's front corners, so it is drawn on User.13 only: the silkscreen keeps
+at least 0.25 mm from the board edge at all four positions (W1-W4), above the 0.20 mm edge
+clearance of `rules/jlcpcb.kicad_dru`.
 
 Sourcing and assembly:
 

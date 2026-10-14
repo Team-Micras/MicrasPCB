@@ -131,8 +131,9 @@ def apply(items: list[str]) -> list[str]:
     nodes = [sexpr.parse(t) for t in items]
     uid = [n.child("uuid").atoms()[0] if n.child("uuid") else None for n in nodes]
 
-    # C1: drop the chain, then the teardrops that sat on it (a VBAT teardrop whose outline holds an
-    # end of a dropped track on its layer, or a dropped via).
+    # C1: drop the chain, then the teardrops that sat on it (a VBAT teardrop whose outline, grown by
+    # 0.25 mm, holds an end of a dropped track on its layer or a dropped via: a teardrop starts at
+    # the edge of its 0.45 mm via pad, up to 0.225 mm from the via centre where the tracks end).
     dropped = [n for n, u in zip(nodes, uid, strict=True) if u in C1_CHAIN]
     if len(dropped) != len(C1_CHAIN):
         raise SystemExit("C1: the previous board's VBAT chain is not where rework.py expects it")
@@ -140,7 +141,7 @@ def apply(items: list[str]) -> list[str]:
     for i, n in enumerate(nodes):
         if n.head != "zone" or _net(n) != "VBAT" or (n.child("priority") and int(n.child("priority").atoms()[0]) < 100):
             continue
-        box = _bbox(_points(n), 0.01)
+        box = _bbox(_points(n), 0.25)
         for d in dropped:
             on_layer = d.head == "via" or _layer(d) == _layer(n)
             if on_layer and any(_inside(p, box) for p in _points(d)):
@@ -154,8 +155,8 @@ def apply(items: list[str]) -> list[str]:
             text = text.replace('(net "VBAT")', '(net "3V3")')
             renamed += 1
         out.append(text)
-    if renamed != 18:  # 10 tracks, 1 via, 7 teardrops
-        raise SystemExit(f"C1: expected 18 cluster items on VBAT, found {renamed}")
+    if renamed != 17:  # 10 tracks, 1 via, 6 teardrops
+        raise SystemExit(f"C1: expected 17 cluster items on VBAT, found {renamed}")
     out.append(segment("C1 bridge", "F.Cu", 0.2, *C1_BRIDGE, "3V3"))
 
     # C2
