@@ -6,26 +6,29 @@ two encoder boards, and the user interface.
 
 The circuit replicates the MicrasMainBoard Altium design part for part: every part keeps its
 designator, and `micras-pcb previous compare main` checks the netlist against that design's
-connectivity ([`previous/board.json`](previous/board.json)) plus the changes declared in
-[`changes.toml`](changes.toml).
+connectivity ([`previous/board.json`](../previous/board.json)) plus the changes declared in
+[`changes.toml`](../changes.toml).
 
 ## Files
 
+The board files are in `boards/main/` (this README sits in its `layout/` folder);
+`spec/` is at the repository root.
+
 | File | Sheet instance | Contents |
 |---|---|---|
-| [`main.zen`](main.zen) | root | IC1 (STM32H725RGV6) and its supply network (C1-C17, L1), SWD header P1, test points, M2 screw holes H1-H4, board stackup and rules |
-| [`Regulators.zen`](Regulators.zen) | `REGULATORS` | J1 battery connector, battery switch SW4/Q6/R41, 3V3 buck IC7, 20 V boost U1, USB LDO U3 |
-| [`Drivers.zen`](Drivers.zen) | `DRIVERS` | IC5 (L6205D) bridges for M1/M2 with shunts R32/R33, IC6 (STSPIN958) fan driver for M3 with shunt R31 |
-| [`Sensors.zen`](Sensors.zen) | `SENSORS` | IC2 (LSM6DSV) IMU, IC3/IC4 (TSC2020) current amplifiers, wall sensors W1-W4 with Q2-Q5, encoder slots EC1/EC2 |
-| [`Peripherals.zen`](Peripherals.zen) | `PERIPHERALS` | SW1 DIP switch, SW2/SW3/SW5 buttons, BZ1 buzzer, D1/D2 addressable LEDs, D4/D5 LEDs, U2 USB-C |
-| [`passives.zen`](passives.zen) | | value, package, rating and part number of every resistor, ceramic capacitor and LED line |
-| [`changes.toml`](changes.toml) | | connectivity changes against the previous revision |
-| [`erc.toml`](erc.toml) | | nets supplied from off the board (VBAT, GND), the PWR_FLAG role for ERC |
-| [`firmware.toml`](firmware.toml) | | the firmware's pin map, supply setting, battery channel and drive duties, from MicrasFirmware (`micras-pcb firmware snapshot`) |
-| [`test/`](test) | | `pcb test` benches of the board's circuit: MCU, power, drivers, peripherals |
-| [`layout/`](layout) | | KiCad project; the `.kicad_pcb` holds placement and routing |
-| [`previous/`](previous) | | the previous revision's connectivity snapshot, and the scripts that build the layout from that revision (`transfer_layout.py`, `rework.py`) |
-| [`spec/main.toml`](../../spec/main.toml) | | mechanical interface: thickness, axle origin, extents, screw holes, encoder slots, USB-C peg holes, fan hole, wheel notches |
+| [`main.zen`](../main.zen) | root | IC1 (STM32H725RGV6) and its supply network (C1-C17, L1), SWD header P1, test points, M2 screw holes H1-H4, board stackup and rules |
+| [`Regulators.zen`](../Regulators.zen) | `REGULATORS` | J1 battery connector, battery switch SW4/Q6/R41, 3V3 buck IC7, 20 V boost U1, USB LDO U3 |
+| [`Drivers.zen`](../Drivers.zen) | `DRIVERS` | IC5 (L6205D) bridges for M1/M2 with shunts R32/R33, IC6 (STSPIN958) fan driver for M3 with shunt R31 |
+| [`Sensors.zen`](../Sensors.zen) | `SENSORS` | IC2 (LSM6DSV) IMU, IC3/IC4 (TSC2020) current amplifiers, wall sensors W1-W4 with Q2-Q5, encoder slots EC1/EC2 |
+| [`Peripherals.zen`](../Peripherals.zen) | `PERIPHERALS` | SW1 DIP switch, SW2/SW3/SW5 buttons, BZ1 buzzer, D1/D2 addressable LEDs, D4/D5 LEDs, U2 USB-C |
+| [`passives.zen`](../passives.zen) | | value, package, rating and part number of every resistor, ceramic capacitor and LED line |
+| [`changes.toml`](../changes.toml) | | connectivity changes against the previous revision |
+| [`erc.toml`](../erc.toml) | | nets supplied from off the board (VBAT, GND), the PWR_FLAG role for ERC |
+| [`firmware.toml`](../firmware.toml) | | the firmware's pin map, supply setting, battery channel and drive duties, from MicrasFirmware (`micras-pcb firmware snapshot`) |
+| [`test/`](../test) | | `pcb test` benches of the board's circuit: MCU, power, drivers, peripherals |
+| [`layout/`](.) | | this folder: the KiCad project; the `.kicad_pcb` holds placement and routing |
+| [`previous/`](../previous) | | the previous revision's connectivity snapshot, and the scripts that build the layout from that revision (`transfer_layout.py`, `rework.py`) |
+| [`spec/main.toml`](../../../spec/main.toml) | | mechanical interface: thickness, axle origin, extents, screw holes, encoder slots, USB-C peg holes, fan hole, wheel notches |
 
 Each sheet's docstring describes its circuit with the datasheet figure, table or equation behind
 each value.
@@ -100,8 +103,8 @@ fab outputs is the Altium origin, the rear edge centre at KiCad (148.501075, 150
 
 The layout is the Altium MicrasMainBoard.PcbDoc's, in the same KiCad coordinates: MicrasHardware
 and the firmware place the board by them, with the wheel-axle midpoint (between the encoder slots)
-at KiCad (148.5011, 113.5036). [`previous/transfer_layout.py`](previous/transfer_layout.py)
-builds it from the KiCad conversion of that PCB and [`previous/rework.py`](previous/rework.py)
+at KiCad (148.5011, 113.5036). [`previous/transfer_layout.py`](../previous/transfer_layout.py)
+builds it from the KiCad conversion of that PCB and [`previous/rework.py`](../previous/rework.py)
 adds the copper of the two declared changes; running the script again changes nothing.
 
 | Layer | Use |
@@ -129,7 +132,7 @@ Resistors, ceramic capacitors and the LEDs D4/D5 use KiCad's generic footprints,
 its pads' positions in the Altium footprint: the routing lands on the same pad centres, up to
 0.12 mm from a pad's centre where the KiCad pad pitch differs (0805/1206 capacitors). The
 current-sense shunts R31-R33 keep the Altium land pattern and model
-([`components/micras/R2512`](../../components/micras/R2512): 1.45 x 3.45 mm pads). D4 and D5 carry
+([`components/micras/R2512`](../../../components/micras/R2512): 1.45 x 3.45 mm pads). D4 and D5 carry
 KiCad's LED model scaled to their datasheet heights, 0.80 mm (NCD0603Y2) and 0.60 mm (KT-0603R),
 so the 3D export has the fitted parts' height.
 
@@ -180,7 +183,7 @@ generic parts set them otherwise:
 | Paste of the generic passives | aperture = pad (R0402: 0.54 x 0.64 mm, area ratio 1.2 for a 0.12 mm stencil) | custom stencil regions inside the pads (R0402: 0.58 mm square) | KiCad's library defaults, above IPC-7525's 0.66 area ratio for release; about 10 % more paste on the 0402 resistors |
 | Mask of the generic passives | the board's 0.02 mm expansion | 0.0508 mm on the passive pads | KiCad's library footprints carry no local margin |
 | Silkscreen of the generic passives | KiCad's outlines (fewer lines, no box around 0402s) | Altium's pad boxes | KiCad's library footprints |
-| Wall sensor silkscreen | the lead area outline and the C/E labels; the body forward of it on User.13 only | a hatched body clipped at the board edge per instance | one package for W1-W4, which overhang the edge at different angles ([`components/micras/WallSensor`](../../components/micras/WallSensor)) |
+| Wall sensor silkscreen | the lead area outline and the C/E labels; the body forward of it on User.13 only | a hatched body clipped at the board edge per instance | one package for W1-W4, which overhang the edge at different angles ([`components/micras/WallSensor`](../../../components/micras/WallSensor)) |
 | Texts | KiCad stroke font | Altium fonts | same strings, sizes and positions |
 | Passive 3D models | KiCad library models: C0402 0.50, C0805 1.25, C1206 1.60, R0603 0.45 mm tall | 0.55, 1.45, 1.80, 0.56 mm | KiCad's generic models (D4 and D5 are scaled to their datasheets, above) |
 | Solder mask thickness | 10 um a side (1.0412 mm board) | 15.24 um (1.0517 mm) | Zener's stackup has no mask thickness setting; JLCPCB applies its own |

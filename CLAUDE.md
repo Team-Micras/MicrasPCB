@@ -13,9 +13,9 @@ PCBs of the Micras micromouse, designed as code. Read `README.md` for the layout
 | Placement, routing, zones | `boards/<board>/layout/<board>.kicad_pcb` | KiCad (the user), or a pcbnew script the user approved |
 | Tool versions | `versions.env` | bump in its own PR |
 
-Everything else under `boards/*/layout/` but `.prism.json` (KiCad Prism's project config) is
-generated: never edit `.kicad_sch`, `.kicad_pro` or `.kicad_dru` as text (a hook blocks it).
-Never edit `.kicad_pcb` as text either.
+Everything else under `boards/*/layout/` but `README.md` (the board's description, shown by
+KiCad Prism) is generated: never edit `.kicad_sch`, `.kicad_pro` or `.kicad_dru` as text (a hook
+blocks it). Never edit `.kicad_pcb` as text either.
 
 ## Loop
 
