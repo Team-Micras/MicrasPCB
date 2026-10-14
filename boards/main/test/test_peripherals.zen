@@ -1,6 +1,7 @@
 """USB-C receptacle U2 and the user-interface parts.
 
-Sources: USB Type-C Cable and Connector Specification Release 2.0 (August 2019), ST AN4879
+Sources: USB Type-C Cable and Connector Specification Release 2.0 (August 2019), ST DS13311
+Rev 5, ST DS13554 Rev 3, onsemi BAT54HT1/D Rev. 9, TI SLVSE13J, ST AN4879
 Rev 12 (USB hardware guidelines), Fusheng FUET-5030 specification (2018-08-28), Hongjiacheng
 1N4148W Rev 2.0.
 """
@@ -26,17 +27,54 @@ def usb_c_sink_terminations(module, inputs):
     report(p)
 
 
+def _sbu_switch(b, sbu):
+    """The SBU supply path: [fuse or resistor, P-MOSFET] from the SBU net to its source net, or None."""
+    for f in refs_on(b, sbu):
+        if f == USBC or len(b.parts[f].pins) != 2:
+            continue
+        mid = other_net(b, f, sbu)
+        for q in refs_on(b, mid):
+            pins = b.parts[q].pins
+            if q != f and "G" in pins and "S" in pins and "D" in pins and pins["D"].name == mid:
+                return struct(fuse=f, switch=q, gate=pins["G"].name, source=pins["S"].name)
+    return None
+
+
+def _detector(b, gate):
+    """The comparator whose output drives the gate, its - input's peak-hold diode and the CC net
+    feeding that diode through a resistor; None if the gate has no such driver."""
+    for u in refs_on(b, gate):
+        pins = b.parts[u].pins
+        if not ("OUT" in pins and "+" in pins and "-" in pins) or pins["OUT"].name != gate:
+            continue
+        hold = pins["-"].name
+        for d in refs_on(b, hold):
+            dp = b.parts[d].pins
+            if not ("A" in dp and "K" in dp) or dp["K"].name != hold:
+                continue
+            for r in touching(b, "resistor", dp["A"].name):
+                cc = other_net(b, r, dp["A"].name)
+                if cc in [net(b, USBC, "CC1"), net(b, USBC, "CC2")]:
+                    return struct(comparator=u, ref=pins["+"].name, hold=hold, diode=d, series=r, cc=cc)
+    return None
+
+
 def usb_c_sbu_open(module, inputs):
     # Type-C R2.0 section 4.3 p139: "The SBU pins on a port shall either be open circuit or have
     # a weak pull-down to ground no stronger than zSBUTermination", Table 4-28 p236: >= 950 kOhm.
     # A full-featured cable wires SBU through to the other port (an Alternate Mode host, an Audio
-    # Adapter Accessory), which must not find a supply there.
+    # Adapter Accessory), which must not find a supply there. The Bluetooth module takes its
+    # supply from SBU (review M6), so SBU may carry a supply only through a switch that is off by
+    # default and that only the module's CC signature turns on: a gate pull-up to the switch's
+    # source, and a comparator, the sole other driver of the gate, sensing a CC contact through a
+    # series resistor and a peak-hold diode (sbu_signature_detector checks its levels).
     b = index(module)
     p = []
     for pin in ["SBU1", "SBU2"]:
         sbu = net(b, USBC, pin)
+        sw = _sbu_switch(b, sbu)
         for r in refs_on(b, sbu):
-            if r == USBC:
+            if r == USBC or (sw and r == sw.fuse):
                 continue
             c = b.parts[r]
             if c.type == "resistor" and other_net(b, r, sbu) == "GND" and ohms(b, r) >= 950e3:
@@ -52,7 +90,112 @@ def usb_c_sbu_open(module, inputs):
                 + ", ".join([n.name for n in c.pins.values()])
                 + ")"
             )
+        if not sw:
+            continue
+        ups = two_terminal(b, "resistor", sw.gate, sw.source)
+        if not ups:
+            p.append(
+                sw.switch
+                + " gate ("
+                + sw.gate
+                + ") has no pull-up to its source "
+                + sw.source
+                + ": it is not off by default"
+            )
+        det = _detector(b, sw.gate)
+        if not det:
+            p.append(
+                sw.switch + " gate (" + sw.gate + ") is not driven by a comparator sensing CC through a peak-hold diode"
+            )
+            continue
+        drivers = [r for r in refs_on(b, sw.gate) if r not in [sw.switch, det.comparator] + ups]
+        drivers = [r for r in drivers if not (b.parts[r].type == "resistor" and other_net(b, r, sw.gate) == det.ref)]
+        if drivers:
+            p.append(sw.switch + " gate (" + sw.gate + ") is also driven by " + str(drivers))
     report(sorted(set(p)))
+
+
+# USB Type-C R2.0 Table 4-36: vRd-Connect max 2.04 V, the highest CC voltage a source makes across
+# a +-10 % Rd. STM32H725 DS13311 Table 56: VOH >= VDD - 0.4 V at 8 mA (CMOS port); L6981C33
+# DS13554 Rev 3 p6: 3.27-3.33 V at 25 C. BAT54H (BAT54HT1/D p2): VF <= 0.24 V at 0.1 mA.
+# TLV7041 (SLVSE13J 5.7): offset +-8 mV, hysteresis up to 17 mV.
+VRD_MAX = 2.04
+V3V3_MIN = 3.27
+V3V3_MAX = 3.33
+VOH_DROP = 0.4
+VF_MAX = 0.24
+CMP_ERR = 0.008 + 0.017 / 2
+
+
+def sbu_signature_detector(module, inputs):
+    # The detector closes the SBU switch only for the Bluetooth module's signature: the MCU's
+    # UART4 TX (PA12, idle high) on the CC contacts through the module (boards/bluetooth). Its
+    # switch-on threshold must sit above the highest level a USB Type-C source makes across Rd,
+    # and below the module's level; its switch-off threshold below the module's level while
+    # PA12 sends back-to-back 0x00 bytes (one high bit in ten).
+    b = index(module)
+    sw = _sbu_switch(b, net(b, USBC, "SBU1"))
+    if not sw:
+        report(["no SBU switch"])
+        return
+    det = _detector(b, sw.gate)
+    if not det:
+        report(["no signature detector on " + sw.gate])
+        return
+    ref = det.ref
+    top = two_terminal(b, "resistor", ref, "3V3")
+    bot = two_terminal(b, "resistor", ref, "GND")
+    hyst = two_terminal(b, "resistor", ref, sw.gate)
+    up = two_terminal(b, "resistor", sw.gate, sw.source)
+    bleed = two_terminal(b, "resistor", det.hold, "GND")
+    p = []
+    if len(top) != 1 or len(bot) != 1 or len(hyst) != 1 or len(up) != 1 or len(bleed) != 1:
+        report(
+            [
+                "reference "
+                + ref
+                + ": top "
+                + str(top)
+                + ", bottom "
+                + str(bot)
+                + ", hysteresis "
+                + str(hyst)
+                + ", gate pull-up "
+                + str(up)
+                + ", hold bleed "
+                + str(bleed)
+            ]
+        )
+        return
+    rt, rb, rh, ru, rl, rs = (
+        ohms(b, top[0]),
+        ohms(b, bot[0]),
+        ohms(b, hyst[0]),
+        ohms(b, up[0]),
+        ohms(b, bleed[0]),
+        ohms(b, det.series),
+    )
+    # output high impedance (switch off): the hysteresis resistor and the pull-up add to the top
+    top_off = 1.0 / (1.0 / rt + 1.0 / (rh + ru))
+    on_min = V3V3_MIN * rb / (rb + top_off) - CMP_ERR
+    on_max = V3V3_MAX * rb / (rb + top_off) + CMP_ERR
+    # output low (switch on): the hysteresis resistor parallels the bottom
+    bot_on = 1.0 / (1.0 / rb + 1.0 / rh)
+    off_max = V3V3_MAX * bot_on / (bot_on + rt) + CMP_ERR
+    if on_min <= VRD_MAX:
+        p.append("switch-on threshold " + str(on_min) + " V does not clear a source's " + str(VRD_MAX) + " V")
+    # module idle: the hold sits at VOH - VF, less the bleed current across the series resistor
+    v = V3V3_MIN - VOH_DROP - VF_MAX
+    idle = v * rl / (rl + rs)
+    if idle <= on_max:
+        p.append("module level " + str(idle) + " V does not clear the switch-on threshold " + str(on_max) + " V")
+    # back-to-back 0x00: charge through the series resistor 10 % of the time, bleed all the time
+    zeros = v * 0.1 * rl / (0.1 * rl + rs)
+    if zeros <= off_max:
+        p.append(
+            "hold with 0x00 bytes " + str(zeros) + " V does not clear the switch-off threshold " + str(off_max) + " V"
+        )
+    report(p)
 
 
 def usb_esd_protection(module, inputs):
@@ -88,5 +231,5 @@ TestBench(
     name="main_peripherals",
     module=MAIN,
     test_cases={"board": {}},
-    checks=[usb_c_sink_terminations, usb_c_sbu_open, usb_esd_protection, buzzer_flyback_diode],
+    checks=[usb_c_sink_terminations, usb_c_sbu_open, sbu_signature_detector, usb_esd_protection, buzzer_flyback_diode],
 )

@@ -2,8 +2,8 @@
 
 Each entry is the keyword set of one stdlib generic (`Resistor`, `Capacitor`, `Led`), so a sheet
 places a part as `Capacitor(name="C5", P1=GND, P2=VCAP3, **C_100N_0402)`. The ratings and part
-numbers are the parts on the MicrasMainBoard BOM (boards/main/previous/board.json); the LCSC
-numbers are in parts/jlc.toml.
+numbers are the MicrasMainBoard BOM's parts (boards/main/previous/board.json) or JLCPCB basic
+parts; the LCSC numbers are in parts/jlc.toml.
 """
 
 SAMSUNG = "Samsung Electro-Mechanics"
@@ -30,26 +30,29 @@ def _c(value, package, voltage, dielectric, mpn, manufacturer=SAMSUNG):
     }
 
 
-# Thick-film chip resistors, 1 %: 0402 62.5 mW 50 V, 0603 100 mW 75 V.
-R_10_0603 = _r("10Ohm 1%", "0603", "0603WAF100JT5E", power="100mW")
-R_33_0402 = _r("33Ohm 1%", "0402", "0402WGF330JTCE")
+# Thick-film chip resistors, 1 %: 0402 62.5 mW 50 V, 0603 100 mW 75 V, 1206 250 mW 200 V.
+R_10_1206 = _r("10Ohm 1%", "1206", "1206W4F100JT5E", power="250mW")
 R_100_0402 = _r("100Ohm 1%", "0402", "0402WGF1000TCE")
 R_220_0402 = _r("220Ohm 1%", "0402", "0402WGF2200TCE")
 R_680_0402 = _r("680Ohm 1%", "0402", "0402WGF6800TCE")
 R_1K_0402 = _r("1kOhm 1%", "0402", "0402WGF1001TCE")
-R_1K5_0402 = _r("1.5kOhm 1%", "0402", "0402WGF1501TCE")
 R_5K1_0402 = _r("5.1kOhm 1%", "0402", "0402WGF5101TCE")
 R_5K6_0402 = _r("5.6kOhm 1%", "0402", "0402WGF5601TCE")
 R_10K_0402 = _r("10kOhm 1%", "0402", "0402WGF1002TCE")
 R_24K_0402 = _r("24kOhm 1%", "0402", "0402WGF2402TCE")
+R_27K_0402 = _r("27kOhm 1%", "0402", "0402WGF2702TCE")
+R_33K_0402 = _r("33kOhm 1%", "0402", "0402WGF3302TCE")
 R_39K_0402 = _r("39kOhm 1%", "0402", "0402WGF3902TCE")
 R_56K_0402 = _r("56kOhm 1%", "0402", "0402WGF5602TCE")
 R_68K_0402 = _r("68kOhm 1%", "0402", "0402WGF6802TCE")
 R_75K_0402 = _r("75kOhm 1%", "0402", "0402WGF7502TCE")
+R_82K_0402 = _r("82kOhm 1%", "0402", "0402WGF8202TCE")
 R_100K_0402 = _r("100kOhm 1%", "0402", "0402WGF1003TCE")
-R_150K_0402 = _r("150kOhm 1%", "0402", "0402WGF1503TCE")
-R_130K_0603 = _r("130kOhm 1%", "0603", "0603WAF1303T5E", power="100mW")
-R_2M_0603 = _r("2MOhm 1%", "0603", "0603WAF2004T5E", power="100mW")
+R_140K_0402 = _r("140kOhm 1%", "0402", "0402WGF1403TCE")
+R_200K_0402 = _r("200kOhm 1%", "0402", "0402WGF2003TCE")
+R_1M_0402 = _r("1MOhm 1%", "0402", "0402WGF1004TCE")
+R_68K_0603 = _r("68kOhm 1%", "0603", "0603WAF6802T5E", power="100mW")
+R_1M_0603 = _r("1MOhm 1%", "0603", "0603WAF1004T5E", power="100mW")
 
 # Current-sense shunts, 2512, for the R2512 package (components/micras/R2512: the MicrasLib
 # RESC6432X89N land pattern, which sets the package).
@@ -57,7 +60,6 @@ R_50M_2512 = {"value": "50mOhm 1%", "mpn": "HoLLR2512-3W-50mR-1%", "manufacturer
 R_40M_2512 = {"value": "40mOhm 1%", "mpn": "LR2512-22R040F4", "manufacturer": "RALEC", "power": "2W"}
 
 # Multilayer ceramic capacitors.
-C_18P_0402 = _c("18pF 5%", "0402", "50V", "C0G", "0402CG180J500NT", manufacturer=FENGHUA)
 C_470P_0402 = _c("470pF 10%", "0402", "50V", "X7R", "0402B471K500NT", manufacturer=FENGHUA)
 C_10N_0402 = _c("10nF 10%", "0402", "50V", "X7R", "CL05B103KB5NNNC")
 C_100N_0402 = _c("100nF 10%", "0402", "50V", "X7R", "CL05B104KB54PNC")
@@ -65,6 +67,7 @@ C_220N_0402 = _c("220nF 10%", "0402", "16V", "X7R", "CL05B224KO5NNNC")
 C_1U_0402 = _c("1uF 10%", "0402", "25V", "X5R", "CL05A105KA5NQNC")
 C_4U7_0402 = _c("4.7uF 20%", "0402", "10V", "X5R", "CL05A475MP5NRNC")
 C_220N_0603 = _c("220nF 10%", "0603", "25V", "X7R", "CL10B224KA8NNNC")
+C_47N_0603 = _c("47nF 10%", "0603", "50V", "X7R", "CL10B473KB8NNNC")
 C_470N_0603 = _c("470nF 10%", "0603", "25V", "X7R", "CL10B474KA8NNNC")
 C_10U_0603 = _c("10uF 20%", "0603", "25V", "X5R", "CL10A106MA8NRNC")
 C_220N_0805 = _c("220nF 10%", "0805", "50V", "X7R", "CL21B224KBFNNNE")
@@ -72,8 +75,19 @@ C_4U7_0805 = _c("4.7uF 10%", "0805", "25V", "X5R", "CL21A475KAQNNNE")
 C_10U_0805 = _c("10uF 10%", "0805", "50V", "X5R", "GRM21BR61H106KE43L", manufacturer=MURATA)
 C_22U_0805_25V = _c("22uF 20%", "0805", "25V", "X5R", "CL21A226MAQNNNE")
 C_22U_0805_35V = _c("22uF 20%", "0805", "35V", "X5R", "C2012X5R1V226MT000E", manufacturer="TDK")
-C_220U_1206 = _c("220uF 20%", "1206", "6.3V", "X5R", "GRM31CR60J227ME11L", manufacturer=MURATA)
 
 # Indicator LEDs, 0603.
 LED_YELLOW_0603 = {"package": "0603", "color": "yellow", "mpn": "NCD0603Y2", "manufacturer": "NationStar"}
 LED_RED_0603 = {"package": "0603", "color": "red", "mpn": "KT-0603R", "manufacturer": "KENTO"}
+
+# Ferrite bead, 0402: 600 Ohm +-25 % at 100 MHz, 340 mOhm DCR max, 500 mA (Murata BLM15AX601SN1D,
+# LCSC C76886 listing).
+FB_600R_0402 = {
+    "package": "0402",
+    "value": "600Ohm",
+    "frequency": "100MHz",
+    "dcr": "340mOhm",
+    "current": "500mA",
+    "mpn": "BLM15AX601SN1D",
+    "manufacturer": "Murata",
+}

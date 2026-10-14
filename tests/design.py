@@ -3,7 +3,7 @@
 d = design("main")
 d.net("IC1", "VBAT")          # net name of a pin (by pin function or pad number)
 d.on("3V3")                   # {(ref, pad, function)} on a net
-d.mpn("IC7"), d.value("C56", "capacitance")   # 'L6981N33DR', 0.00022
+d.mpn("IC7"), d.value("C56", "capacitance")   # 'L6981C33DR', 2.2e-05
 """
 
 from __future__ import annotations

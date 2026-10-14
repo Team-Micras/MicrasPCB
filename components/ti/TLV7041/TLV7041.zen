@@ -1,0 +1,45 @@
+"""TLV7041DBVR - nanopower comparator, open-drain output, SOT-23-5. Bare part.
+
+Datasheet: TI SLVSE13J (September 2017, revised November 2024), TLV703x/TLV704x.
+
+Pins (section 4, Table 4-1, SOT-23): 1 OUT, 2 V-, 3 IN+, 4 IN-, 5 V+.
+
+Absolute maximum ratings (section 5.1, p6): supply -0.3 to 7 V; IN+ and IN- V- - 0.3 to 7 V
+whatever the supply (diode-clamped to V- only), input current +-10 mA; OUT (TLV704x) V- - 0.3
+to 7 V.
+Recommended operating conditions (section 5.3): supply 1.6 to 6.5 V; input voltage V- - 0.1 to
+V+ + 0.1 V.
+
+Electrical characteristics (section 5.7, single, VS 1.8-5 V, -40 to 125 C): input offset
++-0.1 / +-8 mV; hysteresis 2 / 7 / 17 mV (25 C); input bias 2 pA; open-drain leakage 100 pA;
+supply current 335 / 900 nA.
+
+Function (section 6.4): OUT is high impedance while IN+ > IN-, low while IN+ < IN-. Power-on
+reset: while the supply is below its minimum, rising or falling, the TLV704x holds OUT high
+impedance (logical high).
+
+Integrator-owned circuitry (section 7.3): 100 nF bypass capacitor from V+ to V- when the supply
+is noisy or far away; the output pull-up.
+"""
+
+# Section 5.3: recommended supply 1.6-6.5 V.
+VCC = io(Power(voltage="1.6V to 6.5V"))
+GND = io(Ground)
+IN_P = io(Net)
+IN_N = io(Net)
+OUT = io(Net)
+
+Component(
+    name="TLV7041",
+    prefix="U",
+    symbol=Symbol(library="TLV7041DBVR.kicad_sym"),
+    footprint=File("SOT-23-5.kicad_mod"),
+    part=Part(mpn="TLV7041DBVR", manufacturer="Texas Instruments"),
+    pins={
+        "OUT": OUT,
+        "V-": GND,
+        "+": IN_P,
+        "-": IN_N,
+        "V+": VCC,
+    },
+)

@@ -7,8 +7,8 @@ CI.
 | Board | Status |
 |---|---|
 | `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.79 mm | the previous revision's placement and routing, plus pull resistors on the sensor's SPI inputs; passes every check ([open items](boards/encoder/README.md#open-items)) |
-| `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | placed and routed as the previous revision, same connectivity plus two declared changes (C1, C2) with their copper; fails the design checks where that revision has faults ([known faults](boards/main/README.md#known-faults)) |
-| `bluetooth`: HM-19 BLE module on a vertical USB-C plug that mates the main board's U2, 2 layers, 0.79 mm | placed and routed as the previous revision, same connectivity; fails the design checks where that revision has faults ([known faults](boards/bluetooth/README.md#known-faults)) |
+| `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | circuit with the design review's findings fixed, placed and routed; passes every gate ([known faults](boards/main/README.md#known-faults)) |
+| `bluetooth`: HM-19 BLE module on a vertical USB-C plug that mates the main board's U2, 2 layers, 0.79 mm | placed and routed as the previous revision with its design review fixes (a CC signature for the main board's switched SBU supply, a RESETB pull-up); passes every gate ([known faults](boards/bluetooth/README.md#known-faults)) |
 
 ## How it fits together
 
@@ -103,16 +103,16 @@ and fails if any gate failed.
 | layout-check | `pcb layout --check`, `micras-pcb rules/mech --check` | layout no longer matches the netlist, rules or spec drift |
 | ERC | `kicad-cli sch erc` | schematic electrical rules; `boards/<board>/erc.toml` names the nets supplied from off the board (the PWR_FLAG role) |
 | LVS | `micras-pcb lvs` | schematic and PCB connect different pads |
-| previous | `micras-pcb previous compare <board>` | a replicated board (main, encoder, bluetooth) connects anything differently from its previous revision, except the changes in `boards/<board>/changes.toml` |
+| previous | `micras-pcb previous compare <board>` | a replicated board (main, encoder, bluetooth) connects or names anything differently from its previous revision, except the changes in `boards/<board>/changes.toml` |
 | DRC | `kicad-cli pcb drc` + `rules/jlcpcb.kicad_dru` | JLCPCB clearances (copper, SMD pad to pad, hole to track), widths, drills, edge distances |
 | DFM | `pcb dfm` + `rules/jlcpcb-pdk.toml` | geometry-level manufacturability (Diode's sourced JLCPCB PDK) |
 | pytest | `pytest` | board contracts (encoder joint, firmware pin map), power tree, decoupling at the pin, encoder slot fit, courtyards, paste, 3D models, part data |
 | lint | `ruff` | Python lint and format |
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 
-The main and Bluetooth boards fail several of these by design: they replicate their previous
-revisions, faults included, and their READMEs ([main](boards/main/README.md#known-faults),
-[bluetooth](boards/bluetooth/README.md#known-faults)) give the root cause of every failure.
+Every board passes every gate. The main board's and the Bluetooth module's READMEs
+([main](boards/main/README.md#known-faults), [bluetooth](boards/bluetooth/README.md#known-faults))
+give the root cause of each warning that remains.
 
 ## CI
 
@@ -126,8 +126,11 @@ revisions, faults included, and their READMEs ([main](boards/main/README.md#know
   `make parts-online` before ordering.
 
 To look at a board, download the run's artifact, or open the project in KiCad
-(`pcb open boards/<board>/<board>.zen`). A self-hosted [KiCad Prism](https://github.com/krishna-swaroop/KiCAD-Prism)
-is the planned online viewer; there is none yet.
+(`pcb open boards/<board>/<board>.zen`). The boards are also viewed online in a self-hosted
+[KiCad Prism](https://github.com/krishna-swaroop/KiCAD-Prism), which takes each board's layout
+folder as a project: its `.prism.json` gives Prism the board's name and description. Prism only
+reads a README from inside the project folder (a `../` path fails its commit view), so the board
+READMEs do not show there.
 
 ## Working with Claude Code
 
@@ -141,10 +144,15 @@ pin-1 checks, placement and routing, and the fab order.
 ## Repository
 
 ```text
-boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb is KiCad-owned, the rest generated)
+boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb is KiCad-owned, .prism.json is
+                       Prism's project config, the rest generated)
 boards/<board>/previous/  snapshot of the board's previous revision (board.json) for the connectivity comparison,
                        and the scripts that build its layout from that revision (transfer_layout.py; main: rework.py)
+boards/main/layout/fixes.py, router.py, refine.py, usb_wall.py, finish.py  the one-off scripts that place
+                       and route the review fixes and the owner's layout decisions, their grid router, and the
+                       previous revision's pour settings on the result
 boards/main/firmware.toml  the firmware's pin map and drive settings (from MicrasFirmware), tested against the board
+boards/main/firmware_changes.toml  the firmware changes the board needs, applied on top of firmware.toml in the tests
 boards/<board>/test/   Zener test benches of the board's circuit
 components/<mfr>/<P>/  reusable Zener packages: symbol, footprint (STEP embedded), .zen, test bench, README
 spec/                  mechanical single source of truth per board
