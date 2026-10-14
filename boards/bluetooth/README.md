@@ -94,17 +94,19 @@ The main board's side is in its own pull request (the review fixes, #13).
 
 ## Board
 
-2 copper layers, 35 um copper on a 0.7 mm FR-4 core, 0.79 mm with mask, from the Altium layer
-stack. Design rules: 0.1 mm clearance, 0.254 mm track, 0.6 / 0.3 mm and 0.5 / 0.3 mm vias, 0.2 mm
-copper to edge, the Altium JLCPCB rule set; `rules/jlcpcb.kicad_dru` adds JLCPCB's limits on top.
-ENIG finish, black solder mask and white silkscreen (Zener's 2-layer defaults, the owner's
-choice).
+2 copper layers, 35 um copper on a 0.7 mm FR-4 core (Dk 4.5), from the Altium layer stack; with
+Zener's fixed 10 um solder mask a side it is 0.79 mm (Altium's 12.7 um resist makes 0.7954 mm),
+ordered as JLCPCB's 0.8 mm board. Design rules: 0.1 mm clearance, 0.254 mm track, 0.6 / 0.3 mm
+and 0.5 / 0.3 mm vias, 0.2 mm copper to edge, 0.02 mm solder mask expansion, the Altium JLCPCB
+rule set; `rules/jlcpcb.kicad_dru` adds JLCPCB's limits on top. ENIG finish, black solder mask
+and white silkscreen (Zener's 2-layer defaults, the owner's choice).
 
 ## Layout
 
 The layout is the Altium MicrasBluetoothModule.PcbDoc's, in the same KiCad coordinates, built by
-[`previous/transfer_layout.py`](previous/transfer_layout.py) from KiCad's conversion of that PCB;
-running the script again changes nothing.
+[`previous/transfer_layout.py`](previous/transfer_layout.py) from KiCad's conversion of that PCB
+(running the script again changes nothing), with the review fixes made on it by
+[`layout/fixes.py`](layout/fixes.py).
 
 - **Top**: U1 near the top edge, with the antenna end of the module (the 7 mm above pad 1, V107
   6.6) 5.5 mm beyond the board's top edge; R2, R1, R3, D1, C2, C1 in a row below it, R4 above C2;
@@ -115,12 +117,34 @@ running the script again changes nothing.
 - The outline narrows from 16 mm to the plug's width towards the bottom edge.
 - Resistors, capacitors and D1 use KiCad's generic footprints, each centred on its pads' positions
   in the Altium footprint: pad centres within 75 um of the Altium ones (the 0603 pad pitches
-  differ). The teardrops of the Altium design are plain copper zones (priorities 100 and up),
-  as on the main board: KiCad 10 orders zones by UUID and does not save a teardrop's UUID.
+  differ). D1 carries KiCad's LED model scaled to the SMLD12BN1W's 0.55 mm height (ROHM
+  datasheet p. 1). The teardrops of the Altium design are plain copper zones (priorities 100 and
+  up), as on the main board: KiCad 10 orders zones by UUID and does not save a teardrop's UUID.
+  They fill with a 0.1 mm minimum width, JLCPCB's minimum copper feature.
+- The GND pours keep the Altium polygons' neck widths (copper narrower than 0.1 mm, 0.3 mm in the
+  top pour around the plug, is not poured) and join pads solidly.
+- The Edge.Cuts outline is the Altium one without its seven duplicated vertices (lines of 1-12 nm,
+  which KiCad reads as a malformed, self-intersecting outline); the lines next to them meet within
+  12 nm of where they did.
 - Silkscreen: the reference designators are 0.5 mm high with a 0.15 mm stroke, the size the team
   reads on the previous boards, and the board's minimum text height is 0.5 mm
   (`bluetooth.zen`, `Silkscreen(minimum_text_height=0.5)`). JLCPCB recommends 1.0 mm text, so
   these may print less sharply; that is accepted.
+
+## Differences from the Altium board
+
+There is no Gerber output of the Altium design to compare with; against KiCad's conversion of the
+PcbDoc, the board differs, besides the review fixes (the CC signature tracks, R4 and its tracks,
+C2's designator beside C2), in:
+
+| What | This board | Altium board | Why |
+|---|---|---|---|
+| Pour to board edge | 0.21 mm | 0.23 mm | the KiCad fill under `rules/jlcpcb.kicad_dru`: JLCPCB's 0.2 mm routed-edge clearance plus 10 um for the fill's arc approximation |
+| R1-R3, C1, C2, D1 | KiCad's generic 0603 footprints: pads R 0.80 x 0.95, C 0.90 x 0.95, LED 0.875 x 0.95 mm, their centres within 75 um of the Altium ones; KiCad's silkscreen (no box around the parts, 6.2 mm2 less ink; D1's polarity mark an outline closed on the cathode side) | pads R 0.85 x 1.0, C 0.8 x 0.9, LED 0.8 x 0.8 mm; full boxes, a triangle on D1 | the stdlib generics' footprints |
+| Passive 3D models | KiCad library models: R 0.45 mm tall, C 0.8 mm wide; D1 0.55 mm | R 0.56 mm, C 0.9 mm wide, D1 0.6 mm | KiCad's generic models (D1 scaled to its datasheet) |
+| U1, USB1 courtyards | F.CrtYd rectangles 0.25 mm around the HM-19 body and pads, and around the plug's pads and legs | none (the HM-19 outline on User.15) | KiCad's courtyard overlap check |
+| Teardrop cusps | thinner than 0.1 mm left out | drawn to a point | JLCPCB's 0.1 mm minimum copper feature |
+| Solder mask thickness | 10 um a side | 12.7 um | Zener's stackup has no mask thickness setting |
 
 ## Mechanics
 
@@ -134,12 +158,13 @@ shell, 1.85 mm Ref from the plug overmold to the receptacle face) and the plug's
 
 ## Known faults
 
-ERC, LVS, previous, DRC, DFM, the warnings gate and the module's test benches pass. One check
-still fails, on the main board's side of the joint:
+ERC, LVS, previous, DRC and layout-check (one warning, below), DFM, the warnings gate and the
+module's test benches pass. One check still fails, on the main board's side of the joint:
 
 | Check (gate) | Fault | Requirement | Fix |
 |---|---|---|---|
 | `test_uart_rx_is_held_with_the_module_unplugged` (pytest) | with the module unplugged PA11 (UART4_RX) ends at an open contact: the firmware sets no pull and the main board has no resistor (m17) | a UART input idles high; a floating input feeds noise bytes to the circular DMA | the firmware enables PA11's internal pull-up (`GPIO_PULLUP`), declared in the main board's `firmware_changes.toml` (its review fixes, #13) |
+| `copper_sliver` (drc, warning) | 1: a teardrop outline overrunning its track on F.Cu; the teardrops are plain zones, which KiCad does not exempt from the sliver test | no copper sliver | trim the outline |
 
 The main board's own checks (`usb_c_sbu_open`, M6) pass once its signature detector is in.
 

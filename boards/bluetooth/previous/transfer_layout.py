@@ -11,20 +11,24 @@ layout boards/bluetooth/layout/bluetooth.kicad_pcb:
    and board-level graphic (the Edge.Cuts outline, the bottom silkscreen logo) is copied as text,
    with its net renamed to the new net that owns the pads the old net connected (found by pad
    membership, see `net_map`), a UUID derived from its content, and zones without their fill.
-   The teardrops become plain zones (`teardrop_to_zone`).
+   The teardrops become plain zones (`teardrop_to_zone`), the pours keep the Altium neck widths
+   (`POUR_MIN_WIDTH`), and the Edge.Cuts lines shorter than 1 um are left out (`outline_snaps`).
 2. Placement (KiCad's pcbnew module, KiCad 10). Every footprint goes to the previous board's
    designator on the same side. A footprint that is the previous one (same pads: U1, USB1, OP1)
    gets the same position and rotation; a stdlib generic footprint (KiCad R_/C_/LED_ libraries) is
    fitted so its pads land on the old pad centres by pad number: the least-squares translation
    for each candidate rotation (old rotation + k x 90, k x 90), the one with the smallest residual
    wins. The reference designator text takes the old one's position, size, layer and orientation.
-   The aux and grid origins are the previous board's. Placement runs before the copy (step 1),
-   on a board without copper, and the zones are filled after it.
+   D1 gets its 3D model scaled to the fitted LED's height (`LED_HEIGHT`). The aux and grid
+   origins and the solder mask expansion (0.02 mm) are the previous board's. Parts the previous
+   board does not have (R4, boards/bluetooth/changes.toml) stay where they are. Placement runs
+   before the copy (step 1), on a board without copper, and the zones are filled after it.
 3. `pcb layout` syncs the result, which normalises the file the way `make gen` writes it.
 
 The board keeps the previous revision's KiCad coordinates; spec/bluetooth.toml names the plug
 centre (148.501075, 115.343615) as its frame origin. The script is a fixed point: running it on
-its own output changes nothing. Run `make gen` and `make check` afterwards.
+its own output changes nothing. Its output is the previous layout; boards/bluetooth/layout/fixes.py
+then turns it into the board's layout. Run `make gen` and `make check` afterwards.
 """
 
 from __future__ import annotations
@@ -108,6 +112,17 @@ def net_map(old_root: sexpr.Node, new_root: sexpr.Node) -> dict[str, str]:
 TEARDROP = "\t\t(attr\n\t\t\t(teardrop\n\t\t\t\t(type track_end)\n\t\t\t)\n\t\t)\n"
 TEARDROP_PADS = "\t\t(connect_pads\n\t\t\t(clearance 0.5)\n\t\t)\n"
 ZONE_PADS = "\t\t(connect_pads yes\n\t\t\t(clearance 0.1)\n\t\t)\n"
+# The importer gives every zone a 0.25 mm minimum width, which erases most of a teardrop's thin
+# flare when the zone is filled. A teardrop fills with 0.1 mm instead, JLCPCB's minimum copper
+# feature (rules/jlcpcb-pdk.toml jlc.copper.minimum_feature_width: 0.10 mm on 2 layers, 0.09 mm
+# on 4): its body is kept, only the cusps the fab cannot etch go.
+MIN_WIDTH = "\t\t(min_thickness 0.25)\n"
+TEARDROP_MIN_WIDTH = "\t\t(min_thickness 0.1)\n"
+# The pours drop copper narrower than their Altium polygon's neck width
+# (MicrasBluetoothModule.PcbDoc Polygons6, REMOVENECKS: 3.937 mil = 0.1 mm on the bottom pour and
+# the top pour of POURINDEX 0, 11.811 mil = 0.3 mm on the top pour of POURINDEX 2); the importer
+# sets KiCad's 0.25 mm instead. Keyed by layer and the imported priority (2 - Altium POURINDEX).
+POUR_MIN_WIDTH = {("F.Cu", 2): 0.1, ("F.Cu", 0): 0.3, ("B.Cu", 1): 0.1}
 TEARDROP_PRIORITY = 100  # above every pour of the previous board (max 2), as a teardrop is
 _NS = uuid.UUID("9d2a6f43-1c5e-4b7a-8e0f-5a3c7d1b2e64")
 
@@ -118,17 +133,28 @@ def teardrop_to_zone(text: str, key: str, index: int) -> str:
     KiCad 10 does not save a teardrop's UUID and orders zones by UUID when it writes a board, so
     every save (`pcb layout` included) shuffles teardrops: a board with teardrop zones is never
     byte-stable. As plain zones with a stable UUID they keep their copper, connect solidly to
-    their pads and tracks like a teardrop (connect_pads yes, the board's 0.1 mm clearance), and
-    win over the pours around them (priorities above all of them, one per teardrop: KiCad
-    requires distinct priorities for intersecting zones).
+    their pads and tracks like a teardrop (connect_pads yes, the board's 0.1 mm clearance), fill
+    with a 0.1 mm minimum width, and win over the pours around them (priorities
+    above all of them, one per teardrop: KiCad requires distinct priorities for intersecting
+    zones).
     """
-    if TEARDROP_PADS not in text:
-        raise SystemExit("teardrop zone with unexpected pad connection settings")
-    text = text.replace(TEARDROP, "").replace(TEARDROP_PADS, ZONE_PADS)
+    if TEARDROP_PADS not in text or MIN_WIDTH not in text:
+        raise SystemExit("teardrop zone with unexpected pad connection or width settings")
+    text = text.replace(TEARDROP, "").replace(TEARDROP_PADS, ZONE_PADS).replace(MIN_WIDTH, TEARDROP_MIN_WIDTH)
     head, layer, rest = text.partition("\t\t(layer ")
     line, nl, tail = rest.partition("\n")
     uid = uuid.uuid5(_NS, f"teardrop/{key}")
     return f'{head}{layer}{line}{nl}\t\t(uuid "{uid}")\n\t\t(priority {TEARDROP_PRIORITY + index})\n{tail}'
+
+
+def pour_min_width(text: str) -> str:
+    """A pour with the minimum width of its Altium polygon (see POUR_MIN_WIDTH)."""
+    layer = re.search(r'^\t\t\(layer "([^"]+)"\)', text, re.M).group(1)
+    priority = re.search(r"^\t\t\(priority (\d+)\)", text, re.M)
+    width = POUR_MIN_WIDTH[(layer, int(priority.group(1)) if priority else 0)]
+    if MIN_WIDTH not in text:
+        raise SystemExit("pour with unexpected minimum width settings")
+    return text.replace(MIN_WIDTH, f"\t\t(min_thickness {width:g})\n")
 
 
 def _strip_fill(text: str) -> str:
@@ -143,6 +169,43 @@ def strip(text: str) -> str:
     return sexpr.splice(text, [(*sexpr.line_span(text, n), "") for n in root.children() if n.head in COPIED])
 
 
+def _edge(node: sexpr.Node) -> bool:
+    layer = node.child("layer")
+    return node.head.startswith("gr_") and layer is not None and layer.atoms() == ["Edge.Cuts"]
+
+
+def degenerate_edge(node: sexpr.Node) -> bool:
+    """An Edge.Cuts line shorter than 1 um: a duplicated outline vertex of the Altium board, which
+    KiCad reports as a malformed outline (see `outline_snaps`)."""
+    if node.head != "gr_line" or not _edge(node):
+        return False
+    (x0, y0), (x1, y1) = (map(float, node.child(k).atoms()[:2]) for k in ("start", "end"))
+    return math.hypot(x1 - x0, y1 - y0) < 1e-3
+
+
+def outline_snaps(root: sexpr.Node) -> dict[str, str]:
+    """The degenerate Edge.Cuts lines are left out; the outline item that met one at its end meets
+    the next item at the line's start instead (a move below 1 um), so the outline stays closed."""
+    snaps = {}
+    for n in root.children():
+        if degenerate_edge(n):
+            snaps[" ".join(n.child("end").atoms()[:2])] = " ".join(n.child("start").atoms()[:2])
+    for b, a in snaps.items():
+        while a in snaps and snaps[a] != b:
+            a = snaps[a]
+        snaps[b] = a
+    return snaps
+
+
+def snap_outline(text: str, node: sexpr.Node, snaps: dict[str, str]) -> str:
+    """An Edge.Cuts item with its endpoints moved as `outline_snaps` says."""
+    if not _edge(node):
+        return text
+    for b, a in snaps.items():
+        text = text.replace(f"(start {b})", f"(start {a})").replace(f"(end {b})", f"(end {a})")
+    return text
+
+
 def copy_items(old_text: str, new_text: str) -> str:
     """The new layout with the previous board's copper and board graphics in place of its own.
 
@@ -155,10 +218,11 @@ def copy_items(old_text: str, new_text: str) -> str:
     # drop what an earlier run copied (the generated layout has none of these)
     edits = [(*sexpr.line_span(new_text, n), "") for n in new_root.children() if n.head in COPIED]
     items = []
+    snaps = outline_snaps(old_root)
     for n in old_root.children():
-        if n.head not in COPIED:
+        if n.head not in COPIED or degenerate_edge(n):
             continue
-        text = old_text[slice(*sexpr.line_span(old_text, n))]
+        text = snap_outline(old_text[slice(*sexpr.line_span(old_text, n))], n, snaps)
         text = NET.sub(lambda m: f"(net {sexpr.quote(nets[m.group(1)])})", text)
         if n.head == "zone":
             text = _strip_fill(text)
@@ -172,6 +236,8 @@ def copy_items(old_text: str, new_text: str) -> str:
         if text.startswith("\t(zone") and TEARDROP in text:
             text = teardrop_to_zone(text, key, teardrops)
             teardrops += 1
+        elif text.startswith("\t(zone"):
+            text = pour_min_width(text)
         copied.append(text)
     anchor = new_root.child("embedded_fonts") or new_root.children()[-1]
     at = sexpr.line_span(new_text, anchor)[0]
@@ -209,6 +275,15 @@ def _residual(fp, target: dict[str, list[tuple[float, float]]]) -> tuple[float, 
     return rms, dx, dy
 
 
+# Body height of the indicator LED from its datasheet. The stdlib generic's KiCad model
+# (LED_0603_1608Metric.step) is 1.1 mm tall; it is scaled in z to the fitted part, so the 3D
+# export (MicrasHardware's clearance checks) has the real height.
+LED_MODEL_HEIGHT = 1.1
+LED_HEIGHT = {
+    "D1": 0.55,  # ROHM SMLD12BN1W datasheet p. 1, Dimensions: 1.6 x 0.8 mm (t = 0.55 mm)
+}
+
+
 def place(path: Path, old_path: Path) -> list[str]:
     import pcbnew
 
@@ -218,7 +293,12 @@ def place(path: Path, old_path: Path) -> list[str]:
     report = []
     for fp in new.GetFootprints():
         ref = fp.GetReference()
-        src = by_ref[ref]
+        src = by_ref.get(ref)
+        if src is None:
+            # a part the previous board does not have (boards/bluetooth/changes.toml):
+            # boards/bluetooth/layout/fixes.py places it
+            report.append(f"{ref}: not on the previous board, left where the netlist sync put it")
+            continue
         if fp.IsFlipped() != src.IsFlipped():
             fp.Flip(fp.GetPosition(), pcbnew.FLIP_DIRECTION_LEFT_RIGHT)
         target = _centres(src)
@@ -242,6 +322,13 @@ def place(path: Path, old_path: Path) -> list[str]:
             fp.SetPosition(pcbnew.VECTOR2I(pcbnew.FromMM(round(dx, 6)), pcbnew.FromMM(round(dy, 6))))
             rms = _residual(fp, target)[0]
             report.append(f"{ref}: fitted at rotation {ang:g}, pad residual {rms * 1000:.1f} um rms")
+        if ref in LED_HEIGHT:
+            models = fp.Models()
+            for k in range(len(models)):  # by index: iterating yields copies
+                m = models[k]
+                scale = m.m_Scale
+                scale.z = round(LED_HEIGHT[ref] / LED_MODEL_HEIGHT, 6)
+                m.m_Scale = scale
         # reference designator text as on the previous board
         nf, of = fp.Reference(), src.Reference()
         nf.SetLayer(of.GetLayer())
@@ -252,6 +339,7 @@ def place(path: Path, old_path: Path) -> list[str]:
     ods = old.GetDesignSettings()
     ds.SetAuxOrigin(ods.GetAuxOrigin())
     ds.SetGridOrigin(ods.GetGridOrigin())
+    ds.m_SolderMaskExpansion = ods.m_SolderMaskExpansion
     pcbnew.SaveBoard(str(path), new)
     return report
 
@@ -264,6 +352,21 @@ def fill(path: Path) -> None:
     pcbnew.SaveBoard(str(path), board)
 
 
+def pcb_layout(*flags: str) -> None:
+    """`pcb layout` on the board with the pinned toolchain (versions.env)."""
+    env = dict(
+        line.split("=", 1)
+        for line in (ROOT / "versions.env").read_text().splitlines()
+        if "=" in line and not line.startswith("#")
+    )
+    subprocess.run(
+        ["pcb", f"+{env['PCB_TOOLCHAIN'].strip()}", "layout", *flags, "--no-open", "boards/bluetooth/bluetooth.zen"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--previous", type=Path, help="the previous board's MicrasBluetoothModule.PcbDoc")
@@ -271,7 +374,7 @@ def main() -> int:
     a = ap.parse_args()
     with tempfile.TemporaryDirectory() as tmp:
         old_path = Path(tmp) / "previous.kicad_pcb"
-        old_path.write_text(previous._altium_pcb(previous_pcbdoc(a.previous)))
+        old_path.write_text(previous.altium_pcb(previous_pcbdoc(a.previous)))
         # Place first, on a board without copper: KiCad gives a via the net of a pad it lands on
         # when it loads a board, so copper copied onto unplaced footprints would pick up wrong nets.
         LAYOUT.write_text(strip(LAYOUT.read_text()))
@@ -280,17 +383,7 @@ def main() -> int:
         LAYOUT.write_text(copy_items(old_path.read_text(), LAYOUT.read_text()))
         fill(LAYOUT)
     if not a.no_sync:
-        env = dict(
-            line.split("=", 1)
-            for line in (ROOT / "versions.env").read_text().splitlines()
-            if "=" in line and not line.startswith("#")
-        )
-        subprocess.run(
-            ["pcb", f"+{env['PCB_TOOLCHAIN'].strip()}", "layout", "--no-open", "boards/bluetooth/bluetooth.zen"],
-            cwd=ROOT,
-            check=True,
-            capture_output=True,
-        )
+        pcb_layout()
     return 0
 
 
