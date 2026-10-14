@@ -1,0 +1,106 @@
+(footprint "ENCODER_CONN"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "Micras encoder board edge tab: 4 pads per side (pads 1-4 bottom, 5-8 top), 2.0 x 0.6 mm, 0.95 mm pitch. Origin: pad centres, 0.2 mm above the shoulder line; the footprint's -X points into the main board slot. Pads from the Micras Altium EncoderLib ENCODER_CONN (MicrasEncoder.PcbDoc J1).")
+	(tags "edge connector micras encoder")
+	(property "Reference" "REF**"
+		(at 0.6838 -3.080544 270)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "e710400c-061a-4b85-8ba1-3657c44aa221")
+		(effects
+			(font
+				(size 0.6 0.6)
+				(thickness 0.154)
+			)
+		)
+	)
+	(property "Value" "ENCODER_CONN"
+		(at -2.919202 10.321129 270)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(hide yes)
+		(uuid "a9934a42-635b-4cc5-aedb-0e2a9c8c8e91")
+		(effects
+			(font
+				(size 1.524 1.524)
+				(thickness 0.254)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "dae93fc3-ccb3-4b13-a121-63193fcdf297")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Description" "Micras encoder board edge tab: 4 pads per side (pads 1-4 bottom, 5-8 top), 2.0 x 0.6 mm, 0.95 mm pitch. Origin: pad centres, 0.2 mm above the shoulder line; the footprint's -X points into the main board slot. Pads from the Micras Altium EncoderLib ENCODER_CONN (MicrasEncoder.PcbDoc J1)."
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "cdca9294-b92b-4252-bdd6-76502a975519")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(attr smd exclude_from_pos_files exclude_from_bom)
+	(duplicate_pad_numbers_are_jumpers no)
+	(pad "1" smd rect
+		(at 0 1.425)
+		(size 2 0.6)
+		(layers "B.Cu" "B.Mask" "B.Paste")
+		(uuid "d3a19ba2-b9a4-4737-9c12-bae254833289")
+	)
+	(pad "2" smd rect
+		(at 0 0.475)
+		(size 2 0.6)
+		(layers "B.Cu" "B.Mask" "B.Paste")
+		(uuid "6fd8ef7f-b5f6-4daa-8aa3-04f05dd9060e")
+	)
+	(pad "3" smd rect
+		(at 0 -0.475)
+		(size 2 0.6)
+		(layers "B.Cu" "B.Mask" "B.Paste")
+		(uuid "7cfbc101-a3b2-48a0-bf7f-aadda7cef49b")
+	)
+	(pad "4" smd rect
+		(at 0 -1.425)
+		(size 2 0.6)
+		(layers "B.Cu" "B.Mask" "B.Paste")
+		(uuid "560fe470-a753-45e5-bb29-e85082e6d996")
+	)
+	(pad "5" smd rect
+		(at 0 1.425)
+		(size 2 0.6)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "f1700d39-bfff-467b-a955-7993c7173160")
+	)
+	(pad "6" smd rect
+		(at 0 0.475)
+		(size 2 0.6)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "cbe099e3-8a4c-4ec5-b1a0-90c6a4ac6398")
+	)
+	(pad "7" smd rect
+		(at 0 -0.475)
+		(size 2 0.6)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "8cd9e873-56b2-4c17-a031-b5b70e89fd35")
+	)
+	(pad "8" smd rect
+		(at 0 -1.425)
+		(size 2 0.6)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "701267f0-7afe-44b7-8488-36e276a3ff00")
+	)
+	(embedded_fonts no)
+)

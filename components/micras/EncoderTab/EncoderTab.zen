@@ -1,11 +1,17 @@
 """Micras encoder board edge tab: the encoder board's side of the board-to-board joint.
 
 The encoder board stands upright in a slot in the main board. Its 5.0 x 1.0 mm
-tab carries 4 pads per side (0.6 x 2.0 mm, 0.95 mm pitch) that are soldered to
+tab carries 4 pads per side (2.0 x 0.6 mm, 0.95 mm pitch) that are soldered to
 the main board pads beside the slot. Pads 1-4 are on the bottom side and pads
-5-8 on the top (chip) side. Pinout and pad geometry come from the Altium
-MicrasEncoder.PcbDoc, so a board built from this package fits the existing main
-board.
+5-8 on the top (chip) side. Pinout and pads: the Altium EncoderLib
+ENCODER_CONN (MicrasEncoder.PcbDoc J1), so a board built from this package fits
+the main board's EncoderSlot.
+
+Footprint frame: origin at the pad centres, which sit 0.2 mm above the
+shoulder line (the main board's top surface), so the pads run from 0.8 mm into
+the slot to 1.2 mm above it and end 0.2 mm from the tab edge. The footprint's
+-X points into the slot: placed at 90 degrees, the tab edge is at the bottom
+and, seen from the chip side, pads 1/5 are on the right.
 
 The tab is copper on the PCB itself, not a purchased part: it is excluded from
 the BOM and the placement file.
@@ -23,7 +29,7 @@ Component(
     name="TAB",
     prefix="J",
     symbol=Symbol(library="EncoderTab.kicad_sym"),
-    footprint=File("EncoderTab_2x4_P0.95mm_Edge.kicad_mod"),
+    footprint=File("ENCODER_CONN.kicad_mod"),
     pins={
         "CSn": SPI.CS,
         "CLK": SPI.CLK,
