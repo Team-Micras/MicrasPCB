@@ -7,7 +7,7 @@ CI.
 | Board | Status |
 |---|---|
 | `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.79 mm | placed and routed as the previous revision, same connectivity; fails the layout checks where that revision has faults ([known faults](boards/encoder/README.md#known-faults)) |
-| `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | circuit with the design review's findings fixed, placed and routed; passes every gate but one Zener bench, with a known cause ([known faults](boards/main/README.md#known-faults)) |
+| `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | circuit with the design review's findings fixed, placed and routed; passes every gate ([known faults](boards/main/README.md#known-faults)) |
 | `bluetooth`: HM-19 BLE module on a vertical USB-C plug that mates the main board's U2, 2 layers, 0.79 mm | placed and routed as the previous revision, same connectivity; fails the design checks where that revision has faults ([known faults](boards/bluetooth/README.md#known-faults)) |
 
 ## How it fits together
@@ -111,7 +111,7 @@ and fails if any gate failed.
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 
 The encoder and Bluetooth boards fail several of these by design: they replicate their previous
-revisions, faults included. The main board fails one Zener bench (test). Their READMEs
+revisions, faults included. Their READMEs
 ([main](boards/main/README.md#known-faults), [encoder](boards/encoder/README.md#known-faults),
 [bluetooth](boards/bluetooth/README.md#known-faults)) give the root cause of every failure.
 
@@ -145,8 +145,9 @@ pin-1 checks, placement and routing, and the fab order.
 boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb is KiCad-owned, the rest generated)
 boards/<board>/previous/  snapshot of the board's previous revision (board.json) for the connectivity comparison,
                        and the scripts that build its layout from that revision (transfer_layout.py; main: rework.py)
-boards/main/layout/fixes.py, router.py, refine.py  the one-off scripts that place and route the review fixes and the
-                       owner's layout decisions, and their grid router
+boards/main/layout/fixes.py, router.py, refine.py, usb_wall.py, finish.py  the one-off scripts that place
+                       and route the review fixes and the owner's layout decisions, their grid router, and the
+                       previous revision's pour settings on the result
 boards/main/firmware.toml  the firmware's pin map and drive settings (from MicrasFirmware), tested against the board
 boards/main/firmware_changes.toml  the firmware changes the board needs, applied on top of firmware.toml in the tests
 boards/<board>/test/   Zener test benches of the board's circuit

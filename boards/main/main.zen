@@ -54,6 +54,7 @@ load(
     "NetClass",
     "PredefinedSizes",
     "Silkscreen",
+    "SolderMask",
     "Stackup",
     "ViaDimension",
 )
@@ -336,9 +337,13 @@ Peripherals(
 
 # Stackup and rules from the Altium MicrasMainBoard.PcbDoc (layer stack and design rules):
 # 4 layers, 1 oz outer / 0.5 oz inner copper, 0.2104 mm prepreg (Dk 4.4) and 0.5 mm core
-# (Dk 4.48), 1.0412 mm with mask. Rules: 0.1 mm clearance, 10 mil (0.254 mm) preferred track,
-# 0.45 / 0.3 mm vias, 0.2 mm copper to board edge. The track widths and the other via sizes are
-# the ones its routing uses.
+# (Dk 4.48), 1.0212 mm without mask. Zener writes a 10 um solder mask a side (not configurable),
+# so the stackup totals 1.0412 mm; Altium's 0.6 mil (15.24 um) resist makes it 1.0517 mm. The
+# board is ordered as JLCPCB's 1.0 mm 4-layer stackup either way. Rules: 0.1 mm clearance,
+# 10 mil (0.254 mm) preferred track, 0.45 / 0.3 mm vias, 0.2 mm copper to board edge, 0.02 mm
+# solder mask expansion (rule SolderMaskExpansion, 0.7874 mil). The track widths and the other
+# via sizes are the ones its routing uses. Finish: ENIG, black solder mask, white silkscreen (the
+# owner's choice).
 Board(
     name="main",
     path="layout",
@@ -361,6 +366,7 @@ Board(
                 # `micras-pcb rules` (rules/kicad-severities.toml [design.main]): Zener has no field
                 # for it.
                 silkscreen=Silkscreen(minimum_text_height=0.5),
+                solder_mask=SolderMask(clearance=0.02),
             ),
             predefined_sizes=PredefinedSizes(
                 track_widths=[0.2, 0.2248, 0.254, 0.3, 0.4, 0.6, 0.8, 1.0],
@@ -383,6 +389,9 @@ Board(
             ],
         ),
         stackup=Stackup(
+            copper_finish="ENIG",
+            solder_mask_color="Black",
+            silk_screen_color="White",
             materials=[
                 Material(name="NP-155F prepreg", relative_permittivity=4.4),
                 Material(name="NP-155F core", relative_permittivity=4.48),

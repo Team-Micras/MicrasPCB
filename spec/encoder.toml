@@ -16,7 +16,7 @@
 # Every value is {value, source}, as in micras-simulation's robot.toml.
 
 [pcb]
-thickness = { value = 0.79, source = "Altium MicrasEncoder.PcbDoc layer stack: 0.70 mm core, 2 x 35 um copper, 2 x 10 um mask (boards/encoder/previous/board.json board.thickness); ordered as JLCPCB's 0.8 mm board (+-0.1 mm below 1.0 mm)" }
+thickness = { value = 0.79, source = "Altium MicrasEncoder.PcbDoc layer stack: 0.70 mm core, 2 x 35 um copper, 2 x 10 um mask in the KiCad stackup (Altium's 12.7 um resist gives 0.7954 mm) (boards/encoder/previous/board.json board.thickness); ordered as JLCPCB's 0.8 mm board (+-0.1 mm below 1.0 mm)" }
 copper_layers = { value = 2, source = "Altium MicrasEncoder.PcbDoc layer stack" }
 
 [kicad]

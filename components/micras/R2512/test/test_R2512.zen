@@ -1,0 +1,30 @@
+"""R2512 package: a two-terminal resistor with the generic's type and properties, on the MicrasLib land pattern."""
+
+R2512 = Module("../R2512.zen")
+
+
+def resistor(module, inputs):
+    c = module.components()["R"]
+    check(c.type == "resistor", "the board tests find resistors by type")
+    check(c.prefix == "R", "designator prefix must be R")
+    check(c.resistance.value == 0.05, "resistance must be the configured value: " + str(c.resistance))
+    check(c.pins["1"].name == "A" and c.pins["2"].name == "B", "pins 1 and 2 must be P1 and P2")
+    check(c.properties["package"] == "2512", "package property must be 2512")
+    check(c.mpn == "HoLLR2512-3W-50mR-1%", "the part comes from the instance")
+
+
+TestBench(
+    name="R2512",
+    module=R2512,
+    test_cases={
+        "shunt": {
+            "P1": Net("A"),
+            "P2": Net("B"),
+            "value": "50mOhm 1%",
+            "mpn": "HoLLR2512-3W-50mR-1%",
+            "manufacturer": "Milliohm",
+            "power": "3W",
+        },
+    },
+    checks=[resistor],
+)

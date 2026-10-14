@@ -94,8 +94,10 @@
 	(condition "!(A.Type == 'Via' && B.Type == 'Via')")
 	(constraint hole_to_hole (min 0.45mm)))
 
-# Pours keep extra margin: zone fills approximate arcs with segments, which can eat a few
-# microns of the 0.20 mm (seen at the encoder tab reliefs by `micras-pcb dfm`).
+# Pours keep 10 um over the 0.20 mm routed-edge clearance ("Outline" table: copper clearance from
+# routed board edges >= 0.2 mm): zone fills approximate arcs with segments, within KiCad's 5 um
+# maximum error, which would otherwise eat into the 0.20 mm (seen at the encoder tab reliefs by
+# `micras-pcb dfm`). The previous boards' Altium pours sit 0.19-0.23 mm from the edge.
 (rule "pours: copper to board edge"
 	(condition "A.Type == 'Zone'")
-	(constraint edge_clearance (min 0.30mm)))
+	(constraint edge_clearance (min 0.21mm)))

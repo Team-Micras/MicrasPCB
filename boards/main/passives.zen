@@ -54,9 +54,10 @@ R_1M_0402 = _r("1MOhm 1%", "0402", "0402WGF1004TCE")
 R_68K_0603 = _r("68kOhm 1%", "0603", "0603WAF6802T5E", power="100mW")
 R_1M_0603 = _r("1MOhm 1%", "0603", "0603WAF1004T5E", power="100mW")
 
-# Current-sense shunts, 2512.
-R_50M_2512 = _r("50mOhm 1%", "2512", "HoLLR2512-3W-50mR-1%", manufacturer="Milliohm", power="3W")
-R_40M_2512 = _r("40mOhm 1%", "2512", "LR2512-22R040F4", manufacturer="RALEC", power="2W")
+# Current-sense shunts, 2512, for the R2512 package (components/micras/R2512: the MicrasLib
+# RESC6432X89N land pattern, which sets the package).
+R_50M_2512 = {"value": "50mOhm 1%", "mpn": "HoLLR2512-3W-50mR-1%", "manufacturer": "Milliohm", "power": "3W"}
+R_40M_2512 = {"value": "40mOhm 1%", "mpn": "LR2512-22R040F4", "manufacturer": "RALEC", "power": "2W"}
 
 # Multilayer ceramic capacitors.
 C_470P_0402 = _c("470pF 10%", "0402", "50V", "X7R", "0402B471K500NT", manufacturer=FENGHUA)

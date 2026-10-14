@@ -5648,6 +5648,147 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "R2512"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0.254)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "R"
+				(at 0 0 90)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.016 1.016)
+					)
+				)
+			)
+			(property "Value" "R2512"
+				(at 1.778 0 90)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Chip resistor, 2512 (6332 metric), MicrasLib RESC6432X89N land pattern"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "R resistor"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "R_*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "R2512_0_1"
+				(rectangle
+					(start -0.762 1.778)
+					(end 0.762 -1.778)
+					(stroke
+						(width 0.2032)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "R2512_1_1"
+				(pin passive line
+					(at 0 2.54 270)
+					(length 0.762)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -2.54 90)
+					(length 0.762)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "R_Small"
 			(pin_numbers
 				(hide yes)
@@ -19852,7 +19993,7 @@
 		)
 	)
 	(symbol
-		(lib_id "R_Small")
+		(lib_id "R2512")
 		(at 1239.52 872.49 0)
 		(unit 1)
 		(body_style 1)
@@ -19885,7 +20026,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "stdlib_kicad-footprints_Resistor_SMD:R_2512_6332Metric"
+		(property "Footprint" "Team-Micras_MicrasPCB_components_micras_R2512:RESC6432X89N"
 			(at 1239.52 872.49 0)
 			(hide yes)
 			(show_name no)
@@ -41517,7 +41658,7 @@
 		)
 	)
 	(symbol
-		(lib_id "R_Small")
+		(lib_id "R2512")
 		(at 1357.63 762 0)
 		(unit 1)
 		(body_style 1)
@@ -41550,7 +41691,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "stdlib_kicad-footprints_Resistor_SMD:R_2512_6332Metric"
+		(property "Footprint" "Team-Micras_MicrasPCB_components_micras_R2512:RESC6432X89N"
 			(at 1357.63 762 0)
 			(hide yes)
 			(show_name no)
@@ -43914,7 +44055,7 @@
 		)
 	)
 	(symbol
-		(lib_id "R_Small")
+		(lib_id "R2512")
 		(at 1377.95 762 0)
 		(unit 1)
 		(body_style 1)
@@ -43947,7 +44088,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "stdlib_kicad-footprints_Resistor_SMD:R_2512_6332Metric"
+		(property "Footprint" "Team-Micras_MicrasPCB_components_micras_R2512:RESC6432X89N"
 			(at 1377.95 762 0)
 			(hide yes)
 			(show_name no)

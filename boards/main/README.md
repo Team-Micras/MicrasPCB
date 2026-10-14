@@ -144,10 +144,14 @@ already drives before every run.
 
 ## Board
 
-4 copper layers, 1 oz outer and 0.5 oz inner copper, 0.2104 mm prepreg and 0.5 mm core, 1.0412
-mm finished, from the Altium layer stack. Design rules: 0.1 mm clearance, 0.254 mm default track,
-0.45 / 0.3 mm vias (0.5 / 0.3 and 0.8 / 0.4 mm also used), 0.2 mm copper to edge, all from the
-Altium design rules; `rules/jlcpcb.kicad_dru` adds JLCPCB's limits on top.
+4 copper layers, 1 oz outer and 0.5 oz inner copper, 0.2104 mm prepreg (Dk 4.4) and 0.5 mm core
+(Dk 4.48), from the Altium layer stack: 1.0212 mm of copper and dielectric. The KiCad stackup adds
+Zener's fixed 10 um solder mask a side, 1.0412 mm (`spec/main.toml`); Altium's 15.24 um resist
+makes the same stack 1.0517 mm. The board is ordered as JLCPCB's 1.0 mm 4-layer board. Design
+rules: 0.1 mm clearance, 0.254 mm default track, 0.45 / 0.3 mm vias (0.5 / 0.3 and 0.8 / 0.4 mm
+also used), 0.2 mm copper to edge, 0.02 mm solder mask expansion, all from the Altium design
+rules; `rules/jlcpcb.kicad_dru` adds JLCPCB's limits on top. The drill and placement origin of the
+fab outputs is the Altium origin, the rear edge centre at KiCad (148.501075, 150.00362).
 
 ## Layout
 
@@ -189,9 +193,28 @@ Where things are, in the robot frame (x forward, y left, from the axle midpoint;
 Resistors, ceramic capacitors and the LEDs D4/D5 use KiCad's generic footprints, each centred on
 its pads' positions in the Altium footprint: the routing lands on the same pad centres, up to
 0.12 mm from a pad's centre where the KiCad pad pitch differs (0805/1206 capacitors). The
-teardrops of the Altium design are plain copper zones (priorities 100 and up, above every pour):
-KiCad 10 does not save a teardrop zone's UUID and orders zones by UUID, so a board with teardrop
-zones changes on every save.
+current-sense shunts R31-R33 keep the Altium land pattern and model
+([`components/micras/R2512`](../../components/micras/R2512): 1.45 x 3.45 mm pads). D4 and D5 carry
+KiCad's LED model scaled to their datasheet heights, 0.80 mm (NCD0603Y2) and 0.60 mm (KT-0603R),
+so the 3D export has the fitted parts' height.
+
+Zones, as `previous/transfer_layout.py` sets them from the Altium polygons and rules:
+
+- The teardrops of the Altium design are plain copper zones (priorities 100 and up, above every
+  pour): KiCad 10 does not save a teardrop zone's UUID and orders zones by UUID, so a board with
+  teardrop zones changes on every save. They fill with a 0.1 mm minimum width, JLCPCB's minimum
+  copper feature, which leaves out only their thinnest cusps.
+- The pours drop copper narrower than 0.1 mm (the Altium polygons' neck width). In1.Cu and
+  In2.Cu join through-hole pads with thermal reliefs, four 0.254 mm spokes across a 0.254 mm gap,
+  and vias solidly; F.Cu and B.Cu join everything solidly (Altium rules PolygonConnect and
+  PolygonConnect_Top/BottomLayer).
+- In1.Cu and In2.Cu stay 1.559 mm and 2.074 mm from each screw hole's centre, as the Altium pours
+  do: a copper-pour keepout per hole and layer.
+- U2's peg-hole keepouts cover all four copper layers.
+
+The Edge.Cuts outline is the Altium one without its six duplicated vertices (lines of 1-10 nm,
+which KiCad reads as a malformed outline); the lines next to them meet within 10 nm of where they
+did.
 
 The review fixes in the layout (KiCad coordinates):
 
@@ -261,6 +284,27 @@ Copper of the changes C1 and C2 (KiCad coordinates, as in `rework.py`):
   the VCAP1 (pad 33, C7) track. It runs as a tree, so the 3V3 plane flows around it. The VCAP3 via
   keeps 0.13 mm from the bottom-layer Encoder_Right_CSn track, the widest spot between the pad 66
   and pad 68 tracks.
+
+## Differences from the Altium board
+
+Apart from C1 and C2, the board's copper, mask, paste, drills and outline match the Altium
+MicrasMainBoard's own Gerbers (its CAMtastic output) except where KiCad, JLCPCB's rules or the
+generic parts set them otherwise:
+
+| What | This board | Altium board | Why |
+|---|---|---|---|
+| Pour to board edge, fan hole, encoder slots and peg holes | 0.21 mm | 0.19-0.20 mm | `rules/jlcpcb.kicad_dru`: JLCPCB's 0.2 mm routed-edge clearance ("Outline" table) plus 10 um for the fill's arc approximation |
+| Inner-plane gap around a 0.45 / 0.3 mm via | 0.125 mm, 0.2 mm from the hole | 0.100 mm, 0.175 mm from the hole | JLCPCB capabilities, "Traces": inner-layer via hole to copper 0.2 mm. Between the five via pairs 0.76 mm apart (at (148.9, 110.9), (148.0, 66.9), (142.2, 80.8), (145.2, 86.5) and (151.0, 71.8)) the inner planes would be 0.06 mm wide, below the 0.1 mm neck width, and are not poured (0.11 mm wide on the Altium board) |
+| Pour shapes elsewhere | KiCad's fill | Altium's fill | the same outlines, clearances and neck width; the fills differ in a few spots of under 0.03 mm2 each |
+| Teardrop cusps | thinner than 0.1 mm left out | drawn to a point | JLCPCB's 0.1 mm minimum copper feature |
+| Generic footprint pads (short x long side) | R0402 0.54 x 0.64, R0603 0.80 x 0.95, C0402 0.56 x 0.62, C0603 0.90 x 0.95, C0805 1.00 x 1.45, C1206 1.15 x 1.80, LED0603 0.875 x 0.95 mm, rounded corners | R0402 0.54 x 0.566, R0603 0.806 x 0.864, C0402 0.60 x 0.62, C0603 0.80 x 0.90, C0805 0.97 x 1.47, C1206 1.07 x 1.82, LED0603 0.80 x 0.80 mm, square | KiCad's IPC-7351 library footprints for the generic passives; same pad centres within 0.12 mm |
+| Paste of the generic passives | aperture = pad (R0402: 0.54 x 0.64 mm, area ratio 1.2 for a 0.12 mm stencil) | custom stencil regions inside the pads (R0402: 0.58 mm square) | KiCad's library defaults, above IPC-7525's 0.66 area ratio for release; about 10 % more paste on the 0402 resistors |
+| Mask of the generic passives | the board's 0.02 mm expansion | 0.0508 mm on the passive pads | KiCad's library footprints carry no local margin |
+| Silkscreen of the generic passives | KiCad's outlines (fewer lines, no box around 0402s) | Altium's pad boxes | KiCad's library footprints |
+| Wall sensor silkscreen | the lead area outline and the C/E labels; the body forward of it on User.13 only | a hatched body clipped at the board edge per instance | one package for W1-W4, which overhang the edge at different angles ([`components/micras/WallSensor`](../../components/micras/WallSensor)) |
+| Texts | KiCad stroke font | Altium fonts | same strings, sizes and positions |
+| Passive 3D models | KiCad library models: C0402 0.50, C0805 1.25, C1206 1.60, R0603 0.45 mm tall | 0.55, 1.45, 1.80, 0.56 mm | KiCad's generic models (D4 and D5 are scaled to their datasheets, above) |
+| Solder mask thickness | 10 um a side (1.0412 mm board) | 15.24 um (1.0517 mm) | Zener's stackup has no mask thickness setting; JLCPCB applies its own |
 
 ## Known faults
 
