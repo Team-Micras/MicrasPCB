@@ -1,0 +1,44 @@
+"""AO3400A - 30 V, 5.7 A N-channel MOSFET, SOT-23 (Alpha & Omega Semiconductor).
+
+Datasheet: AOS AO3400A Rev 3 (December 2011), 5 pages (LCSC C20917 copy).
+
+Pins: SOT-23 top view (p.1): pin 1 gate, pin 2 source, pin 3 drain, the order
+of KiCad's AO3400A / Q_NMOS_GSD symbol. The footprint is KiCad's SOT-23 land
+rotated 180 degrees: pad 1 (gate) at (1, 0.95), pad 2 (source) at (1, -0.95),
+pad 3 (drain) at (-1, 0). Pad numbers, not positions, carry the pinout.
+
+Absolute maximum ratings (p.1, TA 25 C):
+- VDS 30 V; VGS +-12 V.
+- ID 5.7 A at TA 25 C, 4.7 A at TA 70 C; IDM 30 A pulsed.
+- PD 1.4 W at TA 25 C, 0.9 W at TA 70 C.
+- TJ, TSTG -55 to 150 C. RthJA 90 C/W max (t <= 10 s), 125 C/W max steady
+  state; RthJL 80 C/W max.
+
+Electrical characteristics (p.2, TJ 25 C):
+- VGS(th) 0.65 / 1.05 / 1.45 V (VDS = VGS, ID 250 uA).
+- RDS(on) max: 26.5 mohm at VGS 10 V, 32 mohm at VGS 4.5 V, 48 mohm at VGS
+  2.5 V (ID 3 A). A 3.3 V gate drive is between the 2.5 V and 4.5 V points.
+- IGSS 100 nA max at VGS +-12 V; IDSS 1 uA max at VDS 30 V.
+- Ciss 630 pF, Qg 6 nC typ at VGS 4.5 V; Rg 1.5-4.5 ohm.
+- Body diode VSD 0.7 typ / 1 V max at 1 A; IS 2 A continuous.
+
+Application: low-side switch. The gate resistor, gate pull-down and any
+drain clamp are integrator-owned.
+"""
+
+G = io(Net)
+S = io(Net)
+D = io(Net)
+
+Component(
+    name="AO3400A",
+    symbol=Symbol(library="AO3400A.kicad_sym"),
+    footprint=File("SOT-23-3_L2.9-W1.3-P1.90-LS2.4-BR.kicad_mod"),
+    part=Part(mpn="AO3400A", manufacturer="Alpha & Omega Semiconductor"),
+    prefix="Q",
+    pins={
+        "G": G,
+        "S": S,
+        "D": D,
+    },
+)

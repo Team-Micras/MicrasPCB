@@ -1,0 +1,43 @@
+"""Package-level facts of the AO3400A (AOS AO3400A Rev 3)."""
+
+AO3400A = Module("../AO3400A.zen")
+
+
+def part(module):
+    return module.components()["AO3400A"]
+
+
+def net_of(module, pin):
+    for name, ports in module.nets().items():
+        for path, p in ports:
+            if path.endswith(".AO3400A") and p == pin:
+                return name
+    error("AO3400A." + pin + " is not connected")
+
+
+def orderable_part(module, inputs):
+    c = part(module)
+    check(c.mpn == "AO3400A", "MPN must be AO3400A, got " + str(c.mpn))
+    check(c.prefix == "Q", "reference prefix must be Q")
+
+
+def gate_source_drain(module, inputs):
+    # p.1 SOT23 top view: gate, source, drain; low-side switch wiring
+    check(sorted(part(module).pins.keys()) == ["D", "G", "S"], "pins must be G, S, D")
+    check(net_of(module, "G") == "GATE", "G io must reach the gate pin")
+    check(net_of(module, "S") == "GND", "S io must reach the source pin")
+    check(net_of(module, "D") == "LOAD", "D io must reach the drain pin")
+
+
+TestBench(
+    name="AO3400A_low_side",
+    module=AO3400A,
+    test_cases={
+        "low_side": {
+            "G": Net("GATE"),
+            "S": Ground("GND"),
+            "D": Net("LOAD"),
+        },
+    },
+    checks=[orderable_part, gate_source_drain],
+)
