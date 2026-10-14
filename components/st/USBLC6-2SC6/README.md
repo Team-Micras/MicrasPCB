@@ -33,3 +33,7 @@ Reference prefix `U`; component type `esd`.
 side and 4-6 up the right side. Body 1.6 x 2.9 mm on F.Fab (Table 4: E 1.50-1.75, D 2.80-3.05
 mm), F.CrtYd 0.25 mm (IPC-7351B nominal) around pads and body. The embedded STEP is KiCad's
 `SOT-23-6.step` (JEDEC SOT-23-6 body, same pin 1 corner). `pcb rectify check`: OK.
+
+Pads 1/6 and 3/4 are one line each inside the package: the symbol's `jumper_pin_groups` and the
+footprint's `jumper_pad_groups` say so, and a line can run through the package (Figure 18: D+in
+on pad 1, D+out on pad 6), the layout's connectivity counting the package as the link.
