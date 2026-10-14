@@ -6,9 +6,9 @@ CI.
 
 | Board | Status |
 |---|---|
-| `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.79 mm | the previous revision's placement and routing, plus pull resistors on the sensor's SPI inputs; passes every check ([open items](boards/encoder/README.md#open-items)) |
-| `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | circuit with the design review's findings fixed, placed and routed; passes every gate ([known faults](boards/main/README.md#known-faults)) |
-| `bluetooth`: HM-19 BLE module on a vertical USB-C plug that mates the main board's U2, 2 layers, 0.79 mm | placed and routed as the previous revision with its design review fixes (a CC signature for the main board's switched SBU supply, a RESETB pull-up); passes every gate ([known faults](boards/bluetooth/README.md#known-faults)) |
+| `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.79 mm | the previous revision's placement and routing, plus pull resistors on the sensor's SPI inputs; passes every check ([open items](boards/encoder/layout/README.md#open-items)) |
+| `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | circuit with the design review's findings fixed, placed and routed; passes every gate ([known faults](boards/main/layout/README.md#known-faults)) |
+| `bluetooth`: HM-19 BLE module on a vertical USB-C plug that mates the main board's U2, 2 layers, 0.79 mm | placed and routed as the previous revision with its design review fixes (a CC signature for the main board's switched SBU supply, a RESETB pull-up); passes every gate ([known faults](boards/bluetooth/layout/README.md#known-faults)) |
 
 ## How it fits together
 
@@ -59,6 +59,9 @@ components/**/*.zen             (Zener)      layout/<board>.kicad_pcb <─┘ pl
   `parts/jlc.toml` carries the LCSC number and a per-part rotation offset, and `make fab` builds
   the JLCPCB BOM and CPL from it. JLCPCB's placement preview is the final word on each part's
   rotation (`rotation_verified`).
+- **The main board's schematic is one flat sheet whose symbols do not fit the largest page**: its
+  Zener modules become separate sheets only once Zener's module sheets are ERC-clean
+  ([diodeinc/pcb#1520](https://github.com/diodeinc/pcb/issues/1520)).
 - **KiCad 10 has no headless layout API**: the IPC API needs a running KiCad, and the SWIG
   `pcbnew` module is deprecated and goes away in KiCad 11. The tools use `kicad-cli` and edit the
   `.kicad_pcb` s-expressions directly (`tools/micras_pcb/sexpr.py`).
@@ -111,8 +114,9 @@ and fails if any gate failed.
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 
 Every board passes every gate. The main board's and the Bluetooth module's READMEs
-([main](boards/main/README.md#known-faults), [bluetooth](boards/bluetooth/README.md#known-faults))
-give the root cause of each warning that remains.
+([main](boards/main/layout/README.md#known-faults),
+[bluetooth](boards/bluetooth/layout/README.md#known-faults)) give the root cause of each warning
+that remains.
 
 ## CI
 
@@ -128,9 +132,7 @@ give the root cause of each warning that remains.
 To look at a board, download the run's artifact, or open the project in KiCad
 (`pcb open boards/<board>/<board>.zen`). The boards are also viewed online in a self-hosted
 [KiCad Prism](https://github.com/krishna-swaroop/KiCAD-Prism), which takes each board's layout
-folder as a project: its `.prism.json` gives Prism the board's name and description. Prism only
-reads a README from inside the project folder (a `../` path fails its commit view), so the board
-READMEs do not show there.
+folder as a project and shows the board's README from it (`boards/<board>/layout/README.md`).
 
 ## Working with Claude Code
 
@@ -144,8 +146,8 @@ pin-1 checks, placement and routing, and the fab order.
 ## Repository
 
 ```text
-boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb is KiCad-owned, .prism.json is
-                       Prism's project config, the rest generated)
+boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb is KiCad-owned, README.md is
+                       the board's description, the rest generated)
 boards/<board>/previous/  snapshot of the board's previous revision (board.json) for the connectivity comparison,
                        and the scripts that build its layout from that revision (transfer_layout.py; main: rework.py)
 boards/main/layout/fixes.py, router.py, refine.py, usb_wall.py, finish.py  the one-off scripts that place

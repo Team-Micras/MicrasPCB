@@ -9,30 +9,33 @@ The board is the MicrasEncoder Altium design (`hw_debug/modules/encoder`): its d
 footprints, net names, outline, pours, sensor and tab placement, SPI and ABI routing and
 silkscreen, plus three pull resistors the AS5047U asks for on its SPI inputs (R1-R3, see
 [Circuit](#circuit)). `micras-pcb previous compare encoder` checks the netlist against that
-design's connectivity ([`previous/board.json`](previous/board.json)) with the change declared in
-[`changes.toml`](changes.toml).
+design's connectivity ([`previous/board.json`](../previous/board.json)) with the change declared in
+[`changes.toml`](../changes.toml).
 
 ## Files
 
+The board files are in `boards/encoder/` (this README sits in its `layout/` folder);
+`spec/` is at the repository root.
+
 | File | Contents |
 |---|---|
-| [`encoder.zen`](encoder.zen) | IC1 (AS5047U), C1, R1-R3, the edge tab J1, net names, stackup and rules |
-| [`test/`](test) | `pcb test` bench of the board's circuit: one 3V3 supply from the tab, the 100 nF at the sensor, the SPI input pulls, capacitor ratings |
-| [`changes.toml`](changes.toml) | the connectivity this board adds to the previous revision's (R1-R3) |
-| [`layout/`](layout) | KiCad project; the `.kicad_pcb` holds placement and routing; [`fixes.py`](layout/fixes.py) is the script that turned the previous layout into this one |
-| [`previous/`](previous) | the previous revision's snapshot, and [`transfer_layout.py`](previous/transfer_layout.py), which builds the previous layout from that revision |
-| [`spec/encoder.toml`](../../spec/encoder.toml) | mechanical interface: thickness, outline, tab, sensor and tab positions |
+| [`encoder.zen`](../encoder.zen) | IC1 (AS5047U), C1, R1-R3, the edge tab J1, net names, stackup and rules |
+| [`test/`](../test) | `pcb test` bench of the board's circuit: one 3V3 supply from the tab, the 100 nF at the sensor, the SPI input pulls, capacitor ratings |
+| [`changes.toml`](../changes.toml) | the connectivity this board adds to the previous revision's (R1-R3) |
+| [`layout/`](.) | this folder: the KiCad project; the `.kicad_pcb` holds placement and routing; [`fixes.py`](fixes.py) is the script that turned the previous layout into this one |
+| [`previous/`](../previous) | the previous revision's snapshot, and [`transfer_layout.py`](../previous/transfer_layout.py), which builds the previous layout from that revision |
+| [`spec/encoder.toml`](../../../spec/encoder.toml) | mechanical interface: thickness, outline, tab, sensor and tab positions |
 
 ## Circuit
 
 | Designator | Part | Package | Notes |
 |---|---|---|---|
-| IC1 | ams OSRAM AS5047U-HTSM ([`components/ams/AS5047U`](../../components/ams/AS5047U)) | TSSOP-14, `SOP65P640X120-14N` | 3.3 V mode: VDD and VDD3V3 on 3V3, TEST on GND, U/V/W and I/PWM open (DS v1-00 Figure 4, Figure 11) |
+| IC1 | ams OSRAM AS5047U-HTSM ([`components/ams/AS5047U`](../../../components/ams/AS5047U)) | TSSOP-14, `SOP65P640X120-14N` | 3.3 V mode: VDD and VDD3V3 on 3V3, TEST on GND, U/V/W and I/PWM open (DS v1-00 Figure 4, Figure 11) |
 | C1 | Yageo CC0603KRX7R9BB104, 100 nF 10 % 50 V X7R (LCSC C14663, JLCPCB basic) | 0603 (KiCad `C_0603_1608Metric`) | the 100 nF of DS Figure 11 on 3V3 |
 | R1 | Uni-Royal 0402WGF1002TCE, 10 kOhm 1 % (LCSC C25744, JLCPCB basic) | 0402 (KiCad `R_0402_1005Metric`) | CSn pull-up to 3V3 (DS Figure 4 notes 1, 2) |
 | R2 | Uni-Royal 0402WGF1003TCE, 100 kOhm 1 % (LCSC C25741, JLCPCB basic) | 0402 | CLK pull-down (DS Figure 4 notes 1, 3) |
 | R3 | Uni-Royal 0402WGF1003TCE, 100 kOhm 1 % (LCSC C25741, JLCPCB basic) | 0402 | MOSI pull-down (DS Figure 4 notes 1, 3) |
-| J1 | edge tab ([`components/micras/EncoderTab`](../../components/micras/EncoderTab)) | `ENCODER_CONN`, copper on the board | not in the BOM |
+| J1 | edge tab ([`components/micras/EncoderTab`](../../../components/micras/EncoderTab)) | `ENCODER_CONN`, copper on the board | not in the BOM |
 
 | Net | IC1 | J1 |
 |---|---|---|
@@ -65,8 +68,8 @@ pulls and their range.
 ## Layout
 
 The layout is the Altium MicrasEncoder.PcbDoc's, transferred by
-[`previous/transfer_layout.py`](previous/transfer_layout.py), with the 3V3 route, C1 and R1-R3
-placed by [`layout/fixes.py`](layout/fixes.py):
+[`previous/transfer_layout.py`](../previous/transfer_layout.py), with the 3V3 route, C1 and R1-R3
+placed by [`layout/fixes.py`](fixes.py):
 
 - IC1 sits on the tab centre line with its centre 9.0 mm above the shoulder (the main board's top
   surface), pin 1 top left seen from the chip side.
@@ -105,7 +108,7 @@ make gen && make check
 
 ## Mechanics
 
-[`spec/encoder.toml`](../../spec/encoder.toml): origin at the tab centre on the shoulder line, u to
+[`spec/encoder.toml`](../../../spec/encoder.toml): origin at the tab centre on the shoulder line, u to
 the right seen from the chip side, v up. The Edge.Cuts outline is layout geometry; `micras-pcb
 mech encoder` checks its features (9.6 mm width, 13.1 mm top with 1 mm corner radii, 8.0 mm
 shoulder, the tapers to 7.457 mm, the 5.0 x 1.0 mm tab with 0.1 mm reliefs) and exports the layout
