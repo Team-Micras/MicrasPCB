@@ -14,16 +14,19 @@ the main board beside the slot.
   the package and runs on the bottom to the bottom tab pads; 3V3, GND, A and B run on the top to
   the top pads; GND pours on both sides.
 
-## Changes from the Altium revision (hw_debug/modules/encoder)
+## Design notes
 
-Same outline, tab, pinout, sensor position and circuit, so it fits the existing main board.
+Outline, tab, pinout and sensor position follow the Altium MicrasEncoder.PcbDoc
+(hw_debug/modules/encoder), so the board fits the existing main board.
 
-| Change | Why |
-|---|---|
-| 100 nF capacitor is C14663 (Yageo CC0603KRX7R9BB104, JLCPCB basic) instead of C30926 (FH 0603B104K500NT, extended) | no extended-part fee at JLCPCB; same value, package, dielectric and rating |
-| Capacitor 5.5 mm from the package centre instead of 4.5 mm below it, on the 3V3 trace | room for the new routing; still between the supply pins and the tab |
-| New routing; vias 0.3/0.6 mm; pours keep 0.3 mm from the edge | JLCPCB no-surcharge drill; DFM finding at the tab reliefs |
-| Index (I/PWM), U, V, W outputs explicitly no-connect | unchanged behaviour; the firmware uses SPI + ABI |
+- The 100 nF decoupling capacitor is Yageo CC0603KRX7R9BB104 (LCSC C14663), a JLCPCB basic part,
+  so it carries no extended-part fee.
+- The capacitor sits on the 3V3 trace 5.5 mm from the package centre, between the supply pins and
+  the tab.
+- Vias are 0.3 mm drill / 0.6 mm pad, JLCPCB's no-surcharge drill. The pours keep 0.3 mm from the
+  board edge, which clears DFM at the tab reliefs.
+- The index (I/PWM) and U, V, W outputs are left unconnected: the firmware reads the angle over
+  SPI and the ABI outputs.
 
 ## Open items
 
@@ -31,5 +34,5 @@ Same outline, tab, pinout, sensor position and circuit, so it fits the existing 
       `rotation_verified = true` in `parts/jlc.toml` (correct `rotation` first if needed).
 - [ ] The schematic review (`hw_debug/schematic_review.md` m19) asks for 1 uF + 100 nF at the
       main board's encoder connectors: a main-board item, not this board.
-- [ ] MicrasHardware still hard-codes `Board.encoder_pcb_t = 0.77`; the spec says 0.80. Point it
+- [ ] MicrasHardware hard-codes `Board.encoder_pcb_t = 0.77`; the spec says 0.80. Point it
       at `build/encoder/encoder_mech.json` (or the release asset) instead of a copied number.

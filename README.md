@@ -1,9 +1,8 @@
 # MicrasPCB
 
 The Micras micromouse PCBs, designed as code: circuits in [Zener](https://docs.pcb.new) (the
-Diode `pcb` toolchain), layout in KiCad 10, and every check, fab output and review page built by
-CI. The toolchain decision and its evidence are in
-[`docs/research/PCB as code toolchain.md`](docs/research/PCB%20as%20code%20toolchain.md).
+Diode `pcb` toolchain), layout in KiCad 10, and every check, fab output and review file built by
+CI.
 
 | Board | Status |
 |---|---|
@@ -34,6 +33,39 @@ components/**/*.zen             (Zener)      layout/<board>.kicad_pcb <─┘ pl
   `.kicad_pcb`, and exports them for the other repos. CI fails if the layout drifts.
 - **KiCad owns placement and routing**, which stay human-led.
 - **`parts/jlc.toml` owns sourcing**: MPN to LCSC number, basic/extended, placement rotation.
+
+### Why Zener and KiCad
+
+- **KiCad 10 is the contract between tools.** `kicad-cli` runs ERC, DRC and every export
+  headless, MicrasHardware imports the board through KiCad's STEP, and JLCPCB's assembly flow is
+  built around KiCad. The committed KiCad project is a complete design on its own: without Zener,
+  the boards continue in plain KiCad and only the schematic stage changes.
+- **Zener writes the schematic**, the part of KiCad that is weakest as code: KiCad 10 has no
+  headless schematic API, and its verbose files are a poor target for language models. Zener emits
+  a real KiCad schematic to review, syncs the netlist into the layout without touching hand
+  placement and routing, type-checks power nets, runs datasheet test benches, and is built to be
+  written by agents (its skills are in `.claude/skills/`).
+- **`tools/micras_pcb` covers the rest**: the spec-driven outline and mech export, LVS, the rule
+  checks, and the JLCPCB package with its rotation offsets.
+
+### Known limits
+
+- **Zener is pre-1.0 and changes fast**; commands get renamed or removed between releases. The
+  toolchain is pinned in `versions.env` and bumped in its own PR, where CI shows what regenerates.
+- **Zener has no LCSC picker, and its JLC placement export applies no rotation corrections.**
+  `parts/jlc.toml` carries the LCSC number and a per-part rotation offset, and `make fab` builds
+  the JLCPCB BOM and CPL from it. JLCPCB's placement preview is the final word on each part's
+  rotation (`rotation_verified`).
+- **KiCad 10 has no headless layout API**: the IPC API needs a running KiCad, and the SWIG
+  `pcbnew` module is deprecated and goes away in KiCad 11. The tools use `kicad-cli` and edit the
+  `.kicad_pcb` s-expressions directly (`tools/micras_pcb/sexpr.py`).
+- **Git cannot merge a `.kicad_pcb` safely** (KiCad 10 has no merge driver): one person edits a
+  board's layout at a time.
+- **Footprints from EasyEDA/LCSC have documented errors** (reversed polarity, wrong pin numbering,
+  mismatched pads). Use KiCad library footprints where they exist, and check every footprint
+  against the datasheet land pattern, its 3D model and JLCPCB's preview.
+- **JLCPCB has no ordering API open to small teams**: order by uploading `build/<board>/fab/` by
+  hand.
 
 ## Setup (Linux / WSL2)
 
@@ -81,12 +113,18 @@ make parts-online   # JLCPCB stock and basic/extended status (run before orderin
 - JLCPCB stock is not checked in CI (it changes daily and the API is undocumented): run
   `make parts-online` before ordering.
 
+To look at a board, download the run's artifact, or open the project in KiCad
+(`pcb open boards/<board>/<board>.zen`). A self-hosted [KiCad Prism](https://github.com/krishna-swaroop/KiCAD-Prism)
+is the planned online viewer; there is none yet.
+
 ## Working with Claude Code
 
 `CLAUDE.md` holds the agent rules. `.claude/settings.json` adds two hooks: one rebuilds any
 `.zen` file the agent edits and feeds errors back immediately; the other blocks text edits to
-generated or KiCad-owned files. `.claude/skills/` vendors Diode's Zener skills (language,
-component librarian, SPICE).
+generated or KiCad-owned files. `.claude/skills/` holds the `micras-pcb` workflow skill (parts,
+JLCPCB outputs, KiCad scripting, review gates) and Diode's Zener skills (language, component
+librarian, SPICE). Agents write code and deterministic tools grade it; people own footprint and
+pin-1 checks, placement and routing, and the fab order.
 
 ## Repository
 
@@ -101,5 +139,4 @@ tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, outputs, previous (`
 tests/                 pytest design tests
 ci/                    KiCad and toolchain install, for CI and local setup
 versions.env           pinned KiCad and Zener versions
-docs/research/         toolchain research report and notes
 ```
