@@ -8,7 +8,7 @@ CI.
 |---|---|
 | `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.8 mm | routed, all checks clean, rotations not yet verified at JLCPCB |
 | `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | placed and routed as the previous revision, same connectivity plus two declared changes (C1, C2) with their copper; fails the design checks where that revision has faults ([known faults](boards/main/README.md#known-faults)) |
-| `bluetooth` | not started |
+| `bluetooth`: HM-19 BLE module on a vertical USB-C plug that mates the main board's U2, 2 layers, 0.79 mm | placed and routed as the previous revision, same connectivity; fails the design checks where that revision has faults ([known faults](boards/bluetooth/README.md#known-faults)) |
 
 ## How it fits together
 
@@ -102,7 +102,7 @@ and fails if any gate failed.
 | layout-check | `pcb layout --check`, `micras-pcb rules/mech --check` | layout no longer matches the netlist, rules or spec drift |
 | ERC | `kicad-cli sch erc` | schematic electrical rules; `boards/<board>/erc.toml` names the nets supplied from off the board (the PWR_FLAG role) |
 | LVS | `micras-pcb lvs` | schematic and PCB connect different pads |
-| previous | `micras-pcb previous compare main` | the main board connects anything differently from its previous revision, except the changes in `boards/main/changes.toml` |
+| previous | `micras-pcb previous compare <board>` | a replicated board (main, bluetooth) connects anything differently from its previous revision, except the changes in `boards/<board>/changes.toml` |
 | DRC | `kicad-cli pcb drc` + `rules/jlcpcb.kicad_dru` | JLCPCB clearances (copper, SMD pad to pad, hole to track), widths, drills, edge distances |
 | DFM | `pcb dfm` + `rules/jlcpcb-pdk.toml` | geometry-level manufacturability (Diode's sourced JLCPCB PDK) |
 | pytest | `pytest` | board contracts (encoder joint, firmware pin map), power tree, decoupling at the pin, encoder slot fit, courtyards, paste, 3D models, part data |
