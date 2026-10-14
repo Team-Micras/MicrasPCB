@@ -15,7 +15,7 @@ compare main` checks the netlist and its net names against that design's connect
 
 | File | Sheet instance | Contents |
 |---|---|---|
-| [`main.zen`](main.zen) | root | IC1 (STM32H725RGV6) and its supply network (C1-C17, L1, FB1), SWD header P1, test points, M2 screw holes H1-H4, board stackup and rules |
+| [`main.zen`](main.zen) | root | IC1 (STM32H725RGV6) and its supply network (C1-C17, L1, FB1), SWD connector P1, test points, M2 screw holes H1-H4, board stackup and rules |
 | [`Regulators.zen`](Regulators.zen) | `REGULATORS` | J1 battery connector, battery switch SW4/Q6, battery measurement, power mux U4, 3V3 buck IC7, 20 V boost U1, SWD probe ideal diode U5 |
 | [`Drivers.zen`](Drivers.zen) | `DRIVERS` | IC5 (L6205D) bridges for M1/M2 with shunts R32/R33, IC6 (STSPIN958) fan driver for M3 with shunt R31 |
 | [`Sensors.zen`](Sensors.zen) | `SENSORS` | IC2 (LSM6DSV) IMU, IC3/IC4 (TSC2020) current amplifiers, wall sensors W1-W4 with Q2-Q5, encoder slots EC1/EC2 |
@@ -26,7 +26,7 @@ compare main` checks the netlist and its net names against that design's connect
 | [`firmware.toml`](firmware.toml) | | the firmware's pin map, supply setting, battery channel and drive duties, from MicrasFirmware (`micras-pcb firmware snapshot`) |
 | [`firmware_changes.toml`](firmware_changes.toml) | | the firmware changes this board needs (see [Firmware changes](#firmware-changes)) |
 | [`test/`](test) | | `pcb test` benches of the board's circuit: MCU, power, drivers, peripherals |
-| [`layout/`](layout) | | KiCad project; the `.kicad_pcb` holds placement and routing; `fixes.py` and `router.py` place and route the review fixes on it |
+| [`layout/`](layout) | | KiCad project; the `.kicad_pcb` holds placement and routing; `fixes.py` and `router.py` place and route the review fixes on it, `refine.py` the owner's layout decisions |
 | [`previous/`](previous) | | the previous revision's connectivity snapshot, and the scripts that build the layout from that revision (`transfer_layout.py`, `rework.py`) |
 | [`spec/main.toml`](../../spec/main.toml) | | mechanical interface: thickness, axle origin, extents, screw holes, encoder slots, USB-C peg holes, fan hole, wheel notches |
 
@@ -111,6 +111,23 @@ sheet's prefix (`REGULATORS.BOOST_FB`). The IMU and both encoder boards share
 
 PC15 and PH1 are unused.
 
+## SWD connector
+
+P1 is a JST SH 5-pin side-entry header (SM05B-SRSS-TB, 1.00 mm pitch) on the left board edge,
+its mating face outwards, so the probe cable (a JST SHR-05V-S housing) leaves the board
+sideways. Pin 1 is the contact nearest the front of the robot, marked by the footprint's tick
+and a "1" on the silkscreen.
+
+| Pin | Net | Probe |
+|---|---|---|
+| 1 | SWD_VDD | the probe's 3.3 V (an ST-Link V2 clone drives it), into 3V3 through U5 |
+| 2 | GND | GND |
+| 3 | SWDIO | SWDIO (PA13) |
+| 4 | SWCLK | SWCLK (PA14) |
+| 5 | Reset | NRST, so the probe can connect under reset |
+
+The two reinforcement pads are on GND.
+
 ## Firmware changes
 
 The board needs two changes in MicrasFirmware, declared in
@@ -144,7 +161,9 @@ fixes add, on the layout as the footprint update leaves it, and runs once: it re
 encoder slots, places the new parts, removes the copper the changed nets contradict, spaces the
 parts whose updated courtyards overlap, and routes what remains unconnected with
 [`layout/router.py`](layout/router.py), a small grid router (0.05 mm grid, F.Cu/B.Cu, 0.12 mm
-from other copper, deterministic).
+from other copper, deterministic). [`layout/refine.py`](layout/refine.py) runs once after it with
+the owner's layout decisions: it clears the connector courtyard overlaps, places the JST SH
+connector P1, brings C15 to IC1 pad 51 and puts the reference designators on the silkscreen.
 
 | Layer | Use |
 |---|---|
@@ -160,7 +179,7 @@ Where things are, in the robot frame (x forward, y left, from the axle midpoint;
 - **Middle** (x -10 to 30 mm): the IMU IC2 on the axle midpoint, the encoder slots EC1/EC2 at
   y = -/+6.9, the wheel notches on both sides, the fan hole at x = 17.5 with the fan connector M3
   and the buzzer BZ1 beside it, the 3V3 buck IC7/L3 front right, the DIP switch SW1 and the SWD
-  header P1 at the sides.
+  connector P1 at the sides.
 - **Rear** (x below -5 mm): the current amplifiers IC3/IC4 and the shunts R31-R33 behind the axle,
   the fan driver IC6, the boost U1/L2, the bridge IC5 with the motor connectors M1/M2 at the rear
   corners, the battery connector J1 with the switch SW4/Q6 rear right, the USB-C receptacle U2 on
@@ -187,19 +206,48 @@ The review fixes in the layout (KiCad coordinates):
 - **NRST and PH0**: NRST (pin 12) drops to B.Cu on the axis of the unused pin 11, PH0 (pin 10,
   USB_VBUS_Sense) a pitch further out; Current_Sensor_Left's B.Cu run passes between PH0's via and
   pin 9's 3V3 via in 0.15 mm.
-- **SWD header P1** (1x05) 2.54 mm further from the edge than the previous 1x04, with U5/C64 in
-  the pocket below it, R13 above it and D3 next to R1/R2.
+- **SWD connector P1** at (126.48, 90.5), rotated -90 degrees: the mating face 0.4 mm and the
+  reinforcement pads 0.22 mm inside the left board edge, the contacts at x = 128.48 (pin 1 at
+  y = 88.5). The fan connector M3 sits 1.95 mm inwards of the Altium position to leave P1 room;
+  U5/C64 sit below P1, R13 above it, D3 next to R1/R2. SWDIO runs to P1 on B.Cu from a via under
+  IC1 pad 48.
 - **Wall sensor drive** C73-C76/D9-D12 between each R11/R15/R19/R23 and its Q2-Q5; the 1206
   resistors R3/R13/R17/R21/R25 on their previous centres.
 - **Motors_Enable** to U1 pad 11 crosses the rear half on B.Cu (R49 by R35); C65/C66 at IC5,
   C67/C68 at IC3/IC4 pin 6, C69/C70 at EC1, C71/C72 at EC2, U6/D8 at U2, Q7/F1 for SBU, R43/C58
   by Q6, FB1 in IC1's VDDA feed.
-- **C6** (VCAP2) sits 2.8 mm from IC1 pin 49, by its B.Cu hop's via; C14/C17 (pin 35) lie across,
-  clear of IC1's courtyard.
+- **C6** (VCAP2) sits 2.8 mm from IC1 pin 49 and takes VCORE from the In2.Cu VCORE route through
+  its via at (144.437, 82.552); C14/C17 (pin 35) lie across, clear of IC1's courtyard.
+- **C15** (IC1 pad 51, VDD) stands 1.8 mm from the pad, in the strip under pads 46-51 between the
+  USB pair and SWCLK: its 3V3 pad on pad 51's via, its GND pad on a via of its own.
+- **Courtyards**: no two courtyards overlap. Against the Altium positions, the parts below moved
+  to clear them (KiCad mm; robot frame in brackets, x forward, y left):
+
+  | Part | KiCad x, y (from) | KiCad x, y (to) | Robot x, y (to) |
+  |---|---|---|---|
+  | M1 left motor connector | 138.001, 146.575 | 139.201, 146.575 | -33.071, 9.300 |
+  | M2 right motor connector | 160.501, 146.575 | 159.951, 146.575 | -33.071, -11.450 |
+  | SW4 battery switch | 168.988, 143.344 | 169.078, 143.564 | -30.060, -20.577 |
+  | M3 fan connector | 132.473, 90.318 | 134.423, 90.318 | 23.186, 14.078 |
+  | P1 SWD connector (JST SH) | | 126.480, 90.500 | 23.004, 22.021 |
+  | C36 VBAT bulk | 163.099, 138.701 | 162.669, 138.701 | -25.197, -14.168 |
+  | C37 +20V bulk | 141.128, 140.162 | 140.731, 140.162 | -26.658, 7.770 |
+  | C38 L6205 VS 100 nF | 136.436, 140.606 | 136.190, 144.750 | -31.246, 12.311 |
+
+  C23, R6 and R7 moved 0.12-0.15 mm sideways. J1, U2 and IC5 keep their positions; IC5's pad 10
+  is 0.2 mm (the copper-to-edge rule) from the rear-left corner arc. MicrasHardware takes the
+  board's components from the board STEP (`make review`), so it must re-export
+  `ref/board.step` and `ref/board_boxes.json` and re-run `tools/check_layout.py`.
 - **Clean-up**: the outline's six 1-10 nm lines, the zero-length tracks, stubs left by the changed
   nets, and teardrops that left copper slivers against a twin are gone. U2's outer GND pads are
-  1.19 mm long, 0.22 mm from the USB-C peg holes. The reference designators are off the
-  silkscreen (0.5 mm high, below JLCPCB's 0.8 mm minimum; F.Fab keeps them).
+  1.19 mm long, 0.22 mm from the USB-C peg holes.
+- **Silkscreen**: every reference designator is on F.Silkscreen, 0.6 mm high with a 0.15 mm stroke,
+  clear of pads, of other silkscreen and of the board edge, off the part bodies wherever a spot
+  allows (C64's sits on U5). The 0.15 mm stroke is the one the owner found legible on a
+  fabricated board (0.154 mm at 0.5 mm high); KiCad's stroke font caps the stroke at a quarter of
+  the text size, so 0.6 mm is the smallest size that carries it. The board allows 0.5 mm / 0.15 mm text
+  (`main.zen` Silkscreen, `rules/kicad-severities.toml`), an accepted trade-off against JLCPCB's
+  legibility guarantee from 1.0 mm high and 0.153 mm stroke.
 
 Copper of the changes C1 and C2 (KiCad coordinates, as in `rework.py`):
 
@@ -223,13 +271,15 @@ power-tree and firmware tests) except one bench, which no change on this board c
 |---|---|---|---|
 | `main_peripherals` `usb_c_sbu_open` (test) | SBU1/SBU2 carry 3V3 through Q7 and F1 for the Bluetooth module (M6) | Type-C R2.0 section 4.3, Table 4-28: SBU open or at least 950 kOhm to GND, in every state | The Bluetooth module (MicrasBluetoothModule) takes its supply from SBU and leaves VBUS and CC open, so the board cannot tell it from a cable before powering it. Q7 removes the supply whenever a USB host powers VBUS; it remains while a host debounces the attach (VBUS is applied only after Rd is seen, Type-C R2.0 4.5.2.2.8.2), on an unpowered host and on an accessory. Compliance needs the module to change (its own connector, or power from VBUS). |
 
-The layout passes the copper, connection and DFM checks. These layout findings stay:
+The layout passes every layout gate: copper, connections, courtyards, DFM, decoupling at the pin,
+silkscreen text size. These findings stay:
 
 | Check (gate) | Fault | Why it stays |
 |---|---|---|
-| `courtyards_overlap` (drc, and `layout-check`, which runs DRC) | J1/C36, C36/SW4, M2/SW4, IC5/M1, U2/C37: the courtyards of the connector and switch packages reach their neighbours by 0.17-0.58 mm; the bodies stay apart (M2 and SW4, the closest, by 0.16 mm) | J1, M1, M2, SW4 and U2 sit where MicrasHardware expects them; C36 sits between the right motor's Kelvin sense pair and C37/IC5 between the board edge, the bridge's charge-pump parts and C38, so none of them can move without moving a connector. Resolving it is the owner's call: exclude the five overlaps in KiCad (a reviewed exclusion in `main.kicad_pro`), or move the connectors |
-| `test_decoupling_sits_at_its_pin[main]` (pytest) | C15 (IC1 pad 51, VDD) is 5.0 mm from the pin; the board's reading of "close" is 3 mm | the 2.6 mm under pads 46-51 carries USB D+/D-, SWDIO and the VCORE/3V3 escapes, with four B.Cu tracks (r_Left_CSn, Encoder_Left_ABI_A/B, Boot) under it: an 0402 within 3 mm has no room for a ground via. Moving it needs USB D+/D- and SWDIO rerouted |
-| `silk_overlap`, `silk_over_copper` (drc, warnings) | the W1-W4 "C"/"E" and SW1 "ON" texts on their own outlines (package artwork), outlines of neighbouring parts touching (D9/R14, D11/D12, D4/R4, D5/R5, C36/SW4, M2/SW4), and the board artwork (the slogans, arcs and circles) under new parts (C58, C63, C65/C66, C69/C70, D3, Q7, R48, R49) | cosmetic: JLCPCB clips silkscreen at pads |
+| `silk_overlap`, `silk_over_copper` (drc, warnings) | package artwork on its own outline (the W1-W4 "C"/"E" and SW1 "ON" marks), outlines of neighbouring parts touching (D9/R14, D11/D12, D4/R4, D5/R5, R13/W1, R17/W2), and the board artwork (the slogans, arcs and circles) under parts (C58, C63, C65/C66, C69/C70, D3, M3, Q7, R48, R49, the test points) | cosmetic: JLCPCB clips silkscreen at pads, and no reference designator is among them |
+| `silk_edge_clearance` (drc, warning) | SW4's outline crosses the rear notch's edge | the battery switch overhangs the board edge by design, its lever outwards |
+| Wall_Sensor_2's route (no gate) | 47 mm along the top edge instead of the short way past IC1's top corner | pins 23 (Wall_Sensor_3), 24 (PA5) and 25 (Wall_Sensor_2) escape side by side and both wall sensor lines run to the right, so the battery divider on PA5 can only be reached across one of them. A via in the 0.4 mm pitch fan-out does not fit (0.45 / 0.3 mm vias, 0.2 mm hole to track), and B.Cu around IC1's top corner is filled by the Button, LED_ARGB, Switch_0-3, Reset and WALL1_LED_A runs, so the crossing needs those re-layered first |
+| U6's branch (no gate) | the USB ESD array U6 sits beside the receptacle on branches of D+ (about 18 mm, three vias) and D- (about 7 mm, two vias), not in line | an in-line (flow-through) U6 needs room between U2 and R8/R9 that the boost output capacitors C48-C51, F1, D8 and C36 take; the branch is far shorter than a wavelength at full speed (12 Mbit/s). The pair from IC1 to R8/R9 is the Altium design's coupled pair (0.2248 / 0.127 mm, 90 Ohm on this stack), 94.5 and 95.8 mm long |
 
 Requirements without a check, and why:
 
@@ -256,8 +306,13 @@ Requirements without a check, and why:
       the 4-layer defaults until they are confirmed.
 - [ ] Check every part's placement rotation in JLCPCB's assembly preview, then set
       `rotation_verified = true` in `parts/jlc.toml`.
-- [ ] Decide the five connector courtyard overlaps and C15's distance to IC1 pad 51 (see
+- [ ] Wall_Sensor_2's short route past IC1's top corner: re-layer the B.Cu runs there (see
+      [Known faults](#known-faults)) and hop PA5 or Wall_Sensor_2, or keep the top-edge route.
+- [ ] U6 in line with D+/D- at the receptacle: needs space next to U2 (see
       [Known faults](#known-faults)).
+- [ ] MicrasHardware: re-export `ref/board.step` and `ref/board_boxes.json` from this board and
+      re-run `tools/check_layout.py` (M1, M2, M3, SW4 and P1 moved, see [Layout](#layout)); keep
+      the left edge clear for the SWD cable at x = 23 mm.
 - [ ] Bench: confirm the L6981C33 does not lift VSYS above the probe's 3.3 V in the SWD probe mode
       (the datasheet is silent on a back-powered output; review C3), and the SBU supply turning off
       with a USB host attached.
