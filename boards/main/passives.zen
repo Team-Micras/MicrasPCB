@@ -31,7 +31,6 @@ def _c(value, package, voltage, dielectric, mpn, manufacturer=SAMSUNG):
 
 
 # Thick-film chip resistors, 1 %: 0402 62.5 mW 50 V, 0603 100 mW 75 V, 1206 250 mW 200 V.
-R_0_0402 = _r("0Ohm", "0402", "0402WGF0000TCE")
 R_10_1206 = _r("10Ohm 1%", "1206", "1206W4F100JT5E", power="250mW")
 R_100_0402 = _r("100Ohm 1%", "0402", "0402WGF1000TCE")
 R_220_0402 = _r("220Ohm 1%", "0402", "0402WGF2200TCE")
@@ -50,6 +49,8 @@ R_75K_0402 = _r("75kOhm 1%", "0402", "0402WGF7502TCE")
 R_82K_0402 = _r("82kOhm 1%", "0402", "0402WGF8202TCE")
 R_100K_0402 = _r("100kOhm 1%", "0402", "0402WGF1003TCE")
 R_140K_0402 = _r("140kOhm 1%", "0402", "0402WGF1403TCE")
+R_200K_0402 = _r("200kOhm 1%", "0402", "0402WGF2003TCE")
+R_1M_0402 = _r("1MOhm 1%", "0402", "0402WGF1004TCE")
 R_68K_0603 = _r("68kOhm 1%", "0603", "0603WAF6802T5E", power="100mW")
 R_1M_0603 = _r("1MOhm 1%", "0603", "0603WAF1004T5E", power="100mW")
 
@@ -58,7 +59,6 @@ R_50M_2512 = _r("50mOhm 1%", "2512", "HoLLR2512-3W-50mR-1%", manufacturer="Milli
 R_40M_2512 = _r("40mOhm 1%", "2512", "LR2512-22R040F4", manufacturer="RALEC", power="2W")
 
 # Multilayer ceramic capacitors.
-C_18P_0402 = _c("18pF 5%", "0402", "50V", "C0G", "0402CG180J500NT", manufacturer=FENGHUA)
 C_470P_0402 = _c("470pF 10%", "0402", "50V", "X7R", "0402B471K500NT", manufacturer=FENGHUA)
 C_10N_0402 = _c("10nF 10%", "0402", "50V", "X7R", "CL05B103KB5NNNC")
 C_100N_0402 = _c("100nF 10%", "0402", "50V", "X7R", "CL05B104KB54PNC")

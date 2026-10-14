@@ -88,10 +88,9 @@ move = { "IC6.12" = "net:GND" }
 [[change]]
 id = "M11"
 review = "hw_debug/schematic_review.md M11"
-summary = "USB data lines without external parts (R10 D+ pull-up removed, R8/R9 0 Ohm, C22/C23 not fitted) and VBUS sensing: R47 33 kOhm / R48 82 kOhm into PH0"
-remove_parts = ["R10"]
-part_numbers = { R8 = "0402WGF0000TCE", R9 = "0402WGF0000TCE" }
-dnp = ["C22", "C23"]
+summary = "USB data lines without external parts (R10 D+ pull-up, R8/R9 0 Ohm and the 18 pF C22/C23 removed: D+/D- on plain copper from the receptacle to PA12/PA11) and VBUS sensing: R47 33 kOhm / R48 82 kOhm into PH0"
+remove_parts = ["R10", "R8", "R9", "C22", "C23"]
+merge = [["IC1.47", "U2.A6"], ["IC1.46", "U2.A7"]]
 add_parts = { R47 = { "1" = "net:+5V", "2" = "IC1.10" }, R48 = { "1" = "net:GND", "2" = "IC1.10" } }
 
 [[change]]
@@ -103,9 +102,10 @@ add_parts = { U6 = { "1" = "U2.A6", "6" = "U2.A6", "3" = "U2.A7", "4" = "U2.A7",
 [[change]]
 id = "M6"
 review = "hw_debug/schematic_review.md M6"
-summary = "The SBU supply of the Bluetooth module switched by Q7 (AO3401A, gate on VBUS): SBU carries no supply while a USB host powers VBUS"
+summary = "The SBU supply of the Bluetooth module switched by Q7 (AO3401A) only while the module's signature is on CC1: the module ties CC to D+ (the UART4 TX, idle high), which lifts CC1 above any level a USB Type-C source makes across Rd (R2.0 Tables 4-35, 4-36); R50/D13/C77/R51 hold its peak, U7 (TLV7041) compares it with two thirds of 3V3 (R52/R53, hysteresis R54) and pulls Q7's gate (R55 to 3V3) low; C78 bypasses U7"
 move = { "F1.1" = "net:PERIPHERALS.SBU_SW" }
-add_parts = { Q7 = { "1" = "net:+5V", "2" = "net:3V3", "3" = "new:PERIPHERALS.SBU_SW" } }
+add_parts = { R50 = { "1" = "U2.A5", "2" = "new:PERIPHERALS.SBU_DET_A" }, D13 = { "1" = "new:PERIPHERALS.SBU_DET", "2" = "R50.2" }, C77 = { "1" = "net:GND", "2" = "D13.1" }, R51 = { "1" = "net:GND", "2" = "D13.1" }, R52 = { "1" = "net:3V3", "2" = "new:PERIPHERALS.SBU_VREF" }, R53 = { "1" = "net:GND", "2" = "R52.2" }, R54 = { "1" = "R52.2", "2" = "new:PERIPHERALS.SBU_EN_N" }, U7 = { "1" = "R54.2", "2" = "net:GND", "3" = "R52.2", "4" = "D13.1", "5" = "net:3V3" }, C78 = { "1" = "net:GND", "2" = "net:3V3" }, R55 = { "1" = "net:3V3", "2" = "R54.2" }, Q7 = { "1" = "R54.2", "2" = "net:3V3", "3" = "new:PERIPHERALS.SBU_SW" } }
+
 
 [[change]]
 id = "M13"
