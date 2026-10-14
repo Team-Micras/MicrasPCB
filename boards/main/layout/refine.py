@@ -328,7 +328,7 @@ def _board_text(text: str, x: float, y: float, angle: float) -> pcbnew.PCB_TEXT:
 
 def swd_labels(space: SilkSpace, courtyards: list) -> None:
     """P1's pin 1 numbered beside its contact (the footprint's tick marks it too), and "SWD" by the
-    connector; the pinout is in boards/main/README.md."""
+    connector; the pinout is in boards/main/layout/README.md."""
     pin1 = fx.padxy("P1", "1")
     one = _board_text("1", pin1[0] + 1.3, pin1[1], 0.0)
     for dx in (1.3, 1.4, 1.5, 1.2, 1.6):
