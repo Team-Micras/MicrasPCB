@@ -23,3 +23,6 @@ datasheet before a check relies on them.
 Footprint `XAL6030.kicad_mod`: 1.43 x 5.5 mm pads at 4.04 mm pitch,
 from the Micras Altium library (MicrasMainBoard), with the XAL6030-102MEB STEP embedded.
 `pcb rectify check` passes.
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.13) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).

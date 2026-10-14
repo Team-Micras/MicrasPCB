@@ -29,3 +29,9 @@ the pad 5-8 side; the datasheet drawing does not tie the body marks to pads.
 `pcb rectify check` flags the STEP model as offset by 0.33 mm (proposed fix: offset
 (-0.056, 0.325, 0.95) mm). A KiCad render shows the body centred on the pads, so the model transform
 is kept as is.
+
+The silkscreen "ON" marks over the switch levers are 0.6 mm high with a 0.1 mm stroke, the
+boards' minimum text height (0.6 mm) and above their minimum stroke (0.08 mm).
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.15) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).

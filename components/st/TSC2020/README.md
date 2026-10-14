@@ -36,6 +36,9 @@ TSC2020IYPT) use another pin numbering (Table 1) and do not fit this symbol.
 library (MicrasLib), with its STEP model (`TSC2020IYST.stp`) embedded. `pcb rectify check`: OK.
 Package dimensions: Table 7.
 
+Courtyard: an F.CrtYd rectangle around the body outline (User.13) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).
+
 ## Design requirements (board side)
 
 - Output (equation 3): VOUT = (IN+ - IN-) x 20 + (VREF1 + VREF2) / 2. Gain error 0.3 % max over

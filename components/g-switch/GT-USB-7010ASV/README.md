@@ -47,5 +47,10 @@ rear pair 1.0 x 1.8 mm pad, 0.6 x 1.4 mm slot, 4.18 mm behind).
   them (Edge.Cuts circles).
 - The embedded STEP is `USB4105-GF-A-060--3DModel-STEP-56544.STEP`, a GCT USB4105 16-pin
   receptacle, not a G-Switch model: the 3D view and STEP export approximate the connector.
-- Body outline graphics are on User.15 (Altium mechanical layer); there is no F.CrtYd courtyard.
+- Body outline graphics are on User.15 (Altium mechanical layer).
+- Paste: the copper pads carry no paste layer; the stencil apertures are the F.Paste shapes
+  drawn in the footprint, one over each SMD pad. The shell tabs are plated slots without paste.
 - `pcb rectify check`: model transform OK.
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.15) and the pads, 0.5 mm, the
+connector courtyard excess of KiCad Library Conventions F5.3.

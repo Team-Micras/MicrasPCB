@@ -17,3 +17,6 @@ Diode1N4148W(name="D3", A=BUZZER_SWITCH, K=V3V3)
 Why not the stdlib `Rectifier` generic: it has no `mpn`/`manufacturer` config, so its offline BOM
 line has no MPN for `parts/jlc.toml` to map, and its KiCad `D_SOD-123` footprint numbers the cathode
 pad 1, the reverse of this footprint.
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.15) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).
