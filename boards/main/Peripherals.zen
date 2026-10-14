@@ -44,7 +44,9 @@ UART (UART4 on PA11/PA12):
   line entering on one of its I/O pads and leaving on the twin (pins 1/6, 3/4), so the clamp
   sits in line. Its rail pin is on 3V3, the supply of the circuit it protects (USBLC6-2
   section 2.2): the UART levels (0-3.3 V) never forward-bias it, whether a USB host or the
-  Bluetooth module is plugged in.
+  Bluetooth module is plugged in. C79 100 nF bypasses the rail pin to GND at the part (DocID 11265
+  Figure 18, PCB layout considerations: CBUS = 100 nF), so a positive surge clamps through the
+  steering diode into a low-impedance rail rather than into 3V3's trace.
 - SBU1/SBU2 carry 3V3 to the plug-in Bluetooth module (boards/bluetooth) through Q7 (AO3401A
   P-MOSFET) and the 0402 PTC fuse F1 (KASML010), only while the module's signature is on CC
   (review M6). Type-C R2.0 section 4.3 (p139) and Table 4-28 (p236) require SBU open, or at
@@ -212,6 +214,7 @@ Resistor(name="R7", P1=GND, P2=CC2, **R_5K1_0402)
 Resistor(name="R47", P1=V5V, P2=USB_VBUS_SENSE, **R_33K_0402)
 Resistor(name="R48", P1=GND, P2=USB_VBUS_SENSE, **R_82K_0402)
 USBLC6_2SC6(name="U6", IO1=USB.D.P, IO2=USB.D.N, VBUS=V3V3, GND=GND)
+Capacitor(name="C79", P1=GND, P2=V3V3, **C_100N_0402)
 
 # SBU supply, switched on by the Bluetooth module's CC signature.
 Resistor(name="R50", P1=CC1, P2=SBU_DET_A, **R_10K_0402)

@@ -148,11 +148,10 @@ def decoupling() -> None:
 
 # --- silkscreen ------------------------------------------------------------------------------------
 
-# Reference designators with the stroke of the previous board's (0.5 mm high, 0.154 mm stroke on
-# the Altium board, which the owner read on the fabricated board): KiCad's stroke font caps the
-# stroke at a quarter of the character size, so 0.6 mm is the smallest size that carries the
-# board's 0.15 mm minimum stroke (boards/main/main.zen Silkscreen, rules/kicad-severities.toml).
-REF_SIZE, REF_STROKE = 0.6, 0.15
+# Reference designators 0.5 mm high with a 0.125 mm stroke, the owner's choice and the board's
+# minimum (boards/main/main.zen Silkscreen, rules/kicad-severities.toml): KiCad's stroke font caps
+# the stroke at a quarter of the character size, so 0.125 mm is the stroke a 0.5 mm text carries.
+REF_SIZE, REF_STROKE = 0.5, 0.125
 SILK_GAP = 0.1  # silkscreen to silkscreen, to exposed copper and to the board edge (KiCad's DRC)
 
 
@@ -271,7 +270,7 @@ def silkscreen() -> list[str]:
     # SW1's "ON" marks take the 0.15 mm stroke of its package (components/kangshen/DSHP04TJGER)
     for g in fp("SW1").GraphicalItems():
         if g.GetClass() == "PCB_TEXT" and g.GetText() == "ON":
-            g.SetTextThickness(fx.mm(REF_STROKE))
+            g.SetTextThickness(fx.mm(0.15))
     space = SilkSpace(fx.B)
     courtyards = []
     for f in fx.B.GetFootprints():

@@ -359,10 +359,9 @@ Board(
                     copper_to_edge_clearance=0.2,
                 ),
                 holes=Holes(minimum_through_hole=0.3, hole_to_hole_clearance=0.254),
-                # Silkscreen text down to 0.5 mm high with a 0.15 mm stroke: the previous board's
-                # reference designators were 0.5 mm / 0.154 mm, and the owner read them on the
-                # fabricated board. JLCPCB guarantees legibility from 1.0 mm high and 0.153 mm
-                # stroke; this board accepts smaller text. The stroke minimum is set by
+                # Silkscreen text down to 0.5 mm high with a 0.125 mm stroke, the owner's choice for
+                # the reference designators. JLCPCB guarantees legibility from 1.0 mm high and
+                # 0.153 mm stroke; this board accepts smaller text. The stroke minimum is set by
                 # `micras-pcb rules` (rules/kicad-severities.toml [design.main]): Zener has no field
                 # for it.
                 silkscreen=Silkscreen(minimum_text_height=0.5),

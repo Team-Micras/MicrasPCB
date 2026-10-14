@@ -31,7 +31,8 @@ the pad 5-8 side; the datasheet drawing does not tie the body marks to pads.
 is kept as is.
 
 The silkscreen "ON" marks over the switch levers are 0.6 mm high with a 0.15 mm stroke, the
-largest stroke KiCad's font draws at that size (a quarter of it) and the main board's minimum.
+largest stroke KiCad's font draws at that size (a quarter of it), above the main board's 0.125 mm
+minimum.
 
 Courtyard: an F.CrtYd rectangle around the body outline (User.15) and the pads, 0.25 mm, the
 IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).

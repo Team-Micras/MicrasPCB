@@ -96,8 +96,8 @@ add_parts = { R47 = { "1" = "net:+5V", "2" = "IC1.10" }, R48 = { "1" = "net:GND"
 [[change]]
 id = "M12"
 review = "hw_debug/schematic_review.md M12, m5"
-summary = "USB ESD protection at the receptacle: USBLC6-2SC6 U6 on D+/D- (rail pin on 3V3) and the 5 V TVS D8 on VBUS"
-add_parts = { U6 = { "1" = "U2.A6", "6" = "U2.A6", "3" = "U2.A7", "4" = "U2.A7", "2" = "net:GND", "5" = "net:3V3" }, D8 = { "1" = "net:GND", "2" = "net:+5V" } }
+summary = "USB ESD protection at the receptacle: USBLC6-2SC6 U6 on D+/D- (rail pin on 3V3, bypassed by C79 100 nF: DocID 11265 Figure 18) and the 5 V TVS D8 on VBUS"
+add_parts = { U6 = { "1" = "U2.A6", "6" = "U2.A6", "3" = "U2.A7", "4" = "U2.A7", "2" = "net:GND", "5" = "net:3V3" }, C79 = { "1" = "net:GND", "2" = "net:3V3" }, D8 = { "1" = "net:GND", "2" = "net:+5V" } }
 
 [[change]]
 id = "M6"
