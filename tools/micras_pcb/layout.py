@@ -48,13 +48,20 @@ class Footprint:
 
     def pasted(self, pad: Pad) -> bool:
         """The pad gets solder paste: its own opening (not cancelled by a negative paste margin), or a
-        paste shape drawn on the footprint's paste layer over its centre."""
+        paste shape over its centre: drawn on the footprint's paste layer, or a paste-only pad (the
+        KiCad library's way of splitting a stencil aperture from its copper pad)."""
         if set(pad.layers) & PASTE:
             half = [d / 2 * (1 + pad.paste_ratio) + pad.paste_margin for d in pad.size]
             if min(half) > 0:
                 return True
         x, y = pad.local
-        return any(x0 <= x <= x1 and y0 <= y <= y1 for x0, y0, x1, y1 in self.paste_boxes)
+        boxes = list(self.paste_boxes)
+        for q in self.pads:
+            if q.layers and set(q.layers) <= PASTE:
+                hx, hy = (d / 2 * (1 + q.paste_ratio) + q.paste_margin for d in q.size)
+                if min(hx, hy) > 0:
+                    boxes.append((q.local[0] - hx, q.local[1] - hy, q.local[0] + hx, q.local[1] + hy))
+        return any(x0 <= x <= x1 and y0 <= y <= y1 for x0, y0, x1, y1 in boxes)
 
     def pads_named(self, number: str) -> list[Pad]:
         return [p for p in self.pads if p.number == number]
