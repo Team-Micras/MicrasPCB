@@ -1,0 +1,64 @@
+(version 1)
+
+# JLCPCB rigid FR-4, 1 oz outer copper, 2-layer and 4-layer standard service.
+# Limits from rules/jlcpcb-pdk.toml (Diode's sourced JLCPCB PDK, revision advisory-mask-2026-09-29,
+# from https://jlcpcb.com/capabilities/pcb-capabilities). Errors sit at the capability minimum;
+# warnings sit at the preferred value, so the board stays in JLC's cheapest process.
+#
+# Source of truth for every board: `micras-pcb rules` copies this file next to each .kicad_pro
+# (as <board>.kicad_dru) and `micras-pcb rules --check` fails CI if a copy drifts.
+
+(rule "jlc: copper clearance"
+	(constraint clearance (min 0.10mm)))
+
+(rule "jlc: track width"
+	(condition "A.Type == 'Track'")
+	(constraint track_width (min 0.10mm)))
+
+(rule "jlc: copper to board edge"
+	(constraint edge_clearance (min 0.20mm)))
+
+(rule "jlc: via hole"
+	(condition "A.Type == 'Via'")
+	(constraint hole_size (min 0.15mm)))
+
+(rule "jlc: via hole (preferred)"
+	(severity warning)
+	(condition "A.Type == 'Via'")
+	(constraint hole_size (min 0.30mm)))
+
+(rule "jlc: via annular ring"
+	(condition "A.Type == 'Via'")
+	(constraint annular_width (min 0.05mm)))
+
+(rule "jlc: via annular ring (preferred)"
+	(severity warning)
+	(condition "A.Type == 'Via'")
+	(constraint annular_width (min 0.075mm)))
+
+(rule "jlc: PTH hole"
+	(condition "A.Type == 'Pad' && A.Pad_Type == 'Through-hole'")
+	(constraint hole_size (min 0.15mm)))
+
+(rule "jlc: NPTH hole"
+	(condition "A.Type == 'Pad' && A.Pad_Type == 'NPTH, mechanical'")
+	(constraint hole_size (min 0.50mm)))
+
+(rule "jlc: PTH annular ring, 2-layer"
+	(condition "A.Type == 'Pad' && A.Pad_Type == 'Through-hole' && A.isPlated()")
+	(layer outer)
+	(constraint annular_width (min 0.18mm)))
+
+(rule "jlc: hole to hole, via to via"
+	(condition "A.Type == 'Via' && B.Type == 'Via'")
+	(constraint hole_to_hole (min 0.20mm)))
+
+(rule "jlc: hole to hole"
+	(condition "!(A.Type == 'Via' && B.Type == 'Via')")
+	(constraint hole_to_hole (min 0.45mm)))
+
+# Pours keep extra margin: zone fills approximate arcs with segments, which can eat a few
+# microns of the 0.20 mm (seen at the encoder tab reliefs by `micras-pcb dfm`).
+(rule "pours: copper to board edge"
+	(condition "A.Type == 'Zone'")
+	(constraint edge_clearance (min 0.30mm)))

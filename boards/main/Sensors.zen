@@ -1,0 +1,126 @@
+"""IMU, motor current amplifiers, the four wall sensors and the two encoder slots.
+
+IMU, IC2 (LSM6DSV, DS13476 Rev 5) on the shared SPI bus (SPI_SCK/MOSI/MISO) with its own
+chip select IMU_SPI_CSn; INT1/INT2 to the MCU. Mode 1: SDx and SCx grounded, OCS_Aux and
+SDO_Aux open (Table 2 p10). C24 and C25 100 nF on Vdd and Vdd_IO (Table 2 note 1, Figure 27
+p44).
+
+Motor current, IC3 and IC4 (TSC2020IYST, gain 20 V/V, DS14393 Rev 7): IN+/IN- across the
+40 mOhm in-line shunts R33 (left, IC3) and R32 (right, IC4) on the drivers sheet. VREF1 on
+3V3 and VREF2 on GND centre the output on VCC/2 (section 5.4 Eq. 3, Figure 56):
+VOUT = 20 x 0.04 Ohm x I + 1.65 V, linear for VOUT 0.1 V to VCC - 0.1 V (Table 4), i.e.
++-1.94 A. The outputs go straight to the ADC (Current_Sensor_Left/Right).
+
+Wall sensors W1-W4 (SFH 4550 emitter over a TPS601A phototransistor): channel n has
+- an emitter switch Q (AO3400A) driven by Wall_Sensor_PWM_n (TIM4) through a 220 Ohm gate
+  resistor, with 10 kOhm gate pull-down;
+- a 10 Ohm 0603 emitter resistor from 3V3 to the LED anode; the LED cathode on Q's drain;
+- the phototransistor collector on 3V3 and its emitter on Wall_Sensor_n (ADC), loaded by
+  1 kOhm to GND;
+- a 1 uF on 3V3 next to the sensor (C26-C29).
+
+Encoder slots EC1 (right wheel) and EC2 (left wheel) take the AS5047U encoder boards on the
+same SPI bus, each with its own CSn, plus the ABI A/B outputs to timer inputs.
+"""
+
+load("@stdlib/interfaces.zen", "Spi")
+load("./passives.zen", "C_100N_0402", "C_1U_0402", "R_10K_0402", "R_10_0603", "R_1K_0402", "R_220_0402")
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+AO3400A = Module("github.com/Team-Micras/MicrasPCB/components/aos/AO3400A/AO3400A.zen")
+EncoderSlot = Module("github.com/Team-Micras/MicrasPCB/components/micras/EncoderSlot/EncoderSlot.zen")
+LSM6DSV = Module("github.com/Team-Micras/MicrasPCB/components/st/LSM6DSV/LSM6DSV.zen")
+TSC2020 = Module("github.com/Team-Micras/MicrasPCB/components/st/TSC2020/TSC2020.zen")
+WallSensor = Module("github.com/Team-Micras/MicrasPCB/components/micras/WallSensor/WallSensor.zen")
+
+V3V3 = io(Power)
+GND = io(Ground)
+
+IMU_SPI = io(Spi)
+IMU_INT1 = io(Net)
+IMU_INT2 = io(Net)
+
+MOTOR_L_SENSE_P = io(Net)
+MOTOR_L_SENSE_N = io(Net)
+MOTOR_R_SENSE_P = io(Net)
+MOTOR_R_SENSE_N = io(Net)
+CURRENT_SENSOR_LEFT = io(Net)
+CURRENT_SENSOR_RIGHT = io(Net)
+
+WALL_SENSOR_PWM_0 = io(Net)
+WALL_SENSOR_PWM_1 = io(Net)
+WALL_SENSOR_PWM_2 = io(Net)
+WALL_SENSOR_PWM_3 = io(Net)
+WALL_SENSOR_0 = io(Net)
+WALL_SENSOR_1 = io(Net)
+WALL_SENSOR_2 = io(Net)
+WALL_SENSOR_3 = io(Net)
+
+ENCODER_RIGHT_SPI = io(Spi)
+ENCODER_RIGHT_ABI_A = io(Net)
+ENCODER_RIGHT_ABI_B = io(Net)
+ENCODER_LEFT_SPI = io(Spi)
+ENCODER_LEFT_ABI_A = io(Net)
+ENCODER_LEFT_ABI_B = io(Net)
+
+# IMU.
+LSM6DSV(
+    name="IC2",
+    VDD=V3V3,
+    VDDIO=V3V3,
+    GND=GND,
+    SPI=IMU_SPI,
+    INT1=IMU_INT1,
+    INT2=IMU_INT2,
+    SDX=GND,
+    SCX=GND,
+)
+Capacitor(name="C24", P1=GND, P2=V3V3, **C_100N_0402)
+Capacitor(name="C25", P1=GND, P2=V3V3, **C_100N_0402)
+
+# Motor current amplifiers.
+TSC2020(
+    name="IC3",
+    VCC=V3V3,
+    GND=GND,
+    IN_P=MOTOR_L_SENSE_P,
+    IN_N=MOTOR_L_SENSE_N,
+    VREF1=V3V3,
+    VREF2=GND,
+    OUT=CURRENT_SENSOR_LEFT,
+)
+TSC2020(
+    name="IC4",
+    VCC=V3V3,
+    GND=GND,
+    IN_P=MOTOR_R_SENSE_P,
+    IN_N=MOTOR_R_SENSE_N,
+    VREF1=V3V3,
+    VREF2=GND,
+    OUT=CURRENT_SENSOR_RIGHT,
+)
+
+
+# Wall sensors.
+def wall_sensor(n, sensor, switch, r_gate, r_pulldown, r_emitter, r_load, cap, pwm, out):
+    gate = Net("WALL{}_GATE".format(n))
+    anode = Net("WALL{}_LED_A".format(n))
+    cathode = Net("WALL{}_LED_K".format(n))
+    Resistor(name=r_gate, P1=gate, P2=pwm, **R_220_0402)
+    Resistor(name=r_pulldown, P1=GND, P2=gate, **R_10K_0402)
+    AO3400A(name=switch, G=gate, S=GND, D=cathode)
+    Resistor(name=r_emitter, P1=anode, P2=V3V3, **R_10_0603)
+    WallSensor(name=sensor, LED_A=anode, LED_K=cathode, PT_C=V3V3, PT_E=out)
+    Resistor(name=r_load, P1=GND, P2=out, **R_1K_0402)
+    Capacitor(name=cap, P1=GND, P2=V3V3, **C_1U_0402)
+
+
+wall_sensor(0, "W1", "Q2", "R11", "R12", "R13", "R14", "C26", WALL_SENSOR_PWM_0, WALL_SENSOR_0)
+wall_sensor(1, "W2", "Q3", "R15", "R16", "R17", "R18", "C27", WALL_SENSOR_PWM_1, WALL_SENSOR_1)
+wall_sensor(2, "W3", "Q4", "R19", "R20", "R21", "R22", "C28", WALL_SENSOR_PWM_2, WALL_SENSOR_2)
+wall_sensor(3, "W4", "Q5", "R23", "R24", "R25", "R26", "C29", WALL_SENSOR_PWM_3, WALL_SENSOR_3)
+
+# Encoder slots.
+EncoderSlot(name="EC1", VDD=V3V3, GND=GND, SPI=ENCODER_RIGHT_SPI, A=ENCODER_RIGHT_ABI_A, B=ENCODER_RIGHT_ABI_B)
+EncoderSlot(name="EC2", VDD=V3V3, GND=GND, SPI=ENCODER_LEFT_SPI, A=ENCODER_LEFT_ABI_A, B=ENCODER_LEFT_ABI_B)
