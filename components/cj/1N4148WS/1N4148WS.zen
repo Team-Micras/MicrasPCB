@@ -1,0 +1,34 @@
+"""1N4148WS - fast switching diode, 100 V, 150 mA, SOD-323.
+
+Datasheet: Jiangsu Changjiang Electronics Technology (JCET, "JCST") BAV16WS/1N4148WS, rev. A,
+May 2011, 2 pages, LCSC C2128 ("DIO-DS").
+
+Maximum ratings (DIO-DS p.1, Ta = 25 C): VRM 100 V; VRRM, VRWM, VR 100 V; VR(RMS) 71 V;
+IFM 300 mA; IO 150 mA; IFSM 2.0 A at t = 1 us, 1.0 A at t = 1 s; Pd 200 mW; RthJA 625 C/W;
+Tj 150 C; Tstg -55 to 150 C.
+Electrical ratings (DIO-DS p.1, Ta = 25 C): VF max 0.715 V at 1 mA, 0.855 V at 10 mA, 1.0 V
+at 50 mA, 1.25 V at 150 mA; IR max 1 uA at 75 V, 25 nA at 20 V; CT 2 pF max at 0 V, 1 MHz;
+trr 4 ns max (IF = IR = 10 mA, Irr = 0.1 IR, RL = 100 ohm). Marking T4 (p.1).
+Polarity (p.1 package view): the band marks the cathode.
+
+Pins: pad 1 cathode (K), pad 2 anode (A): KiCad's D_SOD-323 footprint numbers the cathode pad 1
+and marks it with its silkscreen bar. The datasheet gives no land pattern; the footprint is the
+KiCad library's SOD-323 land.
+
+This is the stdlib Rectifier generic's part, packaged because the generic cannot carry an MPN.
+"""
+
+A = io(Net)
+K = io(Net)
+
+Component(
+    name="D",
+    prefix="D",
+    symbol=Symbol(library="1N4148WS.kicad_sym"),
+    footprint=File("D_SOD-323.kicad_mod"),
+    part=Part(mpn="1N4148WS", manufacturer="JCET"),
+    pins={
+        "A": A,
+        "K": K,
+    },
+)

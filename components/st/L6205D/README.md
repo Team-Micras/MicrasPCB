@@ -54,6 +54,9 @@ not fit this symbol or footprint.
 (MicrasLib), with its STEP model (`L6205D013TR.stp`) embedded. `pcb rectify check`: OK. Package
 dimensions: datasheet p.20 (SO20).
 
+Courtyard: an F.CrtYd rectangle around the body outline (User.13) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).
+
 ## Design requirements (board side)
 
 - Charge pump (p.8 Table 1, Figure 3): D1, D2 1N4148; CBOOT 220 nF from VBOOT to VS; RP 100 ohm

@@ -1,5 +1,7 @@
-# KiCad rule severities that `micras-pcb rules` writes into every board's .kicad_pro; `--check`
-# fails if a project drifts. Everything not listed keeps KiCad's default. Each entry says why.
+# KiCad rule severities that `micras-pcb rules` writes into every board's .kicad_pro, and the
+# design-rule constraints of a board that Zener cannot set ([design.<board>], written into that
+# board's board.design_settings.rules); `--check` fails if a project drifts. Everything not
+# listed keeps KiCad's (or Zener's) default. Each entry says why.
 
 [erc]
 # Zener embeds every symbol in the generated .kicad_sch; there is no symbol library table to match.
@@ -12,3 +14,11 @@ footprint_link_issues = "ignore"
 [drc]
 # Same as footprint_link_issues above, from the board side.
 lib_footprint_issues = "ignore"
+
+[design.main]
+# Minimum silkscreen text stroke, with the 0.5 mm minimum height of boards/main/main.zen
+# (Silkscreen): the reference designators are 0.5 mm high with a 0.125 mm stroke, the owner's
+# choice (JLCPCB guarantees legibility from 1.0 mm high and 0.153 mm stroke). KiCad's stroke font
+# caps the stroke at a quarter of the text size, so 0.125 mm is what a 0.5 mm text carries. Zener
+# has no field for it.
+min_text_thickness = 0.125

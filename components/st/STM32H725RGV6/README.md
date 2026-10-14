@@ -82,6 +82,9 @@ undriven power input.
 `QFN-68-1EP_8x8mm_P0.4mm_EP6.5x6.5mm.kicad_mod` is the Altium MicrasLib footprint
 `QFN40P800X800X100-69N-D` of the Micras main board, with its STEP (`STM32H725RGV6.stp`)
 embedded. Pads 1-68 are 0.95 x 0.2 mm at 0.4 mm pitch, centred 3.95 mm from the package centre;
-pad 69 is the 6.5 x 6.5 mm exposed pad, with a single full-size paste opening. Body and
-courtyard outlines are on User.13 and User.15 (Altium mechanical layers), not on F.Fab/F.CrtYd.
+pad 69 is the 6.5 x 6.5 mm exposed pad, with a single full-size paste opening. The body
+outline is on User.13 (Altium mechanical layer).
 `pcb rectify check`: model transform OK.
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.13) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).

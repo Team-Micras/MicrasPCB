@@ -28,7 +28,10 @@ Ciss 2860 pF; body diode VSD 1.2 V max at 1 A; RthJA 70 C/W max on 1 in2 2 oz co
 ## Footprint
 
 `PRPAK-8_L3.0-W3.0-P0.65-BL-EP.kicad_mod`: land pattern from the Micras Altium library
-(MicrasMainBoard). The copper pads have no paste of their own (paste margin -100 mm); the
-stencil apertures are the five F.Paste shapes drawn in the footprint. The embedded STEP is the
+(MicrasMainBoard). The copper pads carry no paste layer; the stencil apertures are the five
+F.Paste shapes drawn in the footprint. The embedded STEP is the
 AOS AON7611 DFN 3x3 model, the same outline class but not this exact part.
 `pcb rectify check` passes.
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.15) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).

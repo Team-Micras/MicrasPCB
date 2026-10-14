@@ -1,4 +1,4 @@
-"""The main board against its previous revision: same parts, same nets, except the declared changes."""
+"""The main board against its previous revision: same parts, nets and net names, except the declared changes."""
 
 import re
 import shutil
@@ -8,9 +8,48 @@ from micras_pcb import jlc, netlist, previous
 
 from .conftest import needs_kicad
 
-# The functional changes (C1, C2), the designator renames the toolchain forces (TP) and the screw
-# holes that the previous board had as footprints without a designator (H).
+# The replication's changes: the functional changes (C1, C2), the designator renames the toolchain
+# forces (TP) and the screw holes that the previous board had as footprints without a designator
+# (H). Then the fixes of the design review's findings, each under its review item.
 CHANGE_IDS = ["C1", "C2", "TP", "H"]
+FIX_IDS = [
+    "M5",
+    "C1-battery",
+    "C3",
+    "m7",
+    "C5",
+    "C4",
+    "m12",
+    "M1",
+    "M7",
+    "M11",
+    "M12",
+    "M6",
+    "M13",
+    "m9",
+    "M8",
+    "M9",
+    "m19",
+    "M14",
+    "m16",
+    "m1",
+    "m2",
+    "M4",
+    "m14",
+    "m15",
+]
+# Net renames: the firmware's pin labels (m14) and the motor each current-sense net measures (m15).
+NET_RENAMES = {
+    "Fan_Overcurrent": "Fan_TOFF",
+    "LED_Blue": "LED_Red",
+    "Motor_Enable": "Motors_Enable",
+    "Current_Sensor_Left": "Current_Sensor_Right",
+    "Current_Sensor_Right": "Current_Sensor_Left",
+    "Motor_L_Sense+": "Motor_R_Sense+",
+    "Motor_R_Sense+": "Motor_L_Sense+",
+    "Motor_L_Sense-": "Motor_R_Sense-",
+    "Motor_R_Sense-": "Motor_L_Sense-",
+}
 
 # Test points: a designator is prefix + number, so the ones without a trailing number gain a 1.
 TP_RENAMES = {"FAN_PWM": "FAN_PWM1", "FAN_ENABLE": "FAN_ENABLE1", "FAN_OVERCURRENT": "FAN_OVERCURRENT1", "20V": "20V1"}
@@ -36,9 +75,10 @@ def nl():
     return netlist.load("main")
 
 
-def test_declared_changes_are_c1_c2_the_test_point_renames_and_the_holes(snap, changes):
-    assert [c.id for c in changes] == CHANGE_IDS
-    c1, c2, tp, holes = changes
+def test_declared_changes_are_c1_c2_the_test_point_renames_the_holes_and_the_review_fixes(snap, changes):
+    assert [c.id for c in changes] == CHANGE_IDS + FIX_IDS
+    assert all(c.review for c in changes[len(CHANGE_IDS) :]), "every fix cites its review item"
+    c1, c2, tp, holes = changes[: len(CHANGE_IDS)]
     # C1: VBAT pin to 3V3 (pad 68 is VDD on 3V3), with its two capacitors.
     assert c1.move == {"IC1.1": "IC1.68", "C8.2": "IC1.68", "C9.2": "IC1.68"}
     assert not (c1.merge or c1.isolate or c1.add_parts or c1.remove_parts or c1.rename_parts)
@@ -67,14 +107,22 @@ def test_connectivity_is_the_previous_board_plus_the_declared_changes(snap, chan
     assert report.ok, str(report)
 
 
+def test_declared_net_renames(changes):
+    renames = {old: new for c in changes for old, new in c.rename_nets.items()}
+    assert renames == NET_RENAMES
+
+
 @needs_kicad
 def test_named_nets_keep_their_names(snap, changes, nl):
     expected = previous.apply_changes(previous.from_snapshot(snap), changes)
     actual = {name.lstrip("/"): {(p.ref, p.pin) for p in pins} for name, pins in nl.nets.items()}
-    named = [n for n in expected.nets if not AUTO_NAMED.match(n) and not n.startswith("unconnected-")]
-    assert len(named) == 54  # every named net of the previous board
+    named = [n for n in expected.nets if previous.named(n)]
+    old_named = [n for n in previous.from_snapshot(snap).nets if previous.named(n)]
+    assert len(old_named) == 54  # every named net of the previous board
+    assert {NET_RENAMES.get(n, n) for n in old_named} - set(named) == {"+5V"} - set(named)
     for name in named:
-        assert actual.get(name) == set(expected.nets[name]), name
+        if len(expected.nets[name]) > 1:
+            assert actual.get(name) == set(expected.nets[name]), name
 
 
 @needs_kicad
@@ -85,11 +133,16 @@ def test_vcore_ties_vfbsmps_and_every_vcap_with_their_capacitors(nl):
 
 
 @pytest.mark.skipif(shutil.which("pcb") is None, reason="pcb not installed")
-def test_every_part_keeps_its_part_number(snap):
-    bom = {m["designator"]: m.get("mpn") for line in jlc.design_bom("main") for m in line["members"]}
+def test_every_part_keeps_its_part_number(snap, changes):
+    # The previous board's part numbers, except the ones a declared change replaces (part_numbers)
+    # and the parts it leaves unfitted (dnp).
+    members = [m for line in jlc.design_bom("main") for m in line["members"]]
+    bom = {m["designator"]: m.get("mpn") for m in members}
+    assert {m["designator"] for m in members if m.get("dnp")} == previous.dnp_parts(changes)
+    declared = previous.part_numbers(snap, changes)
     for ref, part in snap["parts"].items():
-        if not part["mpn"]:
+        if not part["mpn"] or ref not in declared:
             continue
-        old, new = MPN_RENAMES.get(ref, (part["mpn"], part["mpn"]))
+        old, new = MPN_RENAMES.get(ref, (part["mpn"], declared[ref]))
         assert part["mpn"] == old
         assert bom.get(ref) == new, ref

@@ -1,7 +1,9 @@
-"""Power stage: 3V3 buck IC7, 20 V boost U1, USB LDO U3, battery switch Q6, capacitor ratings.
+"""Power stage: 3V3 buck IC7, 20 V boost U1, power mux U4, probe ideal diode U5, any 1117 LDO,
+battery switch Q6, capacitor ratings.
 
-Sources: ST DS13554 Rev 3 (L6981), TI SLVSDA7E (TPS61178), TI SNOS412Q (LM1117, the 1117
-reference the CJA1117B package cites), Huashuo HSBB3072 Ver 3.0, ST DS14341 Rev 1 (STSPIN958).
+Sources: ST DS13554 Rev 3 (L6981), TI SLVSDA7E (TPS61178), TI SLVSEA3F (TPS2121), TI SLVSEZ8A
+(LM66100), TI SNOS412Q (LM1117, the 1117 reference the CJA1117B package cites), Huashuo HSBB3072
+Ver 3.0, ST DS14341 Rev 1 (STSPIN958).
 Each value comes from the part's Zener model; net voltage ranges are the ones main.zen declares
 (VBAT 9.9-12.6 V for the 3S pack).
 """
@@ -23,7 +25,13 @@ MAIN = Module("../main.zen")
 
 BUCK = "IC7"
 BOOST = "U1"
-LDO = "U3"
+MUX = "U4"
+PROBE_DIODE = "U5"
+
+
+def _ldos(b):
+    """Designators of 1117-type linear regulators (CJA1117B, AMS1117, LM1117...)."""
+    return sorted([r for r, c in b.parts.items() if c.mpn and "1117" in c.mpn and not c.dnp])
 
 
 def _sum_caps(b, name):
@@ -205,16 +213,18 @@ def boost_enable_not_from_its_input(module, inputs):
 
 def ldo_input_capacitor(module, inputs):
     # The CJA1117B datasheet is silent on the input capacitor; for the same 1117 regulator TI
-    # LM1117 (SNOS412Q section 9.2.2.1.1 p14) recommends 10 uF on the input. The input here is
-    # the USB VBUS, at the end of a cable.
+    # LM1117 (SNOS412Q section 9.2.2.1.1 p14) recommends 10 uF on the input. Applies to every
+    # 1117 on the board.
     b = index(module)
-    vin = net(b, LDO, "IN")
-    total = _sum_caps(b, vin)
-    report(
-        []
-        if total >= 10e-6 * 0.99
-        else ["U3 input " + vin + " has " + eng(total, "F") + " to GND, 10 uF recommended (LM1117 9.2.2.1.1)"]
-    )
+    p = []
+    for ldo in _ldos(b):
+        vin = net(b, ldo, "IN")
+        total = _sum_caps(b, vin)
+        if total < 10e-6 * 0.99:
+            p.append(
+                ldo + " input " + vin + " has " + eng(total, "F") + " to GND, 10 uF recommended (LM1117 9.2.2.1.1)"
+            )
+    report(p)
 
 
 def ldo_output_capacitor_esr(module, inputs):
@@ -223,23 +233,73 @@ def ldo_output_capacitor_esr(module, inputs):
     # (p4 "Stability") asks for 22 uF solid tantalum. Ceramic capacitors (mOhm ESR) alone are
     # outside both.
     b = index(module)
-    out = net(b, LDO, "OUTPUT")
-    ok = []
-    for r in two_terminal(b, "capacitor", out, "GND"):
-        c = b.parts[r]
-        if hasattr(c, "esr") and c.esr and c.esr.value >= 0.3 and c.esr.value <= 22:
-            ok.append(r)
-    report(
-        []
-        if ok
-        else [
-            "U3 output "
-            + out
-            + " has no capacitor with 0.3-22 Ohm ESR (LM1117 9.2.2.1.3); its "
-            + str(len(two_terminal(b, "capacitor", out, "GND")))
-            + " capacitors are ceramic"
-        ],
-    )
+    p = []
+    for ldo in _ldos(b):
+        out = net(b, ldo, "OUTPUT")
+        ok = []
+        for r in two_terminal(b, "capacitor", out, "GND"):
+            c = b.parts[r]
+            if hasattr(c, "esr") and c.esr and c.esr.value >= 0.3 and c.esr.value <= 22:
+                ok.append(r)
+        if not ok:
+            p.append(
+                ldo
+                + " output "
+                + out
+                + " has no capacitor with 0.3-22 Ohm ESR (LM1117 9.2.2.1.3); its "
+                + str(len(two_terminal(b, "capacitor", out, "GND")))
+                + " capacitors are ceramic"
+            )
+    report(p)
+
+
+def power_mux_configuration(module, inputs):
+    # SLVSEA3F Table 9-3: PR1 and CP2 below VREF select VCOMP, the higher input powers OUT, so
+    # the battery (IN1) wins over USB (IN2) whenever it is on. OV1/OV2 below VREF keep both
+    # channels enabled. RILM is 18-100 kOhm (section 7.3), and the limit falls as RILM grows
+    # (Eq. 2), so the minimum limit of the next larger RILM in Table 7.5 bounds it from below. It
+    # must exceed the buck's input current: 1.5 A out at 3.3 V from the 4.4 V USB minimum,
+    # efficiency taken as 85 % (DS13554 Figure 40 at 1.5 A), 1.32 A.
+    b = index(module)
+    p = []
+    for pin in ["PR1", "CP2", "OV1", "OV2"]:
+        if net(b, MUX, pin) != "GND":
+            p.append("U4 " + pin + " is on " + net(b, MUX, pin) + ", not GND (VCOMP mode, both channels enabled)")
+    if net(b, MUX, "IN1") != net(b, "J1", "Pin_1"):
+        p.append("U4 IN1 is not the battery")
+    if net(b, MUX, "IN2") != net(b, "U2", "VBUS"):
+        p.append("U4 IN2 is not the USB VBUS")
+    if net(b, BUCK, "VIN") != net(b, MUX, "OUT"):
+        p.append("IC7 VIN is not U4 OUT")
+    rilm = two_terminal(b, "resistor", net(b, MUX, "ILM"), "GND")
+    if len(rilm) != 1:
+        p.append("U4 ILM: expected one resistor to GND, found " + str(rilm))
+    else:
+        k = ohms(b, rilm[0]) / 1e3
+        if k < 18 or k > 100:
+            p.append(rilm[0] + " is " + eng(k * 1e3, "Ohm") + ", RILM must be 18-100 kOhm")
+        # Table 7.5 (TPS2121): RILM in kOhm -> minimum current limit in A
+        table = [(18.7, 4.6), (22.1, 4.0), (29.8, 3.0), (44.2, 2.0), (80.0, 1.0)]
+        bound = [lim for r, lim in table if r >= k]
+        need = 1.5 * 3.3 / (4.4 * 0.85)
+        if not bound or bound[0] < need:
+            p.append(rilm[0] + " gives no guaranteed current limit above the buck's " + eng(need, "A"))
+    report(p)
+
+
+def probe_supply_blocks_reverse_current(module, inputs):
+    # SLVSEZ8A section 8.3.2: CE on VOUT gives always-on reverse current blocking, so the board's
+    # 3V3 never drives the probe's supply; pin table p3: ST to GND when unused. Section 10: 1 uF
+    # on VIN.
+    b = index(module)
+    p = []
+    if net(b, PROBE_DIODE, "~{CE}") != net(b, PROBE_DIODE, "VOUT"):
+        p.append("U5 CE must be on VOUT for reverse current blocking")
+    if net(b, PROBE_DIODE, "VIN") != net(b, "P1", "1"):
+        p.append("U5 VIN is not the probe's pin (P1 pin 1)")
+    if _sum_caps(b, net(b, PROBE_DIODE, "VIN")) < 1e-6 * 0.99:
+        p.append("U5 VIN needs 1 uF (SLVSEZ8A section 10)")
+    report(p)
 
 
 def battery_switch_slew(module, inputs):
@@ -303,6 +363,8 @@ TestBench(
         boost_enable_not_from_its_input,
         ldo_input_capacitor,
         ldo_output_capacitor_esr,
+        power_mux_configuration,
+        probe_supply_blocks_reverse_current,
         battery_switch_slew,
         capacitor_voltage_ratings,
     ],

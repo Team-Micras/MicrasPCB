@@ -1,0 +1,27 @@
+"""BAT54HT1G package facts: anode and cathode by name, sourced part (onsemi BAT54HT1/D)."""
+
+Diode = Module("../BAT54HT1G.zen")
+
+
+def peak_detector_orientation(module, inputs):
+    # A peak detector: anode on the sensed node, cathode on the hold capacitor.
+    got = {}
+    for net, ports in module.nets().items():
+        for path, pin in ports:
+            if path.endswith(".D"):
+                got[pin] = net
+    check(got == {"A": "SENSE", "K": "HOLD"}, "pinout changed: " + str(got))
+
+
+def sourcing(module, inputs):
+    d = [c for path, c in module.components().items() if path.endswith("D")][0]
+    check(d.mpn == "BAT54HT1G", "MPN")
+    check(d.prefix == "D", "reference prefix D")
+
+
+TestBench(
+    name="BAT54HT1G_peak",
+    module=Diode,
+    test_cases={"default": {"A": Net("SENSE"), "K": Net("HOLD")}},
+    checks=[peak_detector_orientation, sourcing],
+)

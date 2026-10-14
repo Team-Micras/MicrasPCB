@@ -1,0 +1,44 @@
+"""SM05B-SRSS-TB package: pins 1-5 on P1-P5, the reinforcement pads on MP, P prefix by default."""
+
+HEADER = Module("../SM05B-SRSS-TB.zen")
+
+
+def net_of(module, pin):
+    for name, ports in module.nets().items():
+        for _, p in ports:
+            if p == pin:
+                return name
+    error(pin + " is not connected")
+
+
+def pins(module, inputs):
+    for i in range(1, 6):
+        check(net_of(module, str(i)) == "N%d" % i, "pin %d must be on P%d" % (i, i))
+    check(net_of(module, "MP") == "NMP", "the reinforcement pads must be on MP")
+    check(len(module.components()["HEADER"].pins) == 6, "five contacts and MP")
+
+
+def part(expected_prefix):
+    def _check(module, inputs):
+        c = module.components()["HEADER"]
+        check(c.prefix == expected_prefix, "designator prefix must be " + expected_prefix + ", got " + c.prefix)
+        check(c.mpn == "SM05B-SRSS-TB(LF)(SN)", "MPN must be SM05B-SRSS-TB(LF)(SN)")
+
+    return _check
+
+
+NETS = dict({"P%d" % i: Net("N%d" % i) for i in range(1, 6)}, MP=Net("NMP"))
+
+TestBench(
+    name="SM05B_default_prefix",
+    module=HEADER,
+    test_cases={"default": NETS},
+    checks=[pins, part("P")],
+)
+
+TestBench(
+    name="SM05B_j_prefix",
+    module=HEADER,
+    test_cases={"j": dict(NETS, prefix="J")},
+    checks=[pins, part("J")],
+)

@@ -26,3 +26,6 @@ Integration notes:
 - Bit timing (p.4): T0H 220-380 ns, T1H 580-840 ns, T0L 900-5000 ns, T1L 600-5000 ns,
   reset >= 280 us; GRB order, MSB first.
 - Moisture sensitivity level 5a: bake before reflow as the datasheet (p.6-7) describes.
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.15) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).

@@ -28,6 +28,9 @@ Altium library (MicrasLib). Its land is KiCad's SOT-23 rotated 180 degrees (pads
 degrees added. The embedded STEP (`DMN6075S-7.stp`) is a JEDEC SOT-23 body from another vendor's
 part, aligned to this land (`pcb rectify check`: OK); there is no AOS model.
 
+Courtyard: an F.CrtYd rectangle around the body outline (User.15) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).
+
 ## Ratings (datasheet p.1-2)
 
 - VDS 30 V, VGS +-12 V; ID 5.7 A (TA 25 C), 4.7 A (TA 70 C); PD 1.4 W (TA 25 C).

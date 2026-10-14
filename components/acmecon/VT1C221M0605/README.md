@@ -28,3 +28,6 @@ embedded. `pcb rectify check` passes.
 
 One package per part: the JVS25V100M6X4 (`components/jierr/JVS25V100M6X4`) uses the same land
 pattern with its own STEP (4.5 mm tall), rating and manufacturer.
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.15) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).

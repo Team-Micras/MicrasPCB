@@ -1,0 +1,75 @@
+"""TPS2121RUXR - 2.8 V to 22 V, 4.5 A dual-input priority power mux, VQFN-HR-12. Bare part.
+
+Datasheet: TI SLVSEA3F (August 2018, revised August 2020).
+
+Pins (section 6, Figure 6-2 and Pin Functions, p4-5): 1 OUT, 2 IN2, 3 CP2, 4 OV2, 5 OV1, 6 PR1,
+7 IN1, 8 OUT, 9 ST, 10 ILM, 11 SS, 12 GND. OUT is two pads (1, 8), both on the output. ST is the
+status output (high: IN1 or Hi-Z, low: IN2), pulled up by 6-20 kOhm (section 7.3) or tied to
+GND when not required; OV1/OV2 are active-low overvoltage supervisors and PR1/CP2 the priority
+inputs, each tied to GND when not required (Pin Functions).
+
+Absolute maximum ratings (section 7.1, p6): IN1, IN2, OUT -0.3 to 24 V; OV1, OV2, PR1, ST
+-0.3 to 6 V. Recommended operating conditions (section 7.3, p6): IN1, IN2 2.8 to 22 V; OUT 0 to
+22 V; OV/PR1 0 to 5.5 V; RILM 18 to 100 kOhm; continuous input current 4.5 A; TJ -40 to 125 C.
+RthJA 72.2 C/W (section 7.4).
+
+Electrical characteristics (section 7.5, p7-8):
+- UVLO: INx rising 2.5 / 2.65 / 2.8 V, falling 2.4 / 2.55 / 2.7 V. An input below UVLO is
+  invalid; with both inputs invalid OUT is Hi-Z (Table 9-3).
+- RON 56 / 70 mOhm (25 C), 100 mOhm max at 125 C (VINx >= 5 V, 200 mA).
+- Quiescent current 300 / 400 uA from the input powering OUT; standby 15 / 25 uA from the other.
+- Leakage INx to OUT (channel off): +-1 uA at 25 C, +-35 uA at 85 C for |VINx - VOUT| <= 22 V.
+- VREF of PR1, CP2, OV1, OV2: 1.01 / 1.06 / 1.1 V rising.
+- Input voltage comparator VCOMP (VIN2 referenced to VIN1, VIN1 >= VIN2): 0 / 280 / 600 mV.
+- Fast reverse current blocking (section 9.3.6): a channel switches off when OUT is forced
+  above its selected input (IRCB 0.2 / 1 / 2 A, within 10 us) and turns back on when OUT falls
+  to within VRCB 0-50 mV of it. Each channel is a pair of back-to-back FETs (BFET, HFET,
+  Figure 9-2), so an off channel blocks in both directions.
+
+Operating modes (section 9.5, Table 9-3): with PR1 and CP2 below VREF the device runs in VCOMP
+mode: the higher valid input powers OUT (IN2 when the two are equal; section 9.3.8). A single
+valid input always powers OUT.
+
+Integrator-owned circuitry:
+- RILM from ILM to GND sets the current limit, Eq. 2 (section 9.3.2, p13):
+  ILM[A] = 65.2 / RILM[kOhm]^0.861, RILM 18-100 kOhm (Table 7.5: 44.2 kOhm gives 2 / 2.5 /
+  3 A). The fast-trip comparator trips at 2.4 x ILM (section 9.3.3).
+- CSS from SS to GND sets the input settling time and the output soft-start slew (section
+  9.3.1); Table 9-1: 100 nF gives 780 / 800 / 880 V/s at VIN 5 / 12 / 20 V.
+- Low-ESR X5R/X7R bypass capacitors on IN1, IN2 and OUT, close to the pins (section 11). A
+  hot-plugged input may need a TVS against cable ringing (section 10.7, Figure 10-22).
+"""
+
+# Section 7.3, p6: recommended operating conditions.
+IN1 = io(Power(voltage="2.8V to 22V"))
+IN2 = io(Power(voltage="2.8V to 22V"))
+OUT = io(Power(voltage="0V to 22V"))
+GND = io(Ground)
+PR1 = io(Net)
+CP2 = io(Net)
+OV1 = io(Net)
+OV2 = io(Net)
+ST = io(Net)
+ILM = io(Net)
+SS = io(Net)
+
+Component(
+    name="TPS2121",
+    prefix="U",
+    symbol=Symbol(library="TPS2121.kicad_sym"),
+    footprint=File("Texas_RUX0012A_VQFN-HR-12_2x2.5mm_P0.5mm.kicad_mod"),
+    part=Part(mpn="TPS2121RUXR", manufacturer="Texas Instruments"),
+    pins={
+        "OUT": OUT,
+        "IN2": IN2,
+        "CP2": CP2,
+        "OV2": OV2,
+        "OV1": OV1,
+        "PR1": PR1,
+        "IN1": IN1,
+        "ST": ST,
+        "ILM": ILM,
+        "SS": SS,
+        "GND": GND,
+    },
+)

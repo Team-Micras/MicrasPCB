@@ -1,0 +1,45 @@
+"""AO3401A - -30 V, -4 A P-channel MOSFET, SOT-23 (Alpha & Omega Semiconductor).
+
+Datasheet: AOS AO3401A Rev 3.1 (December 2023), 5 pages (LCSC C15127 copy).
+
+Pins: SOT23 top view (p.1): pin 1 gate, pin 2 source, pin 3 drain. The footprint is KiCad's
+SOT-23 (JEDEC TO-236 variant AB): pad 1 (gate) at (-0.9375, -0.95), pad 2 (source) at
+(-0.9375, 0.95), pad 3 (drain) at (0.9375, 0).
+
+Absolute maximum ratings (p.1, TA 25 C):
+- VDS -30 V; VGS +-12 V.
+- ID -4 A at TA 25 C, -3.2 A at TA 70 C; IDM -27 A pulsed.
+- PD 1.4 W at TA 25 C, 0.9 W at TA 70 C.
+- TJ, TSTG -55 to 150 C. RthJA 90 C/W max (t <= 10 s), 125 C/W max steady state;
+  RthJL 80 C/W max.
+
+Electrical characteristics (p.2, TJ 25 C):
+- VGS(th) -0.5 / -0.9 / -1.3 V (VDS = VGS, ID -250 uA).
+- RDS(on) typ / max: 41 / 50 mohm at VGS -10 V (ID -4 A); 47 / 60 mohm at VGS -4.5 V
+  (ID -3.5 A); 60 / 85 mohm at VGS -2.5 V (ID -2.5 A).
+- IGSS +-100 nA max at VGS +-12 V; IDSS -1 uA max at VDS -30 V (-5 uA at TJ 55 C).
+- Ciss 645 pF, Crss 55 pF; Qg 7 nC at VGS -4.5 V; Rg 4 / 7.8 / 12 ohm.
+- Body diode VSD -0.7 typ / -1 V max at IS -1 A; IS -2 A continuous. The body diode's anode
+  is the drain and its cathode the source: with the gate off the part still conducts from
+  drain to source and blocks from source to drain.
+
+Application: high-side switch (source on the supply). The gate drive and any gate pull belong
+to the integrator.
+"""
+
+G = io(Net)
+S = io(Net)
+D = io(Net)
+
+Component(
+    name="AO3401A",
+    symbol=Symbol(library="AO3401A.kicad_sym"),
+    footprint=File("SOT-23.kicad_mod"),
+    part=Part(mpn="AO3401A", manufacturer="Alpha & Omega Semiconductor"),
+    prefix="Q",
+    pins={
+        "G": G,
+        "S": S,
+        "D": D,
+    },
+)

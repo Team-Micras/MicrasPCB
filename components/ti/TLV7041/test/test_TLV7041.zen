@@ -1,0 +1,40 @@
+"""TLV7041 package facts: pinout (SLVSE13J Table 4-1, SOT-23) and part data."""
+
+CMP = Module("../TLV7041.zen")
+
+
+def part(module):
+    return module.components()["TLV7041"]
+
+
+def orderable_part(module, inputs):
+    c = part(module)
+    check(c.mpn == "TLV7041DBVR", "MPN must be TLV7041DBVR, got " + str(c.mpn))
+    check(c.prefix == "U", "reference prefix must be U")
+
+
+def pinout(module, inputs):
+    # Table 4-1: 1 OUT, 2 V-, 3 IN+, 4 IN-, 5 V+ (SOT-23).
+    pins = part(module).pins
+    check(sorted(pins.keys()) == ["+", "-", "OUT", "V+", "V-"], "pins: " + str(sorted(pins.keys())))
+    check(pins["+"].name == "REF", "IN+ must be the IN_P io")
+    check(pins["-"].name == "SENSE", "IN- must be the IN_N io")
+    check(pins["OUT"].name == "OUT_N", "OUT must be the OUT io")
+    check(pins["V+"].name == "V3V3", "V+ must be the VCC io")
+    check(pins["V-"].name == "GND", "V- must be the GND io")
+
+
+TestBench(
+    name="TLV7041_pins",
+    module=CMP,
+    test_cases={
+        "3v3": {
+            "VCC": Power("V3V3", voltage="3.3V"),
+            "GND": Ground("GND"),
+            "IN_P": Net("REF"),
+            "IN_N": Net("SENSE"),
+            "OUT": Net("OUT_N"),
+        },
+    },
+    checks=[orderable_part, pinout],
+)
