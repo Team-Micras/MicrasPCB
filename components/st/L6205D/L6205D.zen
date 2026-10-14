@@ -1,0 +1,104 @@
+"""L6205D - DMOS dual full-bridge driver, SO20 (STMicroelectronics L6205D013TR).
+
+Datasheet: ST L6205 "DMOS dual full bridge driver", September 2003, 21 pages
+(LCSC C962257 copy). Page numbers below refer to that document.
+
+Package: SO20 (16+2+2), ordering code L6205D (p.1). Pin numbers follow the
+SO20/PowerDIP20 column of the pin description (p.4). The PowerSO20 part
+(L6205PD) numbers the same functions differently (IN1A on pin 6, GND on 1, 10,
+11, 20), so it is not a drop-in substitute for this symbol and footprint.
+
+Absolute maximum ratings (p.2):
+- VS (VSA = VSB): 60 V. VOD between the bridge A and bridge B power pins: 60 V.
+- VBOOT: VS + 10 V.
+- VIN, VEN (IN1x, IN2x, ENx): -0.3 to +7 V.
+- VSENSEA, VSENSEB: -1 to +4 V.
+- IS(peak) per VS pin, tPULSE < 1 ms: 7.1 A (limited by the overcurrent
+  protection). IS RMS per VS pin: 2.8 A.
+- Tstg, TOP: -40 to 150 C.
+
+Recommended operating conditions (p.2):
+- VS: 8 to 52 V (also p.1 "operating supply voltage from 8 to 52 V" and
+  Figure 11 "VS 8-52VDC"). VSENSE DC: -1 to +1 V (pulsed, tW < trr: -6 to +6 V).
+- IOUT RMS: 2.8 A. Tj: -25 to +125 C. fsw: up to 100 kHz.
+
+Electrical characteristics (p.5-6, Tamb 25 C, VS 48 V):
+- UVLO: VSth(ON) 6.6 / 7 / 7.4 V, VSth(OFF) 5.6 / 6 / 6.4 V.
+- RDS(ON) at 25 C: high side 0.34 typ / 0.4 max ohm, low side 0.28 / 0.34 ohm.
+- Logic inputs: VIL max 0.8 V, VIH min 2 V; Vth(ON) 1.8-2.0 V, Vth(OFF)
+  0.8-1.3 V; IIL/IIH +-10 uA. 3.3 V CMOS logic drives them.
+- Overcurrent threshold ISOVER (sum per bridge, high side): 4 / 5.6 / 7.1 A.
+  Open-drain ON resistance on ENx: 40-60 ohm at 4 mA.
+- Dead time 0.5-1 us. Charge-pump frequency 0.6-1 MHz. Thermal shutdown
+  165 C typ (p.5, p.11).
+- Thermal (p.3): SO20 Rth(j-a) 51 C/W with 6 cm2 of bottom copper, 77 C/W
+  with no heat-sinking copper; Rth(j-pins) 14 C/W. The GND pins 5, 6, 15, 16
+  are the heat path to the PCB (p.4).
+
+Truth table (p.8): EN low -> both outputs high-Z; EN high: IN1/IN2 = L/L ->
+GND/GND, H/L -> VS/GND, L/H -> GND/VS, H/H -> VS/VS.
+
+Required external parts (integrator-owned, p.8 Table 1, Figure 3; p.12 Table 2,
+Figure 11):
+- Charge pump: D1 (1N4148) from VS to the pump node, D2 (1N4148) from the pump
+  node to VBOOT, CBOOT 220 nF from VBOOT to VS, RP 100 ohm + CP 10 nF in series
+  from the pump node to VCP. VCP is a 10 V, 600 kHz square wave (p.8).
+- ENA, ENB: driven through REN 2.2 k to 180 k (100 k recommended) with CEN to
+  GND (5.6 nF recommended), push-pull drive as in Figure 6 or open-drain with
+  pull-up as in Figure 5 (p.4 note 6, p.8). The OCD and thermal protection pull
+  ENx low through an open-drain MOSFET, so an ENx pin must never be driven
+  directly from a push-pull output. An unused EN goes to +5 V through a
+  resistor (p.4).
+- VS decoupling: a 100-200 nF ceramic between VSA/VSB and GND near the IC,
+  plus bulk (Table 2: C1 100 uF, C2 100 nF) (p.12).
+- SENSEA, SENSEB: to power ground directly or through a sensing resistor
+  (p.4), with the shortest possible trace (p.12). There is no internal
+  current regulator on SENSE; the only current protection is the high-side
+  OCD (p.9).
+- VSA and VSB must be tied to the same supply (p.4): this package exposes one
+  VS io for both.
+"""
+
+VS = io(Power(voltage="8V to 52V"))
+GND = io(Ground)
+VBOOT = io(Net)
+VCP = io(Net)
+IN1A = io(Net)
+IN2A = io(Net)
+ENA = io(Net)
+IN1B = io(Net)
+IN2B = io(Net)
+ENB = io(Net)
+OUT1A = io(Net)
+OUT2A = io(Net)
+SENSEA = io(Net)
+OUT1B = io(Net)
+OUT2B = io(Net)
+SENSEB = io(Net)
+
+Component(
+    name="L6205D",
+    symbol=Symbol(library="L6205D.kicad_sym"),
+    footprint=File("SOIC127P1032X265-20N.kicad_mod"),
+    part=Part(mpn="L6205D013TR", manufacturer="STMicroelectronics"),
+    prefix="IC",
+    pins={
+        "IN1A": IN1A,
+        "IN2A": IN2A,
+        "SENSEA": SENSEA,
+        "OUT1A": OUT1A,
+        "GND": GND,
+        "OUT1B": OUT1B,
+        "SENSEB": SENSEB,
+        "IN1B": IN1B,
+        "IN2B": IN2B,
+        "ENB": ENB,
+        "VBOOT": VBOOT,
+        "OUT2B": OUT2B,
+        "VSB": VS,
+        "VSA": VS,
+        "OUT2A": OUT2A,
+        "VCP": VCP,
+        "ENA": ENA,
+    },
+)
