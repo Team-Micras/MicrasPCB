@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
-from . import checks, jlc, lvs, mech, outputs
+from . import checks, jlc, lvs, mech, outputs, previous
 from .paths import boards
 
 
@@ -32,10 +33,23 @@ def main(argv: list[str] | None = None) -> int:
     board_cmd("outputs", "review outputs: schematic PDF/SVG, layer SVGs, 3D renders, GLB/STEP")
     p = sub.add_parser("parts", help="check parts/jlc.toml covers every board")
     p.add_argument("--online", action="store_true", help="also query JLCPCB stock and library type")
+    p = sub.add_parser("previous", help="the previous main board revision: snapshot and connectivity comparison")
+    psub = p.add_subparsers(dest="action", required=True)
+    s = psub.add_parser("snapshot", help="write boards/main/previous/board.json from the previous revision")
+    s.add_argument(
+        "--source", type=Path, help="previous revision directory (default: $MICRAS_PREVIOUS, else ../hw_debug)"
+    )
+    s.add_argument("--check", action="store_true", help="verify only; fail if board.json is stale")
+    s = psub.add_parser("compare", help="new board connectivity vs the previous revision + boards/<board>/changes.toml")
+    s.add_argument("board")
 
     a = ap.parse_args(argv)
     if a.cmd == "parts":
         return jlc.check_parts(a.online)
+    if a.cmd == "previous":
+        if a.action == "snapshot":
+            return previous.snapshot(a.source, check=a.check)
+        return previous.compare(a.board)
     status = 0
     for b in a.boards or boards():
         print(f"== {a.cmd} {b}")
