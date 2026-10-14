@@ -43,7 +43,10 @@ ORING = {
     "TPS2121": (
         ("IN1", "IN2"),
         "OUT",
-        "back-to-back FETs per channel with always-on reverse current blocking (SLVSEA3F 9.3.6)",
+        "each channel is a back-to-back FET pair with opposed body diodes (SLVSEA3F Figure 9-2), on only "
+        "for the selected valid input: with no input above UVLO OUT is Hi-Z (Table 9-3), an off channel leaks "
+        "at most 1 uA at 25 C, 5 uA to 85 C, for |VINx - VOUT| <= 5 V (Table 7.5, ILK), and the selected "
+        "channel blocks a back-driven output (section 9.3.6)",
     ),
 }
 # Connectors a supply arrives on: (designator, pin, what drives it).
@@ -160,4 +163,59 @@ def test_debug_supplies_do_not_reach_the_motor_supplies():
         for part, out in oring_in.get(net, []):
             if out == vbat:
                 problems.append(f"{ref} {pin} ({what}) reaches {vbat} through {part}")
+    assert not problems, "\n".join(problems)
+
+
+# Parts that conduct DC both ways between their two pads.
+DC_THROUGH = ("inductor", "ferritebead")
+
+
+def test_debug_supply_back_feed_stops_at_the_mux():
+    # In a debug mode a supply reaches nets beyond the one it feeds by every path that conducts
+    # current: forwards through ORing parts and regulators, backwards through a regulator's
+    # reverse path (REGULATORS) and an ORing part not wired to block, and through inductors and
+    # ferrite beads. With the SWD probe alone, 3V3 lifts VSYS through IC7's high-side body diode
+    # (DS13554 Figure 19) to about 2.6-2.9 V; U4 has no input above UVLO then and holds OUT Hi-Z
+    # (SLVSEA3F Table 9-3), so VSYS must end there. Neither debug supply may reach another
+    # off-board supply: the battery net would start the boost (hw_debug/schematic_review.md C3),
+    # and a sink must not drive VBUS (NOT_DRIVEN).
+    d = design("main")
+    edges: dict[str, list[tuple[str, str]]] = {}
+
+    def edge(a, b, how):
+        if a and b and a != b:
+            edges.setdefault(a, []).append((b, how))
+
+    for mpn, (pin_in, pin_out, reverse) in REGULATORS.items():
+        for ref in d.refs(mpn):
+            edge(d.net(ref, pin_in), d.net(ref, pin_out), f"{ref} {pin_in}->{pin_out}")
+            if reverse:
+                edge(d.net(ref, pin_out), d.net(ref, pin_in), f"{ref} {pin_out}->{pin_in} ({reverse})")
+    for mpn, (pins_in, pin_out, _) in ORING.items():
+        for ref in d.refs(mpn):
+            for p in pins_in:
+                edge(d.net(ref, p), d.net(ref, pin_out), f"{ref} {p}->{pin_out}")
+                if not _oring_check(d, ref, mpn):
+                    edge(d.net(ref, pin_out), d.net(ref, p), f"{ref} {pin_out}->{p}, not wired to block")
+    for ref in d.bom:
+        if d.kind(ref) in DC_THROUGH:
+            nets = sorted(set(d.nets_of(ref).values()))
+            if len(nets) == 2:
+                edge(nets[0], nets[1], ref)
+                edge(nets[1], nets[0], ref)
+    supplies = {d.net(r, pin): what for r, pin, what in OFF_BOARD}
+    problems = []
+    for ref, pin, what in OFF_BOARD[1:]:
+        start = d.net(ref, pin)
+        path = {start: []}
+        todo = [start]
+        while todo:
+            n = todo.pop()
+            for m, how in edges.get(n, []):
+                if m not in path:
+                    path[m] = path[n] + [how]
+                    todo.append(m)
+        for net, other in supplies.items():
+            if net != start and net in path:
+                problems.append(f"{what} reaches {net} ({other}) through " + " -> ".join(path[net]))
     assert not problems, "\n".join(problems)

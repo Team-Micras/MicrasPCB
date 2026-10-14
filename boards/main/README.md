@@ -26,7 +26,7 @@ compare main` checks the netlist and its net names against that design's connect
 | [`firmware.toml`](firmware.toml) | | the firmware's pin map, supply setting, battery channel and drive duties, from MicrasFirmware (`micras-pcb firmware snapshot`) |
 | [`firmware_changes.toml`](firmware_changes.toml) | | the firmware changes this board needs (see [Firmware changes](#firmware-changes)) |
 | [`test/`](test) | | `pcb test` benches of the board's circuit: MCU, power, drivers, peripherals |
-| [`layout/`](layout) | | KiCad project; the `.kicad_pcb` holds placement and routing; `fixes.py` and `router.py` place and route the review fixes on it, `refine.py` and `usb_wall.py` the owner's layout decisions, `finish.py` the previous revision's pour and teardrop settings on the result |
+| [`layout/`](layout) | | KiCad project; the `.kicad_pcb` holds placement and routing; `fixes.py` and `router.py` place and route the review fixes on it, `refine.py` and `usb_wall.py` the owner's layout decisions, `finish.py` the previous revision's pour and teardrop settings on the result, `rail_silk.py` U6's rail capacitor and the designator size |
 | [`previous/`](previous) | | the previous revision's connectivity snapshot, and the scripts that build the layout from that revision (`transfer_layout.py`, `rework.py`) |
 | [`spec/main.toml`](../../spec/main.toml) | | mechanical interface: thickness, axle origin, extents, screw holes, encoder slots, USB-C peg holes, fan hole, wheel notches |
 
@@ -64,12 +64,31 @@ Power modes:
 - **USB**: VBUS reaches the buck through U4 (1.5 A of 3V3). VBAT stays at 0 V, so the boost, the
   bridges, the fan driver and the addressable LEDs are off: the motors cannot run.
 - **SWD probe**: the probe's 3.3 V reaches 3V3 through U5 (an ST-Link V2 clone drives its 3.3 V
-  regulator on this pin). The buck's body diode lifts VSYS, which U4 keeps from VBAT and +5V:
-  VBAT stays at 0 V, and the motors cannot run.
+  regulator on this pin). VBAT stays at 0 V, and the motors cannot run. The buck's high-side body
+  diode (DS13554 Figure 19) lifts VSYS to 3V3 less a diode drop, about 2.6-2.9 V, as the owner
+  measured on the previous board; this is known and accepted:
+  - U4 keeps VSYS from VBAT and +5V. With neither input above its UVLO (2.4-2.8 V, SLVSEA3F
+    Table 7.5) its output is Hi-Z (Table 9-3), and each channel is a back-to-back FET pair with
+    opposed body diodes (Figure 9-2) that leaks at most 1 uA at 25 C, 5 uA up to 85 C, for
+    |VINx - VOUT| <= 5 V (Table 7.5, ILK). Into the VBAT divider R44/R45 (127 kOhm) and the VBUS
+    divider R47/R48 (115 kOhm) that is at most 0.13 V at 25 C and 0.64 V at 85 C, below every
+    UVLO there (the boost's VIN UVLO rises at 2.6 V typical, SLVSDA7E section 7.5).
+  - VSYS carries only C52/C53 (11 uF) besides U4 and IC7. The probe charges them once, about
+    30 uC on top of the 237 uC of 3V3's 71.8 uF, through IC7's diode while 3V3 ramps (U5 has no
+    current limit; the probe's regulator sets the ramp). After that it supplies only U4's
+    leakage and IC7's input current, microamps.
+  - IC7 is outside its datasheet in this state: SW sits above VIN + 0.3 V (DS13554 Table 3,
+    absolute maximum) while the body diode conducts, and VSYS is below the 3.5 V minimum input
+    but within the 2.3-3.3 V spread of the VCC UVLO rising threshold (Table 6), with EN on VSYS.
+    The bench item under [Open items](#open-items) checks that it stays off.
+  `tests/test_power_tree.py::test_debug_supply_back_feed_stops_at_the_mux` follows every path
+  that conducts from the probe and the USB VBUS (regulators both ways where they have a reverse
+  path, ORing parts forwards, inductors and ferrites) and fails if one reaches another off-board
+  supply.
 
 With two sources at once each one blocks the other: U4 selects the battery over USB, U5 conducts
 only while the probe's supply is above 3V3, and the L6981C33 neither sinks current nor switches
-while 3V3 is above its set point (DS13554 sections 6.4.1, 6.6.1). `tests/test_power_tree.py`
+while 3V3 is above its LCM threshold, 1.8 % over its set point (DS13554 sections 6.4.1, 6.6.1). `tests/test_power_tree.py`
 checks the tree: one regulated source per net besides ORing parts, no regulator's reverse path
 reaching a load, and no debug supply reaching the battery net.
 
@@ -118,7 +137,8 @@ Bluetooth module (`boards/bluetooth`), whose HM-19 talks to UART4 on the D+/D- c
 PA11 RX) and takes its supply from SBU. D+/D- run on plain copper from U2 to the MCU: the PHY has
 the D+ pull-up and the driver impedance (DS13311 Table 118 note 2). U6 (USBLC6-2SC6) clamps both
 lines at the receptacle, in line: each line enters U6 on one pad and leaves on its twin (pads 6/1
-for D+, 4/3 for D-; DocID 11265 Rev 5, Figure 18). PA11 idles high with the module unplugged
+for D+, 4/3 for D-; DocID 11265 Rev 5, Figure 18). C79 100 nF bypasses its 3V3 rail pin to GND
+(Figure 18: CBUS = 100 nF). PA11 idles high with the module unplugged
 through the firmware's pull-up (see [Firmware changes](#firmware-changes)).
 
 SBU carries 3V3 only while the module is plugged in: USB Type-C R2.0 section 4.3 (Table 4-28)
@@ -204,7 +224,9 @@ connector P1, brings C15 to IC1 pad 51 and puts the reference designators on the
 detector and gives Wall_Sensor_2 its short path over IC1's top corner, and
 [`layout/finish.py`](layout/finish.py) gives the result the zone and mask settings that
 `previous/transfer_layout.py` gives a fresh transfer, clears what the 2512 shunts' pads touch and
-removes the teardrops that are left on their own or make copper slivers. Each runs once.
+removes the teardrops that are left on their own or make copper slivers;
+[`layout/rail_silk.py`](layout/rail_silk.py) places U6's rail capacitor C79 and sets every
+reference designator to 0.5 mm / 0.125 mm. Each runs once.
 
 | Layer | Use |
 |---|---|
@@ -277,7 +299,10 @@ The review fixes in the layout (KiCad coordinates):
   U2 into the coupled run to IC1 (0.2248 / 0.127 mm, 90 Ohm on this stack). Three 0.8 mm bumps
   on D-'s B.Cu run match the pair: 122.8 / 124.5 mm (D+ / D-) through U2's A-row contacts,
   123.8 / 122.0 mm through the B row. U6's 3V3 pad takes the feed from above down the package's
-  centre line, its GND pad a via under the body. D8 sits in the strip right of U2, with vias to
+  centre line, its GND pad a via under the body. C79, U6's rail capacitor, stands above U6
+  between C43 and the R36-R38 column, on that feed 4.5 mm of track from pad 5 (the D+ run right
+  of U6 and the receptacle below leave no shorter way in); its GND pad joins R37's GND via,
+  0.9 mm away. D8 sits in the strip right of U2, with vias to
   the In2.Cu +5V plane and In1.Cu; R50 below the pair's vias, on CC1 from R6.
 - **SBU supply**: F1 sits right of Q7; SBU_PWR runs from the SBU contacts' B.Cu joint along under
   the receptacle, up the strip right of it and on to F1. U7 with R52-R54 and C78 sits between
@@ -334,12 +359,11 @@ The review fixes in the layout (KiCad coordinates):
 - **Clean-up**: the outline's six 1-10 nm lines, the zero-length tracks, stubs left by the changed
   nets, and teardrops that left copper slivers against a twin are gone. U2's outer GND pads are
   1.19 mm long, 0.22 mm from the USB-C peg holes.
-- **Silkscreen**: every reference designator is on F.Silkscreen, 0.6 mm high with a 0.15 mm stroke,
-  clear of pads, of other silkscreen and of the board edge, off the part bodies wherever a spot
-  allows (C64's sits on U5). The 0.15 mm stroke is the one the owner found legible on a
-  fabricated board (0.154 mm at 0.5 mm high); KiCad's stroke font caps the stroke at a quarter of
-  the text size, so 0.6 mm is the smallest size that carries it. The board allows 0.5 mm / 0.15 mm text
-  (`main.zen` Silkscreen, `rules/kicad-severities.toml`), an accepted trade-off against JLCPCB's
+- **Silkscreen**: every reference designator is on F.Silkscreen, 0.5 mm high with a 0.125 mm
+  stroke (the owner's choice), clear of pads, of other silkscreen and of the board edge, off the
+  part bodies wherever a spot allows (C64's sits on U5). The board's minimum is the same
+  0.5 mm / 0.125 mm (`main.zen` Silkscreen, `rules/kicad-severities.toml`; KiCad's stroke font
+  caps the stroke at a quarter of the text size), an accepted trade-off against JLCPCB's
   legibility guarantee from 1.0 mm high and 0.153 mm stroke.
 
 Copper of the changes C1 and C2 (KiCad coordinates, as in `rework.py`):
@@ -413,6 +437,7 @@ Requirements without a check, and why:
 - [ ] MicrasHardware: re-export `ref/board.step` and `ref/board_boxes.json` from this board and
       re-run `tools/check_layout.py` (the parts in the table under [Layout](#layout) moved, and
       the SBU detector's are new); keep the left edge clear for the SWD cable at x = 23 mm.
-- [ ] Bench: confirm the L6981C33 does not lift VSYS above the probe's 3.3 V in the SWD probe mode
-      (the datasheet is silent on a back-powered output; review C3); SBU switching on with the
-      module either way up, and staying off with a USB host, a C-to-C cable and an audio adapter.
+- [ ] Bench: in the SWD probe mode, VSYS at 3V3 less a diode drop and no switching on IC7's SW
+      node (DS13554 does not cover VIN below 3.5 V with the output held up; see
+      [Power](#power)); SBU switching on with the module either way up, and staying off with a
+      USB host, a C-to-C cable and an audio adapter.
