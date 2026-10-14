@@ -1,0 +1,92 @@
+"""USB-C receptacle U2 and the user-interface parts.
+
+Sources: USB Type-C Cable and Connector Specification Release 2.0 (August 2019), ST AN4879
+Rev 12 (USB hardware guidelines), Fusheng FUET-5030 specification (2018-08-28), Hongjiacheng
+1N4148W Rev 2.0.
+"""
+
+load("./helpers.zen", "eng", "index", "net", "ohms", "other_net", "refs_on", "report", "touching", "two_terminal")
+
+MAIN = Module("../main.zen")
+
+USBC = "U2"
+
+
+def usb_c_sink_terminations(module, inputs):
+    # Type-C R2.0 section 4.5.1.3.2 and Table 4-25 p236: a sink presents Rd = 5.1 kOhm to GND on
+    # each CC pin (+-20 %, or +-10 % to detect the source's current capability).
+    b = index(module)
+    p = []
+    for pin in ["CC1", "CC2"]:
+        rd = [
+            r for r in two_terminal(b, "resistor", net(b, USBC, pin), "GND") if abs(ohms(b, r) - 5.1e3) <= 0.1 * 5.1e3
+        ]
+        if len(rd) != 1:
+            p.append("U2 " + pin + " needs one 5.1 kOhm Rd to GND, found " + str(rd))
+    report(p)
+
+
+def usb_c_sbu_open(module, inputs):
+    # Type-C R2.0 section 4.3 p139: "The SBU pins on a port shall either be open circuit or have
+    # a weak pull-down to ground no stronger than zSBUTermination", Table 4-28 p236: >= 950 kOhm.
+    # A full-featured cable wires SBU through to the other port (an Alternate Mode host, an Audio
+    # Adapter Accessory), which must not find a supply there.
+    b = index(module)
+    p = []
+    for pin in ["SBU1", "SBU2"]:
+        sbu = net(b, USBC, pin)
+        for r in refs_on(b, sbu):
+            if r == USBC:
+                continue
+            c = b.parts[r]
+            if c.type == "resistor" and other_net(b, r, sbu) == "GND" and ohms(b, r) >= 950e3:
+                continue
+            p.append(
+                "U2 "
+                + pin
+                + " ("
+                + sbu
+                + ") connects to "
+                + r
+                + " ("
+                + ", ".join([n.name for n in c.pins.values()])
+                + ")"
+            )
+    report(sorted(set(p)))
+
+
+def usb_esd_protection(module, inputs):
+    # AN4879 section 2.3 p9-10: protection against ESD is needed (IEC 61000-4-2); dedicated
+    # components are placed as close as possible to the receptacle, Table 11 lists for USB FS a
+    # USBLC6-2 on D+/D- and an ESDA7P60-1U1M on VBUS. The receptacle is user-accessible. A
+    # protection part is a stdlib Tvs/Zener or a package that declares type "tvs" or "esd".
+    b = index(module)
+    p = []
+    for pin in ["D+", "D-", "VBUS"]:
+        line = net(b, USBC, pin)
+        clamps = [
+            r
+            for r in refs_on(b, line)
+            if b.parts[r].type in ["tvs", "zener", "esd"] and "GND" in [n.name for n in b.parts[r].pins.values()]
+        ]
+        if not clamps:
+            p.append("U2 " + pin + " (" + line + ") has no ESD protection to GND")
+    report(p)
+
+
+def buzzer_flyback_diode(module, inputs):
+    # The FUET-5030 is an electromagnetic (coil) buzzer driven by a low-side switch (FUET-5030
+    # specification p2, coil 12 +- 3 Ohm). A diode across the coil, cathode on the supply, clamps
+    # the switch-off spike.
+    b = index(module)
+    supply, coil = net(b, "BZ1", "+"), net(b, "BZ1", "-")
+    clamps = [r for r in refs_on(b, coil) if r.startswith("D") and net(b, r, "A") == coil and net(b, r, "K") == supply]
+    report([] if clamps else ["BZ1 has no flyback diode from " + coil + " to " + supply])
+
+
+TestBench(
+    name="main_peripherals",
+    module=MAIN,
+    test_cases={"board": {}},
+    checks=[usb_c_sink_terminations, usb_c_sbu_open, usb_esd_protection, buzzer_flyback_diode],
+)

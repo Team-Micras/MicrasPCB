@@ -1,0 +1,39 @@
+"""Board-level circuit checks of the encoder board (the AS5047U's own are in its package bench)."""
+
+ENCODER = Module("../encoder.zen")
+
+
+def capacitor_voltage_ratings(module, inputs):
+    # Every capacitor's rated voltage must cover the largest voltage across it, from the declared
+    # ranges of the nets it joins.
+    p = []
+    for path, c in module.components().items():
+        if c.type != "capacitor" or not hasattr(c, "voltage") or not c.voltage:
+            continue
+        vs = [n.voltage for n in c.pins.values()]
+        if len(vs) != 2 or not vs[0] or not vs[1]:
+            continue
+        worst = max(abs(vs[0].max - vs[1].min), abs(vs[1].max - vs[0].min))
+        if c.voltage.value < worst:
+            p.append(path + " rated " + str(c.voltage) + " sees up to " + str(worst) + " V")
+    check(len(p) == 0, "; ".join(p))
+
+
+def one_supply(module, inputs):
+    # The board takes 3V3 from the main board through the tab and has no regulator of its own:
+    # every supply pin sits on the tab's 3V3.
+    parts = {path.split(".")[-2]: c for path, c in module.components().items()}
+    tab = parts["TAB"].pins["VDD"].name
+    supplies = [n.name for pin, n in parts["SENSOR"].pins.items() if pin in ["VDD", "VDD3V3"]]
+    check(
+        len(supplies) == 2 and supplies[0] == tab and supplies[1] == tab,
+        "AS5047U supplies " + str(supplies) + " must be the tab's " + tab,
+    )
+
+
+TestBench(
+    name="encoder_board",
+    module=ENCODER,
+    test_cases={"board": {}},
+    checks=[capacitor_voltage_ratings, one_supply],
+)

@@ -7,7 +7,7 @@ CI.
 | Board | Status |
 |---|---|
 | `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.8 mm | routed, all checks clean, rotations not yet verified at JLCPCB |
-| `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | circuit done, same connectivity as the previous revision plus two declared changes; placement and routing not yet transferred |
+| `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | circuit done, same connectivity as the previous revision plus two declared changes; placement and routing not yet transferred; fails the design checks where that revision has faults ([known faults](boards/main/README.md#known-faults)) |
 | `bluetooth` | not started |
 
 ## How it fits together
@@ -18,7 +18,7 @@ spec/<board>.toml ──────────────┐ outline, tab, sp
 boards/<board>/<board>.zen ──> pcb apply ──> layout/<board>.kicad_sch   │
 components/**/*.zen             (Zener)      layout/<board>.kicad_pcb <─┘ placement + routing in KiCad
                                                      │
-          make check: build · tests · sync · spec · ERC · LVS · previous · DRC · DFM · pytest · parts
+          make check: build · warnings · tests · sync · spec · ERC · LVS · previous · DRC · DFM · pytest · parts
                                                      │
           make review: renders · schematic · layers · 3D · BOM · fab zip ──>  CI artifact
 ```
@@ -82,26 +82,34 @@ schematic preview of `.zen` files.
 
 ```sh
 make gen        # regenerate KiCad files from the sources (run after every source change)
-make check      # everything CI gates on
+make check      # every gate CI runs, with a pass/FAIL summary
 make review     # build/<board>/review and fab: schematic PDF, layer SVGs, renders, GLB/STEP, fab package
 make fab        # build/<board>/fab: JLCPCB gerbers zip, BOM and CPL
 pcb open boards/encoder/encoder.zen     # open the layout in KiCad
 make parts-online   # JLCPCB stock and basic/extended status (run before ordering)
 ```
 
+`make check` runs every gate below, even after one fails, then prints a pass/FAIL line per gate
+and fails if any gate failed.
+
 | Gate | Tool | Catches |
 |---|---|---|
-| build / fmt / sync | `pcb` | Zener errors, electrical type checks (voltage ranges, power pins), formatting, dependency drift |
-| test benches | `pcb test` | datasheet requirements per component (e.g. AS5047U TEST pin grounded, VDD/VDD3V3 tied, 100 nF) |
-| layout sync | `pcb layout --check` | layout no longer matches the netlist |
-| spec drift | `micras-pcb mech --check` | outline or spec-placed parts moved |
+| build | `pcb` | Zener errors, electrical type checks (power pins), formatting, dependency drift |
+| warnings | `pcb build -D warnings` | a build warning: a net outside a part's declared operating range, a capacitor rated below its net |
+| test | `pcb test` | datasheet requirements: per component (`components/**/test/`) and per board (`boards/<board>/test/`: application circuits, values computed with the datasheet equations) |
+| layout-check | `pcb layout --check`, `micras-pcb rules/mech --check` | layout no longer matches the netlist, rules or spec drift |
 | ERC | `kicad-cli sch erc` | schematic electrical rules; `boards/<board>/erc.toml` names the nets supplied from off the board (the PWR_FLAG role) |
 | LVS | `micras-pcb lvs` | schematic and PCB connect different pads |
 | previous | `micras-pcb previous compare main` | the main board connects anything differently from its previous revision, except the changes in `boards/main/changes.toml` |
-| DRC | `kicad-cli pcb drc` + `rules/jlcpcb.kicad_dru` | JLCPCB clearances, widths, drills, edge distances |
+| DRC | `kicad-cli pcb drc` + `rules/jlcpcb.kicad_dru` | JLCPCB clearances (copper, SMD pad to pad, hole to track), widths, drills, edge distances |
 | DFM | `pcb dfm` + `rules/jlcpcb-pdk.toml` | geometry-level manufacturability (Diode's sourced JLCPCB PDK) |
-| design tests | `pytest` | board contracts (encoder tab pinout), decoupling, single-pin nets, spec geometry |
+| pytest | `pytest` | board contracts (encoder joint, firmware pin map), power tree, decoupling at the pin, encoder slot fit, courtyards, paste, 3D models, part data |
+| lint | `ruff` | Python lint and format |
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
+
+The main board fails several of these by design: it replicates its previous revision, faults
+included, and [`boards/main/README.md`](boards/main/README.md#known-faults) gives the root cause of
+every failure.
 
 ## CI
 
@@ -132,11 +140,13 @@ pin-1 checks, placement and routing, and the fab order.
 ```text
 boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb is KiCad-owned, the rest generated)
 boards/main/previous/  snapshot of the previous main board revision (board.json) for the connectivity comparison
+boards/main/firmware.toml  the firmware's pin map and drive settings (from MicrasFirmware), tested against the board
+boards/<board>/test/   Zener test benches of the board's circuit
 components/<mfr>/<P>/  reusable Zener packages: symbol, footprint (STEP embedded), .zen, test bench, README
 spec/                  mechanical single source of truth per board
 parts/jlc.toml         MPN -> LCSC mapping
 rules/                 JLCPCB KiCad DRC rules, DFM PDK, KiCad rule severities
-tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, outputs, previous (`uv run micras-pcb --help`)
+tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, outputs, previous, firmware, layout (`uv run micras-pcb --help`)
 tests/                 pytest design tests
 ci/                    KiCad and toolchain install, for CI and local setup
 versions.env           pinned KiCad and Zener versions

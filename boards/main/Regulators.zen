@@ -12,7 +12,8 @@ Integrator parts per DS13554 Table 1 p3 and Table 2 p4:
 - C55 100 nF BOOT to SW (100 nF typ);
 - C54 1 uF on VCC (>= 1 uF);
 - L3 22 uH (YSPIA0645-220M, 4.5 A Isat). Ripple by Eq. 36: 0.26-0.28 A for VIN 11.1-12.6 V,
-  18 % of the 1.5 A rating, inside the 20-40 % guidance of section 8.4.2 p27;
+  18 % of the 1.5 A rating, below the 20-40 % target of section 8.4.2 p27 (a target, not a
+  limit: the Eq. 39 peak, 1.64 A, stays under the 2.0 A minimum current limit);
 - input: C52 10 uF + C53 1 uF next to IC7, besides the boost input bank on VBAT;
 - output: C56 220 uF 6.3 V 1206 and C57 22 uF 25 V on 3V3. Eq. 42/43 bound the output
   capacitance the internal compensation supports to 30.5-145 uF at 3.3 V.

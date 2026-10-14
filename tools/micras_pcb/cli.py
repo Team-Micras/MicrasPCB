@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import checks, jlc, lvs, mech, outputs, previous
+from . import checks, firmware, jlc, lvs, mech, outputs, previous
 from .paths import boards
 
 
@@ -43,9 +43,19 @@ def main(argv: list[str] | None = None) -> int:
     s = psub.add_parser("compare", help="new board connectivity vs the previous revision + boards/<board>/changes.toml")
     s.add_argument("board")
 
+    p = sub.add_parser("firmware", help="the firmware's pin map and drive settings as a committed contract")
+    fsub = p.add_subparsers(dest="action", required=True)
+    s = fsub.add_parser("snapshot", help="write boards/main/firmware.toml from MicrasFirmware")
+    s.add_argument(
+        "--source", type=Path, help="MicrasFirmware checkout (default: $MICRAS_FIRMWARE, else ../MicrasFirmware)"
+    )
+    s.add_argument("--check", action="store_true", help="verify only; fail if firmware.toml is stale")
+
     a = ap.parse_args(argv)
     if a.cmd == "parts":
         return jlc.check_parts(a.online)
+    if a.cmd == "firmware":
+        return firmware.snapshot(a.source, check=a.check)
     if a.cmd == "previous":
         if a.action == "snapshot":
             return previous.snapshot(a.source, check=a.check)

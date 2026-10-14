@@ -1,3 +1,5 @@
 [workspace]
 repository = "github.com/Team-Micras/MicrasPCB"
 pcb-version = "0.4"
+# Agent worktrees of this repository (Claude Code) are full checkouts with their own [workspace].
+exclude = [".claude/worktrees/**"]

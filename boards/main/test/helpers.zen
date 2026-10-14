@@ -1,0 +1,84 @@
+"""Netlist queries shared by the main board's test benches.
+
+A bench instantiates the whole board (main.zen) and its checks look parts up by designator: the
+instance names are the board's designators, so a failure message names the parts to change.
+"""
+
+
+def index(module):
+    """The board as designator -> component and net name -> [(designator, pin name)]."""
+    parts = {}
+    for path, c in module.components().items():
+        parts[path.split(".")[-2]] = c
+    nets = {}
+    for name, ports in module.nets().items():
+        nets[name] = [(path.split(".")[-2], pin) for path, pin in ports]
+    return struct(parts=parts, nets=nets)
+
+
+def net(b, ref, pin):
+    """Name of the net on pin `pin` of part `ref`."""
+    return b.parts[ref].pins[pin].name
+
+
+def refs_on(b, name):
+    return sorted(set([r for r, _ in b.nets.get(name, [])]))
+
+
+def nets_of(c):
+    return [n.name for n in c.pins.values()]
+
+
+def two_terminal(b, kind, a, z):
+    """Designators of `kind` parts ("capacitor", "resistor", ...) with one pin on net a, the other on z."""
+    out = []
+    for ref, c in b.parts.items():
+        if c.type != kind or c.dnp:
+            continue
+        ns = nets_of(c)
+        if len(ns) == 2 and ((ns[0] == a and ns[1] == z) or (ns[0] == z and ns[1] == a)):
+            out.append(ref)
+    return sorted(out)
+
+
+def touching(b, kind, name):
+    """Designators of `kind` parts with a pin on the net."""
+    return sorted([r for r in refs_on(b, name) if b.parts[r].type == kind and not b.parts[r].dnp])
+
+
+def other_net(b, ref, name):
+    """The net on the other pin of a two-terminal part `ref`, seen from net `name`."""
+    ns = nets_of(b.parts[ref])
+    return ns[1] if ns[0] == name else ns[0]
+
+
+def farads(b, ref):
+    return b.parts[ref].capacitance.value
+
+
+def ohms(b, ref):
+    return b.parts[ref].resistance.value
+
+
+def eng(x, unit):
+    """3.3e-07, "F" -> "330nF"."""
+    for scale, prefix in [(1e6, "M"), (1e3, "k"), (1, ""), (1e-3, "m"), (1e-6, "u"), (1e-9, "n"), (1e-12, "p")]:
+        if abs(x) >= scale * 0.9999:
+            s = str(int(x / scale * 100 + 0.5) / 100.0)
+            if s.endswith(".0"):
+                s = s[:-2]
+            return s + prefix + unit
+    return str(x) + unit
+
+
+def total(values):
+    """Sum of a list of numbers (Starlark has no sum())."""
+    t = 0.0
+    for v in values:
+        t += v
+    return t
+
+
+def report(problems):
+    """One failure listing every problem, so a single run names every part to change."""
+    check(len(problems) == 0, "; ".join(problems))
