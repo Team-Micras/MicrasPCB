@@ -97,6 +97,8 @@ The main board's side is in its own pull request (the review fixes, #13).
 2 copper layers, 35 um copper on a 0.7 mm FR-4 core, 0.79 mm with mask, from the Altium layer
 stack. Design rules: 0.1 mm clearance, 0.254 mm track, 0.6 / 0.3 mm and 0.5 / 0.3 mm vias, 0.2 mm
 copper to edge, the Altium JLCPCB rule set; `rules/jlcpcb.kicad_dru` adds JLCPCB's limits on top.
+ENIG finish, black solder mask and white silkscreen (Zener's 2-layer defaults, the owner's
+choice).
 
 ## Layout
 
@@ -137,7 +139,7 @@ still fails, on the main board's side of the joint:
 
 | Check (gate) | Fault | Requirement | Fix |
 |---|---|---|---|
-| `test_uart_rx_is_held_with_the_module_unplugged` (pytest) | with the module unplugged PA11 (UART4_RX) ends at an open contact: the firmware sets no pull and the main board has no resistor (m17) | a UART input idles high; a floating input feeds noise bytes to the circular DMA | 100 kOhm from PA11 to 3V3 on the main board (its review fixes, #13) |
+| `test_uart_rx_is_held_with_the_module_unplugged` (pytest) | with the module unplugged PA11 (UART4_RX) ends at an open contact: the firmware sets no pull and the main board has no resistor (m17) | a UART input idles high; a floating input feeds noise bytes to the circular DMA | the firmware enables PA11's internal pull-up (`GPIO_PULLUP`), declared in the main board's `firmware_changes.toml` (its review fixes, #13) |
 
 The main board's own checks (`usb_c_sbu_open`, M6) pass once its signature detector is in.
 
@@ -159,8 +161,6 @@ Requirements without a check, and why:
 
 ## Open items
 
-- [ ] Solder mask colour and surface finish: not recorded in the Altium design; the board uses the
-      2-layer defaults until they are confirmed.
 - [ ] Check every part's placement rotation in JLCPCB's assembly preview, then set
       `rotation_verified = true` in `parts/jlc.toml`.
 - [ ] The HM-19 (LCSC C9900145630) has no stock at JLCPCB: source and consign it.
