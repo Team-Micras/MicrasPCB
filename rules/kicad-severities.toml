@@ -6,7 +6,7 @@
 lib_symbol_issues = "ignore"
 # Footprints are embedded in the .kicad_pcb and kept in step by `pcb layout`. The library table pcb
 # writes at build time (layout/fp-lib-table) points into the toolchain and is not committed, so a
-# clean checkout (KiHub, a fresh clone) cannot resolve the links.
+# fresh clone, or any tool that reads only the committed files, cannot resolve the links.
 footprint_link_issues = "ignore"
 
 [drc]
