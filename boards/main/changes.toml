@@ -1,0 +1,20 @@
+# Connectivity changes of this board against the previous revision (boards/main/previous/board.json).
+# `micras-pcb previous compare main` applies them in order and requires the result to equal this
+# board's netlist. Format: tools/micras_pcb/previous.py.
+
+[[change]]
+id = "C1"
+review = "hw_debug/schematic_review.md C1"
+summary = "MCU VBAT pin (IC1 pin 1) on 3V3, with its C8 100 nF and C9 1 uF: AN5419 Table 2, VBAT on VDD without a backup battery"
+move = { "IC1.1" = "IC1.68", "C8.2" = "IC1.68", "C9.2" = "IC1.68" }
+
+[[change]]
+id = "C2"
+review = "hw_debug/schematic_review.md C2"
+summary = "VFBSMPS and VCAP1-3 on one VCORE net, 100 nF kept at each VCAP: AN5419 Fig. 5 Direct SMPS supply"
+merge = [["IC1.7", "IC1.33", "IC1.49", "IC1.66"]]
+
+[[change]]
+id = "TP"
+summary = "Test point designators get a number: a refdes is prefix + number, and these prefixes are the old names"
+rename_parts = { "FAN_PWM" = "FAN_PWM1", "FAN_ENABLE" = "FAN_ENABLE1", "FAN_OVERCURRENT" = "FAN_OVERCURRENT1", "20V" = "20V1" }

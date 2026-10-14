@@ -5,7 +5,7 @@ PCB := pcb +$(PCB_TOOLCHAIN)
 TOOL := uv run micras-pcb
 BOARDS := $(notdir $(patsubst %/pcb.toml,%,$(wildcard boards/*/pcb.toml)))
 
-.PHONY: help setup gen check build test layout-check erc lvs drc dfm pytest lint parts parts-online outputs fab review all clean
+.PHONY: help setup gen check build test layout-check erc lvs previous drc dfm pytest lint parts parts-online outputs fab review all clean
 
 help: ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-13s %s\n", $$1, $$2}'
@@ -41,6 +41,9 @@ erc: ## KiCad ERC on the generated schematics
 lvs: ## generated schematic vs PCB connectivity
 	$(TOOL) lvs
 
+previous: ## main board connectivity vs the previous revision + boards/main/changes.toml
+	$(TOOL) previous compare main
+
 drc: ## KiCad DRC with the JLCPCB rules
 	$(TOOL) drc
 
@@ -60,7 +63,7 @@ parts: ## every part mapped to an LCSC number
 parts-online: ## JLCPCB stock and basic/extended status for every part (run before ordering)
 	$(TOOL) parts --online
 
-check: build test layout-check erc lvs drc dfm pytest lint parts ## every gate CI runs
+check: build test layout-check erc lvs previous drc dfm pytest lint parts ## every gate CI runs
 
 outputs: ## review outputs (schematic, layers, renders, 3D)
 	$(TOOL) outputs
