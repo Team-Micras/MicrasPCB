@@ -13,7 +13,7 @@ connectivity ([`previous/board.json`](previous/board.json)) plus the changes dec
 
 | File | Sheet instance | Contents |
 |---|---|---|
-| [`main.zen`](main.zen) | root | IC1 (STM32H725RGV6) and its supply network (C1-C17, L1), SWD header P1, test points, board stackup and rules |
+| [`main.zen`](main.zen) | root | IC1 (STM32H725RGV6) and its supply network (C1-C17, L1), SWD header P1, test points, M2 screw holes H1-H4, board stackup and rules |
 | [`Regulators.zen`](Regulators.zen) | `REGULATORS` | J1 battery connector, battery switch SW4/Q6/R41, 3V3 buck IC7, 20 V boost U1, USB LDO U3 |
 | [`Drivers.zen`](Drivers.zen) | `DRIVERS` | IC5 (L6205D) bridges for M1/M2 with shunts R32/R33, IC6 (STSPIN958) fan driver for M3 with shunt R31 |
 | [`Sensors.zen`](Sensors.zen) | `SENSORS` | IC2 (LSM6DSV) IMU, IC3/IC4 (TSC2020) current amplifiers, wall sensors W1-W4 with Q2-Q5, encoder slots EC1/EC2 |
@@ -24,6 +24,8 @@ connectivity ([`previous/board.json`](previous/board.json)) plus the changes dec
 | [`firmware.toml`](firmware.toml) | | the firmware's pin map, supply setting, battery channel and drive duties, from MicrasFirmware (`micras-pcb firmware snapshot`) |
 | [`test/`](test) | | `pcb test` benches of the board's circuit: MCU, power, drivers, peripherals |
 | [`layout/`](layout) | | KiCad project; the `.kicad_pcb` holds placement and routing |
+| [`previous/`](previous) | | the previous revision's connectivity snapshot, and the scripts that build the layout from that revision (`transfer_layout.py`, `rework.py`) |
+| [`spec/main.toml`](../../spec/main.toml) | | mechanical interface: thickness, axle origin, extents, screw holes, encoder slots, USB-C peg holes, fan hole, wheel notches |
 
 Each sheet's docstring describes its circuit with the datasheet figure, table or equation behind
 each value.
@@ -90,6 +92,55 @@ mm finished, from the Altium layer stack. Design rules: 0.1 mm clearance, 0.254 
 0.45 / 0.3 mm vias (0.5 / 0.3 and 0.8 / 0.4 mm also used), 0.2 mm copper to edge, all from the
 Altium design rules; `rules/jlcpcb.kicad_dru` adds JLCPCB's limits on top.
 
+## Layout
+
+The layout is the Altium MicrasMainBoard.PcbDoc's, in the same KiCad coordinates: MicrasHardware
+and the firmware place the board by them, with the wheel-axle midpoint (between the encoder slots)
+at KiCad (148.5011, 113.5036). [`previous/transfer_layout.py`](previous/transfer_layout.py)
+builds it from the KiCad conversion of that PCB and [`previous/rework.py`](previous/rework.py)
+adds the copper of the two declared changes; running the script again changes nothing.
+
+| Layer | Use |
+|---|---|
+| F.Cu | every part (the board is single-sided), signal routing, power pours (VBAT, +20V, GND_BAT, 3V3, GND, fan outputs) |
+| In1.Cu | solid GND plane |
+| In2.Cu | power planes: 3V3 under the MCU and most of the front half; VBAT, +20V and +5V behind it, VBAT reaching forward on the right to the buck IC7; the VCORE route |
+| B.Cu | signal routing |
+
+Where things are, in the robot frame (x forward, y left, from the axle midpoint; `spec/main.toml`):
+
+- **Front** (x 30-54 mm): IC1 at x = 37, the wall sensors W1-W4 at the front corners, the LEDs
+  D1/D2/D4/D5 on the front edge, the buttons SW2/SW3/SW5.
+- **Middle** (x -10 to 30 mm): the IMU IC2 on the axle midpoint, the encoder slots EC1/EC2 at
+  y = -/+6.9, the wheel notches on both sides, the fan hole at x = 17.5 with the fan connector M3
+  and the buzzer BZ1 beside it, the 3V3 buck IC7/L3 and the USB LDO U3 front right, the DIP
+  switch SW1 and the SWD header P1 at the sides.
+- **Rear** (x below -5 mm): the current amplifiers IC3/IC4 and the shunts R31-R33 behind the axle,
+  the fan driver IC6, the boost U1/L2, the bridge IC5 with the motor connectors M1/M2 at the rear
+  corners, the battery connector J1 with the switch SW4/Q6 rear right, the USB-C receptacle U2 on
+  the rear edge.
+- **Screw holes** H1-H4 (2.4 mm, M2) at (2.5, +/-11.75) and (-15.5, +/-19.25).
+
+Resistors, ceramic capacitors and the LEDs D4/D5 use KiCad's generic footprints, each centred on
+its pads' positions in the Altium footprint: the routing lands on the same pad centres, up to
+0.12 mm from a pad's centre where the KiCad pad pitch differs (0805/1206 capacitors). The
+teardrops of the Altium design are plain copper zones (priorities 100 and up, above every pour):
+KiCad 10 does not save a teardrop zone's UUID and orders zones by UUID, so a board with teardrop
+zones changes on every save.
+
+Copper of the two changes (KiCad coordinates, as in `rework.py`):
+
+- **VBAT pin on 3V3 (C1).** IC1 pad 1 with C8 and C9 sits on a short top-layer cluster that reaches
+  the In2.Cu 3V3 plane through the via at (155.105, 75.582); a 0.2 mm top-layer bridge joins pad 1
+  to pad 68 (VDD) across the package corner, 0.2 mm from pads 2 and 67.
+- **VCORE (C2).** L1, C3 and C4 feed VFBSMPS (pad 7) on the top layer. A 0.5 mm In2.Cu route
+  carries the core current from the via beside C3/C4 to the three VCAP pins: down to a via on the
+  VCAP3 (pad 66, C5) track, under the package along y = 77.06 between the exposed pad's ground
+  vias, with a branch to VCAP2's via pair (pad 49, C6), and 0.4 mm on the last 2.7 mm to a via on
+  the VCAP1 (pad 33, C7) track. It runs as a tree, so the 3V3 plane flows around it. The VCAP3 via
+  keeps 0.13 mm from the bottom-layer Encoder_Right_CSn track, the widest spot between the pad 66
+  and pad 68 tracks.
+
 ## Known faults
 
 The board keeps its previous revision's circuit, so the design checks fail where that circuit is
@@ -126,11 +177,22 @@ the board's functions.
 | `test_every_smd_pad_of_an_assembled_part_has_paste[main]` (pytest) | U3's SOT-89 tab and centre lead (custom pad 2) has no F.Paste opening | reflow needs paste on every SMD pad | add F.Paste to the pad in `components/cj/CJA1117B` |
 | warnings | D1/D2 (WS2815C-2020, VDD 9.5-13.5 V) on 3V3: the LEDs never light (M13); +20V above 20 V (m2, as above) | WS2815C-2020-4P V1.0 p3 | supply D1/D2 from VBAT, or a 5 V LED with a 5 V rail and level shifter |
 
-The layout is not placed yet, so `layout-check` (its DRC: unrouted nets, overlapping parts),
-`drc` and `dfm` fail on main for that reason alone, and two tests skip until the board has an
-outline: `test_decoupling_sits_at_its_pin[main]` (every decoupling capacitor the datasheets ask
-for at a pin, within 3 mm) and `test_encoder_slots_take_the_encoder_tab` (the slot against the
-encoder tab, JLCPCB's 1.0 mm minimum non-plated slot and its rounded milling).
+The layout gates fail where the previous layout does:
+
+| Check (gate) | Cause |
+|---|---|
+| `invalid_outline` x 6 (layout-check, drc) | Edge.Cuts has six lines of 1-10 nm between arcs and lines of the outline, from the Altium conversion; KiCad reads the outline as malformed |
+| `tracks_crossing` x 2 (layout-check, drc) | zero-length GND and 3V3 track stubs on vias at KiCad (163.868, 71.137) and (144.045, 66.935): KiCad reports a zero-length segment as crossing the nearest track (Wall_Sensor_PWM_2, LED_Blue); the copper is 1 mm apart |
+| `copper_edge_clearance` x 2 (layout-check, drc), board-edge-to-copper (dfm) | U2's GND pads A1B12 and B1A12 sit 0.175 and 0.190 mm from the edge of the USB-C peg holes, below JLCPCB's 0.2 mm |
+| `courtyards_overlap` x 8 (layout-check, drc) | KiCad's generic R/C footprints have courtyards wider than the previous footprints' spacing: C44-C47, C48-C51, R39/R40, C3/C4 side by side |
+| copper feature width (dfm) | a teardrop outline overruns its track edge by 5 um and leaves a 5 um wide lip, at KiCad (147.56, 114.82) |
+| `test_decoupling_sits_at_its_pin[main]` (pytest) | C15 sits 5.0 mm from IC1 pad 51 (VDD), C6 3.7 mm from pad 49 (VCAP2), C25 7-10 mm from the VCC pins of IC3/IC4; the datasheets ask for each at its pin (within 3 mm) |
+| `test_encoder_slots_take_the_encoder_tab` (pytest) | the 0.90 mm encoder slots are below JLCPCB's 1.0 mm minimum non-plated slot, and milled corners keep the 5.0 mm tab from seating in a 5.10 mm slot |
+
+DRC warnings: silkscreen text 0.5 mm high and 0.076 mm thick (below 0.6 / 0.08 mm), silkscreen
+overlaps, U2/Q6/SW4 pads without paste, four zero-length track stubs, the WallSensor
+footprint's silkscreen reaching the board edge (`silk_edge_clearance`), and two copper slivers
+where a teardrop's outline overruns its track.
 
 Requirements without a check, and why:
 
@@ -151,9 +213,6 @@ Requirements without a check, and why:
 
 ## Open items
 
-- [ ] Placement, routing, zones, the outline (`spec/main.toml`), the encoder slots and USB-C peg
-      holes in Edge.Cuts, and the four M2 screw holes: the layout transfer from the previous
-      revision.
 - [ ] Solder mask colour and surface finish: not recorded in the Altium design; the board uses
       the 4-layer defaults until they are confirmed.
 - [ ] Check every part's placement rotation in JLCPCB's assembly preview, then set

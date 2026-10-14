@@ -45,9 +45,8 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from micras_pcb import mech, sexpr, spec  # noqa: E402
-
 import rework  # noqa: E402
+from micras_pcb import mech, sexpr, spec  # noqa: E402
 
 LAYOUT = ROOT / "boards/main/layout/main.kicad_pcb"
 CHANGES = ROOT / "boards/main/changes.toml"
@@ -214,7 +213,8 @@ def place(path: Path, old_path: Path, ren: dict[str, str]) -> list[str]:
     new = pcbnew.LoadBoard(str(path))
     by_ref = {fp.GetReference(): fp for fp in old.GetFootprints() if fp.GetReference()}
     holes = sorted(
-        (fp for fp in old.GetFootprints() if not fp.GetReference()), key=lambda f: (f.GetPosition().y, f.GetPosition().x)
+        (fp for fp in old.GetFootprints() if not fp.GetReference()),
+        key=lambda f: (f.GetPosition().y, f.GetPosition().x),
     )
     back = {v: k for k, v in ren.items()}
     s = spec.load("main")
@@ -226,10 +226,7 @@ def place(path: Path, old_path: Path, ren: dict[str, str]) -> list[str]:
     report = []
     for fp in new.GetFootprints():
         ref = fp.GetReference()
-        if re.fullmatch(r"H\d+", ref):
-            src = holes[int(ref[1:]) - 1]
-        else:
-            src = by_ref[back.get(ref, ref)]
+        src = holes[int(ref[1:]) - 1] if re.fullmatch(r"H\d+", ref) else by_ref[back.get(ref, ref)]
         if fp.IsFlipped() != src.IsFlipped():
             fp.Flip(fp.GetPosition(), pcbnew.FLIP_DIRECTION_LEFT_RIGHT)
         target = _centres(src)
@@ -284,7 +281,11 @@ def main() -> int:
     for line in place(LAYOUT, old_path, ren):
         print(line)
     if not a.no_sync:
-        env = dict(line.split("=", 1) for line in (ROOT / "versions.env").read_text().splitlines() if "=" in line and not line.startswith("#"))
+        env = dict(
+            line.split("=", 1)
+            for line in (ROOT / "versions.env").read_text().splitlines()
+            if "=" in line and not line.startswith("#")
+        )
         subprocess.run(
             ["pcb", f"+{env['PCB_TOOLCHAIN'].strip()}", "layout", "--no-open", "boards/main/main.zen"],
             cwd=ROOT,

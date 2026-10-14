@@ -75,7 +75,10 @@ unverified. Ordering is a manual upload: JLCPCB has no ordering API open to smal
 
 ## Mechanics
 
-Board outline, origin and mechanically critical parts come from `spec/<board>.toml`, every value
-`{value, source}`. `make gen` writes them into the layout (locked) and exports
-`build/<board>/<board>_mech.json` for MicrasHardware, micras-simulation and the firmware. Change a
-mechanical number in the spec, never in the layout or in another repo.
+Origin, mechanically critical parts and the board outline come from `spec/<board>.toml`, every
+value `{value, source}`. `make gen` writes them into the layout (parts locked) and exports
+`build/<board>/<board>_mech.json` for MicrasHardware, micras-simulation and the firmware. The
+encoder's outline is generated from the spec; the main board's outline is layout geometry, and
+`micras-pcb mech` checks it has every interface feature of `spec/main.toml` (encoder slots,
+screw holes, USB-C peg holes, fan hole, wheel notches, extents). Change a mechanical number in the
+spec, never in the layout or in another repo; a main board outline change goes in both.
