@@ -1,0 +1,38 @@
+"""WS2815C-2020-4P package facts (WS-DS V1.0 p.2-3) at its 12 V supply."""
+
+WS2815C = Module("../WS2815C-2020.zen")
+
+
+def pins_by_function(module, inputs):
+    got = {}
+    for net, ports in module.nets().items():
+        for path, pin in ports:
+            if path.endswith(".LED"):
+                got[pin] = net
+    check(got == {"DO": "DOUT", "GND": "GND", "DI": "DIN", "VDD": "V12"}, "pinout changed: " + str(got))
+
+
+def no_external_parts(module, inputs):
+    # p.1: no external components, capacitors included.
+    check(len(module.components()) == 1, "the package is the LED alone")
+
+
+def sourcing(module, inputs):
+    led = [c for path, c in module.components().items() if path.endswith("LED")][0]
+    check(led.mpn == "WS2815C-2020-4P", "MPN")
+    check(led.prefix == "D", "reference prefix D")
+
+
+TestBench(
+    name="WS2815C_12V",
+    module=WS2815C,
+    test_cases={
+        "default": {
+            "VDD": Power("V12", voltage="12V"),
+            "GND": Ground("GND"),
+            "DI": Net("DIN"),
+            "DO": Net("DOUT"),
+        },
+    },
+    checks=[pins_by_function, no_external_parts, sourcing],
+)

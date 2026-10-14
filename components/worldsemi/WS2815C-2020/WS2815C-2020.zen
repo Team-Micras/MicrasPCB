@@ -1,0 +1,47 @@
+"""WS2815C-2020-4P - 12 V addressable RGB LED, single-wire data, 2.2 x 2.0 mm SMD-4P.
+
+Datasheet: Worldsemi WS2815C-2020-4P V1.0 (2023-07-20), LCSC C22371529
+("WS-DS").
+
+Supply: VDD +9.5 to +13.5 V (WS-DS p.3, maximum ratings table, "电源电压");
+the electrical and switching tables are given at VDD = 12 V and the typical
+application (p.5) runs from 12 V. The R/G/B chips are driven by constant-current
+outputs from VDD, so the part needs that supply range to light. VDD is declared
+with that range, so a lower rail raises a build warning.
+
+Data (WS-DS p.3, at VDD = 12 V): DI VIH 2.7 V min, VIL 1.5 V max, input range
+-0.3 to 5.7 V (VI), input capacitance 15 pF max; DI to DO delay 300 ns max.
+Bit timing (p.4): T0H 220-380 ns, T1H 580-840 ns, T0L 900-5000 ns,
+T1L 600-5000 ns, reset (RES) low >= 280 us, bit period >= 1.25 us; 24 bits per
+LED, GRB order, MSB first. DO re-shapes and forwards the data to the next LED's
+DI.
+
+External parts: none, capacitors included (p.1, features: "外围不需要包含电容在内的
+所有任何电子元器件").
+
+Pins (p.2, "引脚功能"): 1 DO, 2 GND, 3 DI, 4 VDD. Footprint (LCSC/EasyEDA,
+Altium MicrasLib): pad 1 (-0.865, -0.55), 2 (-0.865, +0.55), 3 (+0.865, +0.55),
+4 (+0.865, -0.55), 0.8 x 0.8 mm: the p.2 top view turned 180 degrees, same
+winding, not mirrored. The p.2 "PCB Solder Pad" drawing gives 0.7 x 0.7 mm pads,
+1.13 mm apart across the body (pad centres +/-0.915 mm) and 0.40 mm apart
+along it (+/-0.55 mm). Moisture sensitivity level 5a (p.6).
+"""
+
+VDD = io(Power(voltage="9.5V to 13.5V"))
+GND = io(Ground)
+DI = io(Net)
+DO = io(Net)
+
+Component(
+    name="LED",
+    prefix="D",
+    symbol=Symbol(library="WS2815C-2020.kicad_sym"),
+    footprint=File("LED-SMD_4P-L2.2-W2.0-P1.00_WS2815C-2020-4P.kicad_mod"),
+    part=Part(mpn="WS2815C-2020-4P", manufacturer="Worldsemi"),
+    pins={
+        "DO": DO,
+        "GND": GND,
+        "DI": DI,
+        "VDD": VDD,
+    },
+)

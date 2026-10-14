@@ -1,0 +1,49 @@
+"""The encoder slot carries the encoder tab's signals by name (pad n = tab pad n, see the symbols)."""
+
+load("@stdlib/interfaces.zen", "Spi")
+
+EncoderSlot = Module("../EncoderSlot.zen")
+
+# Symbol pin name -> the net the slot must put it on. Same names, same pad numbers
+# as components/micras/EncoderTab/EncoderTab.kicad_sym.
+PINOUT = {
+    "CSn": "SPI_CS",
+    "CLK": "SPI_CLK",
+    "MISO": "SPI_MISO",
+    "MOSI": "SPI_MOSI",
+    "VDD": "VDD",
+    "GND": "GND",
+    "A": "A",
+    "B": "B",
+}
+
+
+def pins_on_their_nets(module, inputs):
+    got = {}
+    for net, ports in module.nets().items():
+        for path, pin in ports:
+            if path.endswith(".SLOT"):
+                got[pin] = net
+    check(got == PINOUT, "slot pinout changed: " + str(got))
+
+
+def not_on_the_bom(module, inputs):
+    slot = [c for path, c in module.components().items() if path.endswith("SLOT")][0]
+    check(slot.skip_bom, "the slot is board copper, not a purchased part")
+    check(slot.prefix == "EC", "the slot keeps the EC reference prefix")
+
+
+TestBench(
+    name="EncoderSlot_pinout",
+    module=EncoderSlot,
+    test_cases={
+        "default": {
+            "VDD": Power("VDD", voltage="3.3V"),
+            "GND": Ground("GND"),
+            "SPI": Spi("SPI"),
+            "A": Net("A"),
+            "B": Net("B"),
+        },
+    },
+    checks=[pins_on_their_nets, not_on_the_bom],
+)

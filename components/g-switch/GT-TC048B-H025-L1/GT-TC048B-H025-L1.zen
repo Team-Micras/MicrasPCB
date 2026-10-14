@@ -1,0 +1,36 @@
+"""GT-TC048B-H025-L1 - SPST-NO tactile switch, oval actuator, 4.2 x 3.2 x 2.5 mm, SMD-4P.
+
+Datasheet: G-Switch GT-TC048X-HXXX-LX drawing (2019-05-29), LCSC C778165.
+Ordering code (drawing, part number key): B = 250 gf operating force,
+H025 = 2.5 mm switch height, L1 = 100,000 cycles.
+
+Pins ("CIRCUIT DIAGRAM"): pads 1 and 2 are joined inside the switch, and so are
+pads 3 and 4; pressing the actuator closes 1-2 to 3-4. The symbol names pads 1-2
+`A` and pads 3-4 `B`, so each side is one net whichever pad the layout routes.
+
+Ratings ("G-Switch Specification"): 50 mA at 24 VDC, contact resistance
+100 mohm max, insulation 100 Mohm min at 100 VDC, 250 VAC for 1 min dielectric,
+travel 0.20 +/- 0.1 mm, -30 to +85 C.
+
+Footprint: LCSC/EasyEDA land pattern, as in the Altium MicrasLib: pads
+1.0 x 0.7 mm at x = +/-2.0 mm, y = +/-1.075 mm (2.15 mm pitch, as drawn). The
+datasheet's "P.C.B LAND DIMENSION" puts the 1.0 x 0.7 mm pads at x = +/-2.25 mm
+(3.5 mm inner, 5.5 mm outer span); the footprint pads sit 0.25 mm further in,
+still under the 4.5 mm lead span. The embedded STEP is a C&K PTS810 model
+(same 4.2 x 3.2 mm body, not this part's exact actuator).
+"""
+
+A = io(Net)
+B = io(Net)
+
+Component(
+    name="SW",
+    prefix="SW",
+    symbol=Symbol(library="GT-TC048B-H025-L1.kicad_sym"),
+    footprint=File("SW-SMD-4P_L4.2-W3.2_GT-TC048.kicad_mod"),
+    part=Part(mpn="GT-TC048B-H025-L1", manufacturer="G-Switch"),
+    pins={
+        "A": A,
+        "B": B,
+    },
+)

@@ -1,0 +1,65 @@
+"""Micras encoder slot: the main board's side of the board-to-board joint with an encoder board.
+
+The encoder board (components/micras/EncoderTab) stands upright in a slot in the
+main board, and its tab pads are soldered to 8 pads on the main board's top side,
+4 on each side of the slot. Pad n here meets encoder tab pad n:
+
+| Pad | Signal | Encoder tab side |
+|---|---|---|
+| 1 | CSn | bottom (pads 1-4) |
+| 2 | CLK | bottom |
+| 3 | MISO | bottom |
+| 4 | MOSI | bottom |
+| 5 | VDD (3.3 V) | top, chip side (pads 5-8) |
+| 6 | GND | top |
+| 7 | A | top |
+| 8 | B | top |
+
+Geometry (Altium MicrasLib ENCODER_CONNECTOR, MicrasMainBoard.PcbDoc):
+- Pads 1.0 x 0.6 mm, 0.95 mm pitch along the slot (Y), the same pitch and
+  0.6 mm width as the tab pads. Pads 1-4 at x = -1.16 mm, pads 5-8 at
+  x = +1.16 mm, both rows from y = -1.425 mm (pads 1, 5) to y = +1.425 mm
+  (pads 4, 8). Inner pad edges at x = +/-0.66 mm, 0.21 mm from the slot wall.
+- The slot is a 0.90 x 5.10 mm rectangle on the board's Edge.Cuts, centred on
+  the footprint origin and long along Y. It is board outline, not part of this
+  footprint (the footprint draws it on F.Fab only), so the board's mechanical
+  spec must place it with the footprint.
+- The encoder board's chip side faces +X: seen from that side, tab pad 5
+  (u = +1.425 mm in spec/encoder.toml's frame) lands at y = -1.425 mm, on pad 5.
+
+Fit against spec/encoder.toml: tab width 5.0 mm in a 5.10 mm slot (0.05 mm per
+end) and board thickness 0.80 mm in a 0.90 mm slot (0.05 mm per side), drawn
+with square corners. A milled slot's ends are rounded by the router radius,
+which shortens the full-width length available to the tab.
+
+Not a purchased part: copper and a cut-out on the main board, so it is excluded
+from the BOM and the placement file.
+"""
+
+load("@stdlib/interfaces.zen", "Spi")
+
+# AS5047U DS v1-00 Figure 6: VDD = VDD3V3 = 3.0-3.6 V in 3.3 V mode, the mode the
+# encoder board runs in (components/ams/AS5047U).
+VDD = io(Power(voltage="3.0V to 3.6V"))
+GND = io(Ground)
+SPI = io(Spi)
+A = io(Net)
+B = io(Net)
+
+Component(
+    name="SLOT",
+    prefix="EC",
+    symbol=Symbol(library="EncoderSlot.kicad_sym"),
+    footprint=File("EncoderSlot_2x4_P0.95mm.kicad_mod"),
+    pins={
+        "CSn": SPI.CS,
+        "CLK": SPI.CLK,
+        "MISO": SPI.MISO,
+        "MOSI": SPI.MOSI,
+        "VDD": VDD,
+        "GND": GND,
+        "A": A,
+        "B": B,
+    },
+    skip_bom=True,
+)
