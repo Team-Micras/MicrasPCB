@@ -221,10 +221,11 @@ def test_every_assembled_footprint_has_a_courtyard(board):
 @pytest.mark.parametrize("board", LAYOUT_BOARDS)
 def test_every_smd_pad_of_an_assembled_part_has_paste(board):
     # Reflow assembly prints paste through the stencil (F.Paste/B.Paste); an SMD pad without a
-    # paste opening is not soldered.
+    # paste opening is not soldered. A pad's own opening counts unless a negative paste margin
+    # cancels it; a paste shape drawn on the footprint over the pad counts too (Q6, U2 draw theirs).
     missing = []
     for f in _assembled(board):
-        bare = [p.number for p in f.pads if p.kind == "smd" and p.net and not set(p.layers) & layout.PASTE]
+        bare = [p.number for p in f.pads if p.kind == "smd" and p.net and not f.pasted(p)]
         if bare:
             missing.append(f"{f.ref} pads {sorted(set(bare))}")
     assert not missing, f"SMD pads without paste: {'; '.join(missing)}"

@@ -177,22 +177,27 @@ the board's functions.
 | `test_every_smd_pad_of_an_assembled_part_has_paste[main]` (pytest) | U3's SOT-89 tab and centre lead (custom pad 2) has no F.Paste opening | reflow needs paste on every SMD pad | add F.Paste to the pad in `components/cj/CJA1117B` |
 | warnings | D1/D2 (WS2815C-2020, VDD 9.5-13.5 V) on 3V3: the LEDs never light (M13); +20V above 20 V (m2, as above) | WS2815C-2020-4P V1.0 p3 | supply D1/D2 from VBAT, or a 5 V LED with a 5 V rail and level shifter |
 
-The layout gates fail where the previous layout does:
+The layout gates (`layout-check` runs the same KiCad DRC as `drc`; its netlist sync is clean) and
+the layout tests fail on these, every one from the previous layout, its conversion from Altium, or
+a footprint:
 
-| Check (gate) | Cause |
-|---|---|
-| `invalid_outline` x 6 (layout-check, drc) | Edge.Cuts has six lines of 1-10 nm between arcs and lines of the outline, from the Altium conversion; KiCad reads the outline as malformed |
-| `tracks_crossing` x 2 (layout-check, drc) | zero-length GND and 3V3 track stubs on vias at KiCad (163.868, 71.137) and (144.045, 66.935): KiCad reports a zero-length segment as crossing the nearest track (Wall_Sensor_PWM_2, LED_Blue); the copper is 1 mm apart |
-| `copper_edge_clearance` x 2 (layout-check, drc), board-edge-to-copper (dfm) | U2's GND pads A1B12 and B1A12 sit 0.175 and 0.190 mm from the edge of the USB-C peg holes, below JLCPCB's 0.2 mm |
-| `courtyards_overlap` x 8 (layout-check, drc) | KiCad's generic R/C footprints have courtyards wider than the previous footprints' spacing: C44-C47, C48-C51, R39/R40, C3/C4 side by side |
-| copper feature width (dfm) | a teardrop outline overruns its track edge by 5 um and leaves a 5 um wide lip, at KiCad (147.56, 114.82) |
-| `test_decoupling_sits_at_its_pin[main]` (pytest) | C15 sits 5.0 mm from IC1 pad 51 (VDD), C6 3.7 mm from pad 49 (VCAP2), C25 7-10 mm from the VCC pins of IC3/IC4; the datasheets ask for each at its pin (within 3 mm) |
-| `test_encoder_slots_take_the_encoder_tab` (pytest) | the 0.90 mm encoder slots are below JLCPCB's 1.0 mm minimum non-plated slot, and milled corners keep the 5.0 mm tab from seating in a 5.10 mm slot |
-
-DRC warnings: silkscreen text 0.5 mm high and 0.076 mm thick (below 0.6 / 0.08 mm), silkscreen
-overlaps, U2/Q6/SW4 pads without paste, four zero-length track stubs, the WallSensor
-footprint's silkscreen reaching the board edge (`silk_edge_clearance`), and two copper slivers
-where a teardrop's outline overruns its track.
+| Check (gate) | Count | Cause | Fix |
+|---|---|---|---|
+| `invalid_outline` (drc, error) | 6 | Edge.Cuts has six 1-10 nm lines between arcs and lines of the outline, left by the Altium conversion; KiCad reads the outline as malformed | delete the six lines (the outline geometry is unchanged) |
+| `tracks_crossing` (drc, error) | 2 | zero-length GND and 3V3 track segments at (163.868, 71.137) and (144.045, 66.935): KiCad reports a degenerate segment as crossing the nearest track, here 0.5-0.6 mm away; the copper does not touch | delete the zero-length segments (15 on the board, from the conversion) |
+| `copper_edge_clearance` (drc, error); board-edge-to-copper (dfm) | 2; 1 | U2's GND pads A1B12 and B1A12 sit 0.175 and 0.190 mm from the USB-C peg holes, below JLCPCB's 0.2 mm | trim the two pads, or move the peg holes per the GT-USB-7010ASV drawing |
+| `courtyards_overlap` (drc, error) | 8 | KiCad's generic R/C footprints have courtyards wider than the previous footprints' spacing: C44-C47, C48-C51, R39/R40, C3/C4 side by side | space the parts, or footprints with the IPC "least" courtyard |
+| copper feature width (dfm) | 1 | a teardrop zone overruns its track edge and leaves a 5 um wide lip at (147.56, 114.82) | trim that teardrop outline |
+| `copper_sliver` (drc, warning) | 2 | teardrop outlines overrunning their tracks (F.Cu, B.Cu); the teardrops are plain zones, which KiCad does not exempt from the sliver test | trim the outlines |
+| `track_dangling` (drc, warning) | 4 | zero-length segments on USBD_N, USBD_P and Boot, as for `tracks_crossing` | as above |
+| `padstack` (drc, warning) | 30 | U2, Q6 and SW4 cancel each pad's own paste opening with a large negative paste margin; U2 and Q6 draw their paste apertures on F.Paste instead, and SW4's pads are through-hole: the paste is there, KiCad only flags the margin | none needed; to clear the warning, move the drawn apertures into the pads |
+| `silk_edge_clearance` (drc, warning) | 23 | the WallSensor package's silkscreen (W1, W2, W4) runs to the board edge | clip the package silkscreen |
+| `silk_overlap` (drc, warning) | 25 | reference texts and package outlines touching: the renamed test points (FAN_PWM1...), W1-W4, M2, SW4, C36/C37, J1, L1-L3 and the generic R4/R5/D4/D5 outlines | move the texts |
+| `silk_over_copper` (drc, warning) | 1 | W2's reference text lies on R17's pad | move the text |
+| `text_height`, `text_thickness` (drc, warning) | 154, 4 | the previous layout's reference texts are 0.5 mm high, SW1's footprint texts 0.076 mm thick, below KiCad's 0.6 / 0.08 mm defaults | larger texts, or lower the board's text limits |
+| `lib_footprint_mismatch` (drc, warning) | 1 | U2's footprint on the board differs from its package file outside the copper (same pads; its text items and rule-area zones are stored differently) | resync the footprint from the package |
+| `test_decoupling_sits_at_its_pin[main]` (pytest) | 4 | C15 sits 5.0 mm from IC1 pad 51 (VDD) and C6 3.7 mm from pad 49 (VCAP2); IC3 and IC4 have no capacitor at VCC (nearest C25, 10.3 and 7.3 mm) (M9). The datasheets ask for each at its pin; the board's reading of "close" is 3 mm | move C15 and C6; add 100 nF at each TSC2020 |
+| `test_encoder_slots_take_the_encoder_tab` (pytest) | 4 | the 0.90 mm encoder slots are below JLCPCB's 1.0 mm minimum non-plated slot, and their 0.5 mm milled corners keep the 5.0 x 0.9 mm tab (0.8 mm board + 0.1 mm tolerance) out of the 5.10 mm length | 1.0 mm wide slots at least 5.6 mm long (the pads beside them move with the walls), or relief holes at the corners |
 
 Requirements without a check, and why:
 

@@ -28,6 +28,9 @@ class Pad:
     layers: list[str]
     xy: tuple[float, float]
     size: tuple[float, float]
+    local: tuple[float, float] = (0.0, 0.0)  # centre in footprint coordinates
+    paste_margin: float = 0.0
+    paste_ratio: float = 0.0
 
 
 @dataclass
@@ -41,6 +44,17 @@ class Footprint:
     graphic_layers: set[str]
     pads: list[Pad] = field(default_factory=list)
     models: list[str] = field(default_factory=list)
+    paste_boxes: list[tuple[float, float, float, float]] = field(default_factory=list)  # local x0, y0, x1, y1
+
+    def pasted(self, pad: Pad) -> bool:
+        """The pad gets solder paste: its own opening (not cancelled by a negative paste margin), or a
+        paste shape drawn on the footprint's paste layer over its centre."""
+        if set(pad.layers) & PASTE:
+            half = [d / 2 * (1 + pad.paste_ratio) + pad.paste_margin for d in pad.size]
+            if min(half) > 0:
+                return True
+        x, y = pad.local
+        return any(x0 <= x <= x1 and y0 <= y <= y1 for x0, y0, x1, y1 in self.paste_boxes)
 
     def pads_named(self, number: str) -> list[Pad]:
         return [p for p in self.pads if p.number == number]
@@ -81,10 +95,21 @@ def _footprint(fp) -> Footprint:
     layer = fp.child("layer").atoms()[0]
     attr = set(fp.child("attr").atoms()) if fp.child("attr") else set()
     glayers = set()
+    paste_boxes = []
     for head in GRAPHICS:
         for g in fp.children(head):
             if g.child("layer"):
                 glayers.add(g.child("layer").atoms()[0])
+                if g.child("layer").atoms()[0] in PASTE:
+                    pts = [_xy(g.child(k)) for k in ("start", "end", "center", "mid") if g.child(k)]
+                    if g.child("pts"):
+                        pts += [_xy(q) for q in g.child("pts").children("xy")]
+                    if head == "fp_circle" and len(pts) >= 2:
+                        r = math.dist(pts[0], pts[1])
+                        pts = [(pts[0][0] - r, pts[0][1] - r), (pts[0][0] + r, pts[0][1] + r)]
+                    if pts:
+                        xs, ys = [q[0] for q in pts], [q[1] for q in pts]
+                        paste_boxes.append((min(xs), min(ys), max(xs), max(ys)))
     out = Footprint(
         ref=fp.prop("Reference") or "",
         lib_id=fp.atoms()[0] if fp.atoms() else "",
@@ -93,6 +118,7 @@ def _footprint(fp) -> Footprint:
         side="bottom" if layer.startswith("B.") else "top",
         attributes=attr,
         graphic_layers=glayers,
+        paste_boxes=paste_boxes,
     )
     for pad in fp.children("pad"):
         a = pad.atoms()
@@ -108,6 +134,13 @@ def _footprint(fp) -> Footprint:
                 layers=pad.child("layers").atoms() if pad.child("layers") else [],
                 xy=(fx + dx, fy + dy),
                 size=size,
+                local=(px, py),
+                paste_margin=float(pad.child("solder_paste_margin").atoms()[0])
+                if pad.child("solder_paste_margin")
+                else 0.0,
+                paste_ratio=float(pad.child("solder_paste_margin_ratio").atoms()[0])
+                if pad.child("solder_paste_margin_ratio")
+                else 0.0,
             )
         )
     out.models = [m.atoms()[0] for m in fp.children("model") if m.atoms()]
