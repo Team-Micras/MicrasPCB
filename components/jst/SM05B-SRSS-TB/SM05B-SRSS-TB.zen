@@ -1,0 +1,37 @@
+"""SM05B-SRSS-TB(LF)(SN) - JST SH 5-pin 1.00 mm side-entry SMD header. Bare part.
+
+Datasheet: JST SH connector catalogue (eSH.pdf, URL in pcb.toml). Specifications (p1): 1.0 A
+(AWG #28), 50 V AC/DC, -25 to +85 C including temperature rise, 20 mOhm contact resistance
+initial; AWG #32 to #28 wire. Header table (p3): SM05B-SRSS-TB, A = 4.0 mm (pin 1 to pin 5),
+B = 7.0 mm body width, 4.25 mm body depth, 2.9 mm high; tin-plated contacts and reinforcement.
+Mates with the SHR-05V-S(-B) housing (p2, B = 6.0 / 8.0 mm).
+
+Footprint: the side-entry PC board layout of p1: five 0.6 x 1.55 mm contact pads on a 1.00 mm
+pitch, two 1.2 x 1.8 mm reinforcement pads (MP) whose inner edges sit 0.7 mm beyond the outer
+contacts, 5.55 mm from the far edge of the reinforcement pads to the far edge of the contacts
+and 4.0 mm to their near edge. KiCad library footprint
+JST_SH_SM05B-SRSS-TB_1x05-1MP_P1.00mm_Horizontal with its STEP embedded; the mating face is
+on the reinforcement-pad side (+Y), 0.2 mm inside the pads' outer edge (p1 "(0.2)").
+
+The reinforcement pads are tin-plated metal tabs with no contact function (p3 "Reinforcement");
+MP exposes them so the board can tie them to a net (usually GND) or leave them unconnected.
+"""
+
+prefix = config(str, default="P", help="Reference designator prefix")
+
+P1 = io(Net)
+P2 = io(Net)
+P3 = io(Net)
+P4 = io(Net)
+P5 = io(Net)
+MP = io(Net)
+
+Component(
+    name="HEADER",
+    prefix=prefix,
+    symbol=Symbol(library="SM05B-SRSS-TB.kicad_sym"),
+    footprint=File("JST_SH_SM05B-SRSS-TB_1x05-1MP_P1.00mm_Horizontal.kicad_mod"),
+    part=Part(mpn="SM05B-SRSS-TB(LF)(SN)", manufacturer="JST"),
+    pins={"1": P1, "2": P2, "3": P3, "4": P4, "5": P5, "MP": MP},
+    type="connector",
+)
