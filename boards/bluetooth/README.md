@@ -65,9 +65,11 @@ about 24 ns, against 8.68 us per bit at 115 200 baud.
 
 ## Board
 
-2 copper layers, 35 um copper on a 0.7 mm FR-4 core, 0.79 mm with mask, from the Altium layer
-stack. Design rules: 0.1 mm clearance, 0.254 mm track, 0.6 / 0.3 mm and 0.5 / 0.3 mm vias, 0.2 mm
-copper to edge, the Altium JLCPCB rule set; `rules/jlcpcb.kicad_dru` adds JLCPCB's limits on top.
+2 copper layers, 35 um copper on a 0.7 mm FR-4 core (Dk 4.5), from the Altium layer stack; with
+Zener's fixed 10 um solder mask a side it is 0.79 mm (Altium's 12.7 um resist makes 0.7954 mm),
+ordered as JLCPCB's 0.8 mm board. Design rules: 0.1 mm clearance, 0.254 mm track, 0.6 / 0.3 mm
+and 0.5 / 0.3 mm vias, 0.2 mm copper to edge, 0.02 mm solder mask expansion, the Altium JLCPCB
+rule set; `rules/jlcpcb.kicad_dru` adds JLCPCB's limits on top.
 
 ## Layout
 
@@ -83,8 +85,28 @@ running the script again changes nothing.
 - The outline narrows from 16 mm to the plug's width towards the bottom edge.
 - Resistors, capacitors and D1 use KiCad's generic footprints, each centred on its pads' positions
   in the Altium footprint: pad centres within 75 um of the Altium ones (the 0603 pad pitches
-  differ). The teardrops of the Altium design are plain copper zones (priorities 100 and up),
-  as on the main board: KiCad 10 orders zones by UUID and does not save a teardrop's UUID.
+  differ). D1 carries KiCad's LED model scaled to the SMLD12BN1W's 0.55 mm height (ROHM
+  datasheet p. 1). The teardrops of the Altium design are plain copper zones (priorities 100 and
+  up), as on the main board: KiCad 10 orders zones by UUID and does not save a teardrop's UUID.
+  They fill with a 0.1 mm minimum width, JLCPCB's minimum copper feature.
+- The GND pours keep the Altium polygons' neck widths (copper narrower than 0.1 mm, 0.3 mm in the
+  top pour around the plug, is not poured) and join pads solidly.
+- The Edge.Cuts outline is the Altium one without its seven duplicated vertices (lines of 1-12 nm,
+  which KiCad reads as a malformed, self-intersecting outline); the lines next to them meet within
+  12 nm of where they did.
+
+## Differences from the Altium board
+
+There is no Gerber output of the Altium design to compare with; against KiCad's conversion of the
+PcbDoc, the board differs in:
+
+| What | This board | Altium board | Why |
+|---|---|---|---|
+| Pour to board edge | 0.21 mm | 0.23 mm | the KiCad fill under `rules/jlcpcb.kicad_dru`: JLCPCB's 0.2 mm routed-edge clearance plus 10 um for the fill's arc approximation |
+| R1-R3, C1, C2, D1 | KiCad's generic 0603 footprints: pads R 0.80 x 0.95, C 0.90 x 0.95, LED 0.875 x 0.95 mm, their centres within 75 um of the Altium ones; KiCad's silkscreen (no box around the parts, 6.2 mm2 less ink; D1's polarity mark an outline closed on the cathode side) | pads R 0.85 x 1.0, C 0.8 x 0.9, LED 0.8 x 0.8 mm; full boxes, a triangle on D1 | the stdlib generics' footprints |
+| Passive 3D models | KiCad library models: R 0.45 mm tall, C 0.8 mm wide; D1 0.55 mm | R 0.56 mm, C 0.9 mm wide, D1 0.6 mm | KiCad's generic models (D1 scaled to its datasheet) |
+| Teardrop cusps | thinner than 0.1 mm left out | drawn to a point | JLCPCB's 0.1 mm minimum copper feature |
+| Solder mask thickness | 10 um a side | 12.7 um | Zener's stackup has no mask thickness setting |
 
 ## Mechanics
 
@@ -109,10 +131,10 @@ revision has faults. Each failing check, the fault behind it (with its item in t
 | `bluetooth` `module_reset_not_floating` (test) | HM-19 RESETB (pin 11) is open (m17) | CC2640R2F SWRS204C Table 7-1: RESET_N "No internal pullup"; the HM-19 datasheet (V107 6.8) does not say whether the module adds one | 10-100 kOhm from RESETB to 3V3, or RESETB to a spare contact so the MCU can reset the module |
 | `test_uart_rx_is_held_with_the_module_unplugged` (pytest) | with the module unplugged PA11 (UART4_RX) ends at an open contact: the firmware sets no pull and the main board has no resistor (m17) | a UART input idles high; a floating input feeds noise bytes to the circular DMA | `GPIO_PULLUP` on PA11 in the firmware, or 100 kOhm to 3V3 on the main board |
 | `test_every_assembled_footprint_has_a_courtyard[bluetooth]` (pytest) | the HM-19 and plug footprints from the Altium library draw no courtyard (the HM-19 outline is on User.15) | F.CrtYd courtyards for KiCad's overlap check | add F.CrtYd outlines in `components/jnhuamao/HM-19` and `components/jing-extension/918-118A2021Y40006` |
-| `invalid_outline` (drc and layout-check, error) | 9: Edge.Cuts has seven 1-12 nm lines where the outline's arcs meet its lines, left by the Altium conversion; KiCad reads the outline as malformed and self-intersecting, and its 3D renders show the board as its bounding rectangle | a closed, non-intersecting outline | delete the seven lines and join their neighbours (the outline geometry is unchanged); with that done the DRC reports only the text heights below |
 | `text_height` (drc, warning) | 9: the Altium reference texts are 0.5 mm high | KiCad's 0.6 mm default minimum | larger texts, or lower the board's text limit |
+| `copper_sliver` (drc, warning) | 1: a teardrop outline overrunning its track on F.Cu; the teardrops are plain zones, which KiCad does not exempt from the sliver test | no copper sliver | trim the outline |
 
-ERC, LVS, previous, DFM and the warnings gate pass.
+ERC, LVS, previous, DRC and layout-check (warnings only), DFM and the warnings gate pass.
 
 Requirements without a check, and why:
 

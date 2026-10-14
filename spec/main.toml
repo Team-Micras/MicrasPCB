@@ -14,14 +14,14 @@
 # Every value is {value, source}, as in micras-simulation's robot.toml.
 
 [pcb]
-thickness = { value = 1.0412, source = "Altium MicrasMainBoard.PcbDoc layer stack, finished thickness (boards/main/previous/board.json board.thickness); MicrasHardware micras/params.py Board.thickness" }
+thickness = { value = 1.0412, source = "Altium MicrasMainBoard.PcbDoc layer stack: 1.0212 mm of copper and dielectric, plus the KiCad stackup's 10 um solder mask a side (Altium's 15.24 um resist gives 1.0517 mm); ordered as JLCPCB's 1.0 mm board (boards/main/previous/board.json board.thickness; MicrasHardware micras/params.py Board.thickness)" }
 copper_layers = { value = 4, source = "Altium MicrasMainBoard.PcbDoc layer stack" }
 
 [kicad]
 origin_x = { value = 148.5011, source = "MicrasHardware tools/export_board.py AXLE_KX: midway between the encoder slot centres of the Altium MicrasMainBoard.PcbDoc Edge.Cuts" }
 origin_y = { value = 113.5036, source = "MicrasHardware tools/export_board.py AXLE_KY: the encoder slot centre line of the Altium MicrasMainBoard.PcbDoc Edge.Cuts" }
-aux_origin_x = { value = 84.340305, source = "Altium MicrasMainBoard.PcbDoc origin (boards/main/previous/board.json board.aux_axis_origin): drill and placement origin of the fab outputs" }
-aux_origin_y = { value = 180.6148, source = "Altium MicrasMainBoard.PcbDoc origin (boards/main/previous/board.json board.aux_axis_origin)" }
+aux_origin_x = { value = 148.501075, source = "Altium MicrasMainBoard.PcbDoc origin (Board6 ORIGINX 3526.0144 mil), the rear edge centre: drill and placement origin of the fab outputs, as in the Altium CAM output" }
+aux_origin_y = { value = 150.00362, source = "Altium MicrasMainBoard.PcbDoc origin (Board6 ORIGINY 2205.1646 mil), on the rear edge" }
 
 [outline]
 front = { value = 53.5, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts extents (board.json edge_cuts_bbox, KiCad y = 60.0036)" }

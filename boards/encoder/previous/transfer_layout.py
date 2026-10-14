@@ -14,15 +14,18 @@ boards/encoder/layout/encoder.kicad_pcb, and rewrites the layout:
    content, since the Altium import draws new random ones on every run. Teardrops become plain
    zones of the same outline, as on the main board (boards/main/previous/transfer_layout.py
    `teardrop_to_zone`: KiCad does not save a teardrop's UUID, so a board with teardrop zones is
-   never byte-stable).
+   never byte-stable). The pours keep the Altium neck widths (`POUR_MIN_WIDTH`). The Edge.Cuts
+   line shorter than 1 um is left out (`outline_snaps`), and the board-level STEP files no
+   footprint uses are dropped (`drop_unused_models`).
 2. Placement (KiCad's pcbnew module, KiCad 10). IC1 and J1 use the previous footprints (same pads)
    and go where spec/encoder.toml puts them, locked, as `micras-pcb mech encoder` does: the
    previous positions, with IC1 0.04 um left, on the tab centre line. C1, a KiCad library 0603,
    is fitted so its pads land on the previous pad centres by pad number (the least-squares
    translation for each candidate rotation, the smallest residual wins). Each reference
    designator text takes the previous one's position, size, layer and orientation. The aux and
-   grid origins are the spec's (the previous board's). Parts the previous board does not have
-   (R1-R3, boards/encoder/changes.toml) stay where the netlist sync put them. Zones are refilled.
+   grid origins are the spec's (the previous board's), the solder mask expansion the previous
+   board's (0.02 mm). Parts the previous board does not have (R1-R3, boards/encoder/changes.toml)
+   stay where the netlist sync put them. Zones are refilled.
 3. `pcb layout` syncs the result, which normalises the file the way `make gen` writes it.
 
 The script is a fixed point: running it on its own output changes nothing. Its output is the
@@ -106,19 +109,78 @@ def check_nets(old_root: sexpr.Node, new_root: sexpr.Node) -> None:
 TEARDROP = "\t\t(attr\n\t\t\t(teardrop\n\t\t\t\t(type track_end)\n\t\t\t)\n\t\t)\n"
 TEARDROP_PADS = "\t\t(connect_pads\n\t\t\t(clearance 0.5)\n\t\t)\n"
 ZONE_PADS = "\t\t(connect_pads yes\n\t\t\t(clearance 0.1)\n\t\t)\n"
+# The importer gives every zone a 0.25 mm minimum width, which erases most of a teardrop's thin
+# flare when the zone is filled. A teardrop fills with 0.1 mm instead, JLCPCB's minimum copper
+# feature (rules/jlcpcb-pdk.toml jlc.copper.minimum_feature_width: 0.10 mm on 2 layers, 0.09 mm
+# on 4): its body is kept, only the cusps the fab cannot etch go.
+MIN_WIDTH = "\t\t(min_thickness 0.25)\n"
+TEARDROP_MIN_WIDTH = "\t\t(min_thickness 0.1)\n"
+# The pours drop copper narrower than their Altium polygon's neck width (MicrasEncoder.PcbDoc
+# Polygons6: REMOVENECKS with NECKWIDTHTHRESHOLD 3.937 mil = 0.1 mm on the top pour, 15.748 mil
+# = 0.4 mm on the bottom pour); the importer sets KiCad's 0.25 mm instead. Keyed by layer and the
+# imported priority (2 - Altium POURINDEX).
+POUR_MIN_WIDTH = {("F.Cu", 1): 0.1, ("B.Cu", 0): 0.4}
 TEARDROP_PRIORITY = 100  # above both pours of the previous board (priorities 0 and 1), as a teardrop is
 
 
 def teardrop_to_zone(text: str, uid: uuid.UUID, priority: int) -> str:
     """A teardrop zone as a plain copper zone of the same outline and net: connected solidly to its
-    pad and track (connect_pads yes, the pours' 0.1 mm clearance), winning over the pours around it
-    (KiCad requires distinct priorities for intersecting zones)."""
-    if TEARDROP_PADS not in text:
-        raise SystemExit("teardrop zone with unexpected pad connection settings")
-    text = text.replace(TEARDROP, "").replace(TEARDROP_PADS, ZONE_PADS)
+    pad and track (connect_pads yes, the pours' 0.1 mm clearance), filled with a 0.1 mm
+    minimum width, winning over the pours around it (KiCad requires distinct priorities
+    for intersecting zones)."""
+    if TEARDROP_PADS not in text or MIN_WIDTH not in text:
+        raise SystemExit("teardrop zone with unexpected pad connection or width settings")
+    text = text.replace(TEARDROP, "").replace(TEARDROP_PADS, ZONE_PADS).replace(MIN_WIDTH, TEARDROP_MIN_WIDTH)
     head, layer, rest = text.partition("\t\t(layer ")
     line, nl, tail = rest.partition("\n")
     return f'{head}{layer}{line}{nl}\t\t(uuid "{uid}")\n\t\t(priority {priority})\n{tail}'
+
+
+def pour_min_width(text: str) -> str:
+    """A pour with the minimum width of its Altium polygon (see POUR_MIN_WIDTH)."""
+    layer = re.search(r'^\t\t\(layer "([^"]+)"\)', text, re.M).group(1)
+    priority = re.search(r"^\t\t\(priority (\d+)\)", text, re.M)
+    width = POUR_MIN_WIDTH[(layer, int(priority.group(1)) if priority else 0)]
+    if MIN_WIDTH not in text:
+        raise SystemExit("pour with unexpected minimum width settings")
+    return text.replace(MIN_WIDTH, f"\t\t(min_thickness {width:g})\n")
+
+
+def _edge(node: sexpr.Node) -> bool:
+    layer = node.child("layer")
+    return node.head.startswith("gr_") and layer is not None and layer.atoms() == ["Edge.Cuts"]
+
+
+def degenerate_edge(node: sexpr.Node) -> bool:
+    """An Edge.Cuts line shorter than 1 um: a duplicated outline vertex of the Altium board, which
+    KiCad reports as a malformed outline (see `outline_snaps`)."""
+    if node.head != "gr_line" or not _edge(node):
+        return False
+    (x0, y0), (x1, y1) = (map(float, node.child(k).atoms()[:2]) for k in ("start", "end"))
+    return math.hypot(x1 - x0, y1 - y0) < 1e-3
+
+
+def outline_snaps(root: sexpr.Node) -> dict[str, str]:
+    """The degenerate Edge.Cuts lines are left out; the outline item that met one at its end meets
+    the next item at the line's start instead (a move below 1 um), so the outline stays closed."""
+    snaps = {}
+    for n in root.children():
+        if degenerate_edge(n):
+            snaps[" ".join(n.child("end").atoms()[:2])] = " ".join(n.child("start").atoms()[:2])
+    for b, a in snaps.items():
+        while a in snaps and snaps[a] != b:
+            a = snaps[a]
+        snaps[b] = a
+    return snaps
+
+
+def snap_outline(text: str, node: sexpr.Node, snaps: dict[str, str]) -> str:
+    """An Edge.Cuts item with its endpoints moved as `outline_snaps` says."""
+    if not _edge(node):
+        return text
+    for b, a in snaps.items():
+        text = text.replace(f"(start {b})", f"(start {a})").replace(f"(end {b})", f"(end {a})")
+    return text
 
 
 def copy_items(old_text: str, new_text: str) -> str:
@@ -128,11 +190,13 @@ def copy_items(old_text: str, new_text: str) -> str:
     # drop what the generated layout or an earlier run holds
     edits = [(*sexpr.line_span(new_text, n), "") for n in new_root.children() if n.head in COPIED]
     items = []
+    snaps = outline_snaps(old_root)
     for n in old_root.children():
-        if n.head in COPIED:
+        if n.head in COPIED and not degenerate_edge(n):
             a, b = sexpr.line_span(old_text, n)
-            body = UUID.sub("", old_text[a:b])
-            items.append((hashlib.sha256(body.encode()).hexdigest(), old_text[a:b]))
+            text = snap_outline(old_text[a:b], n, snaps)
+            body = UUID.sub("", text)
+            items.append((hashlib.sha256(body.encode()).hexdigest(), text))
     items.sort()
     seen: Counter = Counter()
     copied, teardrops = [], 0
@@ -144,6 +208,8 @@ def copy_items(old_text: str, new_text: str) -> str:
             teardrops += 1
         elif UUID.search(text):
             text = UUID.sub(f'(uuid "{uid}")', text, count=1)
+            if text.lstrip().startswith("(zone"):
+                text = pour_min_width(text)
         else:
             raise SystemExit(f"copied item without a UUID: {text[:80]}")
         copied.append(text)
@@ -151,6 +217,18 @@ def copy_items(old_text: str, new_text: str) -> str:
     at = sexpr.line_span(new_text, anchor)[0]
     edits.append((at, at, "".join(copied)))
     return sexpr.splice(new_text, edits)
+
+
+def drop_unused_models(text: str) -> str:
+    """The layout without board-level embedded files that no footprint model uses (a STEP left
+    behind by an earlier footprint of IC1)."""
+    root = sexpr.parse(text)
+    used = set(re.findall(r'\(model "kicad-embed://([^"]+)"', text))
+    files = root.child("embedded_files")
+    if files is None:
+        return text
+    drop = [f for f in files.children("file") if f.child("name").atoms()[0] not in used]
+    return sexpr.splice(text, [(*sexpr.line_span(text, f), "") for f in drop])
 
 
 # ---------------------------------------------------------------------------------------------
@@ -241,9 +319,25 @@ def place(path: Path, old_path: Path) -> list[str]:
     origin = pcbnew.VECTOR2I(pcbnew.FromMM(k["aux_origin_x"]), pcbnew.FromMM(k["aux_origin_y"]))
     ds.SetAuxOrigin(origin)
     ds.SetGridOrigin(origin)
+    ds.m_SolderMaskExpansion = old.GetDesignSettings().m_SolderMaskExpansion
     pcbnew.ZONE_FILLER(new).Fill(new.Zones())
     pcbnew.SaveBoard(str(path), new)
     return report
+
+
+def pcb_layout(*flags: str) -> None:
+    """`pcb layout` on the board with the pinned toolchain (versions.env)."""
+    env = dict(
+        line.split("=", 1)
+        for line in (ROOT / "versions.env").read_text().splitlines()
+        if "=" in line and not line.startswith("#")
+    )
+    subprocess.run(
+        ["pcb", f"+{env['PCB_TOOLCHAIN'].strip()}", "layout", *flags, "--no-open", "boards/encoder/encoder.zen"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    )
 
 
 def main() -> int:
@@ -252,24 +346,14 @@ def main() -> int:
     ap.add_argument("--no-sync", action="store_true", help="skip the final `pcb layout` sync")
     a = ap.parse_args()
     old_text = previous_text(a.previous)
-    LAYOUT.write_text(copy_items(old_text, LAYOUT.read_text()))
+    LAYOUT.write_text(drop_unused_models(copy_items(old_text, LAYOUT.read_text())))
     with tempfile.TemporaryDirectory() as tmp:
         old_path = Path(tmp) / "previous.kicad_pcb"
         old_path.write_text(old_text)
         for line in place(LAYOUT, old_path):
             print(line)
     if not a.no_sync:
-        env = dict(
-            line.split("=", 1)
-            for line in (ROOT / "versions.env").read_text().splitlines()
-            if "=" in line and not line.startswith("#")
-        )
-        subprocess.run(
-            ["pcb", f"+{env['PCB_TOOLCHAIN'].strip()}", "layout", "--no-open", "boards/encoder/encoder.zen"],
-            cwd=ROOT,
-            check=True,
-            capture_output=True,
-        )
+        pcb_layout()
     return 0
 
 

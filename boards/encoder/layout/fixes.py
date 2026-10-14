@@ -7,19 +7,16 @@ revision, after `make gen` has added R1-R3 (packed beside the board by the netli
 `pcb layout` syncs the result. Every coordinate is KiCad millimetres on the board's frame
 (spec/encoder.toml [kicad]). The steps, in order:
 
-1. Outline: delete the 1 nm Edge.Cuts line the Altium conversion left between the top right
-   corner arc and the right side (KiCad DRC invalid_outline) and close the corner on the arc's
-   end point.
-2. Teardrops: delete the second SPI_MOSI teardrop at IC1 pad 4; it overlaps the first and leaves
+1. Teardrops: delete the second SPI_MOSI teardrop at IC1 pad 4; it overlaps the first and leaves
    a copper sliver (KiCad DRC copper_sliver). Pads 1-3 have one teardrop each, as pad 4 now does.
-3. Supply: the 3V3 track runs straight up from the tab pad to IC1's VDD/VDD3V3 (pins 11, 12) along
+2. Supply: the 3V3 track runs straight up from the tab pad to IC1's VDD/VDD3V3 (pins 11, 12) along
    x = 149.926, over the bottom-side Encoder_CSn track, which frees the top side above SPI_SCK
    and SPI_MOSI for their pull-downs. C1 sits on it, right of the track, as close to IC1 as the
    courtyards allow: its pad 1 is 4.0 mm from pin 11 (pad centres; 5.0 mm on the previous layout).
-4. The AS5047U's SPI input pulls (DS v1-00 Figure 4 notes 1-3): R3 (SPI_MOSI) and R2 (SPI_SCK)
+3. The AS5047U's SPI input pulls (DS v1-00 Figure 4 notes 1-3): R3 (SPI_MOSI) and R2 (SPI_SCK)
    above their bottom-side tracks, each with a via onto its track; R1 (Encoder_CSn to 3V3) right
    of the supply track, with a via and a bottom-side stub to the Encoder_CSn track.
-5. Silkscreen: the IC1 and C1 designators move clear of the new parts; R1-R3 keep their
+4. Silkscreen: the IC1 and C1 designators move clear of the new parts; R1-R3 keep their
    designators on F.Fab only (no room on the silkscreen of a 9.6 mm board).
 
 Zones are refilled before saving. New items take their UUIDs from a seeded generator, so the
@@ -28,6 +25,7 @@ chain transfer_layout.py, fixes.py, `make gen` rebuilds the committed layout byt
 
 from __future__ import annotations
 
+import itertools
 import math
 import subprocess
 import sys
@@ -118,7 +116,7 @@ def segment(netname: str, layer: str, a, b) -> pcbnew.PCB_TRACK:
 def track(netname: str, layer: str, width: float, *pts) -> None:
     """A chain of straight segments through pts (each an (x, y) or a 'ref.pad' string)."""
     q = [padxy(*p.split(".", 1)) if isinstance(p, str) else p for p in pts]
-    for a, b in zip(q, q[1:], strict=False):
+    for a, b in itertools.pairwise(q):
         if math.dist(a, b) < 1e-6:
             continue
         t = pcbnew.PCB_TRACK(B)
@@ -175,27 +173,6 @@ def place(ref: str, x: float, y: float, rot: float) -> None:
 # --- steps ---------------------------------------------------------------------------------------
 
 
-def outline() -> None:
-    tiny = [
-        d
-        for d in B.GetDrawings()
-        if d.GetLayer() == pcbnew.Edge_Cuts and d.GetShape() == pcbnew.SHAPE_T_SEGMENT and d.GetLength() < mm(0.001)
-    ]
-    if len(tiny) != 1 or not near(xy(tiny[0].GetStart()), (153.3011, 98.953604), 2e-6):
-        raise SystemExit(f"expected the 1 nm Edge.Cuts line at (153.3011, 98.9536): {len(tiny)} found")
-    a, b = tiny[0].GetStart(), tiny[0].GetEnd()
-    drop(tiny[0])
-    # the right side starts where the tiny line ended; start it on the corner arc's end instead
-    side = [
-        d
-        for d in B.GetDrawings()
-        if d.GetLayer() == pcbnew.Edge_Cuts and d.GetShape() == pcbnew.SHAPE_T_SEGMENT and d.GetStart() == b
-    ]
-    if len(side) != 1:
-        raise SystemExit(f"right side line at the tiny line's end: {len(side)} found")
-    side[0].SetStart(a)
-
-
 def teardrops() -> None:
     # the two SPI_MOSI teardrops between IC1 pad 4 and its track; keep the one shaped like
     # pads 1-3's (from the pad edge, x = 146.298, to the track)
@@ -233,7 +210,9 @@ def parts() -> None:
     # 0.1 mm below IC1's
     place("C1", TRUNK_X + 0.775, 105.73, 0)
     # the stitching via beside C1's GND pad moves 0.15 mm out (0.22 mm from the pad)
-    stitch = [t for t in B.GetTracks() if t.GetClass() == "PCB_VIA" and near(xy(t.GetPosition()), (152.30114, 105.553605))]
+    stitch = [
+        t for t in B.GetTracks() if t.GetClass() == "PCB_VIA" and near(xy(t.GetPosition()), (152.30114, 105.553605))
+    ]
     if len(stitch) != 1:
         raise SystemExit("GND via at (152.301, 105.554) not found")
     stitch[0].SetPosition(pt(152.45114, 105.553605))
@@ -298,7 +277,6 @@ def main() -> int:
     B = pcbnew.LoadBoard(str(LAYOUT))
     # new items take UUIDs from a seeded generator, so a re-run on the same input is byte-identical
     pcbnew.KIID.SeedGenerator(0x6E636F64)
-    outline()
     teardrops()
     supply()
     parts()

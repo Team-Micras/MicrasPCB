@@ -20,8 +20,10 @@ load(
     "CopperLayer",
     "DesignRules",
     "DielectricLayer",
+    "Material",
     "NetClass",
     "Silkscreen",
+    "SolderMask",
     "Stackup",
 )
 
@@ -93,8 +95,10 @@ Resistor(
 
 EncoderTab(name="J1", VDD=V3V3, GND=GND, SPI=SPI, A=ENCODER_ABI_A, B=ENCODER_ABI_B)
 
-# Stackup of MicrasEncoder.PcbDoc: 0.70 mm FR-4 core, 35 um copper, 10 um mask a side,
-# 0.79 mm finished (spec/encoder.toml, pcb.thickness); ordered as JLCPCB's 0.8 mm 2-layer board.
+# Stackup of MicrasEncoder.PcbDoc: 0.70 mm FR-4 core (Dk 4.5), 35 um copper. Zener writes a 10 um
+# solder mask a side (not configurable): 0.79 mm (spec/encoder.toml, pcb.thickness); Altium's
+# 0.5 mil (12.7 um) resist makes it 0.7954 mm. Ordered as JLCPCB's 0.8 mm 2-layer board.
+# Solder mask expansion 0.02 mm (rule SolderMaskExpansion, 0.7874 mil).
 # Vias 0.3 mm drill / 0.6 mm pad, the previous layout's (JLCPCB's no-surcharge drill).
 # Silkscreen text: 0.5 mm high with a 0.15 mm stroke at least, the project's minimum (the
 # previous boards' pin labels, legible on the built boards; JLCPCB recommends 1.0 mm, a trade-off
@@ -110,6 +114,7 @@ Board(
             constraints=Constraints(
                 copper=Copper(copper_to_edge_clearance=0.2),
                 silkscreen=Silkscreen(minimum_text_height=0.5),
+                solder_mask=SolderMask(clearance=0.02),
             ),
             netclasses=[
                 NetClass(
@@ -122,10 +127,11 @@ Board(
             ],
         ),
         stackup=Stackup(
+            materials=[Material(name="FR-4", relative_permittivity=4.5)],
             thickness=0.79,
             layers=[
                 CopperLayer(thickness=0.035, role="mixed"),
-                DielectricLayer(thickness=0.70, material="FR4-Core", form="core"),
+                DielectricLayer(thickness=0.70, material="FR-4", form="core"),
                 CopperLayer(thickness=0.035, role="mixed"),
             ],
         ),

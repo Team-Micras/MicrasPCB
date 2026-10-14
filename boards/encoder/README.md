@@ -80,13 +80,18 @@ placed by [`layout/fixes.py`](layout/fixes.py):
   with a via onto its track; R1 sits right of the 3V3 track, below C1, with a via and a short
   bottom-side track to Encoder_CSn. The vias of R2 and R3 touch the lower edge of the
   bottom-side logo; like the four SPI vias under the logo, they are tented.
-- GND pours on both layers, joined by six vias along the sides; the copper connections keep the
-  previous teardrops as plain zones (priority 100 and up, above the pours), one per track end.
+- GND pours on both layers, joined by six vias along the sides, with the Altium polygons' neck
+  widths (copper narrower than 0.1 mm on the top, 0.4 mm on the bottom is not poured, which keeps
+  the bottom pour out of the channels between the SPI tracks) and solid pad connections. The
+  copper connections keep the previous teardrops as plain zones (priority 100 and up, above the
+  pours), one per track end, filled with a 0.1 mm minimum width, JLCPCB's minimum copper feature.
 - Silkscreen: the pin names above the tab on each side (0.5 mm), the IC1, C1 and J1 designators
   (0.6 mm), and the Micras logo on the bottom. R1-R3 carry their designators on F.Fab only:
   beside an 0402 on this board a 0.5 mm label cannot keep the 0.1 mm silkscreen clearance.
 - IC1 and J1 are locked where `spec/encoder.toml` puts them. The drill and placement origin of
   the fab outputs is the Altium origin, the tab's bottom left corner.
+- The Edge.Cuts outline is the Altium one without its duplicated vertex (a 1 nm line at the top
+  right corner, which KiCad reads as a malformed outline).
 
 The board's silkscreen text minimum is the project's, 0.5 mm high with a 0.15 mm stroke (set in
 `encoder.zen` for DRC; the stroke is checked by `tests/test_encoder.py`); JLCPCB recommends
@@ -104,9 +109,26 @@ make gen && make check
 the right seen from the chip side, v up. The Edge.Cuts outline is layout geometry; `micras-pcb
 mech encoder` checks its features (9.6 mm width, 13.1 mm top with 1 mm corner radii, 8.0 mm
 shoulder, the tapers to 7.457 mm, the 5.0 x 1.0 mm tab with 0.1 mm reliefs) and exports the layout
-outline to `build/encoder/encoder_mech.json`. The stackup is the PcbDoc's: 0.70 mm core, 35 um
-copper and 10 um mask a side, 0.79 mm; it is ordered as JLCPCB's 0.8 mm 2-layer board, ENIG
-finish, black solder mask and white silkscreen (Zener's 2-layer defaults, the owner's choice).
+outline to `build/encoder/encoder_mech.json`. The stackup is the PcbDoc's: 0.70 mm FR-4 core
+(Dk 4.5) and 35 um copper; with Zener's fixed 10 um solder mask a side it is 0.79 mm (Altium's
+12.7 um resist makes 0.7954 mm). It is ordered as JLCPCB's 0.8 mm 2-layer board, ENIG finish,
+black solder mask and white silkscreen (Zener's 2-layer defaults, the owner's choice). Solder mask
+expansion 0.02 mm, the Altium rule.
+
+## Differences from the Altium board
+
+Apart from the fixes of the [layout](#layout) (the 3V3 route, C1 moved, R1-R3 with their tracks and
+vias, one of the two SPI_MOSI teardrops at IC1 pad 4 removed, the IC1 and C1 designators moved, IC1's
+courtyard on F.CrtYd), the board's copper, mask, paste, drills and outline match the Altium
+MicrasEncoder's own Gerbers (its CAMtastic output) except:
+
+| What | This board | Altium board | Why |
+|---|---|---|---|
+| Pour to board edge | 0.21 mm | 0.195 mm | `rules/jlcpcb.kicad_dru`: JLCPCB's 0.2 mm routed-edge clearance plus 10 um for the fill's arc approximation |
+| C1 | KiCad `C_0603_1608Metric`: 0.90 x 0.95 mm pads; KiCad silkscreen and 3D model (0.8 mm wide) | 0.75 x 0.94 mm pads, Altium's pad box and model (0.9 mm wide) | the stdlib generic capacitor's footprint |
+| Teardrop cusps | thinner than 0.1 mm left out (the 3V3 teardrop at (150.1, 102.1) is that thin all over and has no copper) | drawn to a point | JLCPCB's 0.1 mm minimum copper feature |
+| Texts | KiCad stroke font | Altium fonts | same strings, sizes and positions |
+| Solder mask thickness | 10 um a side | 12.7 um | Zener's stackup has no mask thickness setting |
 
 The joint with the main board (`tests/test_joint.py`, `tests/test_layout.py`): the tab pads carry
 the slot pads' signals (`components/micras/EncoderSlot`), face them pad for pad (0.95 mm pitch,
