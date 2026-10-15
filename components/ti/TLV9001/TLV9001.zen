@@ -1,0 +1,61 @@
+"""TLV9001IDBVR - 1 MHz, rail-to-rail input and output op amp, 60 uA, SOT-23-5. Bare part.
+
+Datasheet: TI SBOS833R (October 2017, revised November 2021), TLV900x.
+
+Pins (section 6, Figure 6-1 and Table 6-1, TLV9001 DBV): 1 OUT, 2 V-, 3 IN+, 4 IN-, 5 V+. The
+TLV9001U DBV (Figure 6-2) has another pinout; this package is the TLV9001IDBVR only.
+
+Absolute maximum ratings (section 7.1): supply 7 V; input common mode (V-) - 0.5 V to
+(V+) + 0.5 V, input current +-10 mA (inputs diode-clamped to the rails); output short circuit
+continuous; TJ 150 C.
+Recommended operating conditions (section 7.3): supply 1.8 to 5.5 V; TA -40 to 125 C.
+RthJA 232.9 C/W (section 7.4, DBV).
+
+Electrical characteristics (section 7.10, VS 1.8-5.5 V, TA 25 C unless noted):
+- VOS +-0.4 / +-1.6 mV (VS 5 V), +-2 mV max over -40 to 125 C; drift +-0.6 uV/C.
+- Input common mode (V-) - 0.1 V to (V+) + 0.1 V, no phase reversal: it includes ground.
+- IB +-5 pA. Noise 27 nV/rtHz at 10 kHz.
+- AOL 104 / 117 dB (VS 5.5 V, RL 10 kOhm).
+- GBW 1 MHz; phase margin 78 deg at G = 1; slew rate 2 V/us; settling to 0.1 % 2.5 us
+  (2 V step, G = 1, CL 100 pF); overload recovery 0.85 us.
+- Output swing from the rails 10 / 20 mV (RL 10 kOhm), 35 / 55 mV (RL 2 kOhm); ISC +-40 mA;
+  open-loop output impedance 1200 Ohm at 1 MHz, resistive.
+- IQ 60 / 77 uA (VS 5.5 V), 85 uA max over -40 to 125 C.
+- Capacitive load: "the capacitive-load drive of the TLV900x family is 500 pF" (section 3);
+  phase margin falls to about 30 deg at 600 pF and 20 deg at 1 nF (Figure 7-26, G = 1).
+
+Application on the next main board (research/next-revision, IR emitters; A.4): the error
+amplifier of the IR emitter constant-current sink, supplied from 3V3_A. IN+ takes the set-point
+divided down from 3V3_A, IN- the top of the 1.2 Ohm sense resistor, OUT drives the AO3400A gate
+through a small resistor. 170 mA x 1.2 Ohm = 0.204 V sits inside the input range; the gate needs
+about 2.5 V from 3.3 V, inside the output swing. The VOS limit is +-0.8 % of the 0.204 V
+set-point (+-1.0 % over temperature).
+
+Integrator-owned circuitry: the 100 nF V+ bypass, the set-point divider, the gate resistor and
+any loop compensation. TODO: the AO3400A's 630 pF Ciss sits above the 500 pF drive rating;
+the source follower bootstraps most of Cgs, but the loop's step response with the chosen gate
+resistor must be checked (simulation with the vendor models, or a bench step at the sense
+resistor) before the layout is frozen.
+"""
+
+# Section 7.3: recommended supply 1.8-5.5 V.
+VCC = io(Power(voltage="1.8V to 5.5V"))
+GND = io(Ground)
+IN_P = io(Net)
+IN_N = io(Net)
+OUT = io(Net)
+
+Component(
+    name="TLV9001",
+    prefix="U",
+    symbol=Symbol(library="TLV9001IDBVR.kicad_sym"),
+    footprint=File("SOT-23-5.kicad_mod"),
+    part=Part(mpn="TLV9001IDBVR", manufacturer="Texas Instruments"),
+    pins={
+        "OUT": OUT,
+        "V-": GND,
+        "+": IN_P,
+        "-": IN_N,
+        "V+": VCC,
+    },
+)

@@ -1,0 +1,118 @@
+"""ADP7142ACPZN3.3-R7 package facts and datasheet rules (ADI ADP7142 Rev. H).
+
+The bench instantiates ADP7142_rail.zen (the LDO with an input and an output capacitor) as the
+next main board's 3V3_A uses it: VIN on VSYS (4.3-17.4 V), EN on 3V3_D or on VIN, SS open.
+"""
+
+RAIL = Module("./ADP7142_rail.zen")
+
+# Table 1, p3: precision EN rising threshold 1.30 V max (on), falling 1.06 V min (off);
+# Table 3, p5: EN and VIN -0.3 to 44 V.
+EN_ON_MAX = 1.30
+ABS_MAX = 44.0
+# Table 2, p4; p14: >= 2.2 uF on VIN and VOUT, X5R or X7R.
+C_MIN = 2.2e-6
+# Thermal (Eq. 10, p17): research/next-revision power tree, worst case 22.5 mA at the highest VIN;
+# ground current 190 uA max at 10 mA (Table 1). RthJA 182.8 C/W is Table 6's smallest copper
+# (25 mm^2); TJ must stay at or below 125 C (p17). TA 50 C is this bench's assumption, not a
+# measured enclosure temperature (TODO: the board's ambient).
+LOAD = 0.0225
+IGND = 190e-6
+RTH_JA = 182.8
+TA = 50.0
+TJ_MAX = 125.0
+
+
+def by_suffix(module, suffix):
+    for path, c in module.components().items():
+        if path.endswith(suffix):
+            return c
+    error("no component " + suffix)
+
+
+def ldo(module):
+    return by_suffix(module, "LDO.ADP7142")
+
+
+def orderable_part(module, inputs):
+    c = ldo(module)
+    check(c.mpn == "ADP7142ACPZN3.3-R7", "MPN must be ADP7142ACPZN3.3-R7, got " + str(c.mpn))
+    check(c.manufacturer == "Analog Devices", "manufacturer")
+    check(c.prefix == "U", "reference prefix must be U")
+
+
+def pinout(module, inputs):
+    # Figure 3 / Table 5, LFCSP: 1 VOUT, 2 SENSE/ADJ, 3 GND, 4 EN, 5 SS, 6 VIN, EP on GND.
+    pins = ldo(module).pins
+    check(
+        sorted(pins.keys()) == ["EN", "EP", "GND", "SENSE/ADJ", "SS", "VIN", "VOUT"],
+        "pins: " + str(sorted(pins.keys())),
+    )
+    check(pins["SENSE/ADJ"].name == pins["VOUT"].name, "SENSE must be on VOUT for the fixed 3.3 V output")
+    check(pins["EP"].name == "GND", "the exposed pad must be on GND (Table 5)")
+    check(pins["GND"].name == "GND", "GND")
+
+
+def soft_start_not_grounded(module, inputs):
+    # Table 5: "Leave this pin open ... Do not ground this pin."
+    check(ldo(module).pins["SS"].name != "GND", "SS must not be grounded")
+
+
+def enable_levels(module, inputs):
+    en = ldo(module).pins["EN"].voltage
+    check(en != None, "EN needs a driven level")
+    check(en.min >= EN_ON_MAX, "EN low end " + str(en.min) + " V is below the 1.30 V maximum on threshold")
+    check(en.max <= ABS_MAX, "EN can exceed its 44 V absolute maximum")
+    check(ldo(module).pins["VIN"].voltage.max <= ABS_MAX, "VIN can exceed its 44 V absolute maximum")
+
+
+def capacitors(module, inputs):
+    pins = ldo(module).pins
+    for io_pin in ["VIN", "VOUT"]:
+        node = pins[io_pin].name
+        caps = []
+        for path, c in module.components().items():
+            if c.type == "capacitor" and sorted([p.name for p in c.pins.values()]) == sorted([node, "GND"]):
+                caps.append((path, c))
+        check(len(caps) > 0, "no capacitor from " + io_pin + " to GND")
+        total = 0.0
+        for path, c in caps:
+            d = str(c.dielectric)
+            check("X5R" in d or "X7R" in d, path + " is " + d + ": X5R or X7R only (p14)")
+            check(c.voltage.value >= pins[io_pin].voltage.max, path + " is rated below the " + io_pin + " net")
+            total += c.capacitance.value
+        check(total >= C_MIN, io_pin + " carries " + str(total) + " F, below 2.2 uF (Table 2, p14)")
+
+
+def thermal(module, inputs):
+    vin = ldo(module).pins["VIN"].voltage.max
+    pd = (vin - 3.3) * LOAD + vin * IGND
+    tj = TA + pd * RTH_JA
+    check(tj <= TJ_MAX, "TJ " + str(tj) + " C at VIN " + str(vin) + " V, PD " + str(pd) + " W exceeds 125 C")
+
+
+GND = Ground()
+VSYS = Power(voltage="4.3V to 17.4V")
+V3V3_A = Power(voltage="3.24V to 3.36V")
+
+TestBench(
+    name="ADP7142_3v3_a",
+    module=RAIL,
+    test_cases={
+        "en_on_3v3_d": {
+            "VIN": VSYS,
+            "VOUT": V3V3_A,
+            "EN": Power("V3V3_D", voltage="3.2V to 3.4V"),
+            "SS": NotConnected(),
+            "GND": GND,
+        },
+        "en_on_vin": {
+            "VIN": VSYS,
+            "VOUT": V3V3_A,
+            "EN": VSYS,
+            "SS": NotConnected(),
+            "GND": GND,
+        },
+    },
+    checks=[orderable_part, pinout, soft_start_not_grounded, enable_levels, capacitors, thermal],
+)
