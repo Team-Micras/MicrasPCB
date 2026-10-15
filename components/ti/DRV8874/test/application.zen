@@ -1,0 +1,171 @@
+"""Test fixture: a DRV8874 wired like SLVSF66A Figure 19, with configs that pick each legal strap
+and inject one broken rule at a time. Not a reusable circuit.
+
+Nominal values: section 8.2.1 and Figure 19 (CVM1 0.1 uF, CVCP 0.1 uF, CFLY 0.022 uF, nFAULT
+10 kOhm to VCC, VREF divider on VCC) with the Micras motor setting of the next-revision proposal
+(RIPROPI 2.0 kOhm, VREF 2.70 V: ITRIP = 2.70 V / (2.0 kOhm x 450 uA/A) = 3.0 A, equation 3).
+J1 stands in for the controller, J2 for the motor.
+"""
+
+load("@stdlib/units.zen", "Voltage")
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+PinHeader = Module("@stdlib/generics/PinHeader.zen")
+DRV8874 = Module("../DRV8874.zen")
+
+PMode = enum("GND", "VCC", "OPEN")
+IMode = enum("GND", "R20K", "R62K", "OPEN", "R33K")
+Fault = enum(
+    "NONE",
+    "NO_CVM1",
+    "NO_BULK",
+    "CVCP_1UF",
+    "CFLY_10V",
+    "NO_RIPROPI",
+    "RIPROPI_680",
+    "NO_NFAULT_PULLUP",
+    "NFAULT_PULLUP_470",
+    "SLEEP_PULLDOWN_ONLY",
+)
+
+pmode = config(PMode, default="GND")
+imode = config(IMode, default="GND")
+vcc_voltage = config(Voltage, default="3.3V", allowed=["3.3V", "5V"])
+fault = config(Fault, default="NONE")
+
+VM = Power("VM", voltage="12V to 17.4V")
+VCC = Power("VCC", voltage=vcc_voltage)
+GND = Ground("GND")
+VCP = Net("VCP")
+CPH = Net("CPH")
+CPL = Net("CPL")
+EN = Net("EN")
+PH = Net("PH")
+NSLEEP = Net("NSLEEP")
+MCU_SLEEP = Net("MCU_SLEEP")
+NFAULT = Net("NFAULT")
+VREF = Net("VREF")
+IPROPI = Net("IPROPI")
+OUT1 = Net("OUT1")
+OUT2 = Net("OUT2")
+PMODE_NET = {"GND": GND, "VCC": VCC, "OPEN": NotConnected()}[pmode.value]
+IMODE_NET = (
+    Net("IMODE") if imode.value in ["R20K", "R62K", "R33K"] else {"GND": GND, "OPEN": NotConnected()}[imode.value]
+)
+
+DRV8874(
+    name="IC1",
+    VM=VM,
+    GND=GND,
+    VCP=VCP,
+    CPH=CPH,
+    CPL=CPL,
+    EN_IN1=EN,
+    PH_IN2=PH,
+    NSLEEP=NSLEEP,
+    NFAULT=NFAULT,
+    VREF=VREF,
+    IPROPI=IPROPI,
+    IMODE=IMODE_NET,
+    PMODE=PMODE_NET,
+    OUT1=OUT1,
+    OUT2=OUT2,
+)
+
+# Table 1: CVM1, CVM2 (bulk), CVCP, CFLY.
+Capacitor(
+    name="CVM1",
+    value="100nF",
+    package="0603",
+    dielectric="X7R",
+    voltage="50V",
+    dnp=fault.value == "NO_CVM1",
+    P1=VM,
+    P2=GND,
+)
+Capacitor(
+    name="CVM2",
+    value="10uF",
+    package="1206",
+    dielectric="X7R",
+    voltage="50V",
+    dnp=fault.value == "NO_BULK",
+    P1=VM,
+    P2=GND,
+)
+Capacitor(
+    name="CVCP",
+    value="1uF" if fault.value == "CVCP_1UF" else "100nF",
+    package="0402",
+    dielectric="X7R",
+    voltage="16V",
+    P1=VCP,
+    P2=VM,
+)
+Capacitor(
+    name="CFLY",
+    value="22nF",
+    package="0402",
+    dielectric="X7R",
+    voltage="10V" if fault.value == "CFLY_10V" else "50V",
+    P1=CPH,
+    P2=CPL,
+)
+
+# Section 7.3.3: RIPROPI and the VREF divider (Figure 19 RREF1/RREF2) on the controller supply.
+Resistor(
+    name="RIPROPI",
+    value="680Ohm 1%" if fault.value == "RIPROPI_680" else "2kOhm 1%",
+    package="0402",
+    dnp=fault.value == "NO_RIPROPI",
+    P1=IPROPI,
+    P2=GND,
+)
+Resistor(name="RREF1", value="10kOhm 1%", package="0402", P1=VCC, P2=VREF)
+Resistor(name="RREF2", value="45.3kOhm 1%", package="0402", P1=VREF, P2=GND)
+
+# Table 6 levels 2 and 3 (and an illegal 33 kOhm); DNP when IMODE is tied or open.
+Resistor(
+    name="RIMODE",
+    value={"R20K": "20kOhm 1%", "R62K": "62kOhm 1%", "R33K": "33kOhm 1%"}.get(imode.value, "20kOhm 1%"),
+    package="0402",
+    dnp=imode.value not in ["R20K", "R62K", "R33K"],
+    P1=IMODE_NET,
+    P2=GND,
+)
+
+# Figure 19: nFAULT pull-up. nSLEEP from the controller with a pull-down that holds the bridge
+# asleep while the controller is in reset; RSLEEP is the controller link the fault case removes.
+Resistor(
+    name="RNFAULT",
+    value="470Ohm 5%" if fault.value == "NFAULT_PULLUP_470" else "10kOhm 1%",
+    package="0402",
+    dnp=fault.value == "NO_NFAULT_PULLUP",
+    P1=VCC,
+    P2=NFAULT,
+)
+Resistor(name="RSLEEP_PD", value="100kOhm 1%", package="0402", P1=NSLEEP, P2=GND)
+Resistor(
+    name="RSLEEP",
+    value="0Ohm",
+    package="0402",
+    dnp=fault.value == "SLEEP_PULLDOWN_ONLY",
+    P1=MCU_SLEEP,
+    P2=NSLEEP,
+)
+
+PinHeader(
+    name="J1",
+    pins=7,
+    rows=1,
+    pitch="2.54mm",
+    P1=EN,
+    P2=PH,
+    P3=MCU_SLEEP,
+    P4=NFAULT,
+    P5=IPROPI,
+    P6=VCC,
+    P7=GND,
+)
+PinHeader(name="J2", pins=2, rows=1, pitch="2.54mm", P1=OUT1, P2=OUT2)

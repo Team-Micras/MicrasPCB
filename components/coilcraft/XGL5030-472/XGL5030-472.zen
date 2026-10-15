@@ -1,0 +1,58 @@
+"""XGL5030-472MEC - 4.7 uH 20 % shielded power inductor, Coilcraft XGL5030 (5.28 x 5.48 x 3.1 mm). Bare part.
+
+Datasheet: Coilcraft XGL5030 series, Document 1576 (revised 02/19/26), the URL in pcb.toml.
+Role: the series choke of the fan motor behind the STSPIN958 at 400 kHz (next-revision proposal,
+Fan): 4.7-10 uH, Isat at or above the REF current limit (up to 5 A), about 5 x 5 mm.
+
+Electrical (Doc 1576-2 table, XGL5030-472ME_ row; notes):
+- L 4.7 uH +-20 % at 1 MHz.
+- DCR 21.9 mOhm typ, 24.5 mOhm max. SRF 23 MHz typ.
+- Isat 3.1 A (10 % drop), 4.8 A (20 % drop), 6.7 A (30 % drop), DC at 25 C.
+- Irms 6.3 A (20 C rise) and 8.5 A (40 C rise) from 25 C ambient.
+- Ambient -40 to +125 C with the 40 C-rise Irms (Doc 1576-1). Mass 0.46-0.52 g (Doc 1576-1).
+- Operating voltage 80 V (Doc 1576-1, note 7), above the 17.4 V 4S pack.
+At a 5 A limit the inductance is down by a little more than 20 % (about 3.7 uH): still in the
+fan study's range; above 6.7 A it falls by more than 30 %.
+
+Dimensions (part-page drawing): 5.28 +-0.2 x 5.48 +-0.2 mm, height 3.1 mm max for the -472
+(height table); bottom terminals 1.0 +-0.05 mm wide, 2.31 +-0.25 mm apart, 4.2 mm long typ.
+Recommended land pattern: 1.18 x 4.70 mm pads at 3.31 mm centre pitch, the same as the XAL5030
+(Coilcraft XAL50xx drawing). The bar on the top marks the start (short) lead: "Connect high
+dv/dt here for lowest EMI".
+
+The `current` property is the lower of the 40 C-rise Irms and the 30 %-drop Isat, as for the
+other inductor packages in this registry.
+"""
+
+load("@stdlib/units.zen", "Current", "Inductance", "Resistance")
+load("@stdlib/utils.zen", "format_value")
+
+P1 = io(Net)
+P2 = io(Net)
+
+# Doc 1576-2, XGL5030-472ME_ row.
+inductance = Inductance("4.7uH 20%")
+isat = Current("6.7A")  # 30 % drop, 25 C
+isat_20 = Current("4.8A")  # 20 % drop
+irms = Current("8.5A")  # 40 C rise; 6.3 A at 20 C rise
+current = Current("6.7A")
+dcr = Resistance("24.5mOhm")  # max; 21.9 mOhm typ
+
+Component(
+    name="XGL5030-472",
+    prefix="L",
+    symbol=Symbol(library="XGL5030-472.kicad_sym"),
+    footprint=File("L_Coilcraft_XAL5030-XXX.kicad_mod"),
+    part=Part(mpn="XGL5030-472MEC", manufacturer="Coilcraft"),
+    pins={"1": P1, "2": P2},
+    properties={
+        "value": format_value(inductance, current),
+        "inductance": inductance,
+        "current": current,
+        "isat": isat,
+        "isat_20": isat_20,
+        "irms": irms,
+        "dcr": dcr,
+    },
+    type="inductor",
+)

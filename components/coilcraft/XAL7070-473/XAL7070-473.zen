@@ -1,0 +1,56 @@
+"""XAL7070-473MEC - 47 uH 20 % shielded power inductor, Coilcraft XAL7070 (7.2 x 7.5 x 7.0 mm). Bare part.
+
+Datasheet: Coilcraft XAL7070 series, Document 856 (revised 02/25/26), the URL in pcb.toml.
+Role: the series choke of a DCX 10 L 4.5 V wheel motor behind a DRV8874 at 100 kHz (next-revision
+proposal, Drivetrain): Isat above ITRIP 3 A plus the 0.41-0.62 A blanking overshoot, about 3.6 A.
+
+Electrical (Doc 856-2 table, XAL7070-473ME_ row; notes 2-8):
+- L 47 uH +-20 % at 1 MHz, 0.1 Vrms, 0 Adc (note 2).
+- DCR 84.41 mOhm typ, 97.07 mOhm max (note 3). SRF 5.7 MHz typ.
+- Isat 4.2 A: the DC current at 25 C that lowers the inductance by 30 % typ (note 5); the table
+  gives no 10 % or 20 % columns for this series.
+- Irms 3.1 A (20 C rise) and 4.1 A (40 C rise) from 25 C ambient (note 6).
+- Ambient -40 to +125 C with the 40 C-rise Irms; part temperature up to +165 C (Doc 856-1).
+- Mass 1.9-2.3 g (Doc 856-1). Terminations tin-silver over copper.
+- Operating voltage 60 V (Doc 856-1; note 7: it "varies by part number"), above the 17.4 V
+  4S pack.
+
+Dimensions (part-page drawing): 7.2 +-0.5 x 7.5 +-0.5 mm, 7.0 mm max height (plus up to 0.13 mm
+before mounting for tin-silver terminations); bottom terminals 1.45 +-0.10 mm wide, 3.37 +-0.25 mm
+apart, 6.0 mm long typ. Recommended land pattern: 1.92 x 6.50 mm pads at 4.82 mm centre pitch.
+The bar on the top marks the start (short) lead: "Connect high dv/dt here for lowest EMI".
+
+The `current` property is the lower of the 40 C-rise Irms and Isat, as for the other inductor
+packages in this registry.
+"""
+
+load("@stdlib/units.zen", "Current", "Inductance", "Resistance")
+load("@stdlib/utils.zen", "format_value")
+
+P1 = io(Net)
+P2 = io(Net)
+
+# Doc 856-2, XAL7070-473ME_ row.
+inductance = Inductance("47uH 20%")
+isat = Current("4.2A")  # 30 % drop, 25 C (note 5)
+irms = Current("4.1A")  # 40 C rise (note 6); 3.1 A at 20 C rise
+current = Current("4.1A")
+dcr = Resistance("97.07mOhm")  # max; 84.41 mOhm typ
+
+Component(
+    name="XAL7070-473",
+    prefix="L",
+    symbol=Symbol(library="XAL7070-473.kicad_sym"),
+    footprint=File("L_Coilcraft_XAL7070-XXX.kicad_mod"),
+    part=Part(mpn="XAL7070-473MEC", manufacturer="Coilcraft"),
+    pins={"1": P1, "2": P2},
+    properties={
+        "value": format_value(inductance, current),
+        "inductance": inductance,
+        "current": current,
+        "isat": isat,
+        "irms": irms,
+        "dcr": dcr,
+    },
+    type="inductor",
+)
