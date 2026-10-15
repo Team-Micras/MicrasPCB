@@ -109,7 +109,7 @@ and fails if any gate failed.
 | previous | `micras-pcb previous compare <board>` | a replicated board (main, encoder, bluetooth) connects or names anything differently from its previous revision, except the changes in `boards/<board>/changes.toml` |
 | DRC | `kicad-cli pcb drc` + `rules/jlcpcb.kicad_dru` | JLCPCB clearances (copper, SMD pad to pad, hole to track), widths, drills, edge distances |
 | DFM | `pcb dfm` + `rules/jlcpcb-pdk.toml` | geometry-level manufacturability (Diode's sourced JLCPCB PDK) |
-| pytest | `pytest` | board contracts (encoder joint, firmware pin map), power tree, decoupling at the pin, encoder slot fit, courtyards, paste, 3D models, part data |
+| pytest | `pytest` | board contracts (encoder joint, firmware pin map), power tree, decoupling at the pin, encoder slot fit, routing style (every track straight at a multiple of 45 degrees, no arcs, no acute corners), courtyards, paste, 3D models, part data |
 | lint | `ruff` | Python lint and format |
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 
@@ -152,9 +152,9 @@ boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb
                        the board's description, the rest generated)
 boards/<board>/previous/  snapshot of the board's previous revision (board.json) for the connectivity comparison,
                        and the scripts that build its layout from that revision (transfer_layout.py; main: rework.py)
-boards/main/layout/fixes.py, router.py, refine.py, usb_wall.py, finish.py  the one-off scripts that place
-                       and route the review fixes and the owner's layout decisions, their grid router, and the
-                       previous revision's pour settings on the result
+boards/main/layout/*.py  the one-off scripts that place and route the review fixes and the owner's layout
+                       decisions (fixes.py, refine.py, usb_wall.py, finish.py, rail_silk.py, octilinear.py), and
+                       their 45-degree grid router (router.py)
 boards/main/firmware.toml  the firmware's pin map and drive settings (from MicrasFirmware), tested against the board
 boards/main/firmware_changes.toml  the firmware changes the board needs, applied on top of firmware.toml in the tests
 boards/<board>/test/   Zener test benches of the board's circuit
