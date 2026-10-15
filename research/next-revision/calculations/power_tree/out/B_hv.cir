@@ -1,0 +1,86 @@
+* (B) 5 V PFM buck (L6981C50-like) -> TPS7A20-class LDO -> 3V3_A
+
+* 4S battery 14.8 V + motor PWM ripple (100 kHz) + fan (300 kHz), assumed amplitudes
+Vbatdc b0 0 14.8
+Btri b1 b0 V = 0.21*(2*abs(2*(time*100e3 - floor(time*100e3 + 0.5))) - 1)/2
+Bsq b2 b1 V = 0.09*((time*100e3 - floor(time*100e3)) < 0.5 ? 0.5 : -0.5)
+Bfan b3 b2 V = 0.1*((time*300e3 - floor(time*300e3)) < 0.37 ? 0.5 : -0.5)
+Rsrc b3 vbat 0.1
+Cbat vbat 0 1u
+
+* digital 3V3_D: averaged L6981C33, K=7.654 A/V, 58 uF eff
+Bde de 0 V = 3.3 - v(v3d)
+Bdr dr 0 V = 7.65406*v(de) + v(di)
+Bdi 0 di I = 144276*v(de) + 5e4*(v(dc) - v(dr))
+Cdi di 0 1
+Rdi di 0 1e9
+Bdc dc 0 V = max(0, min(2.0, v(dr)))
+Rdl dc dl 2k
+Cdl dl 0 1n
+Gdo 0 v3d dl 0 1
+Cdo v3d v3d_c 58u
+Rdo v3d_c 0 3m
+Bdload v3d 0 I = (0.170 + (((time - floor(time/1.5m)*1.5m) > 0.3m) && ((time - floor(time/1.5m)*1.5m) < 0.7m) ? 0.355 : 0.095) + 0.170*(((time > 0.001) ? ( ((time-0.001) - floor((time-0.001)/1m)*1m) < 0.8m ? ( (((time-0.001) - floor((time-0.001)/0.2m)*0.2m) < 0.15m) ? 1 : 0 ) : 0 ) : 0)))
+Bdin vbat 0 I = v(v3d)*(0.170 + (((time - floor(time/1.5m)*1.5m) > 0.3m) && ((time - floor(time/1.5m)*1.5m) < 0.7m) ? 0.355 : 0.095) + 0.170*(((time > 0.001) ? ( ((time-0.001) - floor((time-0.001)/1m)*1m) < 0.8m ? ( (((time-0.001) - floor((time-0.001)/0.2m)*0.2m) < 0.15m) ? 1 : 0 ) : 0 ) : 0)))/(0.88*max(v(vbat),3))
+.ic v(di)=0.4 v(v3d)=3.3
+
+* b5: generic peak-current-mode buck, PFM, fSW 400 kHz, L 22.0 uH, COUT 35.0 uF eff, K 5.05 A/V
+Vb5clk b5clk 0 PULSE(0 1 0 1n 1n 20n 2.5e-06)
+Vb5rmp b5rmp 0 PULSE(0 1 0 2.498e-06 1n 0 2.5e-06)
+Bb5e b5e 0 V = 5.0 - v(v5)
+Bb5raw b5raw 0 V = 5.05168*v(b5e) + v(b5vi)
+Bb5pk b5pk 0 V = max(0.35, min(2.0, v(b5raw)))
+Bb5vi 0 b5vi I = 95221.9*v(b5e) + 2e5*(v(b5pk) - v(b5raw))
+Cb5vi b5vi 0 1
+Rb5vi b5vi 0 1e9
+Bb5rst b5rst 0 V = (v(b5rmp) > 0.926) ? 1 : ((v(b5rmp) > 0.034) ? 0.5*(1+tanh((v(b5il) + 0.397727*v(b5rmp) - v(b5pk))*400)) : 0)
+Bb5set b5set 0 V = v(b5clk)*0.5*(1+tanh((5.09 - v(v5))*3000))
+Bb5q 0 b5q I = 2e-3*(v(b5set)*(1-v(b5q))*(1-v(b5rst)) - v(b5rst)*v(b5q))
+Cb5q b5q 0 1p
+Rb5q b5q 0 1e9
+Bb5il 0 b5il I = (v(b5q)*v(vbat) - v(v5) - 0.4*v(b5il)) + (1-v(b5q))*5500*max(0, -v(b5il))
+Cb5il b5il 0 2.2e-05
+Rb5il b5il 0 1e6
+Gb5o 0 v5 b5il 0 1
+Bb5in vbat 0 I = v(b5q)*v(b5il)
+Cb5o v5 b5o1 3.5e-05
+Rb5o b5o1 b5o2 0.005
+Lb5o b5o2 0 5e-10
+Rb5leak v5 0 1e6
+.ic v(b5vi)=0.02 v(v5)=5.0 v(b5il)=0.02 v(b5q)=0
+
+* la: behavioural LDO (loop as supply3v3/sim3v3.py, TPS7A20 Fig. 5-51 calibration); PSRR added in analyze.py
+Blae lae 0 V = 3.3 - v(va)
+Blar lar 0 V = 3.76991*v(lae) + v(lai)
+Blai 0 lai I = 473741*v(lae) + 5e4*(v(lac) - v(lar))
+Clai lai 0 1
+Rlai lai 0 1e9
+Blac lac 0 V = max(0, min(0.3, v(lar)))
+Rlal lac lal 100
+Clal lal 0 1n
+Blao v5 va I = v(lal) * min(1, max(0, (v(v5) - v(va) - 0.05) / 0.1))
+.ic v(lai)=0.01 v(va)=3.3
+Cla va va_c 2.2u
+Rla va_c 0 5m
+
+* 3V3_A loads: 2 x INA241A2 (2 x 2.5 mA), op-amp+divider 0.3 mA, ambient photocurrents 4 x 0.3 mA,
+* lit phototransistor 2 mA during the pulse, ADC 1.0 mA + 0.7 mA during scans (VDDA pin)
+Iana va 0 6.5m
+Bphoto va 0 I = 2m*((time > 0.001) ? ( ((time-0.001) - floor((time-0.001)/1m)*1m) < 0.8m ? ( (((time-0.001) - floor((time-0.001)/0.2m)*0.2m) < 0.15m) ? 1 : 0 ) : 0 ) : 0)
+
+* VDDA pin: trace + 1 uF + 100 nF at the pin (AN5419 Table 2), ADC current
+Rvd va vdda 0.02
+Cvd1 vdda vdda_1 1u
+Rvd1 vdda_1 0 10m
+Cvd2 vdda vdda_2 100n
+Rvd2 vdda_2 0 20m
+Badc vdda 0 I = 1.0m + 0.7m*((time > 0.001) ? ( ((((time-0.001) - floor((time-0.001)/0.2m)*0.2m) > 75u) && (((time-0.001) - floor((time-0.001)/0.2m)*0.2m) < 0.15m)) ? 1 : 0 ) : 0)
+
+.options method=gear reltol=1e-4 abstol=1e-9 vntol=1e-7 itl4=200
+.control
+  set noaskquit
+  tran 2e-08 0.007 0.002 5n uic
+  linearize v(vdda) v(v3d) v(vbat) v(v5)
+  wrdata B_hv.dat v(vdda) v(v3d) v(vbat) v(v5)
+.endc
+.end

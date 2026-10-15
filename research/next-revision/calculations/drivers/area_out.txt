@@ -1,0 +1,15 @@
+DRV8874 HTSSOP-16 PWP     8.14 x  5.50 mm =   44.8 mm2   (HTSSOP-16-1EP_4.4x5mm_P0.65mm_EP3.4x5mm_Mask2.46x2.31mm_ThermalVias)
+DRV8262 HTSSOP-44 DDW     9.84 x 14.50 mm =  142.7 mm2   (HTSSOP-44-1EP_6.1x14mm_P0.635mm_EP5.2x14mm_Mask4.31x8.26mm_ThermalVias)
+L6205D SO20 (SOIC-20W)   11.86 x 13.40 mm =  158.9 mm2   (SOIC-20W_7.5x12.8mm_P1.27mm)
+INA241 VSSOP-8 DGK        6.36 x  3.57 mm =   22.7 mm2   (VSSOP-8_3x3mm_P0.65mm)
+WSK2512 4-terminal        8.76 x  3.80 mm =   33.3 mm2   (R_Shunt_Vishay_WSK2512_6332Metric_T1.19mm)
+0402                      1.82 x  0.92 mm =    1.7 mm2   (C_0402_1005Metric)
+0603                      2.96 x  1.46 mm =    4.3 mm2   (C_0603_1608Metric)
+0805                      3.40 x  1.96 mm =    6.7 mm2   (C_0805_2012Metric)
+SOD-323                   3.21 x  1.90 mm =    6.1 mm2   (D_SOD-323)
+
+L6205D x1 (both motors)    courtyard sum  186.2 mm2  (x1.5 for fan-out/vias ~  279 mm2)
+DRV8874 x2                 courtyard sum  111.3 mm2  (x1.5 for fan-out/vias ~  167 mm2)
+DRV8262 x1 (both motors)   courtyard sum  162.1 mm2  (x1.5 for fan-out/vias ~  243 mm2)
+INA241 chain per motor (amp + WSK2512 + 3 x 0402)  61.0 mm2; two motors 122.0 mm2 (x1.5 ~  183 mm2)
+Common to all: 2-4 x 10 uF 0805 per bridge pair = 13-27 mm2 per bridge, plus bulk

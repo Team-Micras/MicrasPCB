@@ -162,6 +162,7 @@ parts/jlc.toml         MPN -> LCSC mapping
 rules/                 JLCPCB KiCad DRC rules, DFM PDK, KiCad rule severities
 tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, outputs, previous, firmware, layout (`uv run micras-pcb --help`)
 tests/                 pytest design tests
+research/next-revision/ the next main-board revision's design proposal and its calculation scripts
 ci/                    KiCad and toolchain install, for CI and local setup
 versions.env           pinned KiCad and Zener versions
 ```

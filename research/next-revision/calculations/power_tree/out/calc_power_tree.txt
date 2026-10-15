@@ -1,0 +1,72 @@
+=== 1. Analog-rail (3V3_A) load budget ===
+  VDDA: ADC1+ADC2 16-bit single-ended BOOST=11 @25 MHz, 2 x 720 uA         typ  1.44 mA  max  2.88 mA   [DS13311 Table 84 (720 uA SE, 1440 uA differential)]
+  VDDA: ADC3 12-bit at 1-5 MSPS                                            typ  0.12 mA  max  0.43 mA   [DS13311 Table 87 (122-350 uA SE, 430 uA diff)]
+  2 x INA241A2 VS                                                          typ  5.00 mA  max  6.40 mA   [INA241 SBOSA30D sec. 6.5: IQ 2.5 typ, 3 max 25 C, 3.2 max -40..125 C]
+  4 x TPS601A collector (1 kOhm load, one lit + ambient)                   typ  2.90 mA  max 12.40 mA   [max = 3.1 V / 1 kOhm saturation per sensor (target.hpp l.440-448); typ = assumption]
+  emitter CC sink: op-amp (TLV9001 IQ 60 uA typ) + set divider ~0.2 mA     typ  0.26 mA  max  0.35 mA   [TLV9001 IQ 60 typ, 77 max at 5.5 V (SBOS833R sec. 7.10); divider = design choice]
+  (optional) LSM6DSV Vdd, gyro+accel high-performance                      typ  0.65 mA  max  0.65 mA   [LSM6DSV DS13476 Rev 5 Table 4 IddHP]
+  TOTAL without IMU: typ 9.7 mA, max 22.5 mA; with IMU +0.65 mA
+
+=== 2. Architecture C: LDO from VBAT, dissipation ===
+  VBAT  12.0 V, I typ   9.7 mA: total loss   85.8 mW; LDO alone (47 ohm pre-R)   81.2 mW; rise in HVSSOP-8 (63.4 C/W)  5.1 K
+  VBAT  12.0 V, I max  23.1 mA: total loss  202.3 mW; LDO alone (47 ohm pre-R)  176.9 mW; rise in HVSSOP-8 (63.4 C/W) 11.1 K
+  VBAT  14.8 V, I typ   9.7 mA: total loss  113.3 mW; LDO alone (47 ohm pre-R)  108.7 mW; rise in HVSSOP-8 (63.4 C/W)  6.8 K
+  VBAT  14.8 V, I max  23.1 mA: total loss  267.2 mW; LDO alone (47 ohm pre-R)  241.9 mW; rise in HVSSOP-8 (63.4 C/W) 15.3 K
+  VBAT  16.8 V, I typ   9.7 mA: total loss  132.9 mW; LDO alone (47 ohm pre-R)  128.4 mW; rise in HVSSOP-8 (63.4 C/W)  8.0 K
+  VBAT  16.8 V, I max  23.1 mA: total loss  313.7 mW; LDO alone (47 ohm pre-R)  288.3 mW; rise in HVSSOP-8 (63.4 C/W) 18.2 K
+  VBAT  17.4 V, I typ   9.7 mA: total loss  138.8 mW; LDO alone (47 ohm pre-R)  134.3 mW; rise in HVSSOP-8 (63.4 C/W)  8.4 K
+  VBAT  17.4 V, I max  23.1 mA: total loss  327.6 mW; LDO alone (47 ohm pre-R)  302.3 mW; rise in HVSSOP-8 (63.4 C/W) 19.1 K
+  (TPS7A49 RthJA 63.4 C/W DGN, 47.7 C/W DRB: SBVS121E sec. 6.4)
+
+=== 3. Analog buck switching ripple (analytic, capacitive part, DS13554 Eq. 3 form) ===
+  TPS560430X3F 1.1 MHz, 12 uH, 22 uF (15 uF eff)     VIN 12.0: dIL   181 mA p-p, dV   1373 uV p-p =  27.3 LSB16
+  TPS560430X3F 1.1 MHz, 12 uH, 22 uF (15 uF eff)     VIN 14.8: dIL   194 mA p-p, dV   1472 uV p-p =  29.2 LSB16
+  TPS560430X3F 1.1 MHz, 12 uH, 22 uF (15 uF eff)     VIN 17.4: dIL   203 mA p-p, dV   1535 uV p-p =  30.5 LSB16
+  L6981N33 400 kHz, 22 uH, 44 uF (35 uF eff)         VIN 12.0: dIL   272 mA p-p, dV   2427 uV p-p =  48.2 LSB16
+  L6981N33 400 kHz, 22 uH, 44 uF (35 uF eff)         VIN 14.8: dIL   291 mA p-p, dV   2602 uV p-p =  51.7 LSB16
+  L6981N33 400 kHz, 22 uH, 44 uF (35 uF eff)         VIN 17.4: dIL   304 mA p-p, dV   2713 uV p-p =  53.9 LSB16
+  LMR43610MB3 1 MHz, 10 uH (assumed), 22 uF (15 uF eff) VIN 12.0: dIL   239 mA p-p, dV   1994 uV p-p =  39.6 LSB16
+  LMR43610MB3 1 MHz, 10 uH (assumed), 22 uF (15 uF eff) VIN 14.8: dIL   256 mA p-p, dV   2137 uV p-p =  42.4 LSB16
+  LMR43610MB3 1 MHz, 10 uH (assumed), 22 uF (15 uF eff) VIN 17.4: dIL   267 mA p-p, dV   2228 uV p-p =  44.3 LSB16
+
+  Second-stage filter attenuation |H| (ideal parts, + DCR/series R):
+  4.7 uH + 15 uF eff, 0.2 ohm        f0  19.0 kHz Q 2.80: 1 kHz    0.0 dB, 10 kHz    2.5 dB, 18.9551 kHz    8.9 dB, 100 kHz  -28.6 dB, 300 kHz  -47.9 dB, 400 kHz  -53.0 dB, 1100 kHz  -70.5 dB, 2200 kHz  -82.6 dB
+  10 uH + 15 uF eff, 1.5 ohm total   f0  13.0 kHz Q 0.54: 1 kHz   -0.0 dB, 10 kHz   -3.4 dB, 12.9949 kHz   -5.3 dB, 100 kHz  -35.5 dB, 300 kHz  -54.5 dB, 400 kHz  -59.5 dB, 1100 kHz  -77.1 dB, 2200 kHz  -89.1 dB
+  0.5 uH bead + 10 uF, 0.1 ohm       f0  71.2 kHz Q 2.24: 1 kHz    0.0 dB, 10 kHz    0.2 dB, 71.1763 kHz    7.0 dB, 100 kHz   -1.3 dB, 300 kHz  -24.5 dB, 400 kHz  -29.7 dB, 1100 kHz  -47.5 dB, 2200 kHz  -59.6 dB
+
+=== 4. IR emitter constant-current sink: dissipation per supply ===
+  VF at 170 mA: typ 1.597 V (fit), max 1.793 V (datasheet max points, linear)
+  duty: 15 % per emitter, 60 % for one shared sink
+  3V3_D min (3.284 V - 22 mV emitter droop - 33 mV ESP dip) : headroom (VF max)  1.24 V; series R  3.3 ohm; FET  0.87 V -> 0.148 W peak, 0.089 W avg; R 0.095 W peak, 0.014 W avg each; supply 0.329 W avg
+  3V3_D typ                                                 : headroom (VF max)  1.31 V; series R  3.3 ohm; FET  0.94 V -> 0.160 W peak, 0.096 W avg; R 0.095 W peak, 0.014 W avg each; supply 0.337 W avg
+  5 V rail (L6981C50 typ)                                   : headroom (VF max)  3.01 V; series R 15.0 ohm; FET  0.65 V -> 0.111 W peak, 0.067 W avg; R 0.434 W peak, 0.065 W avg each; supply 0.510 W avg
+  VBAT 12.0 V                                               : headroom (VF max) 10.01 V; series R 53.0 ohm; FET  1.19 V -> 0.203 W peak, 0.122 W avg; R 1.532 W peak, 0.230 W avg each; supply 1.224 W avg
+  VBAT 14.8 V                                               : headroom (VF max) 12.81 V; series R 53.0 ohm; FET  3.99 V -> 0.679 W peak, 0.407 W avg; R 1.532 W peak, 0.230 W avg each; supply 1.510 W avg
+  VBAT 17.4 V                                               : headroom (VF max) 15.41 V; series R 53.0 ohm; FET  6.59 V -> 1.121 W peak, 0.672 W avg; R 1.532 W peak, 0.230 W avg each; supply 1.775 W avg
+
+=== 5. Shared-ground coupling (per 1 mOhm of common return impedance) ===
+  emitter pulse 170 mA        :   170.0 uV =   3.38 LSB16 per mOhm
+  ESP32 TX step 95->355 mA    :   260.0 uV =   5.16 LSB16 per mOhm
+  MCU load step (e.g. 50 mA)  :    50.0 uV =   0.99 LSB16 per mOhm
+  one motor bridge, 2.4 A     :  2400.0 uV =  47.66 LSB16 per mOhm
+  1 oz copper sheet resistance ~0.5 mOhm/square (general; 35 um Cu, 1.72e-8 ohm m)
+  -> 0.49 mOhm/sq
+
+=== 6. USB-only power budget (battery absent) ===
+  flash/debug (no emitters, ESP RX)         : 3V3   263 mA -> VBUS   222 mA at eta 0.85, VSYS 4.6 V
+  ESP TX peak, no emitters                  : 3V3   523 mA -> VBUS   441 mA at eta 0.85, VSYS 4.6 V
+  everything incl. emitters + LEDs white    : 3V3   697 mA -> VBUS   588 mA at eta 0.85, VSYS 4.6 V
+  USB 2.0 port: 500 mA after configuration; Type-C 'Default USB Power' = USB 2.0 500 mA / USB 3.x 900 mA
+
+=== 7. Noise floors the rail must stay below ===
+  ADC own noise at ENOB 12.2: 202 uV rms = 4.0 LSB16 rms
+  INA241 alone, 1.1 MHz one-pole (ENBW = pi/2 x 1.1 MHz): 1.29 mV rms = 26 LSB16 rms = 6.4 mA rms (10 mOhm x 20)
+  with R_iso 100 ohm + C_f 2.2 nF (723 kHz) in series, ENBW ~ 0.6 MHz: 0.76 mV rms = 15 LSB16 rms = 3.8 mA rms (10 mOhm x 20)
+  Rail error on a current reading with REF1 = VS = VDDA (ratiometric mid-scale): error = (G*R*I / VDDA) x dVDDA -> at 1 A: 0.2 V/3.3 V = 6 % of the rail error
+
+=== 8. Recommended damped post-filter (2.2 uH/50 mOhm, 15 uF eff, damping 0.33 ohm + 30 uF eff) ===
+  |H| peak +4.0 dB at 16.2 kHz; |Zout| peak 404 mOhm at 20.1 kHz
+  attenuation at 100 kHz: -22.5 dB
+  attenuation at 300 kHz: -41.4 dB
+  attenuation at 1100 kHz: -64.0 dB
+  attenuation at 2200 kHz: -76.0 dB
