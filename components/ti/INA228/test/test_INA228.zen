@@ -1,0 +1,146 @@
+"""INA228AIDGSR package facts (TI SLYS021A): pinout, ranges, I2C address straps, and the battery
+monitor of the next main-board revision (research/next-revision appendix A.3: 2 mOhm Kelvin
+shunt on VBAT after the switch, VBUS on the battery side, VS = 3V3_D, ADCRANGE = 1)."""
+
+load("@stdlib/interfaces.zen", "I2c")
+load("@stdlib/units.zen", "Voltage")
+
+INA = Module("../INA228.zen")
+
+VS_RANGE = Voltage("2.7V to 5.5V")  # section 6.3
+VCM_RANGE = Voltage("-0.3V to 85V")  # section 6.3
+VBUS_RANGE = Voltage("0V to 85V")  # section 6.5
+
+V3V3_D = Power("V3V3_D", voltage="3.3V 3%")
+GND = Ground("GND")
+# 4S pack after the battery switch: 0 V unplugged, 17.4 V with HV cells.
+VBAT = Power("VBAT", voltage="0V to 17.4V")
+VBAT_LOAD = Power("VBAT_LOAD", voltage="0V to 17.4V")
+I2C_BUS = I2c("ESP_I2C")
+ALERT = Net("BAT_ALERT")
+
+
+def part(module):
+    return module.components()["INA228"]
+
+
+def net_of(module, pin):
+    return part(module).pins[pin].name
+
+
+def orderable_part(module, inputs):
+    # Package Option Addendum: INA228AIDGSR, VSSOP (DGS) 10 pins.
+    c = part(module)
+    check(c.mpn == "INA228AIDGSR", "MPN must be INA228AIDGSR, got " + str(c.mpn))
+    check(c.manufacturer == "Texas Instruments", "manufacturer must be Texas Instruments")
+    check(c.prefix == "U", "reference prefix must be U")
+
+
+def dgs_pinout(module, inputs):
+    # Table 5-1: 1 A1, 2 A0, 3 ALERT, 4 SDA, 5 SCL, 6 VS, 7 GND, 8 VBUS, 9 IN-, 10 IN+.
+    pins = part(module).pins
+    expected = ["A0", "A1", "ALERT", "GND", "IN+", "IN-", "SCL", "SDA", "VBUS", "VS"]
+    check(sorted(pins.keys()) == expected, "pin names differ from Table 5-1: " + str(sorted(pins.keys())))
+    check(net_of(module, "IN+") == inputs["IN_P"].name, "IN_P must drive IN+ (pin 10)")
+    check(net_of(module, "IN-") == inputs["IN_N"].name, "IN_N must drive IN- (pin 9)")
+    check(net_of(module, "VBUS") == inputs["VBUS"].name, "VBUS must be pin 8")
+    check(net_of(module, "SDA") == inputs["I2C"].SDA.name, "I2C.SDA must be pin 4")
+    check(net_of(module, "SCL") == inputs["I2C"].SCL.name, "I2C.SCL must be pin 5")
+    check(net_of(module, "ALERT") == inputs["ALERT"].name, "ALERT must be pin 3")
+
+
+def supply_in_range(module, inputs):
+    # Section 6.3: VS 2.7-5.5 V.
+    v = inputs["VS"].voltage
+    check(v in VS_RANGE, "VS " + str(v) + " is outside 2.7-5.5 V")
+
+
+def inputs_in_range(module, inputs):
+    # Section 6.3: IN+/IN- -0.3 to 85 V; section 6.5: VBUS 0 to 85 V.
+    for io_name in ["IN_P", "IN_N"]:
+        v = inputs[io_name].voltage
+        check(v in VCM_RANGE, io_name + " " + str(v) + " is outside -0.3 to 85 V")
+    check(inputs["VBUS"].voltage in VBUS_RANGE, "VBUS " + str(inputs["VBUS"].voltage) + " is outside 0 to 85 V")
+
+
+def high_side_battery(module, inputs):
+    # Table 5-1 and Figure 8-2: high side, IN+ on the supply side of the shunt, IN- on the load
+    # side; VBUS on the voltage that powers the load (Figure 10-1 note 1).
+    check(net_of(module, "IN+") == "VBAT", "IN+ must be on the battery side of the shunt")
+    check(net_of(module, "IN-") == "VBAT_LOAD", "IN- must be on the load side of the shunt")
+    check(net_of(module, "VBUS") == "VBAT", "VBUS must sense the battery rail")
+
+
+def address(module, inputs):
+    """7-bit I2C address from the A1/A0 straps (Table 7-2), or None for an illegal strap."""
+    code = {
+        net_of(module, "GND"): 0,
+        net_of(module, "VS"): 1,
+        net_of(module, "SDA"): 2,
+        net_of(module, "SCL"): 3,
+    }
+    a1 = code.get(net_of(module, "A1"))
+    a0 = code.get(net_of(module, "A0"))
+    if a1 == None or a0 == None:
+        return None
+    return 0x40 + 4 * a1 + a0
+
+
+def address_straps(module, inputs):
+    # Table 7-2: A1 and A0 each on GND, VS, SDA or SCL; 0x40 + 4 x A1 code + A0 code.
+    a = address(module, inputs)
+    check(a != None, "A0 and A1 must each be on GND, VS, SDA or SCL (Table 7-2)")
+    check(a == inputs["expected_address"], "address " + str(a) + ", expected " + str(inputs["expected_address"]))
+
+
+def battery_full_scale(module, inputs):
+    # Table 8-1: ADCRANGE = 1 is +-40.96 mV at 78.125 nV/LSB; with 2 mOhm that is +-20.48 A at
+    # 39.06 uA per LSB. Equations 2-3: CURRENT_LSB = 20.48 A / 2^19, SHUNT_CAL = 13107.2e6 x
+    # CURRENT_LSB x RSHUNT x 4 (ADCRANGE = 1) = 4096, inside the 15-bit SHUNT_CAL field.
+    rshunt = 0.002
+    full_scale = 0.04096 / rshunt
+    check(abs(full_scale - 20.48) < 1e-9, "full scale " + str(full_scale) + " A")
+    current_lsb = full_scale / 524288.0
+    shunt_cal = 13107.2e6 * current_lsb * rshunt * 4
+    check(abs(shunt_cal - 4096) < 1e-6, "SHUNT_CAL " + str(shunt_cal) + ", expected 4096")
+    check(shunt_cal < 32768, "SHUNT_CAL must fit its 15-bit field")
+    # A 5 A peak (research/next-revision, 4S peak pack current) uses a quarter of the range.
+    check(5 * rshunt < 0.04096, "5 A must stay inside +-40.96 mV")
+
+
+BATTERY = {
+    "VS": V3V3_D,
+    "GND": GND,
+    "IN_P": VBAT,
+    "IN_N": VBAT_LOAD,
+    "VBUS": VBAT,
+    "I2C": I2C_BUS,
+    "ALERT": ALERT,
+    "A0": GND,
+    "A1": GND,
+}
+
+TestBench(
+    name="INA228_battery_monitor",
+    module=INA,
+    test_cases={"a3_0x40": BATTERY | {"expected_address": 0x40}},
+    checks=[
+        orderable_part,
+        dgs_pinout,
+        supply_in_range,
+        inputs_in_range,
+        high_side_battery,
+        address_straps,
+        battery_full_scale,
+    ],
+)
+
+TestBench(
+    name="INA228_address_straps",
+    module=INA,
+    test_cases={
+        "a1_vs_a0_scl": BATTERY | {"A1": V3V3_D, "A0": I2C_BUS.SCL, "expected_address": 0x47},
+        "a1_sda_a0_vs": BATTERY | {"A1": I2C_BUS.SDA, "A0": V3V3_D, "expected_address": 0x49},
+    },
+    checks=[address_straps],
+)

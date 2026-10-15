@@ -1,0 +1,61 @@
+"""WSK2512 0.001-0.0049 Ohm package facts (Vishay doc 30108): part selection, ratings, Kelvin
+terminal mapping, and the battery shunt of the next main-board revision (research/next-revision
+appendix A.3: VBAT after the switch on force pad 1, the system on force pad 4, the INA228 on the
+sense pads)."""
+
+SHUNT = Module("../WSK2512-MID.zen")
+
+VBAT = Net("VBAT")
+VBAT_LOAD = Net("VBAT_LOAD")
+BAT_SENSE_P = Net("BAT_SENSE_P")
+BAT_SENSE_N = Net("BAT_SENSE_N")
+
+
+def part(module):
+    return module.components()["WSK2512"]
+
+
+def resistor(module, inputs):
+    c = part(module)
+    check(c.type == "resistor", "the board tests find resistors by type")
+    check(c.prefix == "R", "designator prefix must be R")
+    check(c.mpn == "WSK25122L000FEA", "MPN " + str(c.mpn))
+    check(c.manufacturer == "Vishay Dale", "manufacturer must be Vishay Dale")
+    check(c.properties["package"] == "2512", "package property must be 2512")
+    check(c.power.matches("1W"), "power rating must be 1 W at 70 C: " + str(c.power))
+
+
+def part_number(module, inputs):
+    # Global Part Number Information: 2L000 = 2 mOhm, F = 1 %; this land pattern is 0.001-0.0049 Ohm.
+    r = part(module).resistance
+    check(abs(r.value - 0.002) < 1e-12, "resistance " + str(r))
+    check(abs((r.max - r.value) / r.value - 0.01) < 1e-6, "tolerance of " + str(r))
+    check(r.value >= 0.001 and r.value <= 0.0049, "resistance outside the 0.001-0.0049 Ohm band of this footprint")
+
+
+def kelvin_terminals(module, inputs):
+    # Electrical Connection figure: I1/I2 current, E1/E2 voltage sense; E1 belongs to the I1 end.
+    pins = part(module).pins
+    check(sorted(pins.keys()) == ["E1", "E2", "I1", "I2"], "pins: " + str(sorted(pins.keys())))
+    check(pins["I1"].name == "VBAT" and pins["I2"].name == "VBAT_LOAD", "force pads carry P1/P2")
+    check(pins["E1"].name == "BAT_SENSE_P" and pins["E2"].name == "BAT_SENSE_N", "sense pads carry S1/S2")
+
+
+def battery_range(module, inputs):
+    # INA228 (SLYS021A Table 8-1) at ADCRANGE = 1: 40.96 mV / 2 mOhm = 20.48 A full scale.
+    # Derating figure: 1 W to 70 C, linear to 0 at 170 C, 0.85 W at 85 C ambient. The 4S peak of
+    # about 5 A (research/next-revision) dissipates 50 mW; even the 20.48 A full scale stays below.
+    r = part(module).resistance.value
+    check(abs(0.04096 / r - 20.48) < 1e-9, "full scale " + str(0.04096 / r) + " A")
+    rating_85c = 1.0 * (170 - 85) / (170 - 70)
+    for i in [5.0, 20.48]:
+        p = i * i * r
+        check(p < rating_85c, str(i) + " A dissipates " + str(p) + " W, above the 85 C rating")
+
+
+TestBench(
+    name="WSK2512_MID_battery_shunt",
+    module=SHUNT,
+    test_cases={"2m_1pct": {"P1": VBAT, "P2": VBAT_LOAD, "S1": BAT_SENSE_P, "S2": BAT_SENSE_N}},
+    checks=[resistor, part_number, kelvin_terminals, battery_range],
+)

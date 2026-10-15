@@ -1,0 +1,106 @@
+"""INA228AIDGSR - 85 V, 20-bit power/energy/charge monitor with I2C interface, VSSOP-10 (DGS).
+Bare part.
+
+Datasheet: TI SLYS021A (January 2021, revised May 2022). Orderable part: INA228AIDGSR is the only
+commercial orderable (Package Option Addendum: VSSOP (DGS) 10 pins, 2500 per reel, marking 228I);
+the -Q1 automotive version is a separate data sheet. The DGS is the only package (Device
+Information), a leaded VSSOP that JLCPCB assembles.
+
+Pins (section 5, Table 5-1, DGS): 1 A1, 2 A0, 3 ALERT, 4 SDA, 5 SCL, 6 VS, 7 GND, 8 VBUS, 9 IN-,
+10 IN+.
+
+Absolute maximum ratings (section 6.1): VS 6 V; IN+, IN- common mode -0.3 to 85 V, differential
++-40 V; VBUS -0.3 to 85 V; ALERT -0.3 V to VS + 0.3 V; SDA, SCL -0.3 to 6 V; 5 mA into any pin,
+10 mA digital output current.
+Recommended operating conditions (section 6.3): VCM -0.3 to 85 V; VS 2.7 to 5.5 V; TA -40 to
+125 C. The common-mode range is independent of VS, and the inputs tolerate 0-85 V with VS off
+(7.3.1, section 9): no supply sequencing.
+
+Electrical characteristics (section 6.5; TA 25 C, VS 3.3 V, VCM 48 V):
+- Shunt full scale (VDIFF, Table 8-1): +-163.84 mV with ADCRANGE = 0 (312.5 nV/LSB) or
+  +-40.96 mV with ADCRANGE = 1 (78.125 nV/LSB); ADCRANGE is bit 4 of CONFIG (Table 7-5), reset 0.
+- Shunt offset +-0.3 / +-1 uV, drift +-10 nV/C max; gain error +-0.01 / +-0.05 %, drift +-20 ppm/C
+  max; CMRR 154 dB min; input bias 0.1 / 2.5 nA; differential input impedance 92 kOhm.
+- VBUS: input range 0 to 85 V, measured against GND, 195.3125 uV/LSB; offset +-2.5 mV max; gain
+  error +-0.05 % max; VBUS pin input impedance 0.8 / 1 / 1.2 MOhm in active mode.
+- Conversion time 50 us to 4.12 ms per channel (CT fields), averaging 1-1024; oscillator +-0.5 %
+  (25 C), +-1 % over temperature; power TME +-0.5 %, energy and charge TME +-1 % of full scale.
+- IQ 640 / 750 uA (1.1 mA over temperature); shutdown 2.8 / 5 uA; start-up 300 us.
+- Digital: VIH 1.2 V min, VIL 0.4 V max (SDA, SCL); VOL 0.4 V max at 3 mA.
+
+Current scaling (section 8.1.2, equations 2-4): CURRENT_LSB = Imax / 2^19; SHUNT_CAL =
+13107.2e6 x CURRENT_LSB x RSHUNT, multiplied by 4 with ADCRANGE = 1. Shunt temperature
+compensation (7.3.5, equation 1): TEMPCOMP + SHUNT_TEMPCO (ppm/C) correct the shunt's TCR from
+the die temperature, as far as the shunt and the die share a temperature.
+
+I2C (7.5.1): secondary only, fast mode to 400 kHz and high-speed mode to 2.94 MHz; SDA and SCL
+open drain. Address (Table 7-2): A1 and A0 each on GND, VS, SDA or SCL give 16 addresses
+1000000-1001111 (0x40-0x4F); A1 = A0 = GND is 0x40. The pins are sampled on every transaction;
+with SDA on A0 or A1 the MSB of the address needs 100 ns extra hold time.
+
+ALERT (Table 5-1, 7.3.7): open-drain, active low by default; reports out-of-range limits or
+conversion ready. It can float if unused (Figure 10-1 note 2); otherwise it needs a pull-up.
+
+Input filter (section 8.1.4, Figure 8-1): optional; RFILTER at most 100 Ohm in each input (more
+degrades gain error and linearity) and a 0.1-1 uF ceramic CFILTER across IN+/IN-. 10 Ohm in series
+with each input protects against the dV/dt of a hard short up to the 40 V differential rating
+with minimal accuracy effect. A load-side short or its release can exceed the ratings: TVS plus
+bulk capacitance (8.1.4).
+
+Checks in this package (errors at build time when the connected nets declare voltages):
+- IN+ and IN- within the -0.3 to 85 V common-mode range (section 6.3).
+- VBUS within its 0 to 85 V input range (section 6.5).
+VS carries the 2.7-5.5 V operating range (section 6.3), so `pcb build` flags a rail outside it.
+
+Integrator-owned circuitry:
+- VS bypass: 0.1 uF typical, as close as possible to VS and GND (section 9, 10.1).
+- The shunt, Kelvin (4-wire) connected to IN+/IN- (10.1); VBUS to the voltage that powers the
+  load, for the power calculation (Figure 10-1 note 1).
+- A0/A1 straps (Table 7-2), the I2C pull-ups and the ALERT pull-up (Figure 8-2: 10 kOhm each).
+"""
+
+load("@stdlib/interfaces.zen", "I2c")
+load("@stdlib/units.zen", "Voltage")
+
+# Section 6.3: VS 2.7-5.5 V.
+VS = io(Power(voltage="2.7V to 5.5V"))
+GND = io(Ground)
+IN_P = io(Net)
+IN_N = io(Net)
+VBUS = io(Net)
+I2C = io(I2c)
+ALERT = io(Net)
+A0 = io(Net)
+A1 = io(Net)
+
+# Section 6.3: common-mode input range; section 6.5: VBUS input range.
+VCM_RANGE = Voltage("-0.3V to 85V")
+VBUS_RANGE = Voltage("0V to 85V")
+
+for pin, net, allowed, what in [
+    ("IN+", IN_P, VCM_RANGE, "-0.3 to 85 V common-mode range (SLYS021A 6.3)"),
+    ("IN-", IN_N, VCM_RANGE, "-0.3 to 85 V common-mode range (SLYS021A 6.3)"),
+    ("VBUS", VBUS, VBUS_RANGE, "0 to 85 V VBUS input range (SLYS021A 6.5)"),
+]:
+    if net.voltage:
+        check(net.voltage in allowed, f"INA228 {pin} on {net.name} ({net.voltage}) is outside the {what}")
+
+Component(
+    name="INA228",
+    prefix="U",
+    symbol=Symbol(library="INA228.kicad_sym"),
+    footprint=File("Texas_DGS0010A_VSSOP-10_3x3mm_P0.5mm.kicad_mod"),
+    part=Part(mpn="INA228AIDGSR", manufacturer="Texas Instruments"),
+    pins={
+        "A1": A1,
+        "A0": A0,
+        "ALERT": ALERT,
+        "SDA": I2C.SDA,
+        "SCL": I2C.SCL,
+        "VS": VS,
+        "GND": GND,
+        "VBUS": VBUS,
+        "IN-": IN_N,
+        "IN+": IN_P,
+    },
+)
