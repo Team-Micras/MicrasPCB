@@ -31,8 +31,8 @@ on-chip step-down converter:
   1.2-3.6 V, DS13311 Table 13 p116; 4.0 V absolute maximum, Table 10 p114), with C8 100 nF
   and C9 1 uF at the pin.
 
-Debug connector P1 (JST SH SM05B-SRSS-TB, 5 pins at 1.00 mm, side entry on the board edge; the
-probe cable ends in a JST SHR-05V-S housing): 1 SWD_VDD (the probe's 3.3 V supply, ORed onto
+Debug connector P1 (JST SH BM05B-SRSS-TB, 5 pins at 1.00 mm, top entry by the board edge, as the
+previous revision's upright pin header; the probe cable ends in a JST SHR-05V-S housing): 1 SWD_VDD (the probe's 3.3 V supply, ORed onto
 3V3 by U5 on the regulators sheet), 2 GND, 3 SWDIO, 4 SWCLK, 5 NRST, so the probe can connect
 under reset (AN5419 Figure 21 p33). Its two reinforcement pads are on GND.
 
@@ -63,7 +63,7 @@ load("./passives.zen", "C_100N_0402", "C_10U_0603", "C_1U_0402", "C_4U7_0402", "
 Capacitor = Module("@stdlib/generics/Capacitor.zen")
 FerriteBead = Module("@stdlib/generics/FerriteBead.zen")
 AFE201612S2R2MBT = Module("github.com/Team-Micras/MicrasPCB/components/magnetsyc/AFE201612S2R2MBT/AFE201612S2R2MBT.zen")
-SM05B_SRSS_TB = Module("github.com/Team-Micras/MicrasPCB/components/jst/SM05B-SRSS-TB/SM05B-SRSS-TB.zen")
+BM05B_SRSS_TB = Module("github.com/Team-Micras/MicrasPCB/components/jst/BM05B-SRSS-TB/BM05B-SRSS-TB.zen")
 STM32H725RGV6 = Module("github.com/Team-Micras/MicrasPCB/components/st/STM32H725RGV6/STM32H725RGV6.zen")
 MountingHole = Module("github.com/Team-Micras/MicrasPCB/components/micras/MountingHole/MountingHole.zen")
 TestPoint = Module("github.com/Team-Micras/MicrasPCB/components/micras/TestPoint/TestPoint.zen")
@@ -236,7 +236,7 @@ Capacitor(name="C16", P1=GND, P2=V3V3, **C_100N_0402)
 Capacitor(name="C17", P1=GND, P2=V3V3, **C_4U7_0402)
 
 # SWD connector: probe supply, GND, SWDIO, SWCLK, NRST; reinforcement pads on GND.
-SM05B_SRSS_TB(name="P1", P1=SWD_VDD, P2=GND, P3=SWDIO, P4=SWCLK, P5=RESET, MP=GND)
+BM05B_SRSS_TB(name="P1", P1=SWD_VDD, P2=GND, P3=SWDIO, P4=SWCLK, P5=RESET, MP=GND)
 
 # Test points (bare pads, not assembled). The 20V pad has no connection.
 TestPoint(name="IMU_INT1", prefix="IMU_INT", P1=IMU_INT1)

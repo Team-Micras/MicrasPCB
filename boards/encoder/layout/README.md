@@ -113,6 +113,7 @@ those have faults. Each failing check, its cause and the fix:
 | Check (gate) | Cause | Fix |
 |---|---|---|
 | `test_every_assembled_footprint_has_a_courtyard[encoder]` (pytest) | IC1's footprint from the Altium EncoderLib draws its courtyard on User.15 (Altium mechanical layer 15), so KiCad's courtyard checks do not see it | move the outline to F.CrtYd in `components/ams/AS5047U` |
+| `test_tracks_are_octilinear_without_acute_corners[encoder]` (pytest) | the 3V3 track forks at (149.997, 102.281) into two branches leaving in the same direction, and the shorter turns north after 0.057 mm: the branches part at 45 degrees away from any pad, a wedge that traps etchant | join the branches at 90 degrees or more |
 | `copper_sliver` (drc, warning) | the two SPI_MOSI teardrops at IC1 pad 4 overlap and leave a sliver between their outlines on F.Cu; the teardrops are plain zones, which KiCad does not exempt from the sliver test | merge or trim the two outlines |
 | `text_height` (drc, warning) | the pin names (B, A, GND, 3V3 on the top; CSn, SCK, MISO, MOSI on the bottom) are 0.5 mm high, below KiCad's 0.6 mm default | larger texts, or lower the board's text limit |
 
