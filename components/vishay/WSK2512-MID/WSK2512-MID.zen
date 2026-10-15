@@ -1,0 +1,76 @@
+"""Vishay WSK2512, 1 to 4.9 mOhm - 4-terminal (Kelvin) Power Metal Strip current-sense resistor,
+2512 (6332 metric), 1 W. Bare part.
+
+Datasheet: Vishay Dale WSK2512, document 30108, revision 11-Dec-2023.
+
+Why a separate package: below 0.005 Ohm the WSK2512 has longer terminals and another land
+pattern (Dimensions and Solder Pad Dimensions tables): T 2.21 mm for 0.001 to 0.0049 Ohm (2.66 mm
+for 0.0005 to 0.00099 Ohm), force pads a = 3.30 mm, l = 1.65 mm apart, against T 1.19 mm, a =
+2.29 mm, l = 3.68 mm for 0.005 to 0.2 Ohm (`vishay/WSK2512-HIGH`). The sense pads (b 3.30, c 0.76,
+d 0.51, e 1.70 mm) are the same. This package is the 0.001 to 0.0049 Ohm band: its embedded STEP
+is Vishay's T = 2.21 mm model, so the 0.5-0.99 mOhm parts (T 2.66 mm) are not offered here.
+
+Part number (Global Part Number Information): 2L000 = 2.000 mOhm ("L" for values below 0.01 Ohm),
+F = 1 %, EA = lead-free tape and reel. Selectable part (`mpn`, on LCSC, queried 2026-10-15):
+- WSK25122L000FEA: 2 mOhm 1 % (default; LCSC C3997408). With the INA228 at ADCRANGE = 1
+  (+-40.96 mV) it gives +-20.48 A full scale.
+
+Ratings (Standard Electrical Specifications, Technical Specifications):
+- Power 1.0 W at 70 C, derated linearly to 0 at 170 C (Derating figure); maximum working voltage
+  (P x R)^0.5 (45 mV at 2 mOhm, so 22.4 A continuous at 70 C).
+- TCR +-250 ppm/C for 0.001 to 0.0029 Ohm, +-75 ppm/C for 0.003 to 0.0049 Ohm. At 2 mOhm a 40 K
+  rise moves the value by up to 1 %: compensate with the INA228's SHUNT_TEMPCO (SLYS021A 7.3.5)
+  or calibrate if that matters.
+- Tolerance 1 % from 0.0005 Ohm, 0.5 % from 0.001 Ohm.
+- Operating temperature -65 to +170 C; AEC-Q200. Stability (Performance table): load life
+  +-(1.0 % + 0.5 mOhm), thermal shock +-(0.5 % + 0.5 mOhm); the 0.5 mOhm term is 25 % of 2 mOhm.
+
+Terminals (Electrical Connection figure): I1 and I2 carry the current, E1 and E2 are the voltage
+sense connections; E1 is the sense finger of the I1 end. Pads: 1 I1, 2 E1 (left end), 3 E2,
+4 I2 (right end), as KiCad's Device:R_Shunt.
+
+io: P1/P2 force (I1/I2), S1/S2 sense (E1/E2); S1 senses the P1 end. The package fails the build if
+a sense terminal shares a net with a force terminal or with the other sense terminal.
+"""
+
+load("@stdlib/units.zen", "Power", "Resistance")
+load("@stdlib/utils.zen", "format_value")
+
+Mpn = enum("WSK25122L000FEA")
+mpn = config(Mpn, default="WSK25122L000FEA", help="2 mOhm 1 %")
+
+# Global Part Number Information: value and tolerance codes of each selectable part.
+RESISTANCE = {
+    "WSK25122L000FEA": "2mOhm 1%",
+}
+
+P1 = io(Net)
+P2 = io(Net)
+S1 = io(Net)
+S2 = io(Net)
+
+resistance = Resistance(RESISTANCE[mpn.value])
+power = Power("1W")  # Standard Electrical Specifications: P70 C
+
+for s, name in [(S1, "S1"), (S2, "S2")]:
+    check(
+        s.name not in (P1.name, P2.name),
+        f"WSK2512 {name} ({s.name}) shares a net with a force terminal: the Kelvin connection is lost",
+    )
+check(S1.name != S2.name, "WSK2512 S1 and S2 are on the same net")
+
+Component(
+    name="WSK2512",
+    prefix="R",
+    symbol=Symbol(library="WSK2512-MID.kicad_sym"),
+    footprint=File("Vishay_WSK2512_6332Metric_1mR-4m9R.kicad_mod"),
+    part=Part(mpn=mpn.value, manufacturer="Vishay Dale"),
+    pins={"I1": P1, "E1": S1, "E2": S2, "I2": P2},
+    properties={
+        "value": format_value(resistance, power),
+        "package": "2512",
+        "resistance": resistance,
+        "power": power,
+    },
+    type="resistor",
+)

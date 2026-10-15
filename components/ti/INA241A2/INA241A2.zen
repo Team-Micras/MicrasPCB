@@ -1,0 +1,112 @@
+"""INA241A2IDGKR - -5 V to 110 V bidirectional current-sense amplifier with enhanced PWM
+rejection, gain 20 V/V, VSSOP-8 (DGK). Bare part.
+
+Datasheet: TI SBOSA30D (March 2022, revised December 2024), INA241A/INA241B. Orderable part:
+INA241A2IDGKR = version A (precision grade), gain 20 V/V, VSSOP-8 (DGK), 2500 per reel
+(Table 4-1; Package Option Addendum, marking 2U7B).
+
+Pins (section 5, Table 5-1, D/DDF/DGK packages): 1 IN-, 2 GND, 3 REF2, 4 NC, 5 OUT, 6 VS,
+7 REF1, 8 IN+. NC is "Reserved. Connect to ground." (type Ground): the symbol names it RSVD and
+it is wired to GND here, not left open.
+
+Absolute maximum ratings (section 6.1): VS 22 V; IN+, IN- common mode -20 to 120 V, differential
++-30 V; REF1, REF2, NC and OUT GND - 0.3 V to VS + 0.3 V; TJ 150 C.
+Recommended operating conditions (section 6.3): VCM -5 to 110 V, independent of VS; VS 2.7 to
+20 V; TA -40 to 125 C. RthJA DGK 167.2 C/W (section 6.4).
+
+Electrical characteristics (section 6.5; TA 25 C, VS 5 V, VCM 48 V, VREF1 = VREF2 = VS / 2):
+- Gain 20 V/V; gain error +-0.002 / +-0.01 % (GND + 50 mV < VOUT < VS - 200 mV), drift +-1 ppm/C
+  max; non-linearity +-0.001 %.
+- Offset (INA241A2) +-3 / +-15 uV, drift +-150 nV/C max; CMRR 150 dB min, 166 dB typ (-5 to
+  110 V), 105 dB typ at 50 kHz; PSRR +-0.75 uV/V max (VS 2.7-20 V).
+- Input bias current 25 / 35 / 45 uA per input, constant over the common-mode range (7.3.1.3).
+- Reference input range 0 V to VS. With one REF on VS and the other on GND the zero-current
+  output sits at VS / 2 within +-0.005 % (reference divider accuracy, INA241A1/A2).
+- Output: swing to VS - 0.2 V max and to GND + 20 mV max (RL 10 kOhm); 1 nF maximum capacitive
+  load with no isolation resistor; bandwidth 1.1 MHz at all gains; slew rate 8 V/us; settling
+  (VOUT 0.5 to 4.5 V) 0.5 us to 5 %, 1 us to 1 %, 1.5 us to 0.5 %.
+- Noise 49 nV/rtHz (A2); IQ 2.5 / 3 mA (3.2 mA over temperature).
+
+Transfer function (section 7.4.1, equation 1): VOUT = G x (VIN+ - VIN-) + (VREF1 + VREF2) / 2.
+The two REF pins are identical. Bidirectional mid-supply output (7.4.3.2, Figure 7-6): one REF
+pin on VS, the other on GND, so the output rests at VS / 2, ratiometric to VS. Other bidirectional
+options: both REF pins on a precision reference (7.4.3.1), one REF on a reference and the other on
+GND for half the reference (7.4.3.3). The REF pins take a direct connection to supply, ground or
+a low-impedance reference; a resistor divider is only for a differential output read against the
+divider, otherwise it needs an op-amp buffer (7.4.3.4, Figures 7-8 and 7-9). Unidirectional:
+both REF pins on GND or both on VS (7.4.2).
+
+Enhanced PWM rejection (section 7.3.1.1, Figure 7-1): "When INA241x senses the large common-mode
+dV/dt transients, the device holds the output for 1us, thereby preventing the common-mode
+disturbance from propagating to the output. If another common-mode transient occurs during the
+following 3us, the INA241x relies on high BW and AC CMMR to attenuate the effect of common-mode
+transient. The enhanced PWM rejection is achieved up to a PWM frequency of 125kHz or if
+common-mode transient edges are separated by a 3us interval or more." Inline motor sensing at
+50-100 kHz is the datasheet's application (section 8.2.1, Figure 8-1: REF1 on VS, REF2 on GND).
+
+Input filter: the datasheet gives no input-filter recommendation. With 25-45 uA of bias current
+per input, any series resistance at IN+/IN- adds an offset and gain error (inference from
+section 6.5), so the shunt connects straight to the inputs; filter at the ADC side instead.
+
+Checks in this package (errors at build time when the connected nets declare voltages):
+- IN+ and IN- within the -5 to 110 V common-mode range (section 6.3).
+- REF1 and REF2 on GND, on VS, or on a net whose declared voltage lies within 0 V to VS (Table
+  5-1, section 6.5 reference input range). A plain net on REF (for example a divider) is not
+  checked here; the board must justify it against section 7.4.3.4.
+VS carries the 2.7-20 V operating range (section 6.3), so `pcb build` flags a rail outside it.
+
+Integrator-owned circuitry:
+- VS bypass: 0.1 uF from VS to GND, as close as possible to the supply and ground pins (section
+  8.3.1, 8.4.1; Figure 8-3); more if the supply is noisy or high impedance.
+- The shunt, Kelvin (4-wire) connected to IN+/IN- (section 8.4.1).
+- The OUT load: at most 1 nF directly (section 6.5); a larger ADC capacitor needs a series
+  isolation resistor.
+"""
+
+load("@stdlib/units.zen", "Voltage")
+
+# Section 6.3: VS 2.7-20 V.
+VS = io(Power(voltage="2.7V to 20V"))
+GND = io(Ground)
+IN_P = io(Net)
+IN_N = io(Net)
+REF1 = io(Net)
+REF2 = io(Net)
+OUT = io(Net)
+
+# Section 6.3: common-mode input range, independent of VS.
+VCM_RANGE = Voltage("-5V to 110V")
+
+for pin, net in [("IN+", IN_P), ("IN-", IN_N)]:
+    if net.voltage:
+        check(
+            net.voltage in VCM_RANGE,
+            f"INA241A2 {pin} on {net.name} ({net.voltage}) is outside the -5 to 110 V common-mode range (SBOSA30D 6.3)",
+        )
+
+# Table 5-1 and section 6.5: REF1/REF2 connect to a potential from 0 V to VS.
+for pin, net in [("REF1", REF1), ("REF2", REF2)]:
+    if net.name in (GND.name, VS.name) or not net.voltage or not VS.voltage:
+        continue
+    check(
+        net.voltage.min >= 0 and net.voltage.max <= VS.voltage.min,
+        f"INA241A2 {pin} on {net.name} ({net.voltage}) must stay within 0 V to VS ({VS.voltage}) (SBOSA30D Table 5-1, 6.5)",
+    )
+
+Component(
+    name="INA241A2",
+    prefix="U",
+    symbol=Symbol(library="INA241A2.kicad_sym"),
+    footprint=File("Texas_DGK0008A_VSSOP-8_3x3mm_P0.65mm.kicad_mod"),
+    part=Part(mpn="INA241A2IDGKR", manufacturer="Texas Instruments"),
+    pins={
+        "IN-": IN_N,
+        "GND": GND,
+        "REF2": REF2,
+        "RSVD": GND,
+        "OUT": OUT,
+        "VS": VS,
+        "REF1": REF1,
+        "IN+": IN_P,
+    },
+)
