@@ -1,0 +1,93 @@
+"""Generic passives of the main2 board: value, package, rating and part number per line.
+
+Each entry is the keyword set of one stdlib generic (`Resistor`, `Capacitor`, `Led`), so a sheet
+places a part as `Capacitor(name="C5", P1=GND, P2=VCAP3, **C_100N_0402)`. The parts the board
+keeps from boards/main are its MicrasMainBoard BOM parts; the new ones are JLCPCB basic parts
+where one fits. The LCSC numbers, library types and their sources are in parts/jlc.toml.
+"""
+
+SAMSUNG = "Samsung Electro-Mechanics"
+UNIROYAL = "UNI-ROYAL"
+FENGHUA = "Fenghua"
+MURATA = "Murata"
+YAGEO = "YAGEO"
+
+
+def _r(value, package, mpn, manufacturer=UNIROYAL, power=None):
+    out = {"value": value, "package": package, "mpn": mpn, "manufacturer": manufacturer}
+    if power:
+        out["power"] = power
+    return out
+
+
+def _c(value, package, voltage, dielectric, mpn, manufacturer=SAMSUNG):
+    return {
+        "value": value,
+        "package": package,
+        "voltage": voltage,
+        "dielectric": dielectric,
+        "mpn": mpn,
+        "manufacturer": manufacturer,
+    }
+
+
+# Thick-film chip resistors, 1 %: 0402 62.5 mW 50 V, 0603 100 mW 75 V, 1206 250 mW 200 V, 2512 1 W
+# 200 V (LCSC listings of each part).
+R_0_0402 = _r("0Ohm", "0402", "0402WGF0000TCE")
+R_3R3_0603 = _r("3.3Ohm 1%", "0603", "0603WAF330KT5E", power="100mW")
+R_10_1206 = _r("10Ohm 1%", "1206", "1206W4F100JT5E", power="250mW")
+R_22_0402 = _r("22Ohm 1%", "0402", "0402WGF220JTCE")
+R_100_0402 = _r("100Ohm 1%", "0402", "0402WGF1000TCE")
+R_220_0402 = _r("220Ohm 1%", "0402", "0402WGF2200TCE")
+R_680_0402 = _r("680Ohm 1%", "0402", "0402WGF6800TCE")
+R_1K_0402 = _r("1kOhm 1%", "0402", "0402WGF1001TCE")
+R_2K_0402 = _r("2kOhm 1%", "0402", "0402WGF2001TCE")
+R_5K1_0402 = _r("5.1kOhm 1%", "0402", "0402WGF5101TCE")
+R_5K6_0402 = _r("5.6kOhm 1%", "0402", "0402WGF5601TCE")
+R_9K1_0402 = _r("9.1kOhm 1%", "0402", "0402WGF9101TCE")
+R_10K_0402 = _r("10kOhm 1%", "0402", "0402WGF1002TCE")
+R_20K_0402 = _r("20kOhm 1%", "0402", "0402WGF2002TCE")
+R_22K_0402 = _r("22kOhm 1%", "0402", "0402WGF2202TCE")
+R_24K_0402 = _r("24kOhm 1%", "0402", "0402WGF2402TCE")
+R_33K_0402 = _r("33kOhm 1%", "0402", "0402WGF3302TCE")
+R_39K_0402 = _r("39kOhm 1%", "0402", "0402WGF3902TCE")
+R_82K_0402 = _r("82kOhm 1%", "0402", "0402WGF8202TCE")
+R_100K_0402 = _r("100kOhm 1%", "0402", "0402WGF1003TCE")
+R_1M_0402 = _r("1MOhm 1%", "0402", "0402WGF1004TCE")
+# 0 Ohm jumper, 2512 (25121WJ0000T4E: 1 W, 200 V; LCSC C25469): the alternative of a choke
+# footprint. TODO: the jumper's current rating is not in hand (the LCSC listing gives none, the
+# Uni-Royal datasheet was not retrieved); the wheel path carries up to 3.6 A peak and 1-1.5 A rms,
+# the fan path up to 3.9 A. Confirm it before fitting one, or use the choke.
+R_0_2512 = _r("0Ohm", "2512", "25121WJ0000T4E", power="1W")
+
+# Thin-film precision, Yageo RT series (RT datasheet V.16, Table 2: RT0603 1/10 W at 70 C, 75 V;
+# 0.1 % with +-25 ppm/C from 1 Ohm): the IR emitter sink sense resistor.
+R_1R2_0603_0P1 = _r("1.2Ohm 0.1%", "0603", "RT0603BRD071R2L", manufacturer=YAGEO, power="100mW")
+
+# Current-sense resistor, 1206 alloy, Milliohm HoLLR1206 (LCSC C2988651 listing: 1 W, 25 mOhm
+# 1 %, +-50 ppm/C): the fan driver's low-side sense resistor R31.
+R_25M_1206 = {
+    "value": "25mOhm 1%",
+    "package": "1206",
+    "mpn": "HoLLR1206-1W-25mR-1%",
+    "manufacturer": "Milliohm",
+    "power": "1W",
+}
+
+# Multilayer ceramic capacitors.
+C_1N_0402_C0G = _c("1nF 5%", "0402", "50V", "C0G", "0402CG102J500NT", manufacturer=FENGHUA)
+C_10N_0402 = _c("10nF 10%", "0402", "50V", "X7R", "CL05B103KB5NNNC")
+C_22N_0402 = _c("22nF 10%", "0402", "50V", "X7R", "0402B223K500NT", manufacturer=FENGHUA)
+C_100N_0402 = _c("100nF 10%", "0402", "50V", "X7R", "CL05B104KB54PNC")
+C_220N_0402 = _c("220nF 10%", "0402", "16V", "X7R", "CL05B224KO5NNNC")
+C_1U_0402 = _c("1uF 10%", "0402", "25V", "X5R", "CL05A105KA5NQNC")
+C_4U7_0402 = _c("4.7uF 20%", "0402", "10V", "X5R", "CL05A475MP5NRNC")
+C_47N_0603 = _c("47nF 10%", "0603", "50V", "X7R", "CL10B473KB8NNNC")
+C_470N_0603_50V = _c("470nF 10%", "0603", "50V", "X7R", "CC0603KRX7R9BB474", manufacturer=YAGEO)
+C_10U_0603 = _c("10uF 20%", "0603", "25V", "X5R", "CL10A106MA8NRNC")
+C_22U_0805_25V = _c("22uF 20%", "0805", "25V", "X5R", "CL21A226MAQNNNE")
+C_10U_1206_50V = _c("10uF 10%", "1206", "50V", "X7R", "CL31B106KBHNNNE")
+
+# Indicator LEDs, 0603.
+LED_YELLOW_0603 = {"package": "0603", "color": "yellow", "mpn": "NCD0603Y2", "manufacturer": "NationStar"}
+LED_RED_0603 = {"package": "0603", "color": "red", "mpn": "KT-0603R", "manufacturer": "KENTO"}

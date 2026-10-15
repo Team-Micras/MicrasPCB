@@ -54,12 +54,6 @@ R_1M_0402 = _r("1MOhm 1%", "0402", "0402WGF1004TCE")
 R_68K_0603 = _r("68kOhm 1%", "0603", "0603WAF6802T5E", power="100mW")
 R_1M_0603 = _r("1MOhm 1%", "0603", "0603WAF1004T5E", power="100mW")
 
-# Thin-film precision, Yageo RT series (RT datasheet V.16, Table 2: RT0603 1/10 W at 70 C, 75 V;
-# 0.1 % with +-25 ppm/C from 1 Ohm). The next revision's IR emitter sink sense resistor
-# (research/next-revision A.4): 170 mA x 1.2 Ohm = 0.204 V, 35 mW during a pulse, 13 mW at
-# 37.5 % duty. Not placed yet.
-R_1R2_0603_0P1 = _r("1.2Ohm 0.1%", "0603", "RT0603BRD071R2L", manufacturer="YAGEO", power="100mW")
-
 # Current-sense shunts, 2512, for the R2512 package (components/micras/R2512: the MicrasLib
 # RESC6432X89N land pattern, which sets the package).
 R_50M_2512 = {"value": "50mOhm 1%", "mpn": "HoLLR2512-3W-50mR-1%", "manufacturer": "Milliohm", "power": "3W"}

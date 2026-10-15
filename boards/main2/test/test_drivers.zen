@@ -1,0 +1,270 @@
+"""Wheel bridges IC8/IC9 (DRV8874), their shunts, chokes and INA241A2 amplifiers U10/U11, and the
+fan driver IC6 (STSPIN958).
+
+Sources: TI SLVSF66A (DRV8874; the package's checks.zen holds the datasheet rules), TI SBOSA30D
+(INA241A2), Vishay WSK2512 doc 30108, Coilcraft Doc 856 (XAL7070) and Doc 1576 (XGL5030), ST
+DS14341 Rev 1 (STSPIN958), ST RM0468 (GPIO state in reset), research/next-revision (Drivetrain,
+Current sensing, Fan; A.1, A.3, A.5).
+"""
+
+load("github.com/Team-Micras/MicrasPCB/components/ti/DRV8874/checks.zen", "drv8874_requirements", "drv8874_settings")
+load(
+    "./helpers.zen",
+    "all_two_terminal",
+    "eng",
+    "farads",
+    "index",
+    "net",
+    "ohms",
+    "refs_on",
+    "report",
+    "series_to",
+    "two_terminal",
+)
+
+MAIN2 = Module("../main2.zen")
+
+MCU = "IC1"
+FAN = "IC6"
+# bridge -> (motor connector, shunt, choke, choke's 0 Ohm alternative, amplifier, MCU EN pin, MCU PH pin, ADC pin)
+BRIDGES = {
+    "IC8": ("M2", "R65", "L4", "R66", "U10", "PA8", "PA9", "PC1"),
+    "IC9": ("M1", "R75", "L5", "R76", "U11", "PC7", "PC9", "PC0"),
+}
+# research Drivetrain: ITRIP 2.5-3 A typ; the 47 uH choke lets the current overshoot ITRIP by
+# 0.41-0.62 A during tBLK + tDEG (current_sense/q1_sampling.py).
+ITRIP_TYP = (2.5, 3.0)
+OVERSHOOT = 0.62
+# DRV8874 section 6.5: OCP 6 A minimum.
+IOCP_MIN = 6.0
+# INA241 section 6.5: output swing to VS - 0.2 V and GND + 20 mV; gain 20.
+INA_GAIN = 20.0
+
+
+def _settings(module, ref):
+    s = drv8874_settings(module)
+    key = [k for k in s.keys() if k == ref or k.endswith("." + ref)]
+    return s[key[0]] if key else None
+
+
+def drv8874_modes_and_current_limit(module, inputs):
+    # Table 2: PMODE low is PH/EN. Table 6: IMODE level 1 (tied to GND) is fixed off-time with
+    # automatic retry, nFAULT only on faults. Equation 3: ITRIP = VREF / (RIPROPI x AIPROPI): the
+    # research's 2.5-3 A typical, its band (tolerances and AERR, checks.zen) below the 6 A OCP
+    # minimum, and the choke's saturation current above the band's top plus the overshoot.
+    b = index(module)
+    p = []
+    for ic, (motor, shunt, choke, link, amp, en, ph, adc) in BRIDGES.items():
+        s = _settings(module, ic)
+        if s == None:
+            p.append(ic + " is not a DRV8874")
+            continue
+        if s.pmode != "L":
+            p.append(ic + " PMODE decodes as " + str(s.pmode) + ", PH/EN needs it on GND")
+        if s.imode != 1:
+            p.append(ic + " IMODE decodes as level " + str(s.imode) + ", fixed off-time with retry is level 1 (GND)")
+        if s.itrip == None:
+            p.append(ic + " ITRIP is not set by the netlist")
+            continue
+        lo, typ, hi = s.itrip
+        if typ < ITRIP_TYP[0] or typ > ITRIP_TYP[1]:
+            p.append(ic + " typical ITRIP " + eng(typ, "A") + ", the research sets 2.5-3 A")
+        if hi + OVERSHOOT >= IOCP_MIN:
+            p.append(ic + " ITRIP up to " + eng(hi, "A") + " plus the overshoot reaches the 6 A OCP minimum")
+        isat = b.parts[choke].isat.value
+        if isat < hi + OVERSHOOT:
+            p.append(choke + " saturates at " + eng(isat, "A") + ", below ITRIP " + eng(hi, "A") + " + 0.62 A")
+    report(p)
+
+
+def drv8874_control_lines(module, inputs):
+    # Section 7.3.2 Table 3: EN/IN1 takes the timer PWM, PH/IN2 the direction (research A.1:
+    # right motor PA8/PA9, left PC7/PC9). nSLEEP of both bridges on Motors_Enable (PA10) with a
+    # pull-down, so they sleep while the MCU is in reset, when its pins float in analog mode
+    # (RM0468 section 11.3.1). nFAULT (open drain) wire-ORed on PC15 with one pull-up.
+    b = index(module)
+    p = []
+    sleep = net(b, MCU, "PA10")
+    fault = net(b, MCU, "PC15-OSC32_OUT")
+    for ic, (motor, shunt, choke, link, amp, en, ph, adc) in BRIDGES.items():
+        if net(b, ic, "EN/IN1") != net(b, MCU, en):
+            p.append(ic + " EN/IN1 is not on " + en)
+        if net(b, ic, "PH/IN2") != net(b, MCU, ph):
+            p.append(ic + " PH/IN2 is not on " + ph)
+        if net(b, ic, "~{SLEEP}") != sleep:
+            p.append(ic + " nSLEEP is not on Motors_Enable (PA10)")
+        if net(b, ic, "~{FAULT}") != fault:
+            p.append(ic + " nFAULT is not on PC15")
+    if not [r for r in two_terminal(b, "resistor", sleep, "GND") if ohms(b, r) <= 100e3 * 1.01]:
+        p.append(sleep + " needs a pull-down of at most 100 kOhm to hold the bridges asleep in reset")
+    ups = [r for r in refs_on(b, fault) if b.parts[r].type == "resistor" and not b.parts[r].dnp]
+    if len(ups) != 1:
+        p.append(fault + ": expected one pull-up for the wired-OR nFAULT, found " + str(ups))
+    report(p)
+
+
+def motor_path(module, inputs):
+    # Research A.1/A.3: OUT1 -> 4-terminal shunt (force pads) -> choke footprint -> connector,
+    # OUT2 -> connector; the choke's 0 Ohm alternative across the same two nets, DNP while the
+    # choke is fitted (and the reverse); never both.
+    b = index(module)
+    p = []
+    for ic, (motor, shunt, choke, link, amp, en, ph, adc) in BRIDGES.items():
+        out1, out2 = net(b, ic, "OUT1"), net(b, ic, "OUT2")
+        if net(b, shunt, "I1") != out1:
+            p.append(shunt + " I1 is not on " + ic + " OUT1")
+        mid = net(b, shunt, "I2")
+        if net(b, choke, "1") != mid:
+            p.append(choke + " does not start at the shunt's motor side (" + mid + ")")
+        terminal = net(b, choke, "2")
+        if sorted([net(b, motor, "Pin_1"), net(b, motor, "Pin_2")]) != sorted([out2, terminal]):
+            p.append(motor + " is not between " + ic + " OUT2 and " + choke)
+        if all_two_terminal(b, "resistor", mid, terminal) != [link]:
+            p.append(choke + ": expected the 0 Ohm alternative " + link + " across it")
+        elif b.parts[link].dnp == b.parts[choke].dnp:
+            p.append(choke + " and " + link + " are both " + ("DNP" if b.parts[link].dnp else "fitted"))
+        if [r for r in refs_on(b, terminal) if b.parts[r].type == "capacitor"]:
+            p.append(motor + ": no capacitor across the motor, it resonates with the choke (research)")
+    report(p)
+
+
+def ina241_senses_its_bridge(module, inputs):
+    # SBOSA30D: IN+ on the bridge-side sense terminal, IN- on the motor side, no series resistor
+    # (section 6.5 bias current); REF1 on VS and REF2 on GND, the mid-supply output (7.4.3.2);
+    # VS on the analog rail that also feeds VDDA (ratiometric); the output to the motor's ADC pin
+    # through R_iso with C_f at the pin, at most 1 nF directly on OUT (section 6.5). The linear
+    # range must cover ITRIP's top plus the overshoot in both directions.
+    b = index(module)
+    p = []
+    vdda_src = net(b, "R67", "1") if net(b, "R67", "2") == net(b, MCU, "VDDA") else net(b, "R67", "2")
+    for ic, (motor, shunt, choke, link, amp, en, ph, adc) in BRIDGES.items():
+        if net(b, amp, "IN+") != net(b, shunt, "E1") or net(b, amp, "IN-") != net(b, shunt, "E2"):
+            p.append(amp + " IN+/IN- are not on " + shunt + " E1/E2 (bridge side on IN+)")
+        if net(b, amp, "VS") != vdda_src or net(b, amp, "REF1") != vdda_src:
+            p.append(amp + " VS and REF1 must be on the VDDA source " + vdda_src)
+        if net(b, amp, "REF2") != "GND":
+            p.append(amp + " REF2 must be on GND")
+        out = net(b, amp, "OUT")
+        pin = net(b, MCU, adc)
+        iso = two_terminal(b, "resistor", out, pin)
+        if len(iso) != 1:
+            p.append(amp + " OUT does not reach " + adc + " through one resistor")
+        if [r for r in two_terminal(b, "capacitor", out, "GND") if farads(b, r) > 1e-9 * 1.01]:
+            p.append(amp + " OUT carries more than 1 nF directly")
+        if not two_terminal(b, "capacitor", pin, "GND"):
+            p.append(adc + " has no filter capacitor at the pin")
+        s = _settings(module, ic)
+        r_sh = b.parts[shunt].resistance.value
+        vs = b.parts[amp].pins["VS"].voltage
+        span_pos = (vs.min - 0.2 - vs.min / 2) / (INA_GAIN * r_sh)
+        span_neg = (vs.min / 2 - 0.02) / (INA_GAIN * r_sh)
+        if s != None and s.itrip != None and min(span_pos, span_neg) < s.itrip[2] + OVERSHOOT:
+            p.append(amp + " range +" + eng(span_pos, "A") + "/-" + eng(span_neg, "A") + " is below ITRIP + overshoot")
+    report(p)
+
+
+def _level(b, name):
+    vdd = net(b, FAN, "VDD")
+    return "H" if name == vdd else ("L" if name == "GND" else "?")
+
+
+def stspin958_mode_and_phase(module, inputs):
+    # DS14341 Table 8: MODE1 H, MODE2 L, MODE3 H is the parallel half-bridge with PWM trimming;
+    # sections 5.6.1.2 and 5.6.2.2: the load between OUT and LSS goes with PWM2/PH low; section
+    # 5.4.3: OUT1 = OUT2 and LSS1 = LSS2.
+    b = index(module)
+    p = []
+    mode = _level(b, net(b, FAN, "MODE1")) + _level(b, net(b, FAN, "MODE2")) + _level(b, net(b, FAN, "MODE3"))
+    if mode != "HLH":
+        p.append("IC6 MODE1-3 decode as " + mode + ", the research keeps HLH")
+    out, lss = net(b, FAN, "OUT1"), net(b, FAN, "LSS1")
+    if out != net(b, FAN, "OUT2") or lss != net(b, FAN, "LSS2"):
+        p.append("parallel mode needs OUT1 = OUT2 and LSS1 = LSS2 (section 5.4.3)")
+    if _level(b, net(b, FAN, "PWM2/PH")) != "L":
+        p.append("the fan sits between OUT and LSS, so PWM2/PH must be on GND")
+    report(p)
+
+
+def stspin958_external_parts(module, inputs):
+    # DS14341 Table 12 and Figure 22: CS 2 x 470 nF on VS, CDD 220 nF on VDD, CCP 100 nF CP1-CP2,
+    # CBOOT 1 uF VBOOT-VSPUMP, REN 39 kOhm and CEN 10 nF on EN/nFAULT, RSNS from LSS to GND. The
+    # research replaces the 16 V 220 uF C36 by 2 x 10 uF 50 V ceramics at VS plus the VBAT bulk;
+    # C34/C35 become 50 V parts. Every VS capacitor is rated above the pack.
+    b = index(module)
+    p = []
+    vs, vdd = net(b, FAN, "VS"), net(b, FAN, "VDD")
+    vs_caps = two_terminal(b, "capacitor", vs, "GND")
+    if len([r for r in vs_caps if abs(farads(b, r) - 470e-9) <= 47e-9]) < 2:
+        p.append(vs + " needs 2 x 470 nF for IC6")
+    if len([r for r in vs_caps if farads(b, r) >= 10e-6 * 0.99]) < 2:
+        p.append(vs + " needs 2 x 10 uF ceramic for IC6")
+    if not [r for r in two_terminal(b, "capacitor", vdd, "GND") if abs(farads(b, r) - 220e-9) <= 22e-9]:
+        p.append(vdd + " needs 220 nF for IC6 VDD")
+    for a, z, f, what in [("CP1", "CP2", 100e-9, "CCP"), ("VBOOT", "VSPUMP", 1e-6, "CBOOT")]:
+        found = two_terminal(b, "capacitor", net(b, FAN, a), net(b, FAN, z))
+        if len(found) != 1 or abs(farads(b, found[0]) - f) > 0.1 * f:
+            p.append(what + ": expected " + eng(f, "F") + " from " + a + " to " + z + ", found " + str(found))
+    en = net(b, FAN, "EN/~{FAULT}")
+    if not [r for r in two_terminal(b, "resistor", en, vdd) if abs(ohms(b, r) - 39e3) <= 0.4e3]:
+        p.append("EN/nFAULT needs the 39 kOhm pull-up to VDD")
+    if not [r for r in two_terminal(b, "capacitor", en, "GND") if abs(farads(b, r) - 10e-9) <= 1e-9]:
+        p.append("EN/nFAULT needs 10 nF to GND")
+    sr = two_terminal(b, "resistor", net(b, FAN, "SR"), "GND")
+    if len(sr) != 1 or ohms(b, sr[0]) < 1e3 * 0.99 or ohms(b, sr[0]) > 2.2e3 * 1.01:
+        p.append("SR: the research sets RSR 1-2.2 kOhm (1.2-2 V/ns, Table 7), found " + str(sr))
+    report(p)
+
+
+def stspin958_current_limit(module, inputs):
+    # DS14341 section 5.6 Eq. 1: VREF = Ipeak x RSNS x ACL (OFFSET low), ACL 9.5-10.5 (Table 5).
+    # REF within 0.1 V to VDD (Table 2); the limit below the 7 A minimum overcurrent shutdown
+    # (IOC, Table 5) and VLSS within 1 V. The research sets RSNS 20-25 mOhm and Ipeak about
+    # 1.5 x the running current (3-5 A); the fan choke must not lose more than 20 % of its
+    # inductance at the limit.
+    b = index(module)
+    ref, vdd = net(b, FAN, "REF"), net(b, FAN, "VDD")
+    up = two_terminal(b, "resistor", vdd, ref)
+    down = two_terminal(b, "resistor", ref, "GND")
+    rs = two_terminal(b, "resistor", net(b, FAN, "LSS1"), "GND")
+    if len(up) != 1 or len(down) != 1 or len(rs) != 1 or net(b, FAN, "OFFSET") != "GND":
+        report(["IC6 REF: expected a divider from VDD, one sense resistor and OFFSET on GND"])
+        return
+    ru, rd, rsns = b.parts[up[0]].resistance, b.parts[down[0]].resistance, b.parts[rs[0]].resistance
+    vref_max = 3.3 * rd.max / (rd.max + ru.min)
+    vref_min = 3.3 * rd.min / (rd.min + ru.max)
+    vref_typ = 3.3 * rd.value / (rd.value + ru.value)
+    ipk = vref_max / (rsns.min * 9.5)
+    ityp = vref_typ / (rsns.value * 10)
+    p = []
+    if rsns.value < 20e-3 * 0.99 or rsns.value > 25e-3 * 1.01:
+        p.append(rs[0] + " is " + eng(rsns.value, "Ohm") + ", the research sets 20-25 mOhm")
+    if vref_min < 0.1 or vref_max > 3.3:
+        p.append("REF " + eng(vref_min, "V") + "-" + eng(vref_max, "V") + " outside 0.1 V to VDD")
+    if ityp < 3.0 or ityp > 5.0:
+        p.append("typical fan current limit " + eng(ityp, "A") + " outside the research's 3-5 A")
+    if ipk >= 7.0:
+        p.append("current limit up to " + eng(ipk, "A") + " reaches the 7 A overcurrent shutdown")
+    if ipk * rsns.max > 1.0:
+        p.append("VLSS reaches " + eng(ipk * rsns.max, "V") + ", above the 1 V recommended maximum")
+    chokes = [r for r in refs_on(b, net(b, FAN, "OUT1")) if b.parts[r].type == "inductor" and not b.parts[r].dnp]
+    for l in chokes:
+        if b.parts[l].isat_20.value < ipk:
+            p.append(l + " loses more than 20 % of its inductance below the " + eng(ipk, "A") + " limit")
+    report(p)
+
+
+TestBench(
+    name="main2_drivers",
+    module=MAIN2,
+    test_cases={"board": {}},
+    checks=[
+        drv8874_requirements,
+        drv8874_modes_and_current_limit,
+        drv8874_control_lines,
+        motor_path,
+        ina241_senses_its_bridge,
+        stspin958_mode_and_phase,
+        stspin958_external_parts,
+        stspin958_current_limit,
+    ],
+)

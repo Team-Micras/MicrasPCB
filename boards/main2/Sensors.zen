@@ -1,0 +1,195 @@
+"""IMU, motor current amplifiers, the four wall sensors with their shared emitter current sink, and
+the two encoder slots.
+
+IMU, IC2 (LSM6DSV, DS13476 Rev 5) on the shared SPI bus with its own chip select IMU_SPI_CSn;
+INT1/INT2 to the MCU. Mode 1: SDx and SCx grounded, OCS_Aux and SDO_Aux open (Table 2 p10). C24
+and C25 100 nF on Vdd and Vdd_IO (Table 2 note 1, Figure 27 p44). On 3V3_D, as on the main board
+(the research keeps it there: +0.65 mA on 3V3_A if it moves).
+
+Motor current, U10 (right motor) and U11 (left motor): INA241A2IDGKR, gain 20 V/V (TI SBOSA30D;
+research Current sensing and A.3), across the 10 mOhm 4-terminal shunts R65 / R75 on the drivers
+sheet, IN+ on the bridge-side sense terminal and IN- on the motor side, with no input filter (the
+25-45 uA input bias makes any series resistance an error, section 6.5). VS on 3V3_A with C100 /
+C103 100 nF at the pin (section 8.3.1); REF1 on 3V3_A (with C101 / C104 10 nF) and REF2 on GND:
+the bidirectional mid-supply output of section 7.4.3.2, VOUT = 20 x 10 mOhm x I + 3V3_A / 2,
+ratiometric to VDDA, which 3V3_A also feeds. Range: (3.3 V - 0.2 V - 1.65 V) / 0.2 V/A = +7.25 A
+and (1.65 V - 0.02 V) / 0.2 V/A = -8.15 A (output swing, section 6.5), above the 2.97 A ITRIP plus
+its overshoot. The output drives the ADC through R78 / R79 100 Ohm (R_iso) with C102 / C105 1 nF
+C0G at the MCU pin (Current_Sensor_Right on PC1, Current_Sensor_Left on PC0): the INA241 drives
+1 nF directly (section 6.5), and the resistor isolates the C0G and the ADC's sampling charge.
+TODO: the stability of R_iso + C_f is to be checked on the bench (research Bench measurements);
+the research's "fast ADC channel" swap (wall sensors to PC0/PC1, currents to two of
+PA6/PB1/PC4) is not verified in CubeMX, so the currents stay on PC0/PC1 (ADC slow channels:
+one conversion per PWM centre still fits; research H7 pin budget).
+
+Wall sensors W1-W4 (SFH 4550 emitter over a TPS601A phototransistor) with a shared constant-
+current emitter sink (research IR emitters and A.4; power-tree study section 6):
+- Sink: U12 (TLV9001IDBVR, SBOS833R) on 3V3_A with C106 100 nF; IN+ on EMITTER_SET, a R80
+  10 kOhm / R81 680 Ohm divider of 3V3_A: 3.3 x 0.68 / 10.68 = 0.210 V; IN- on EMITTER_SENSE, the
+  top of R83 1.2 Ohm 0.1 % (RT0603BRD071R2L, Kelvin-connected); OUT through R82 100 Ohm to the
+  gate of Q9 (AO3400A), whose drain is EMITTER_SINK. I = 0.210 V / 1.2 Ohm = 175 mA; the set-point
+  divides 3V3_A, so the emitter current is ratiometric to the ADC reference.
+- Emitter n: R13/R17/R21/R25 3.3 Ohm 0603 from 3V3_D to the LED anode; the LED cathode on the
+  drain of its selector Q2-Q5 (AO3400A), whose source is EMITTER_SINK. At VF max 1.7 V (SFH 4550
+  p5) and 3V3_D at its 3.284 V minimum, the sink FET keeps 3.284 - 1.7 - 0.175 x 3.3 - 0.21 =
+  0.79 V of headroom. The 3.3 Ohm carries 101 mW during a pulse, below its 100 mW rating at the
+  firmware's 37.5 % duty (38 mW average).
+- Selector gates, DC-coupled (the main board's 220 nF coupling and clamp go, since the source
+  sits on the sink): Wall_Sensor_PWM_n through R11/R15/R19/R23 220 Ohm, with R12/R16/R20/R24
+  10 kOhm to GND. With the sink at up to 0.8 V, VGS is 2.5 V or more from a 3.3 V pin (AO3400A
+  p2: 48 mOhm max at 2.5 V).
+- Firmware: the sink takes one emitter at a time; two selectors on together share the 175 mA
+  (boards/main2/firmware_changes.toml, emitters). TODO: with a selector held on (a timer stuck
+  high) the emitter carries 175 mA DC, above the SFH 4550's 100 mA DC rating (p4); the AC coupling
+  that bounded it on the main board is gone with the DC selectors.
+- TODO: the research asks the set-point to be off when no emitter is selected. Here it is always
+  on: with no selector on, U12 saturates high and Q9 turns fully on, so each pulse starts with a
+  current set by the 3.3 Ohm until the op-amp recovers (0.85 us overload recovery, SBOS833R 7.10).
+  Gating the set-point needs a selector-OR signal this pin budget does not have; the TLV9001's
+  drive of Q9's 630 pF (above its 500 pF rating) needs the step-response check its package
+  documents.
+- Receiver n: the phototransistor collector on 3V3_A, its emitter on Wall_Sensor_n (ADC) with
+  R14/R18/R22/R26 1 kOhm to GND.
+- C26-C29 1 uF on 3V3_D next to each emitter resistor.
+
+Encoder slots EC1 (right wheel) and EC2 (left wheel), as on the main board: the AS5047U encoder
+boards on the SPI bus, each with its own CSn, plus the ABI A/B outputs to timer inputs; 1 uF +
+100 nF at each slot (C69/C70 at EC1, C71/C72 at EC2) on 3V3_D.
+"""
+
+load("@stdlib/interfaces.zen", "Spi")
+load(
+    "./passives.zen",
+    "C_100N_0402",
+    "C_10N_0402",
+    "C_1N_0402_C0G",
+    "C_1U_0402",
+    "R_100_0402",
+    "R_10K_0402",
+    "R_1K_0402",
+    "R_1R2_0603_0P1",
+    "R_220_0402",
+    "R_3R3_0603",
+    "R_680_0402",
+)
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+AO3400A = Module("github.com/Team-Micras/MicrasPCB/components/aos/AO3400A/AO3400A.zen")
+EncoderSlot = Module("github.com/Team-Micras/MicrasPCB/components/micras/EncoderSlot/EncoderSlot.zen")
+INA241A2 = Module("github.com/Team-Micras/MicrasPCB/components/ti/INA241A2/INA241A2.zen")
+LSM6DSV = Module("github.com/Team-Micras/MicrasPCB/components/st/LSM6DSV/LSM6DSV.zen")
+TLV9001 = Module("github.com/Team-Micras/MicrasPCB/components/ti/TLV9001/TLV9001.zen")
+WallSensor = Module("github.com/Team-Micras/MicrasPCB/components/micras/WallSensor/WallSensor.zen")
+
+V3V3_D = io(Power)
+V3V3_A = io(Power)
+GND = io(Ground)
+
+IMU_SPI = io(Spi)
+IMU_INT1 = io(Net)
+IMU_INT2 = io(Net)
+
+MOTOR_L_SENSE_P = io(Net)
+MOTOR_L_SENSE_N = io(Net)
+MOTOR_R_SENSE_P = io(Net)
+MOTOR_R_SENSE_N = io(Net)
+CURRENT_SENSOR_LEFT = io(Net)
+CURRENT_SENSOR_RIGHT = io(Net)
+
+WALL_SENSOR_PWM_0 = io(Net)
+WALL_SENSOR_PWM_1 = io(Net)
+WALL_SENSOR_PWM_2 = io(Net)
+WALL_SENSOR_PWM_3 = io(Net)
+WALL_SENSOR_0 = io(Net)
+WALL_SENSOR_1 = io(Net)
+WALL_SENSOR_2 = io(Net)
+WALL_SENSOR_3 = io(Net)
+
+ENCODER_RIGHT_SPI = io(Spi)
+ENCODER_RIGHT_ABI_A = io(Net)
+ENCODER_RIGHT_ABI_B = io(Net)
+ENCODER_LEFT_SPI = io(Spi)
+ENCODER_LEFT_ABI_A = io(Net)
+ENCODER_LEFT_ABI_B = io(Net)
+
+EMITTER_SET = Net("EMITTER_SET")
+EMITTER_SENSE = Net("EMITTER_SENSE")
+EMITTER_GATE = Net("EMITTER_GATE")
+EMITTER_DRIVE = Net("EMITTER_DRIVE")
+EMITTER_SINK = Net("EMITTER_SINK")
+
+# IMU.
+LSM6DSV(
+    name="IC2",
+    VDD=V3V3_D,
+    VDDIO=V3V3_D,
+    GND=GND,
+    SPI=IMU_SPI,
+    INT1=IMU_INT1,
+    INT2=IMU_INT2,
+    SDX=GND,
+    SCX=GND,
+)
+Capacitor(name="C24", P1=GND, P2=V3V3_D, **C_100N_0402)
+Capacitor(name="C25", P1=GND, P2=V3V3_D, **C_100N_0402)
+
+
+# Motor current amplifiers.
+def current_amplifier(side, amp, c_vs, c_ref, r_iso, c_f, sense_p, sense_n, adc):
+    out = Net("CURRENT_{}_AMP".format(side))
+    INA241A2(
+        name=amp,
+        VS=V3V3_A,
+        GND=GND,
+        IN_P=sense_p,
+        IN_N=sense_n,
+        REF1=V3V3_A,
+        REF2=GND,
+        OUT=out,
+    )
+    Capacitor(name=c_vs, P1=GND, P2=V3V3_A, **C_100N_0402)
+    Capacitor(name=c_ref, P1=GND, P2=V3V3_A, **C_10N_0402)
+    Resistor(name=r_iso, P1=out, P2=adc, **R_100_0402)
+    Capacitor(name=c_f, P1=GND, P2=adc, **C_1N_0402_C0G)
+
+
+current_amplifier("R", "U10", "C100", "C101", "R78", "C102", MOTOR_R_SENSE_P, MOTOR_R_SENSE_N, CURRENT_SENSOR_RIGHT)
+current_amplifier("L", "U11", "C103", "C104", "R79", "C105", MOTOR_L_SENSE_P, MOTOR_L_SENSE_N, CURRENT_SENSOR_LEFT)
+
+# Emitter current sink.
+TLV9001(name="U12", VCC=V3V3_A, GND=GND, IN_P=EMITTER_SET, IN_N=EMITTER_SENSE, OUT=EMITTER_DRIVE)
+Capacitor(name="C106", P1=GND, P2=V3V3_A, **C_100N_0402)
+Resistor(name="R80", P1=V3V3_A, P2=EMITTER_SET, **R_10K_0402)
+Resistor(name="R81", P1=GND, P2=EMITTER_SET, **R_680_0402)
+Resistor(name="R82", P1=EMITTER_DRIVE, P2=EMITTER_GATE, **R_100_0402)
+AO3400A(name="Q9", G=EMITTER_GATE, S=EMITTER_SENSE, D=EMITTER_SINK)
+Resistor(name="R83", P1=EMITTER_SENSE, P2=GND, **R_1R2_0603_0P1)
+
+
+# Wall sensors.
+def wall_sensor(n, sensor, switch, r_gate, r_pulldown, r_emitter, r_load, cap, pwm, out):
+    gate = Net("WALL{}_GATE".format(n))
+    anode = Net("WALL{}_LED_A".format(n))
+    cathode = Net("WALL{}_LED_K".format(n))
+    Resistor(name=r_gate, P1=gate, P2=pwm, **R_220_0402)
+    Resistor(name=r_pulldown, P1=GND, P2=gate, **R_10K_0402)
+    AO3400A(name=switch, G=gate, S=EMITTER_SINK, D=cathode)
+    Resistor(name=r_emitter, P1=anode, P2=V3V3_D, **R_3R3_0603)
+    WallSensor(name=sensor, LED_A=anode, LED_K=cathode, PT_C=V3V3_A, PT_E=out)
+    Resistor(name=r_load, P1=GND, P2=out, **R_1K_0402)
+    Capacitor(name=cap, P1=GND, P2=V3V3_D, **C_1U_0402)
+
+
+wall_sensor(0, "W1", "Q2", "R11", "R12", "R13", "R14", "C26", WALL_SENSOR_PWM_0, WALL_SENSOR_0)
+wall_sensor(1, "W2", "Q3", "R15", "R16", "R17", "R18", "C27", WALL_SENSOR_PWM_1, WALL_SENSOR_1)
+wall_sensor(2, "W3", "Q4", "R19", "R20", "R21", "R22", "C28", WALL_SENSOR_PWM_2, WALL_SENSOR_2)
+wall_sensor(3, "W4", "Q5", "R23", "R24", "R25", "R26", "C29", WALL_SENSOR_PWM_3, WALL_SENSOR_3)
+
+# Encoder slots.
+EncoderSlot(name="EC1", VDD=V3V3_D, GND=GND, SPI=ENCODER_RIGHT_SPI, A=ENCODER_RIGHT_ABI_A, B=ENCODER_RIGHT_ABI_B)
+Capacitor(name="C69", P1=GND, P2=V3V3_D, **C_1U_0402)
+Capacitor(name="C70", P1=GND, P2=V3V3_D, **C_100N_0402)
+EncoderSlot(name="EC2", VDD=V3V3_D, GND=GND, SPI=ENCODER_LEFT_SPI, A=ENCODER_LEFT_ABI_A, B=ENCODER_LEFT_ABI_B)
+Capacitor(name="C71", P1=GND, P2=V3V3_D, **C_1U_0402)
+Capacitor(name="C72", P1=GND, P2=V3V3_D, **C_100N_0402)

@@ -1,0 +1,166 @@
+"""User interface and USB-C: buttons, DIP switch, buzzer, LEDs and the USB-C receptacle.
+
+Buttons (GT-TC048B tactile switches, MCU internal pull-ups), as on the main board:
+- SW2 on Button (PA7) with C20 100 nF to GND.
+- SW3 on NRST with C21 100 nF to GND, the recommended NRST protection (DS13311 Figure 27
+  p168: 0.1 uF; the pin has an internal 30-50 kOhm pull-up, Table 61 p167). The ESP32 also
+  drives NRST, open drain (ESP sheet).
+- SW5 from BOOT0 to 3V3_D, with R42 10 kOhm from BOOT0 to GND (AN5419 Figure 19 p30) and C60
+  100 nF from BOOT0 to GND: R42 holds BOOT0 low while 3V3_D ramps and while the ESP32's BOOT0
+  line is high impedance, so the MCU boots from flash.
+SW1, a 4-way DIP switch, pulls Switch_0..3 to GND.
+
+Buzzer: BZ1 (FUET-5030, 3 V electromagnetic, externally driven) from 3V3_D through R3 10 Ohm to
+the low-side switch Q1 (AO3400A), driven from Buzzer (PA2, TIM15) through R1 220 Ohm with R2
+10 kOhm gate pull-down; D3 (1N4148W) clamps the coil. R3 is a 1206 (250 mW): at the firmware's
+50 % duty and low tones the coil current approaches 3.3 V / (9 + 10) Ohm = 174 mA with the 9 Ohm
+minimum coil (FUET-5030 p2), 151 mW in R3.
+
+LEDs:
+- D1, D2: WS2812C-2020-V6 addressable LEDs in a chain on 3V3_D (research IR emitters and status
+  LEDs; A.4), replacing the main board's WS2815C-2020, whose 9.5-13.5 V supply range fits
+  neither 4S nor 3.3 V. DI of D1 on LED_ARGB (PC6, TIM8_CH1), D1 DO to D2 DI. VDD 3.3-5.3 V and
+  DI VIH 0.55 x VDD = 1.82 V at 3.3 V (WS2812C-2020-V6 V1.0 p2-3), so PC6 drives it directly;
+  C19 (D1) and C18 (D2) 100 nF on VDD (p5 typical application). The bit timing caps T0L and
+  T1L at 1 us (p3-4), against the WS2815C's 5 us (boards/main2/firmware_changes.toml).
+  TODO: the datasheet specifies 3.3 V only in the feature text and the ratings range; blue and
+  green at 3.2-3.3 V need a bench check (research Bench measurements).
+- D4 (yellow) from LED_Red (PB12, the firmware's label) through R4 680 Ohm; D5 (red) from
+  3V3_D through R5 680 Ohm, the power indicator.
+
+USB-C, U2 (GT-USB-7010ASV), a USB 2.0 device port of the ESP32 only (research ESP32 and USB):
+- VBUS on +5V: into the power path Q8 (regulators sheet), the H7's sense divider, the ESP32's
+  sense divider (ESP sheet), and D8 (PESD5V0S1BL, 5 V working voltage) to GND at the receptacle.
+  R6/R7 5.1 kOhm Rd on CC1/CC2 (sink).
+- VBUS sensing for the H7 (AN4879 section 2.6.1), kept: R47 33 kOhm / R48 82 kOhm from VBUS into
+  USB_VBUS_Sense (PH0, FT): 3.14-3.74 V for VBUS 4.4-5.25 V, above VIH (0.7 VDD = 2.31 V, DS13311
+  Table 55) and within the FT input rating (Table 10); the H7 knows it runs from USB alone.
+- D+/D- (USBD_P/USBD_N) from the receptacle through U6 (USBLC6-2SC6, each line in on one I/O pad
+  and out on its twin, pins 1/6 and 3/4, so the clamp sits in line) to the ESP32's GPIO20/GPIO19, whose USB PHY needs no
+  external termination (ESP sheet). U6's rail pin on 3V3_D, the supply of the circuit it protects
+  (USBLC6-2 section 2.2), with C79 100 nF at the part (DocID 11265 Figure 18).
+- SBU1/SBU2 open, as Type-C R2.0 section 4.3 (p139) and Table 4-28 (p236) allow: the main board's
+  SBU supply for the HM-19 module (Q7, F1, D13, C77, C78, R50-R55, U7) is gone with the module.
+- The shell (pads 1-4) on GND.
+"""
+
+load("@stdlib/interfaces.zen", "Usb2")
+load(
+    "./passives.zen",
+    "C_100N_0402",
+    "LED_RED_0603",
+    "LED_YELLOW_0603",
+    "R_10K_0402",
+    "R_10_1206",
+    "R_220_0402",
+    "R_33K_0402",
+    "R_5K1_0402",
+    "R_680_0402",
+    "R_82K_0402",
+)
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Led = Module("@stdlib/generics/Led.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+Tvs = Module("@stdlib/generics/Tvs.zen")
+AO3400A = Module("github.com/Team-Micras/MicrasPCB/components/aos/AO3400A/AO3400A.zen")
+D1N4148W = Module("github.com/Team-Micras/MicrasPCB/components/hongjiacheng/1N4148W/1N4148W.zen")
+DSHP04TJGER = Module("github.com/Team-Micras/MicrasPCB/components/kangshen/DSHP04TJGER/DSHP04TJGER.zen")
+FUET_5030 = Module("github.com/Team-Micras/MicrasPCB/components/fuet/FUET-5030/FUET-5030.zen")
+GT_TC048B = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/GT-TC048B-H025-L1/GT-TC048B-H025-L1.zen")
+GT_USB_7010ASV = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/GT-USB-7010ASV/GT-USB-7010ASV.zen")
+USBLC6_2SC6 = Module("github.com/Team-Micras/MicrasPCB/components/st/USBLC6-2SC6/USBLC6-2SC6.zen")
+WS2812C = Module("github.com/Team-Micras/MicrasPCB/components/worldsemi/WS2812C-2020/WS2812C-2020.zen")
+
+V3V3_D = io(Power)
+V5V = io(Power)
+GND = io(Ground)
+
+BUTTON = io(Net)
+RESET = io(Net)
+BOOT = io(Net)
+SWITCH_0 = io(Net)
+SWITCH_1 = io(Net)
+SWITCH_2 = io(Net)
+SWITCH_3 = io(Net)
+BUZZER = io(Net)
+LED_ARGB = io(Net)
+LED_RED = io(Net)
+USB = io(Usb2)
+USB_VBUS_SENSE = io(Net)
+
+BUZZER_GATE = Net("BUZZER_GATE")
+BUZZER_DRAIN = Net("BUZZER_DRAIN")
+BUZZER_COIL = Net("BUZZER_COIL")
+LED_CHAIN = Net("LED_CHAIN")
+LED_YELLOW_A = Net("LED_YELLOW_A")
+LED_RED_A = Net("LED_RED_A")
+CC1 = Net("USB_CC1")
+CC2 = Net("USB_CC2")
+
+# Buttons and switches.
+GT_TC048B(name="SW2", A=GND, B=BUTTON)
+Capacitor(name="C20", P1=GND, P2=BUTTON, **C_100N_0402)
+GT_TC048B(name="SW3", A=GND, B=RESET)
+Capacitor(name="C21", P1=GND, P2=RESET, **C_100N_0402)
+GT_TC048B(name="SW5", A=BOOT, B=V3V3_D)
+Resistor(name="R42", P1=GND, P2=BOOT, **R_10K_0402)
+Capacitor(name="C60", P1=BOOT, P2=GND, **C_100N_0402)
+DSHP04TJGER(
+    name="SW1",
+    S1_A=SWITCH_0,
+    S2_A=SWITCH_1,
+    S3_A=SWITCH_2,
+    S4_A=SWITCH_3,
+    S1_B=GND,
+    S2_B=GND,
+    S3_B=GND,
+    S4_B=GND,
+)
+
+# Buzzer.
+FUET_5030(name="BZ1", POS=V3V3_D, NEG=BUZZER_COIL)
+Resistor(name="R3", P1=BUZZER_DRAIN, P2=BUZZER_COIL, **R_10_1206)
+AO3400A(name="Q1", G=BUZZER_GATE, S=GND, D=BUZZER_DRAIN)
+Resistor(name="R1", P1=BUZZER_GATE, P2=BUZZER, **R_220_0402)
+Resistor(name="R2", P1=GND, P2=BUZZER_GATE, **R_10K_0402)
+D1N4148W(name="D3", A=BUZZER_COIL, K=V3V3_D)
+
+# LEDs.
+WS2812C(name="D1", VDD=V3V3_D, GND=GND, DI=LED_ARGB, DO=LED_CHAIN)
+WS2812C(name="D2", VDD=V3V3_D, GND=GND, DI=LED_CHAIN, DO=NotConnected())
+Capacitor(name="C19", P1=GND, P2=V3V3_D, **C_100N_0402)
+Capacitor(name="C18", P1=GND, P2=V3V3_D, **C_100N_0402)
+Resistor(name="R4", P1=LED_YELLOW_A, P2=LED_RED, **R_680_0402)
+Led(name="D4", A=LED_YELLOW_A, K=GND, **LED_YELLOW_0603)
+Resistor(name="R5", P1=LED_RED_A, P2=V3V3_D, **R_680_0402)
+Led(name="D5", A=LED_RED_A, K=GND, **LED_RED_0603)
+
+# USB-C.
+GT_USB_7010ASV(
+    name="U2",
+    VBUS=V5V,
+    GND=GND,
+    SHIELD=GND,
+    CC1=CC1,
+    CC2=CC2,
+    SBU1=NotConnected(),
+    SBU2=NotConnected(),
+    USB=USB,
+)
+Tvs(
+    name="D8",
+    package="SOD-882",
+    direction="Bidirectional",
+    reverse_standoff_voltage="5V",
+    mpn="PESD5V0S1BL,315",
+    manufacturer="Nexperia",
+    A=GND,
+    K=V5V,
+)
+Resistor(name="R6", P1=GND, P2=CC1, **R_5K1_0402)
+Resistor(name="R7", P1=GND, P2=CC2, **R_5K1_0402)
+Resistor(name="R47", P1=V5V, P2=USB_VBUS_SENSE, **R_33K_0402)
+Resistor(name="R48", P1=GND, P2=USB_VBUS_SENSE, **R_82K_0402)
+USBLC6_2SC6(name="U6", IO1=USB.D.P, IO2=USB.D.N, VBUS=V3V3_D, GND=GND)
+Capacitor(name="C79", P1=GND, P2=V3V3_D, **C_100N_0402)
