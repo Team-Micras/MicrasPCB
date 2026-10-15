@@ -8,7 +8,7 @@ Power tree. Three sources can power the board, and each reaches the rails throug
 U4 puts the higher of VBAT and +5V on VSYS, which only feeds the 3V3 buck IC7. 3V3 then has
 two sources: IC7, and U5 when the probe's supply is above it. The buck's high-side body diode
 (DS13554 Figure 19) lifts VSYS from 3V3 to about 2.6-2.9 V when the probe alone powers the board
-(known and accepted, boards/main/README.md Power), but VSYS carries nothing else besides C52/C53,
+(known and accepted, boards/main/layout/README.md Power), but VSYS carries nothing else besides C52/C53,
 and U4 blocks it from VBAT and +5V; VBAT and +5V are never powered from 3V3. With USB or the probe alone, VBAT stays
 at 0 V, so the boost, the motor bridges and the fan driver are off: the motors cannot run in
 the debug modes.
