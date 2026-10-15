@@ -1,0 +1,48 @@
+"""B5819W package facts (JCET B5817W-B5819W, D, Mar 2015) as the VBAT -> VSYS OR-ing diode."""
+
+Diode = Module("../B5819W.zen")
+
+# DS p.1: VRRM = VRWM = VR = 40 V.
+VR_MAX = 40.0
+
+
+def pins(module):
+    got = {}
+    for net, ports in module.nets().items():
+        for path, pin in ports:
+            if path.endswith(".D"):
+                got[pin] = net
+    return got
+
+
+def or_ing_orientation(module, inputs):
+    # Anode on the switched pack, cathode on the system node: VSYS never feeds VBAT.
+    check(pins(module) == {"A": "VBAT", "K": "VSYS"}, "pinout changed: " + str(pins(module)))
+
+
+def reverse_voltage(module, inputs):
+    # Worst-case reverse bias: the highest cathode voltage against the lowest anode voltage.
+    d = [c for path, c in module.components().items() if path.endswith("D")][0]
+    vr = d.pins["K"].voltage.max - d.pins["A"].voltage.min
+    check(vr <= VR_MAX, "reverse voltage up to " + str(vr) + " V exceeds the 40 V VRRM")
+
+
+def sourcing(module, inputs):
+    d = [c for path, c in module.components().items() if path.endswith("D")][0]
+    check(d.mpn == "B5819W", "MPN")
+    check(d.manufacturer == "JCET", "manufacturer")
+    check(d.prefix == "D", "reference prefix D")
+
+
+TestBench(
+    name="B5819W_or_ing",
+    module=Diode,
+    test_cases={
+        # 4S pack with HV cells, switched off to 0 V; VSYS from the pack or from USB VBUS.
+        "4s_hv": {
+            "A": Power("VBAT", voltage="0V to 17.4V"),
+            "K": Power("VSYS", voltage="4.3V to 17.4V"),
+        },
+    },
+    checks=[or_ing_orientation, reverse_voltage, sourcing],
+)
