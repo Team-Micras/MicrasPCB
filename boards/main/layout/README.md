@@ -29,7 +29,7 @@ The board files are in `boards/main/` (this README sits in its `layout/` folder)
 | [`firmware.toml`](../firmware.toml) | | the firmware's pin map, supply setting, battery channel and drive duties, from MicrasFirmware (`micras-pcb firmware snapshot`) |
 | [`firmware_changes.toml`](../firmware_changes.toml) | | the firmware changes this board needs (see [Firmware changes](#firmware-changes)) |
 | [`test/`](../test) | | `pcb test` benches of the board's circuit: MCU, power, drivers, peripherals |
-| [`layout/`](.) | | this folder: the KiCad project; the `.kicad_pcb` holds placement and routing; `fixes.py` and `router.py` place and route the review fixes on it, `refine.py` and `usb_wall.py` the owner's layout decisions, `finish.py` the previous revision's pour and teardrop settings on the result, `rail_silk.py` U6's rail capacitor and the designator size, `octilinear.py` every track at 0/45/90 degrees |
+| [`layout/`](.) | | this folder: the KiCad project; the `.kicad_pcb` holds placement and routing; `fixes.py` and `router.py` place and route the review fixes on it, `refine.py` and `usb_wall.py` the owner's layout decisions, `finish.py` the previous revision's pour and teardrop settings on the result, `rail_silk.py` U6's rail capacitor and the designator size, `octilinear.py` every track at 0/45/90 degrees, `swd_top.py` the top-entry SWD connector |
 | [`previous/`](../previous) | | the previous revision's connectivity snapshot, and the scripts that build the layout from that revision (`transfer_layout.py`, `rework.py`) |
 | [`spec/main.toml`](../../../spec/main.toml) | | mechanical interface: thickness, axle origin, extents, screw holes, encoder slots, USB-C peg holes, fan hole, wheel notches |
 
@@ -162,10 +162,11 @@ the module (idle, and receiving 0x00 bytes); `usb_c_sbu_open` checks the topolog
 
 ## SWD connector
 
-P1 is a JST SH 5-pin side-entry header (SM05B-SRSS-TB, 1.00 mm pitch) on the left board edge,
-its mating face outwards, so the probe cable (a JST SHR-05V-S housing) leaves the board
-sideways. Pin 1 is the contact nearest the front of the robot, marked by the footprint's tick
-and a "1" on the silkscreen.
+P1 is a JST SH 5-pin top-entry header (BM05B-SRSS-TB, 1.00 mm pitch) by the left board edge,
+where the previous revision had its upright 2.54 mm pin header, so the probe cable (a JST
+SHR-05V-S housing) plugs in from above and fits the chassis as that header's did. Its contacts
+face the board's inside; pin 1 is the contact nearest the rear of the robot, marked by the
+footprint's step and a "1" on the silkscreen.
 
 | Pin | Net | Probe |
 |---|---|---|
@@ -233,7 +234,9 @@ removes the teardrops that are left on their own or make copper slivers;
 reference designator to 0.5 mm / 0.125 mm, and [`layout/octilinear.py`](octilinear.py) redraws
 every track the earlier scripts left at another angle: each such connection is ripped up back to
 its pads, vias and junctions and routed again between the same copper (or, where the router finds
-no clean path, given a two- or three-segment octilinear path or a hand-drawn one). Each runs once.
+no clean path, given a two- or three-segment octilinear path), and [`layout/swd_top.py`](swd_top.py)
+puts the top-entry SWD connector P1 where the side-entry one was and routes its nets. Each runs
+once.
 
 Routing rule: every track is a straight segment at a multiple of 45 degrees, with no arcs and no
 corner under 90 degrees outside a pad or via, as on the Altium board
@@ -323,11 +326,11 @@ The review fixes in the layout (KiCad coordinates):
 - **NRST and PH0**: NRST (pin 12) drops to B.Cu on the axis of the unused pin 11, PH0 (pin 10,
   USB_VBUS_Sense) a pitch further out; Current_Sensor_Left's B.Cu run passes between PH0's via and
   pin 9's 3V3 via in 0.15 mm.
-- **SWD connector P1** at (126.48, 90.5), rotated -90 degrees: the mating face 0.4 mm and the
-  reinforcement pads 0.22 mm inside the left board edge, the contacts at x = 128.48 (pin 1 at
-  y = 88.5). The fan connector M3 sits 1.95 mm inwards of the Altium position to leave P1 room;
-  U5/C64 sit below P1, R13 above it, D3 next to R1/R2. SWDIO runs to P1 on B.Cu from a via under
-  IC1 pad 48.
+- **SWD connector P1** (top entry) at (125.85, 90.5), rotated 90 degrees: the reinforcement
+  pads 0.25 mm inside the left board edge, the contacts at x = 127.175 facing inwards (pin 1 at
+  y = 92.5). The fan connector M3 sits 1.95 mm inwards of the Altium position (its old spot would
+  overlap P1's courtyard); U5/C64 sit below P1, R13 above it, D3 next to R1/R2. SWDIO runs to P1
+  on B.Cu from a via under IC1 pad 48. `layout/swd_top.py` places it and routes its nets.
 - **Wall sensor drive** C73-C76/D9-D12 between each R11/R15/R19/R23 and its Q2-Q5; the 1206
   resistors R3/R13/R17/R21/R25 on their previous centres.
 - **Motors_Enable** to U1 pad 11 crosses the rear half on B.Cu (R49 by R35); C65/C66 at IC5,
@@ -348,7 +351,7 @@ The review fixes in the layout (KiCad coordinates):
   | M2 right motor connector | 160.501, 146.575 | 159.951, 146.575 | -33.071, -11.450 |
   | SW4 battery switch | 168.988, 143.344 | 169.078, 143.564 | -30.060, -20.577 |
   | M3 fan connector | 132.473, 90.318 | 134.423, 90.318 | 23.186, 14.078 |
-  | P1 SWD connector (JST SH) | | 126.480, 90.500 | 23.004, 22.021 |
+  | P1 SWD connector (JST SH, top entry) | | 125.850, 90.500 | 23.004, 22.651 |
   | C36 VBAT bulk | 163.099, 138.701 | 162.669, 138.701 | -25.197, -14.168 |
   | C37 +20V bulk | 141.128, 140.162 | 140.731, 140.162 | -26.658, 7.770 |
   | C38 L6205 VS 100 nF | 136.436, 140.606 | 136.190, 144.750 | -31.246, 12.311 |
@@ -447,7 +450,8 @@ Requirements without a check, and why:
 - [ ] Check U4's TPS2121 footprint against TI's land pattern before ordering.
 - [ ] MicrasHardware: re-export `ref/board.step` and `ref/board_boxes.json` from this board and
       re-run `tools/check_layout.py` (the parts in the table under [Layout](#layout) moved, and
-      the SBU detector's are new); keep the left edge clear for the SWD cable at x = 23 mm.
+      the SBU detector's are new); keep the space above P1 (robot x = 23 mm, y = 22.7 mm) clear
+      for the top-entry SWD plug, 6.3 mm above the board when mated.
 - [ ] Bench: in the SWD probe mode, VSYS at 3V3 less a diode drop and no switching on IC7's SW
       node (DS13554 does not cover VIN below 3.5 V with the output held up; see
       [Power](#power)); SBU switching on with the module either way up, and staying off with a
