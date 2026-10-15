@@ -9,6 +9,7 @@ CI.
 | `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.79 mm | the previous revision's placement and routing, plus pull resistors on the sensor's SPI inputs; passes every check ([open items](boards/encoder/layout/README.md#open-items)) |
 | `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | circuit with the design review's findings fixed, placed and routed; passes every gate ([known faults](boards/main/layout/README.md#known-faults)) |
 | `bluetooth`: HM-19 BLE module on a vertical USB-C plug that mates the main board's U2, 2 layers, 0.79 mm | placed and routed as the previous revision with its design review fixes (a CC signature for the main board's switched SBU supply, a RESETB pull-up); passes every gate ([known faults](boards/bluetooth/layout/README.md#known-faults)) |
+| `main2`: the main board's second revision ([research/next-revision](research/next-revision/README.md)): 4S power, DRV8874 bridges with INA241 current sensing, ESP32-S3 radio and debug probe on the USB-C | schematic only, placement and routing not started; passes every gate, the layout ones skip it ([open items](boards/main2/layout/README.md#open-items)) |
 
 ## How it fits together
 
@@ -113,7 +114,10 @@ and fails if any gate failed.
 | lint | `ruff` | Python lint and format |
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 
-Every board passes every gate. The main board's and the Bluetooth module's READMEs
+Every board passes every gate. A schematic-only board (its root declares `Project(layout =
+False)`, so it has no `.kicad_pcb` yet: `main2`) passes the schematic gates, and LVS, DRC, DFM,
+the layout tests and the gerber, CPL and 3D outputs skip it with that reason; `make fab` writes
+its BOM alone. The main board's and the Bluetooth module's READMEs
 ([main](boards/main/layout/README.md#known-faults),
 [bluetooth](boards/bluetooth/layout/README.md#known-faults)) give the root cause of each warning
 that remains.
@@ -154,7 +158,8 @@ boards/main/layout/fixes.py, router.py, refine.py, usb_wall.py, finish.py  the o
                        and route the review fixes and the owner's layout decisions, their grid router, and the
                        previous revision's pour settings on the result
 boards/main/firmware.toml  the firmware's pin map and drive settings (from MicrasFirmware), tested against the board
-boards/main/firmware_changes.toml  the firmware changes the board needs, applied on top of firmware.toml in the tests
+boards/<board>/firmware_changes.toml  the firmware changes a board needs, applied on top of firmware.toml in the
+                       tests (main2: on top of main's)
 boards/<board>/test/   Zener test benches of the board's circuit
 components/<mfr>/<P>/  reusable Zener packages: symbol, footprint (STEP embedded), .zen, test bench, README
 spec/                  mechanical single source of truth per board
@@ -162,7 +167,8 @@ parts/jlc.toml         MPN -> LCSC mapping
 rules/                 JLCPCB KiCad DRC rules, DFM PDK, KiCad rule severities
 tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, outputs, previous, firmware, layout (`uv run micras-pcb --help`)
 tests/                 pytest design tests
-research/next-revision/ the next main-board revision's design proposal and its calculation scripts
+research/next-revision/ the main board's second revision's design (entered as boards/main2) and its calculation
+                       scripts
 ci/                    KiCad and toolchain install, for CI and local setup
 versions.env           pinned KiCad and Zener versions
 ```

@@ -1,8 +1,10 @@
-# Next main-board revision: design proposal
+# Next main-board revision: design
 
-Research for the next revision of the `main` board. Nothing here changes a board: the circuit stays
-in `boards/main/main.zen` until the owner commits to these choices and they are entered in Zener
-with their datasheet checks. Every hardware number below carries its source; values marked
+Research for the second revision of the `main` board. The design is entered in Zener as the board
+[`main2`](../../boards/main2/layout/README.md) (schematic only), with the option this document
+recommends wherever it lists several, the datasheet checks as test benches, and the open items
+below as visible TODOs in its sheets; `boards/main` stays the current board. Every hardware number
+below carries its source; values marked
 *computed* come from the scripts in [calculations/](calculations/), and *inference* marks a
 conclusion that no datasheet states directly. Open items are kept as visible **TODO**s.
 
@@ -102,7 +104,8 @@ DRV8874 nFAULT ×2 wire-OR ─ PC15
     of the LDO, whose PSRR is lower there than at kHz.
   - **Sequencing**: the LDO EN on 3V3_D, so 3V3_A starts after VDD. While VDD is below VDDmin, VDDA
     must stay below VDD + 300 mV; at power-down VDD may fall below the others only if the energy
-    left is below 1 mJ (DS13311 §3.7.1, Figure 2). The EN thresholds of both LDOs: **TODO**.
+    left is below 1 mJ (DS13311 §3.7.1, Figure 2). The ADP7142's EN turns on at 1.30 V at most and off
+    at 1.06 V at least (Rev H Table 1); the TPS7A4901's thresholds: **TODO**.
   - **VDDA pin**: 1 µF + 100 nF (AN5419 Table 2). FB1 (600 Ω, 340 mΩ DCR) becomes a 0 Ω link or a
     ≤ 50 mΩ bead: its DCR times the ADC current step is about 0.24 mV = 5 LSB at each scan start
     (inference; the bead is not in the model).
@@ -270,7 +273,8 @@ DRV8874 nFAULT ×2 wire-OR ─ PC15
   from 3V3_D (power-tree study §6; SFH 4550 VF 1.5 V typ / 1.7 V max at 100 mA, datasheet p5). The
   existing AO3400A stay as per-emitter selectors and need DC gate drive; the 220 nF AC coupling can
   go. Kelvin-connect the 1.2 Ω and keep the emitter loop compact and away from VDDA/VSSA. Op-amp:
-  **TODO** (TLV9001 IQ 60 µA typ is in the budget but the part is not evaluated). The emitter
+  TLV9001 (IQ 60 µA typ, 1 MHz, 2 V/µs; `components/ti/TLV9001`); its step response driving the
+  AO3400A's 630 pF gate is **TODO**. The emitter
   brightness falls −0.5 %/K (SFH 4550), so firmware temperature compensation is worth considering.
 - **Status LEDs**: **WS2812C-2020-V6** (C55109522; WS2812B-2020-V6 C52917434 second) on 3V3_D with
   100 nF each. VDD 3.3-5.3 V, DIN VIH 0.55·VDD, so PC6 drives it directly; same GRB protocol and
@@ -408,14 +412,14 @@ New or changed parts; JLC numbers and prices as queried on 2026-10-15 (stock is 
 | Analog 3V3_A, alternative | TPS560430X3FDBVR + 12 µH + damped LC | documented alternative | forced PWM 1.1 MHz, 4-36 V; C2071721 $1.19 | [TPS560430] |
 | Motor drivers | DRV8874PWPR × 2 | replaces L6205D | 0.2 Ω HS+LS, 6 A peak, OCP 6 A min, 100 kHz, LS IPROPI 450 µA/A; C1855818, 25,990 stock, $1.01 / $0.66 | [DRV8874] |
 | Motor driver, alternative | DRV8262DDWR × 1 | if > 6 A or the stall margin proves short | 0.1 Ω, 8 A dual peak, 60 V; C22427252, $9.77 / $6.98 | [DRV8262] |
-| Motor chokes | 47 µH shielded, Isat ≳ 3.6 A, × 2, with 0 Ω option | new footprint; part, size, height, mass **TODO** | 0.05-0.12 W ripple heat at 100 kHz | drivetrain study §5 |
+| Motor chokes | XAL7070-473MEC 47 µH shielded (Isat 4.2 A, 97 mΩ max, 7.2 × 7.5 × 7.0 mm, 1.9-2.3 g) × 2, with 0 Ω option; fan: XGL5030-472MEC 4.7 µH (5.3 × 5.5 × 3.1 mm) | new footprints; height against the chassis clearance **TODO** | 0.05-0.12 W ripple heat at 100 kHz | drivetrain study §5 |
 | Motor shunts | WSK2512R0100FEA (±1 %, C3985410, 4955 stock) or WSK2512R0100DEA (±0.5 %, C1517461, 0 stock) × 2 | replaces the 40 mΩ 2-pad 2512 | 4-terminal, ±35 ppm/K | [WSK2512] |
 | Current amplifiers | INA241A2IDGKR × 2 | replaces TSC2020 | ±15 µV, ±0.01 %, 1 µs hold, ≤ 125 kHz PWM; C36752877, 2 stock, $5.71-4.08 | [INA241] |
-| Battery monitor | INA228 + 2 mΩ 4-terminal shunt | new; shunt part **TODO** | ±20.48 A, ±1 µV, ±0.05 % | [INA228] |
+| Battery monitor | INA228 + 2 mΩ 4-terminal shunt (WSK25122L000FEA) | new | ±20.48 A, ±1 µV, ±0.05 % | [INA228] |
 | Bridge decoupling | 2-4 × 10 µF X7R 50 V + 100-220 µF polymer ≥ 25 V per bridge | new | 1-1.2 A rms input ripple per bridge at 2.4 A | drivetrain study §5 |
 | Fan driver | STSPIN958 (keep); R31 20-25 mΩ 1206; RSR 1-2.2 kΩ; C36 ≥ 25 V; C34/C35 50 V; choke footprint 4.7-10 µH | modify | 5.05-58 V, 500 kHz, 280 ns min pulse; C20033901, 0 stock, $4.23 | [STSPIN958], fan study §5 |
 | Fan fallback | TPS28225DR + 2 × CSD17578Q3A + TLV3201/TLV7031 + shunt | only above ~3 A | TPS28225DR C52897 $0.85; CSD17578Q3A $0.42 | fan study §3 |
-| Emitter drive | op-amp + N-FET + 1.2 Ω 0.1 % sense; 3.3 Ω per emitter | new; op-amp **TODO** | 170 mA, set-point from 3V3_A | power-tree study §6 |
+| Emitter drive | TLV9001 + AO3400A + 1.2 Ω 0.1 % sense; 3.3 Ω per emitter | new | 170 mA, set-point from 3V3_A | power-tree study §6 |
 | Status LEDs | WS2812C-2020-V6 × 2 | replaces WS2815C-2020 (needs 9.5-13.5 V) | 3.3-5.3 V, 5 mA per colour; C55109522 | [WS2812C-2020-V6] |
 | Radio / probe | ESP32-S3-MINI-1-N8, rear-left corner, antenna beyond the rear edge (MINI-1U-N8 fallback) | replaces HM-19 and P1 | 355 mA TX peak, ≥ 0.5 A supply; C2913206, 3754 stock, $4.72 (-1U C2980299, $4.89) | [ESP32-S3-MINI-1], [ESP32 form factor](#esp32-form-factor) |
 | Switches, divider | SW4 rated ≥ 16.8 V (17.4 V HV); R44/R45 100k/20k | modify | firmware constant 6.0 | drivetrain study §4 |
@@ -653,8 +657,9 @@ costs. Each footprint has a 0 Ω option, and the choke is fitted only if the mea
 requires it.
 
 - **Size, height and mass.** A shielded part rated for the current is the largest passive near each
-  motor and adds mass to a 76 g robot. No part is chosen; size, height against the chassis clearance,
-  and mass are **TODO**. The fan footprint is about 5 × 5 mm (fan study §5).
+  motor and adds mass to a 76 g robot. The wheel choke is the XAL7070-473 (7.2 × 7.5 × 7.0 mm,
+  1.9-2.3 g each), the fan's the XGL5030-472 (5.3 × 5.5 × 3.1 mm); their height against the chassis
+  clearance is **TODO**.
 - **Saturation current.** Isat must exceed the current limit plus the overshoot during the
   driver's blanking: ITRIP 2.5-3 A plus 0.41-0.62 A (current_sense/q1_sampling.py), so ≈ 3.6 A at a
   3 A ITRIP (computed); for the fan, Isat ≥ I_peak (3-5 A). A saturated choke loses its inductance
@@ -769,7 +774,8 @@ path on the same board.
 
 - **Motors**: DCX 10 L order code; length against `Motor.body_l` = 20; effective inductance at
   100 kHz (maxon's 0.3-0.8 factor is generic); commutator life at 4-5 × IN.
-- **Chokes**: no part chosen for the wheels or the fan; size, height, mass, DCR and core loss open.
+- **Chokes**: XAL7070-473 (wheels) and XGL5030-472 (fan) chosen; their height against the chassis
+  and their core loss are open.
 - **Drivers**: neither TI part specifies a minimum output pulse; DRV8262 IPROPI dynamics and its
   "rated current" are undefined; no mirror noise, bandwidth, VM dependence or calibration-stability
   data for either; the DRV8874 calibrated row rests on one typical curve; the L6205 edge time and
@@ -789,12 +795,14 @@ path on the same board.
   search snippets; STSPIN958 supply current, dead time and RDS(on) temperature curve unpublished; the
   discrete limiter is not a validated design; its 4.5-8.8 V gate supply is not designed.
 - **ESP**: no ESP-IDF STM32H7 SWD flash routine exists (port from OpenOCD, pyOCD or Black Magic);
-  no measured ESP-to-H7 SWD throughput; the ESP EN RC values; the MINI-1 antenna's feed end (read from
+  no measured ESP-to-H7 SWD throughput; the MINI-1 antenna's feed end (read from
   the drawing; confirm on Espressif's footprint); the chip antennas' keep-out (option C); the MINI-1U's
   FCC/IC status and the Anatel status of the MINI-1 modules; whether
   the S3 bootloader restores the PHY routing after a core reset; contest radio rules; an RDP Level 2
   mistake locks out SWD for any probe.
-- **Emitter sink**: op-amp not chosen (rail-to-rail output, ≥ 1 MHz GBW, settles within 75 µs).
+- **Emitter sink**: the TLV9001's step response driving the AO3400A gate (its 630 pF is above the
+  op-amp's 500 pF rating); the set-point is always on in `main2`, so each pulse starts with a
+  current set by the 3.3 Ω until the op-amp recovers.
 - **Pins**: the fast-ADC swap and the TIM3-on-ITR interleave are unverified in CubeMX; the PC7/PC9
   TIM8 alternate functions were not checked.
 
@@ -972,7 +980,8 @@ Source: [INA241] §6.5, §7.3.1.1, pin functions; [INA228]; current-sensing stud
 
 ### A.4 Power path, 3V3_A and emitter sink
 
-- **VBAT → VSYS**: 40 V 1 A Schottky (B5819W class; part **TODO** after a leakage/VF check).
+- **VBAT → VSYS**: B5819W 40 V 1 A Schottky (C8598; about 12 µA reverse at 17 V, 25 °C, JCET
+  B5817W-B5819W p2).
 - **VBUS → VSYS**: 30 V P-FET (AO3401A class): drain VBUS, source VSYS, gate to VBAT through 10 kΩ
   with 1 MΩ to GND. The TPS2121 replaces both only with non-HV cells.
 - **3V3_A**: VSYS → 22 Ω → 10 µF → ADP7142ACPZN3.3 (or TPS7A4901 with its FB divider, CNR/SS and
@@ -1019,7 +1028,7 @@ No capacitor across the fan motor. Pin numbers from the repo symbol
 |---|---|---|---|
 | 3V3 pins | 3V3_D | L6981C33 | 10 µF + 100 nF at the module, optional 22 µF; 3V3 total < 145 µF |
 | GND pins, EPAD | GND | – | Dense GND vias near the antenna edge |
-| EN (CHIP_PU) | ESP_EN | RC to 3V3/GND, pad or button | RC values per the Espressif guidelines (**TODO**) |
+| EN (CHIP_PU) | ESP_EN | RC to 3V3/GND, pad or button | 10 kΩ / 1 µF ([ESP32-S3-MINI-1] section 9) |
 | GPIO0 (strap) | ESP_BOOT | pad or button to GND | ROM download recovery; nothing else on it |
 | GPIO19 / GPIO20 | USB_D− / USB_D+ | U6 USBLC6 → USB-C | 90 Ω differential, short, away from the antenna |
 | GPIO12 (suggested) | SWCLK | H7 PA14 | SPI-capable pin for SWD acceleration |

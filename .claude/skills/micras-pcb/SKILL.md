@@ -22,9 +22,14 @@ spec geometry). Each check cites its source and names the parts in its failure m
 `boards/main/firmware.toml` is the firmware's pin map and drive settings. When MicrasFirmware
 changes them, regenerate it (`MICRAS_FIRMWARE=<checkout> uv run micras-pcb firmware snapshot`);
 `tests/test_firmware.py` then shows what the board must change. A board change the firmware
-must follow (a new ADC pin, a new input) goes in `boards/main/firmware_changes.toml`, which the
-tests apply on top of `firmware.toml` until MicrasFirmware has it; list it in the board README's
-"Firmware changes".
+must follow (a new ADC pin, a new input, a new drive mode) goes in
+`boards/<board>/firmware_changes.toml`, which the tests apply on top of `firmware.toml` until
+MicrasFirmware has it (`main2`'s on top of `main`'s); list it in the board README's "Firmware
+changes".
+
+A new board can start as a schematic only: its root declares `Project(layout = False)` (no
+`Board()`), `make gen` writes no `.kicad_pcb`, and the layout gates skip it with that reason. When
+placement starts, `Project()` becomes `Board(...)` with the stackup and rules, and a spec joins.
 
 People own three things: footprint and pin-1 checks, placement and routing, and the fab order.
 Prepare these for review; never sign them off.
