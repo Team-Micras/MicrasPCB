@@ -1,7 +1,8 @@
 """Layout checks on every board: decoupling next to its pin, the encoder joint's slot, fab hygiene.
 
 The placement-dependent checks skip, with the reason, while a board's layout has no outline: until
-then the footprints sit where the netlist sync packed them, which says nothing about the design.
+then the footprints sit where the netlist sync packed them, which says nothing about the design. A
+schematic-only board (no layout file, Project(layout = False)) is not listed at all.
 """
 
 import json
@@ -11,7 +12,7 @@ import tomllib
 
 import pytest
 from micras_pcb import layout, sexpr, spec
-from micras_pcb.paths import ROOT, board_pcb, boards, layout_dir
+from micras_pcb.paths import ROOT, board_pcb, layout_boards, layout_dir
 
 from .conftest import needs_kicad
 from .design import design
@@ -61,7 +62,8 @@ DECOUPLING = [
 # previous main board's LSM6DSV capacitors sit 2.1-2.5 mm from the part).
 MAX_DECOUPLING_MM = 3.0
 
-LAYOUT_BOARDS = boards()
+# A schematic-only board (no .kicad_pcb yet) has nothing to check here.
+LAYOUT_BOARDS = layout_boards()
 
 
 def _placed(board: str) -> layout.Board:
