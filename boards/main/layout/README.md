@@ -225,8 +225,8 @@ the board's functions.
 | warnings | D1/D2 (WS2815C-2020, VDD 9.5-13.5 V) on 3V3: the LEDs never light (M13); +20V above 20 V (m2, as above) | WS2815C-2020-4P V1.0 p3 | supply D1/D2 from VBAT, or a 5 V LED with a 5 V rail and level shifter |
 
 The layout gates (`layout-check` runs the same KiCad DRC as `drc`; its netlist sync is clean) and
-the layout tests fail on these, every one from the previous layout, its conversion from Altium, or
-a footprint:
+the layout tests fail on these, every one from the previous layout, its conversion from Altium, the
+copper of change C2, or a footprint:
 
 | Check (gate) | Count | Cause | Fix |
 |---|---|---|---|
@@ -241,6 +241,7 @@ a footprint:
 | `silk_over_copper` (drc, warning) | 1 | W2's reference text lies on R17's pad | move the text |
 | `text_height`, `text_thickness` (drc, warning) | 154, 4 | the previous layout's reference texts are 0.5 mm high, SW1's footprint texts 0.076 mm thick, below KiCad's 0.6 / 0.08 mm defaults | larger texts, or lower the board's text limits |
 | `test_decoupling_sits_at_its_pin[main]` (pytest) | 4 | C15 sits 5.0 mm from IC1 pad 51 (VDD) and C6 3.7 mm from pad 49 (VCAP2); IC3 and IC4 have no capacitor at VCC (nearest C25, 10.3 and 7.3 mm) (M9). The datasheets ask for each at its pin; the board's reading of "close" is 3 mm | move C15 and C6; add 100 nF at each TSC2020 |
+| `test_tracks_are_octilinear_without_acute_corners[main]` (pytest) | 3 | the C2 In2.Cu VCORE segment from (155.957, 76.900) to the VCAP3 via at (153.980, 78.630) (`previous/rework.py`, "FB to VCAP3") runs 3.8 degrees off 45; the previous layout's 3V3 fork on B.Cu at (156.248, 133.875) and Wall_Sensor_0 fork on F.Cu at (129.439, 79.890) part at 45 degrees away from any pad or via, a wedge that traps etchant | turn the C2 route at (155.957, 76.653), so its diagonal runs at 45 degrees; join each fork's branches at 90 degrees or more, or at a pad or via |
 | `test_encoder_slots_take_the_encoder_tab` (pytest) | 4 | the 0.90 mm encoder slots are below JLCPCB's 1.0 mm minimum non-plated slot, and their 0.5 mm milled corners keep the 5.0 x 0.9 mm tab (0.8 mm board + 0.1 mm tolerance) out of the 5.10 mm length | 1.0 mm wide slots at least 5.6 mm long (the pads beside them move with the walls), or relief holes at the corners |
 
 Requirements without a check, and why:

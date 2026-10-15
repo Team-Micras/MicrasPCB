@@ -203,6 +203,117 @@ def test_encoder_slots_take_the_encoder_tab():
     assert not problems, "\n".join(problems)
 
 
+# --- routing style: octilinear tracks, no acute corners ------------------------------------------
+
+# Tracks run as on the previous revisions, hand-routed in Altium: every track straight, at a
+# multiple of 45 degrees, no arcs. A segment counts as octilinear when its end lies within
+# OCTILINEAR_TOL_MM of the nearest 45-degree line through its start: KiCad stores coordinates on a
+# 1 nm grid, and the conversion from Altium leaves segments 0.06-3.4 um long up to 10 nm off the
+# line (0.1-6.3 degrees, from rounding alone), far below any copper feature. Zero-length segments
+# have no direction (DRC reports them: tracks_crossing, track_dangling).
+OCTILINEAR_TOL_MM = 1e-3
+# Two segments of a net joined end to end on a layer at an interior angle below 90 degrees leave a
+# wedge that traps etchant (an acid trap), unless the joint sits in a pad or via, whose copper
+# fills it.
+MIN_CORNER_DEG = 90.0
+ANGLE_TOL_DEG = 0.1
+
+
+def _pt(p: tuple[float, float]) -> str:
+    return f"({p[0]:.4f}, {p[1]:.4f})"
+
+
+def _covered(pcb: layout.Board, layer: str, xy: tuple[float, float]) -> bool:
+    """xy lies in the solid copper of a via, or of a pad on the layer (its inscribed circle)."""
+    if any(math.dist(xy, v.xy) <= v.size / 2 for v in pcb.vias):
+        return True
+    return any(
+        math.dist(xy, p.xy) <= min(p.size) / 2
+        for f in pcb.footprints.values()
+        for p in f.pads
+        if layer in p.layers or "*.Cu" in p.layers
+    )
+
+
+def routing_findings(board: str, pcb: layout.Board) -> list[str]:
+    """Every track a straight segment at a multiple of 45 degrees; no acute corner outside a pad or via."""
+    problems = []
+    segments = []
+    for t in pcb.tracks:
+        where = f"{board} {t.net} {t.layer} {_pt(t.start)} -> {_pt(t.end)}"
+        if t.kind == "arc":
+            problems.append(f"{where}: arc track (curved)")
+            continue
+        dx, dy = t.end[0] - t.start[0], t.end[1] - t.start[1]
+        length = math.hypot(dx, dy)
+        if length == 0:
+            continue
+        segments.append(t)
+        angle = math.degrees(math.atan2(-dy, dx))  # counter-clockwise from +x on screen (y down)
+        off = abs((angle + 22.5) % 45 - 22.5)
+        miss = length * math.sin(math.radians(off))
+        if miss > OCTILINEAR_TOL_MM:
+            problems.append(
+                f"{where}: {length:.3f} mm at {angle:.2f} deg, {off:.2f} deg off a multiple of 45 "
+                f"(end {miss * 1000:.0f} um off the 45-degree line)"
+            )
+    ends: dict[tuple, list[tuple[tuple[float, float], tuple[float, float]]]] = {}
+    for t in segments:
+        for a, b in ((t.start, t.end), (t.end, t.start)):
+            ends.setdefault((t.net, t.layer, round(a[0], 5), round(a[1], 5)), []).append((a, b))
+    for (net, layer, *_), arms in ends.items():
+        corner = arms[0][0]
+        if len(arms) < 2 or _covered(pcb, layer, corner):
+            continue
+        for i, (a1, b1) in enumerate(arms):
+            for a2, b2 in arms[i + 1 :]:
+                u = (b1[0] - a1[0], b1[1] - a1[1])
+                v = (b2[0] - a2[0], b2[1] - a2[1])
+                cos = (u[0] * v[0] + u[1] * v[1]) / (math.hypot(*u) * math.hypot(*v))
+                interior = math.degrees(math.acos(max(-1.0, min(1.0, cos))))
+                if interior < MIN_CORNER_DEG - ANGLE_TOL_DEG:
+                    problems.append(
+                        f"{board} {net} {layer} corner at {_pt(corner)}: {interior:.1f} deg between the segments "
+                        f"to {_pt(b1)} and {_pt(b2)}, below {MIN_CORNER_DEG:.0f} (acid trap)"
+                    )
+    return problems
+
+
+@pytest.mark.parametrize("board", LAYOUT_BOARDS)
+def test_tracks_are_octilinear_without_acute_corners(board):
+    problems = routing_findings(board, layout.load(board))
+    assert not problems, "\n".join(problems)
+
+
+def _segment(net: str, a: tuple[float, float], b: tuple[float, float], head: str = "segment") -> str:
+    mid = f"(mid {(a[0] + b[0]) / 2} {(a[1] + b[1]) / 2 + 1})" if head == "arc" else ""
+    return f'({head} (start {a[0]} {a[1]}) {mid} (end {b[0]} {b[1]}) (width 0.2) (layer "F.Cu") (net "{net}"))'
+
+
+def test_routing_rule_flags_only_off_angle_arcs_and_acute_corners():
+    board = layout.parse(
+        "(kicad_pcb "
+        + " ".join(
+            [
+                _segment("A", (0, 0), (1, 0)),  # 0 deg, then 45 deg: a 135 deg corner
+                _segment("A", (1, 0), (2, -1)),
+                _segment("B", (0, 5), (0.002425, 4.99828)),  # 2.4 um at 45.17 deg: 7 nm off the line
+                _segment("B", (5, 5), (5, 5)),  # zero length
+                _segment("C", (0, 10), (2, 9)),  # 26.6 deg
+                _segment("D", (0, 15), (1, 15), "arc"),
+                _segment("E", (0, 20), (1, 20)),  # 45 deg corner at (1, 20)
+                _segment("E", (1, 20), (0, 19)),
+                _segment("F", (0, 25), (1, 25)),  # the same corner in a via
+                _segment("F", (1, 25), (0, 24)),
+                '(via (at 1 25) (size 0.45) (drill 0.3) (layers "F.Cu" "B.Cu") (net "F"))',
+            ]
+        )
+        + ")"
+    )
+    problems = routing_findings("test", board)
+    assert [p.split()[1] for p in problems] == ["C", "D", "E"], "\n".join(problems)
+
+
 # --- fab and assembly hygiene, every footprint --------------------------------------------------
 
 

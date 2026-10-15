@@ -4,6 +4,7 @@ from micras_pcb import layout
 pcb = layout.load_file(path)             # or layout.load("main")
 pcb.footprints["C12"].pads[0].xy         # absolute pad centre, mm, KiCad frame (y down)
 pcb.placed                               # False until the board has an Edge.Cuts outline
+pcb.tracks[0].start                      # copper track segments and arcs, mm; pcb.vias
 """
 
 from __future__ import annotations
@@ -66,10 +67,28 @@ class Footprint:
 
 
 @dataclass
+class Track:
+    kind: str  # "segment" or "arc"
+    net: str
+    layer: str
+    start: tuple[float, float]
+    end: tuple[float, float]
+
+
+@dataclass
+class Via:
+    net: str
+    xy: tuple[float, float]
+    size: float  # copper diameter
+
+
+@dataclass
 class Board:
     footprints: dict[str, Footprint]
     edge_shapes: list[tuple[str, list[tuple[float, float]], float | None]]  # (kind, points, radius)
     embedded_files: set[str]
+    tracks: list[Track] = field(default_factory=list)
+    vias: list[Via] = field(default_factory=list)
 
     @property
     def placed(self) -> bool:
@@ -169,7 +188,28 @@ def parse(text: str) -> Board:
     ef = root.child("embedded_files")
     if ef:
         embedded = {f.child("name").atoms()[0] for f in ef.children("file") if f.child("name")}
-    return Board(footprints=fps, edge_shapes=edges, embedded_files=embedded)
+    tracks = []
+    for head in ("segment", "arc"):
+        for t in root.children(head):
+            net = t.child("net")
+            tracks.append(
+                Track(
+                    kind=head,
+                    net=net.atoms()[-1] if net else "",
+                    layer=t.child("layer").atoms()[0],
+                    start=_xy(t.child("start")),
+                    end=_xy(t.child("end")),
+                )
+            )
+    vias = [
+        Via(
+            net=v.child("net").atoms()[-1] if v.child("net") else "",
+            xy=_xy(v.child("at")),
+            size=float(v.child("size").atoms()[0]),
+        )
+        for v in root.children("via")
+    ]
+    return Board(footprints=fps, edge_shapes=edges, embedded_files=embedded, tracks=tracks, vias=vias)
 
 
 def _arc_radius(a, m, b) -> float:
