@@ -60,7 +60,8 @@ components/**/*.zen             (Zener)      layout/<board>.kicad_pcb <─┘ pl
   `parts/jlc.toml` carries the LCSC number and a per-part rotation offset, and `make fab` builds
   the JLCPCB BOM and CPL from it. JLCPCB's placement preview is the final word on each part's
   rotation (`rotation_verified`).
-- **The main board's schematic is one flat sheet whose symbols do not fit the largest page**: its
+- **The main boards' schematics (`main`, `main2`) are one flat sheet each whose symbols do not fit
+  the largest page** (the exported PDF shows an empty page; open the schematic in KiCad): their
   Zener modules become separate sheets only once Zener's module sheets are ERC-clean
   ([diodeinc/pcb#1520](https://github.com/diodeinc/pcb/issues/1520)).
 - **KiCad 10 has no headless layout API**: the IPC API needs a running KiCad, and the SWIG
