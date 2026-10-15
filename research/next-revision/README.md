@@ -308,11 +308,72 @@ DRV8874 nFAULT ×2 wire-OR ─ PC15
 - **Recovery**: on the S3 the OTG app takes the shared PHY away from USB-Serial/JTAG; a crashed OTG
   app needs GPIO0 held low plus an EN pulse. The board therefore needs a reachable **GPIO0 pad or
   button and an EN pad or button** (non-OTG study Q2.3).
-- **Placement**: antenna at a board edge, 15 mm clearance in all directions, not mid-board, away
-  from the bridges and the USB/UART lines ([ESP layout]). The MINI-1U (u.FL) is the fallback.
+- **Placement**: the rear-left corner, antenna beyond the rear edge; see
+  [ESP32 form factor](#esp32-form-factor). Espressif asks for the antenna at a board edge, 15 mm
+  clearance in all directions, not mid-board, away from the bridges and the USB/UART lines
+  ([ESP layout]).
 - **Removed**: P1 (SWD header), U5 (SWD_VDD OR-ing), the SBU chain (Q7, F1, D13, C77, C78, R50-R55,
   U7), and the HM-19 board on the USB-C (the `bluetooth` board). The ESP takes about 316 mm², roughly
   offset by what goes (ESP study Q6).
+
+### ESP32 form factor
+
+**Solder the module, not the bare chip: ESP32-S3-MINI-1-N8 in the rear-left corner, its PCB antenna
+overhanging the rear edge by 5.05 mm.** The module is a shielded, certified radio that needs no RF
+design; the price is mechanical (a 5 mm overhang, M1 moved, the left drive block 1 mm shorter). The
+SiP and chip-down options fit the same corner without mechanical change, but their antenna match
+needs a VNA on the finished robot, and they have no shield and no certificate (form-factor study).
+
+| | S3-MINI-1-N8 | S3-MINI-1U-N8 | S3-WROOM-1 / -1U | S3-PICO-1-N8R2 (SiP) | ESP32-S3FN8 chip-down | C5-MINI-1-N4 / -1U |
+|---|---|---|---|---|---|---|
+| Size (mm) | 15.4 × 20.5 × 2.4, antenna 5.05 | 15.4 × 15.4 × 2.4 + W.FL/MHF III | 18 × 25.5 × 3.1 / 18 × 19.2 × 3.2 | LGA56 7 × 7 × 0.96 | QFN56 7 × 7 × 0.85 | 15.4 × 21.3 × 2.4 (antenna 5.85) / 15.4 × 15.4 |
+| Inside | chip, 40 MHz crystal, flash, match, antenna, shield | same, connector | same | crystal, 8 MB flash, 2 MB PSRAM, decoupling, chip-side match | 8 MB flash | as MINI-1 |
+| Board adds | 10 µF + 0.1 µF, EN RC | + antenna, cable | as MINI-1 | 22 µF + 0.1 µF, EN RC, antenna π (values TBD), 50 Ω line, antenna | crystal ±10 ppm + 24 nH + load caps, 0201 CLC match + stub, antenna + CLC, about 20 passives | as MINI-1 |
+| Board area | 238 mm² + 78 mm² overhang (about 430 mm² with the antenna inside and Espressif's cut-out) | 237 mm² | 459 / 346 mm² | about 110 mm² + antenna keep-out | about 170 mm² + antenna keep-out | 328 / 237 mm² |
+| GPIO (need about 17) | 39 | 39 | 36 | about 38 | 45 less flash pins | 22 |
+| RF certificates | FCC 2AC7Z-ESPS3MINI1, CE, IC, MIC, SRRC, KC | CE, SRRC | FCC, CE, IC, MIC, SRRC, KC | none | none | FCC 2AC7Z-ESPC5MINI1, CE / none |
+| JLCPCB (all Extended), stock, qty 1 | C2913206, 3754, $4.72 | C2980299, 1139, $4.89 | C2913198, 555, $4.91 / C2980297, 1176, $4.81 | C7558093, 0, $5.01 | C2913196, 1959, $3.34 + parts | C50346179, 0, $12.54 / not listed |
+| Fits this board | rear-left, with a 5 mm overhang | rear-left, no overhang | **no** (18 mm wide) | rear-left, no change | rear-left, no change | as MINI-1 / -1U |
+| Design effort, RF risk | lowest; chassis detuning only | low + antenna mount; antenna can sit in open air | – | medium; untuned match | high; crystal and match too | as MINI-1; dual band |
+
+Sources: [ESP32-S3-MINI-1] Table 1-1, Figures 10-1/10-2; [ESP32-S3-WROOM-1] Tables 1-1/1-2, Figure
+10-1; [ESP32-S3-PICO-1] Overview, Figures 4-1, 5-1, 6-1; [ESP32-S3] Table 1-1, Figure 7-1;
+[ESP32-C5-MINI-1] Tables 1-1/1-2, Figure 10-1; [ESP schematic] crystal and RF sections; Espressif
+certificate listing; JLCPCB parts library, read 2026-10-15. There is no C5 SiP with an integrated
+crystal; a chip-down C5 is a dual-band RF design.
+
+**Placement on this board** (main-board-fixes layout and MicrasHardware, projected;
+[calculations/esp/placement.png](calculations/esp/placement.png)):
+
+```text
+          front: wall sensors + H7 (analog front end; 7 mm between W2 and W3)
+         ┌───────────────────────┐
+         │ C2      fan Ø27 ring  │   sides: wheels, drive motors 4.6 mm from the edge,
+  wheel  │▒▒▒▒ drive blocks ▒▒▒▒▒│   battery cells overhanging 27-38 mm above;
+         │▒▒▒▒ (parts ≤ 1.5 mm)▒▒│   only a PICO-1 or a QFN fits under the blocks
+         │[ESP] M1  U2   J1  SW4 │   rear zone x < −23: open sky, ≥ 18 mm from motors and battery
+         └═══────────────────────┘
+          ═══ MINI-1 antenna, x −41.55…−36.5, y 9.0…24.4
+```
+
+- The robot has no top cover, so height never decides; the drive blocks (parts ≤ 1.5 mm over
+  x −21.9…13.5) and the fan's Ø27 part-free ring do. No edge meets Espressif's 15 mm keep-out in
+  place: the nose is the wall-sensor front end, the sides carry the wheels, motors and battery.
+- **Rear-left corner** (the L6205D's, freed): metal-free for 18 mm, open sky, 5-6 mm from the USB-C.
+  A MINI-1 body at x −36.5…−21.05, y 9.0…24.4 with the antenna beyond the rear edge (feed end at the
+  corner, Espressif's recommended placement) needs M1 moved (2.8 mm overlap), the left drive block's
+  rear face ≥ 1 mm forward of x = −21.9, and the corner squared (0.4 mm). The in-place turning
+  envelope does not grow: 48.2 mm against the nose's 55.2 mm. The MINI-1U fits the same rectangle
+  without the overhang; a PICO-1 plus chip antenna fits beside M1 with no change at all.
+- **Left side ahead of the wheel** (P1/U5, freed): no module fits between the edge and the fan ring
+  (11.5 mm deep); a PICO-1 with a chip antenna does (C2 in the plot), 8-10 mm from the W1 can.
+- Keep the DRV8874 bridges out of the rear-left corner; WROOM modules fit nowhere (18 mm wide).
+
+If the 5 mm overhang is rejected, the MINI-1U-N8 in the same corner with an antenna in the open rear
+zone is the fallback; the PICO-1 only if someone can tune the antenna with a VNA. The C5 alternative
+of [Q2](#q2-the-compromise-of-an-esp32-without-usb-otg) is a C5-MINI-1 in the same place, but it is
+not stocked at JLCPCB today and its -1U has no certificate. The antenna test in
+[Bench measurements](#bench-measurements-before-committing) decides between the MINI-1 and the MINI-1U.
 
 ### H7 pin budget
 
@@ -356,7 +417,7 @@ New or changed parts; JLC numbers and prices as queried on 2026-10-15 (stock is 
 | Fan fallback | TPS28225DR + 2 × CSD17578Q3A + TLV3201/TLV7031 + shunt | only above ~3 A | TPS28225DR C52897 $0.85; CSD17578Q3A $0.42 | fan study §3 |
 | Emitter drive | op-amp + N-FET + 1.2 Ω 0.1 % sense; 3.3 Ω per emitter | new; op-amp **TODO** | 170 mA, set-point from 3V3_A | power-tree study §6 |
 | Status LEDs | WS2812C-2020-V6 × 2 | replaces WS2815C-2020 (needs 9.5-13.5 V) | 3.3-5.3 V, 5 mA per colour; C55109522 | [WS2812C-2020-V6] |
-| Radio / probe | ESP32-S3-MINI-1-N8 (or -1U) | replaces HM-19 and P1; LCSC number **TODO** | 355 mA TX peak, ≥ 0.5 A supply | [ESP32-S3-MINI-1] |
+| Radio / probe | ESP32-S3-MINI-1-N8, rear-left corner, antenna beyond the rear edge (MINI-1U-N8 fallback) | replaces HM-19 and P1 | 355 mA TX peak, ≥ 0.5 A supply; C2913206, 3754 stock, $4.72 (-1U C2980299, $4.89) | [ESP32-S3-MINI-1], [ESP32 form factor](#esp32-form-factor) |
 | Switches, divider | SW4 rated ≥ 16.8 V (17.4 V HV); R44/R45 100k/20k | modify | firmware constant 6.0 | drivetrain study §4 |
 | VDDA filter | FB1 → 0 Ω or ≤ 50 mΩ bead | modify | – | power-tree study §9 |
 | Removed | TPS61178 + 1 µH + 7 capacitors; L6205D and its parts; 2 × TSC2020; 2 × 40 mΩ shunts; P1; U5; SBU chain (Q7, F1, D13, C77, C78, R50-R55, U7); WS2815C D1/D2 | remove | – | – |
@@ -675,7 +736,7 @@ On breakouts and dev boards:
 |---|---|---|---|
 | 2 | DRV8874 breakout with the DCX 10 L at 16.8 V: ripple, IPROPI against a shunt (calibration stability, drift, noise), case temperature, VBAT ripple at 100 kHz | Driver choice, the IPROPI-only fallback, the analog LDO input filter | Current probe at 100 kHz, acceleration and reversal profiles |
 | 3 | INA241 stability with R_iso + C_f above 1 nF | ADC input filter values | Scope at the MCU pin |
-| 3 | ESP32-S3: SWD flash throughput to an H7, NRST sequencing, 3V3 droop under TX, antenna inside the chassis, crash-loop recovery (PHY routing after a core reset) | Probe and OTA viability, recovery pads | ESP32-S3-USB-Bridge or a MINI-1 breakout |
+| 3 | ESP32-S3: SWD flash throughput to an H7, NRST sequencing, 3V3 droop under TX, antenna inside the chassis (DevKitM-1 at the rear-left corner, antenna overhanging, battery and motors fitted and running: RSSI and TCP at 1-20 m, robot turned in 45° steps; keep the MINI-1 if TCP ≥ 4 Mbit/s everywhere, else the MINI-1U), crash-loop recovery (PHY routing after a core reset) | Probe and OTA viability, recovery pads | ESP32-S3-USB-Bridge or a MINI-1 breakout |
 | 4 | WS2812C-2020-V6 colour at 3.2 V | LED part or the GPIO-RGB fallback | Bench supply |
 | 4 | USJ CDC sustained throughput (only if a C5 is considered) | S3 or C5 | C5/C6 devkit, `usb_serial_jtag_write_bytes()` loop, ≥ 8 kB TX ring, 60 s average |
 
@@ -697,7 +758,7 @@ path on the same board.
 | Analog LDO | ADP7142ACPZN3.3 (fixed) / TPS7A4901 (adjustable, cheaper) | Package thermal at ≈ 0.33 W |
 | Power path | Schottky + P-FET / 2 × LM74700-Q1 / TPS2121 (non-HV only) | – |
 | Protection | reverse-polarity FET or ideal diode / keyed connector only; TVS part | – |
-| ESP form factor | MINI-1 at an edge with 15 mm clearance / MINI-1U with an external antenna | Chassis and battery detune the antenna |
+| ESP form factor | MINI-1-N8 in the rear-left corner, antenna 5 mm beyond the rear edge (recommended) / MINI-1U-N8 with an external antenna / PICO-1 + chip antenna | Overhang, M1 and the drive block against antenna tuning; antenna bench test |
 | ESP chip | S3 (recommended) / C5 under the Q2 conditions | – |
 | Toolchain | CMSIS-DAP through OpenOCD (master) or probe-rs | ST-Link and CubeProgrammer workflows are lost |
 | Backstops | SWD test pads on PA13/PA14/NRST/GND; SW5 (BOOT0) and SW3 (NRST) | – |
@@ -728,7 +789,9 @@ path on the same board.
   search snippets; STSPIN958 supply current, dead time and RDS(on) temperature curve unpublished; the
   discrete limiter is not a validated design; its 4.5-8.8 V gate supply is not designed.
 - **ESP**: no ESP-IDF STM32H7 SWD flash routine exists (port from OpenOCD, pyOCD or Black Magic);
-  no measured ESP-to-H7 SWD throughput; the ESP EN RC values; LCSC numbers for the modules; whether
+  no measured ESP-to-H7 SWD throughput; the ESP EN RC values; the MINI-1 antenna's feed end (read from
+  the drawing; confirm on Espressif's footprint); the chip antennas' keep-out (option C); the MINI-1U's
+  FCC/IC status and the Anatel status of the MINI-1 modules; whether
   the S3 bootloader restores the PHY routing after a core reset; contest radio rules; an RDP Level 2
   mistake locks out SWD for any probe.
 - **Emitter sink**: op-amp not chosen (rail-to-rail output, ≥ 1 MHz GBW, settles within 75 µs).
@@ -755,6 +818,7 @@ MB, git-ignored) into their `out/` folder; the netlists (`.cir`), logs and summa
 | [drivers/q4_drivers.py](calculations/drivers/q4_drivers.py) | `q4_drivers_out.txt` | Q4 losses, junction rise, stall and reversal currents, duty distortion |
 | [drivers/area.py](calculations/drivers/area.py) | `area_out.txt` | Courtyard areas from the KiCad 10 library (reads `/usr/share/kicad/footprints/`) |
 | [drivers/area_board.py](calculations/drivers/area_board.py) | `area_board_out.txt` | As-built areas; KiCad's `pcbnew` module, run with `boards/main/layout/main.kicad_pcb` as argument |
+| [esp/placement.py](calculations/esp/placement.py) | `placement.png` | ESP candidate positions on the main-board-fixes layout with the MicrasHardware chassis projected; `pcbnew` and matplotlib, the board file as argument |
 | [drivers/jlc_query.py](calculations/drivers/jlc_query.py) | `jlc_out.txt`, `../fan/jlc_fan_out.txt` | JLCPCB parts search by MPN (online; results dated 2026-10-15) |
 | [fan/fan_driver_calc.py](calculations/fan/fan_driver_calc.py) | `fan_driver_calc_out.txt` | Q3: drone motor data, duty, stall current, ripple, driver losses |
 | [supply3v3/sim3v3.py](calculations/supply3v3/sim3v3.py), [analyze.py](calculations/supply3v3/analyze.py) | `out/summary_meas.txt`, `out/summary_slots.txt` | Averaged 3V3/VDDA droop model during the emitter pulses (ngspice, seconds) |
@@ -797,7 +861,12 @@ refer to these editions.
 | [WS2812C-2020-V6] | [WS2812C-2020-V6 (LCSC C55109522)](https://datasheet.lcsc.com/datasheet/pdf/8c7f104c99e52e4adb687ae84e594e95.pdf?productCode=C55109522); [WS2812B-2020-V6 (C52917434)](https://datasheet.lcsc.com/datasheet/pdf/a29e59ba4bc7e47e236b4d50b6c26345.pdf?productCode=C52917434) |
 | [ESP32-S3] | [Espressif ESP32-S3 datasheet v2.2](https://www.espressif.com/sites/default/files/documentation/esp32-s3_datasheet_en.pdf) |
 | [ESP32-S3-MINI-1] | [ESP32-S3-MINI-1/1U datasheet v1.7](https://www.espressif.com/sites/default/files/documentation/esp32-s3-mini-1_mini-1u_datasheet_en.pdf) |
+| [ESP32-S3-WROOM-1] | [ESP32-S3-WROOM-1/1U datasheet v1.8](https://www.espressif.com/sites/default/files/documentation/esp32-s3-wroom-1_wroom-1u_datasheet_en.pdf) |
+| [ESP32-S3-PICO-1] | [ESP32-S3-PICO-1 datasheet v1.2](https://www.espressif.com/sites/default/files/documentation/esp32-s3-pico-1_datasheet_en.pdf) |
+| [ESP32-C5-MINI-1] | [ESP32-C5-MINI-1/1U datasheet v1.4](https://documentation.espressif.com/esp32-c5-mini-1_datasheet_en.pdf); [C5 datasheet v1.5](https://documentation.espressif.com/esp32-c5_datasheet_en.pdf); [C5-WROOM-1/1U v1.3](https://documentation.espressif.com/esp32-c5-wroom-1_wroom-1u_datasheet_en.pdf) |
 | [ESP layout] | [ESP32-S3 hardware design guidelines, PCB layout](https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32s3/pcb-layout-design.html) |
+| [ESP schematic] | [ESP32-S3 hardware design guidelines, schematic checklist](https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32s3/schematic-checklist.html) |
+| ESP certificates | [Espressif certificates](https://www.espressif.com/en/support/documents/certificates) |
 | [ESP-FAQ USB] | [ESP-FAQ, USB](https://docs.espressif.com/projects/esp-faq/en/latest/software-framework/peripherals/usb.html) |
 | [ESP-IDF Wi-Fi performance] | [ESP-IDF Wi-Fi performance, ESP32-S3](https://docs.espressif.com/projects/esp-idf/en/v6.1/esp32s3/api-guides/wifi-driver/wifi-performance-and-power-save.html) |
 | Probe firmware | [espressif/esp-usb-bridge](https://github.com/espressif/esp-usb-bridge), [bkuschak/cmsis_dap_tcp_esp32](https://github.com/bkuschak/cmsis_dap_tcp_esp32), [windowsair/wireless-esp8266-dap](https://github.com/windowsair/wireless-esp8266-dap) |
@@ -826,7 +895,11 @@ refer to these editions.
 [WS2812C-2020-V6]: https://datasheet.lcsc.com/datasheet/pdf/8c7f104c99e52e4adb687ae84e594e95.pdf?productCode=C55109522
 [ESP32-S3]: https://www.espressif.com/sites/default/files/documentation/esp32-s3_datasheet_en.pdf
 [ESP32-S3-MINI-1]: https://www.espressif.com/sites/default/files/documentation/esp32-s3-mini-1_mini-1u_datasheet_en.pdf
+[ESP32-S3-WROOM-1]: https://www.espressif.com/sites/default/files/documentation/esp32-s3-wroom-1_wroom-1u_datasheet_en.pdf
+[ESP32-S3-PICO-1]: https://www.espressif.com/sites/default/files/documentation/esp32-s3-pico-1_datasheet_en.pdf
+[ESP32-C5-MINI-1]: https://documentation.espressif.com/esp32-c5-mini-1_datasheet_en.pdf
 [ESP layout]: https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32s3/pcb-layout-design.html
+[ESP schematic]: https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32s3/schematic-checklist.html
 [ESP-FAQ USB]: https://docs.espressif.com/projects/esp-faq/en/latest/software-framework/peripherals/usb.html
 [ESP-IDF Wi-Fi performance]: https://docs.espressif.com/projects/esp-idf/en/v6.1/esp32s3/api-guides/wifi-driver/wifi-performance-and-power-save.html
 
@@ -834,7 +907,8 @@ The research studies behind this proposal are kept outside the repository and ar
 with their section: the drivetrain study (motor, battery, 4S), the driver study (motor drivers and
 power stage), the driver comparison study (Q1/Q4), the current-sensing study (TSC2020 root cause,
 in-line design), the 3V3 study (droop model), the power-tree study (analog rail, emitters, LEDs, USB
-power path), the fan study, the ESP study (ESP32 subsystem) and the non-OTG study.
+power path), the fan study, the ESP study (ESP32 subsystem), the non-OTG study and the
+form-factor study (ESP32 packages, placement on the board and in the chassis).
 
 ## Appendix: prototype connection lists
 
