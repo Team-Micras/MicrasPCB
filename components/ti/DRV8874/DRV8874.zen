@@ -1,0 +1,113 @@
+"""DRV8874PWPR - 4.5-37 V, 6 A peak brushed DC H-bridge with current sense and regulation. Bare part.
+
+Datasheet: TI SLVSF66A (August 2019, revised December 2019), "DRV8874 H-Bridge Motor Driver With
+Integrated Current Sense and Regulation". Package HTSSOP-16 PowerPAD (PWP0016J, 5.0 x 4.4 mm
+body, section 12). Orderable part DRV8874PWPR: tape and reel, 3000 (Package Option Addendum).
+
+Pins (section 5, Pin Functions, p3): 1 EN/IN1, 2 PH/IN2, 3 nSLEEP, 4 nFAULT, 5 VREF, 6 IPROPI,
+7 IMODE, 8 OUT1, 9 PGND, 10 OUT2, 11 VM, 12 VCP, 13 CPH, 14 CPL, 15 GND, 16 PMODE, thermal PAD
+(footprint pad 17). GND, PGND and PAD go to one GND io: Pin Functions ("Connect to system
+ground") and section 10.1 ("PGND and GND should connect together directly on the PCB ground
+plane. They are not intended to be isolated from each other").
+
+Absolute maximum ratings (section 6.1, p4): VM -0.3 to 40 V; CPH, VCP VM - 0.3 to VM + 7 V; CPL
+-0.3 to VM + 0.3 V; EN/IN1, PH/IN2, nSLEEP, IMODE, PMODE and nFAULT -0.3 to 5.75 V; IPROPI -0.3 to
+5.75 V and to VM + 0.3 V; VREF -0.3 to 5.75 V; OUTx -0.9 to VM + 0.9 V; GND to PGND +-0.3 V; TJ
+-40 to 150 C.
+
+Recommended operating conditions (section 6.3, p4): VM 4.5 to 37 V; logic inputs 0 to 5.5 V;
+fPWM 0 to 100 kHz on EN/IN1, PH/IN2; nFAULT pull-up voltage 0 to 5.5 V and sink current IOD up to
+5 mA; peak output current 6 A ("power dissipation and thermal limits must be observed"); IPROPI
+output current 0 to 3 mA; VREF 0 to 3.6 V. Thermal (section 6.4): RthJA 36.0 C/W, RthJC(bot)
+2.7 C/W on the JEDEC board.
+
+Electrical characteristics (section 6.5, p5-6):
+- RDS(on) 100 mOhm typ, 120 mOhm max per FET (high side and low side, VM 24 V, 2 A, TJ 25 C):
+  200 / 240 mOhm across the bridge. Body diode 0.9 V; tRISE/tFALL 150 ns, tPD 400 ns, tDEAD
+  100 ns (VM 24 V).
+- Logic inputs: VIL 0.7 V (VM < 5 V) or 0.8 V (VM >= 5 V) max, VIH 1.5 V min; 100 kOhm pull-down
+  to GND (Figure 16), so an open EN/IN1, PH/IN2 or nSLEEP reads low.
+- PMODE tri-level (Table 2, section 7.3.2): VTIL 0 to 0.65 V -> PH/EN mode; VTIZ 0.9-1.2 V (left
+  open: 44 kOhm to GND and 156 kOhm to the internal 5 V, Figure 17) -> independent half-bridge;
+  VTIH 1.5 to 5.5 V -> PWM mode.
+- IMODE quad-level (Table 6, section 7.3.3.2): level 1 tied to GND (0-0.45 V) -> fixed off-time,
+  automatic retry, nFAULT on faults only; level 2 20 kOhm to GND (18.6-21.4 kOhm) ->
+  cycle-by-cycle, automatic retry, nFAULT also on every chop; level 3 62 kOhm to GND
+  (57.6-66.4 kOhm) -> cycle-by-cycle, latched off; level 4 Hi-Z (or 2.5-5.5 V) -> fixed off-time,
+  latched off. Internal 136 kOhm to GND and 68 kOhm to 5 V (Figure 18).
+- PMODE and IMODE are latched when nSLEEP takes the device out of sleep (sections 7.3.2,
+  7.3.3.2, 7.4.1).
+- Current mirror AIPROPI 450 uA/A typ, error AERR +-5.5 % (2-4 A), +-6 % (1-2 A), +-7.5 %
+  (0.4-1 A), +-30 mA below 0.4 A, VM 5.5-37 V. IPROPI = (ILS1 + ILS2) x AIPROPI (equation 1):
+  it mirrors the low-side FETs only, so it reads in drive and in brake (slow decay) but not in
+  coast (section 7.3.3.1).
+- Current regulation: ITRIP x AIPROPI = VVREF / RIPROPI (equation 3); tOFF 25 us, tBLK 1.1 us,
+  tDEG 0.6 us, tDELAY 1.6 us. In fixed off-time mode an input edge during tOFF ends it
+  (section 7.3.3.2.1). Regulation is disabled with PMODE Hi-Z, or by tying IPROPI to GND with
+  VREF above GND (section 7.3.3.2).
+- Protection: UVLO 4.3 / 4.45 / 4.6 V rising, 4.2 / 4.35 / 4.5 V falling; CPUV 2.25 V; OCP
+  IOCP 6 A min, 10 A typ (no maximum), tOCP 3 us deglitch, tRETRY 2 ms; TSD 160 / 175 / 190 C,
+  20 C hysteresis. Every fault pulls nFAULT low (Table 7).
+- nFAULT is open drain (Pin Functions "OD"): VOL 0.3 V max at 5 mA, IOZ +-2 uA.
+- nSLEEP: low -> sleep (outputs Hi-Z, IVMQ under 1 uA at 24 V, 25 C); tWAKE and tSLEEP 1 ms max.
+
+Truth tables (section 7.3.2): PH/EN (PMODE low, Table 3): EN = 0 brake (both low sides on),
+EN = 1 and PH = 1 forward (OUT1 high), PH = 0 reverse. PWM (PMODE high, Table 4): IN1 = IN2 = 0
+coast (Hi-Z), 1 0 forward, 0 1 reverse, 1 1 brake.
+
+External parts (integrator-owned; Table 1, section 7.3.1; section 9.1; section 10.1):
+- CVM1 0.1 uF low-ESR ceramic VM to GND, VM-rated; CVM2 bulk capacitance, VM-rated (no value:
+  section 9.1 leaves it to system testing).
+- CVCP 100 nF X5R/X7R 16 V from VCP to VM; CFLY 22 nF X5R/X7R VM-rated from CPH to CPL. All
+  close to the pins (section 10.1).
+- RIPROPI from IPROPI to GND; VREF from a divider on the controller supply (Figure 19).
+- RIMODE, RPMODE straps; RnFAULT pull-up with IOD <= 5 mA.
+- Thermal pad to the ground planes through thermal vias (section 10.1; the land pattern's via
+  grid, p40); maximise the copper on the pad.
+
+The netlist rules a board must meet are checked by `checks.zen` (see its docstring).
+"""
+
+# Section 6.3, p4: recommended operating range of VM.
+VM = io(Power(voltage="4.5V to 37V"))
+GND = io(Ground)
+VCP = io(Net)
+CPH = io(Net)
+CPL = io(Net)
+EN_IN1 = io(Net)
+PH_IN2 = io(Net)
+NSLEEP = io(Net)
+NFAULT = io(Net)
+VREF = io(Net)
+IPROPI = io(Net)
+IMODE = io(Net)
+PMODE = io(Net)
+OUT1 = io(Net)
+OUT2 = io(Net)
+
+Component(
+    name="DRV8874",
+    prefix="IC",
+    symbol=Symbol(library="DRV8874.kicad_sym"),
+    footprint=File("Texas_PWP0016J_HTSSOP-16-1EP_4.4x5mm_P0.65mm_EP3.4x5mm_Mask2.46x3.55mm.kicad_mod"),
+    part=Part(mpn="DRV8874PWPR", manufacturer="Texas Instruments"),
+    pins={
+        "EN/IN1": EN_IN1,
+        "PH/IN2": PH_IN2,
+        "~{SLEEP}": NSLEEP,
+        "~{FAULT}": NFAULT,
+        "VREF": VREF,
+        "IPROPI": IPROPI,
+        "IMODE": IMODE,
+        "OUT1": OUT1,
+        "PGND": GND,
+        "OUT2": OUT2,
+        "VM": VM,
+        "VCP": VCP,
+        "CPH": CPH,
+        "CPL": CPL,
+        "GND": GND,
+        "PMODE": PMODE,
+        "PAD": GND,
+    },
+)

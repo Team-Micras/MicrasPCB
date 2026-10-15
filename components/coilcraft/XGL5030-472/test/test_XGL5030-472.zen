@@ -1,0 +1,41 @@
+"""XGL5030-472MEC (Coilcraft Doc 1576, revised 02/19/26): ratings, and the fan-choke requirement."""
+
+INDUCTOR = Module("../XGL5030-472.zen")
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def ratings(module, inputs):
+    # Doc 1576-2, XGL5030-472ME_ row
+    c = part(module)
+    check(c.type == "inductor", "type")
+    check(c.mpn == "XGL5030-472MEC", "MPN")
+    check(c.manufacturer == "Coilcraft", "manufacturer")
+    check(c.prefix == "L", "reference prefix must be L")
+    check(len(c.pins) == 2, "two terminals")
+    check(c.properties["inductance"].matches("4.7uH 20%"), "inductance")
+    check(c.properties["isat"].matches("6.7A"), "Isat (30 % drop)")
+    check(c.properties["isat_20"].matches("4.8A"), "Isat (20 % drop)")
+    check(c.properties["irms"].matches("8.5A"), "Irms (40 C rise)")
+    check(c.properties["dcr"].matches("24.5mOhm"), "DCR max")
+
+
+def fan_choke_requirement(module, inputs):
+    # Next-revision proposal, Fan: 4.7-10 uH, Isat at or above the REF limit of up to 5 A.
+    c = part(module)
+    check(c.properties["inductance"].value >= 4.7e-6 - 1e-9, "4.7-10 uH")
+    check(c.properties["inductance"].value <= 10e-6, "4.7-10 uH")
+    check(c.properties["isat"].value >= 5.0, "Isat (30 % drop) must reach the 5 A fan limit")
+    check(c.properties["irms"].value >= 5.0, "Irms must carry a 5 A fan current")
+
+
+TestBench(
+    name="XGL5030-472",
+    module=INDUCTOR,
+    test_cases={"default": {"P1": Net("A"), "P2": Net("B")}},
+    checks=[ratings, fan_choke_requirement],
+)
