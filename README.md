@@ -152,9 +152,9 @@ boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb
                        the board's description, the rest generated)
 boards/<board>/previous/  snapshot of the board's previous revision (board.json) for the connectivity comparison,
                        and the scripts that build its layout from that revision (transfer_layout.py; main: rework.py)
-boards/main/layout/fixes.py, router.py, refine.py, usb_wall.py, finish.py  the one-off scripts that place
-                       and route the review fixes and the owner's layout decisions, their grid router, and the
-                       previous revision's pour settings on the result
+boards/main/layout/*.py  the one-off scripts that place and route the review fixes and the owner's layout
+                       decisions (fixes.py, refine.py, usb_wall.py, finish.py, rail_silk.py, octilinear.py), and
+                       their 45-degree grid router (router.py)
 boards/main/firmware.toml  the firmware's pin map and drive settings (from MicrasFirmware), tested against the board
 boards/main/firmware_changes.toml  the firmware changes the board needs, applied on top of firmware.toml in the tests
 boards/<board>/test/   Zener test benches of the board's circuit

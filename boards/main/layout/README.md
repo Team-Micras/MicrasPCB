@@ -29,7 +29,7 @@ The board files are in `boards/main/` (this README sits in its `layout/` folder)
 | [`firmware.toml`](../firmware.toml) | | the firmware's pin map, supply setting, battery channel and drive duties, from MicrasFirmware (`micras-pcb firmware snapshot`) |
 | [`firmware_changes.toml`](../firmware_changes.toml) | | the firmware changes this board needs (see [Firmware changes](#firmware-changes)) |
 | [`test/`](../test) | | `pcb test` benches of the board's circuit: MCU, power, drivers, peripherals |
-| [`layout/`](.) | | this folder: the KiCad project; the `.kicad_pcb` holds placement and routing; `fixes.py` and `router.py` place and route the review fixes on it, `refine.py` and `usb_wall.py` the owner's layout decisions, `finish.py` the previous revision's pour and teardrop settings on the result, `rail_silk.py` U6's rail capacitor and the designator size |
+| [`layout/`](.) | | this folder: the KiCad project; the `.kicad_pcb` holds placement and routing; `fixes.py` and `router.py` place and route the review fixes on it, `refine.py` and `usb_wall.py` the owner's layout decisions, `finish.py` the previous revision's pour and teardrop settings on the result, `rail_silk.py` U6's rail capacitor and the designator size, `octilinear.py` every track at 0/45/90 degrees |
 | [`previous/`](../previous) | | the previous revision's connectivity snapshot, and the scripts that build the layout from that revision (`transfer_layout.py`, `rework.py`) |
 | [`spec/main.toml`](../../../spec/main.toml) | | mechanical interface: thickness, axle origin, extents, screw holes, encoder slots, USB-C peg holes, fan hole, wheel notches |
 
@@ -220,7 +220,8 @@ fixes add, on the layout as the footprint update leaves it, and runs once: it re
 encoder slots, places the new parts, removes the copper the changed nets contradict, spaces the
 parts whose updated courtyards overlap, and routes what remains unconnected with
 [`layout/router.py`](router.py), a small grid router (0.05 mm grid, F.Cu/B.Cu, 0.12 mm
-from other copper, deterministic). [`layout/refine.py`](refine.py) runs once after it with
+from other copper, deterministic) that draws as the hand-routed board: tracks at 0, 45 and 90
+degrees, few corners, 45 degree chamfers where there is room, pads entered along their axes. [`layout/refine.py`](refine.py) runs once after it with
 the owner's layout decisions: it clears the connector courtyard overlaps, places the JST SH
 connector P1, brings C15 to IC1 pad 51 and puts the reference designators on the silkscreen.
 [`layout/usb_wall.py`](usb_wall.py) then puts U6 in line with D+/D-, lays out the SBU
@@ -229,7 +230,14 @@ detector and gives Wall_Sensor_2 its short path over IC1's top corner, and
 `previous/transfer_layout.py` gives a fresh transfer, clears what the 2512 shunts' pads touch and
 removes the teardrops that are left on their own or make copper slivers;
 [`layout/rail_silk.py`](rail_silk.py) places U6's rail capacitor C79 and sets every
-reference designator to 0.5 mm / 0.125 mm. Each runs once.
+reference designator to 0.5 mm / 0.125 mm, and [`layout/octilinear.py`](octilinear.py) redraws
+every track the earlier scripts left at another angle: each such connection is ripped up back to
+its pads, vias and junctions and routed again between the same copper (or, where the router finds
+no clean path, given a two- or three-segment octilinear path or a hand-drawn one). Each runs once.
+
+Routing rule: every track is a straight segment at a multiple of 45 degrees, with no arcs and no
+corner under 90 degrees outside a pad or via, as on the Altium board
+(`tests/test_layout.py::test_tracks_are_octilinear_without_acute_corners`).
 
 | Layer | Use |
 |---|---|
