@@ -44,6 +44,11 @@ Prepare these for review; never sign them off.
   `micras_pcb.sexpr` (span-preserving s-expression edits, so diffs stay small) rather than
   `pcbnew`; a one-off layout script may use `pcbnew`. A layout change runs only as a script the
   user approved.
+- Routing style, for people and layout scripts alike: every track a straight segment at a multiple
+  of 45 degrees (end within 1 um of the 45-degree line), no arc tracks, and no two segments of a
+  net meeting at an interior angle below 90 degrees outside a pad or via (an acid trap).
+  `test_tracks_are_octilinear_without_acute_corners` in `tests/test_layout.py` names every
+  offending segment and corner.
 - `.kicad_pcb` files do not merge in git. Do not rebase or merge across someone else's layout
   edits; ask.
 
