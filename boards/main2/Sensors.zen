@@ -82,6 +82,12 @@ LSM6DSV = Module("github.com/Team-Micras/MicrasPCB/components/st/LSM6DSV/LSM6DSV
 TLV9001 = Module("github.com/Team-Micras/MicrasPCB/components/ti/TLV9001/TLV9001.zen")
 WallSensor = Module("github.com/Team-Micras/MicrasPCB/components/micras/WallSensor/WallSensor.zen")
 
+# Its own sheet in the board schematic (layout/main2.kicad_sch).
+Project(name="Sensors", path="layout", layout=False)
+
+# A signal port takes the name of the board net it carries (the firmware's pin label) wherever
+# that name is an identifier, so its sheet pin and hierarchical label match the root's label:
+# KiCad's ERC flags labels whose names differ only in case (similar_labels).
 V3V3_D = io(Power)
 V3V3_A = io(Power)
 GND = io(Ground)
@@ -94,24 +100,24 @@ MOTOR_L_SENSE_P = io(Net)
 MOTOR_L_SENSE_N = io(Net)
 MOTOR_R_SENSE_P = io(Net)
 MOTOR_R_SENSE_N = io(Net)
-CURRENT_SENSOR_LEFT = io(Net)
-CURRENT_SENSOR_RIGHT = io(Net)
+Current_Sensor_Left = io(Net)
+Current_Sensor_Right = io(Net)
 
-WALL_SENSOR_PWM_0 = io(Net)
-WALL_SENSOR_PWM_1 = io(Net)
-WALL_SENSOR_PWM_2 = io(Net)
-WALL_SENSOR_PWM_3 = io(Net)
-WALL_SENSOR_0 = io(Net)
-WALL_SENSOR_1 = io(Net)
-WALL_SENSOR_2 = io(Net)
-WALL_SENSOR_3 = io(Net)
+Wall_Sensor_PWM_0 = io(Net)
+Wall_Sensor_PWM_1 = io(Net)
+Wall_Sensor_PWM_2 = io(Net)
+Wall_Sensor_PWM_3 = io(Net)
+Wall_Sensor_0 = io(Net)
+Wall_Sensor_1 = io(Net)
+Wall_Sensor_2 = io(Net)
+Wall_Sensor_3 = io(Net)
 
 ENCODER_RIGHT_SPI = io(Spi)
-ENCODER_RIGHT_ABI_A = io(Net)
-ENCODER_RIGHT_ABI_B = io(Net)
+Encoder_Right_ABI_A = io(Net)
+Encoder_Right_ABI_B = io(Net)
 ENCODER_LEFT_SPI = io(Spi)
-ENCODER_LEFT_ABI_A = io(Net)
-ENCODER_LEFT_ABI_B = io(Net)
+Encoder_Left_ABI_A = io(Net)
+Encoder_Left_ABI_B = io(Net)
 
 EMITTER_SET = Net("EMITTER_SET")
 EMITTER_SENSE = Net("EMITTER_SENSE")
@@ -154,8 +160,8 @@ def current_amplifier(side, amp, c_vs, c_ref, r_iso, c_f, sense_p, sense_n, adc)
     Capacitor(name=c_f, P1=GND, P2=adc, **C_1N_0402_C0G)
 
 
-current_amplifier("R", "U10", "C100", "C101", "R78", "C102", MOTOR_R_SENSE_P, MOTOR_R_SENSE_N, CURRENT_SENSOR_RIGHT)
-current_amplifier("L", "U11", "C103", "C104", "R79", "C105", MOTOR_L_SENSE_P, MOTOR_L_SENSE_N, CURRENT_SENSOR_LEFT)
+current_amplifier("R", "U10", "C100", "C101", "R78", "C102", MOTOR_R_SENSE_P, MOTOR_R_SENSE_N, Current_Sensor_Right)
+current_amplifier("L", "U11", "C103", "C104", "R79", "C105", MOTOR_L_SENSE_P, MOTOR_L_SENSE_N, Current_Sensor_Left)
 
 # Emitter current sink.
 TLV9001(name="U12", VCC=V3V3_A, GND=GND, IN_P=EMITTER_SET, IN_N=EMITTER_SENSE, OUT=EMITTER_DRIVE)
@@ -181,15 +187,15 @@ def wall_sensor(n, sensor, switch, r_gate, r_pulldown, r_emitter, r_load, cap, p
     Capacitor(name=cap, P1=GND, P2=V3V3_D, **C_1U_0402)
 
 
-wall_sensor(0, "W1", "Q2", "R11", "R12", "R13", "R14", "C26", WALL_SENSOR_PWM_0, WALL_SENSOR_0)
-wall_sensor(1, "W2", "Q3", "R15", "R16", "R17", "R18", "C27", WALL_SENSOR_PWM_1, WALL_SENSOR_1)
-wall_sensor(2, "W3", "Q4", "R19", "R20", "R21", "R22", "C28", WALL_SENSOR_PWM_2, WALL_SENSOR_2)
-wall_sensor(3, "W4", "Q5", "R23", "R24", "R25", "R26", "C29", WALL_SENSOR_PWM_3, WALL_SENSOR_3)
+wall_sensor(0, "W1", "Q2", "R11", "R12", "R13", "R14", "C26", Wall_Sensor_PWM_0, Wall_Sensor_0)
+wall_sensor(1, "W2", "Q3", "R15", "R16", "R17", "R18", "C27", Wall_Sensor_PWM_1, Wall_Sensor_1)
+wall_sensor(2, "W3", "Q4", "R19", "R20", "R21", "R22", "C28", Wall_Sensor_PWM_2, Wall_Sensor_2)
+wall_sensor(3, "W4", "Q5", "R23", "R24", "R25", "R26", "C29", Wall_Sensor_PWM_3, Wall_Sensor_3)
 
 # Encoder slots.
-EncoderSlot(name="EC1", VDD=V3V3_D, GND=GND, SPI=ENCODER_RIGHT_SPI, A=ENCODER_RIGHT_ABI_A, B=ENCODER_RIGHT_ABI_B)
+EncoderSlot(name="EC1", VDD=V3V3_D, GND=GND, SPI=ENCODER_RIGHT_SPI, A=Encoder_Right_ABI_A, B=Encoder_Right_ABI_B)
 Capacitor(name="C69", P1=GND, P2=V3V3_D, **C_1U_0402)
 Capacitor(name="C70", P1=GND, P2=V3V3_D, **C_100N_0402)
-EncoderSlot(name="EC2", VDD=V3V3_D, GND=GND, SPI=ENCODER_LEFT_SPI, A=ENCODER_LEFT_ABI_A, B=ENCODER_LEFT_ABI_B)
+EncoderSlot(name="EC2", VDD=V3V3_D, GND=GND, SPI=ENCODER_LEFT_SPI, A=Encoder_Left_ABI_A, B=Encoder_Left_ABI_B)
 Capacitor(name="C71", P1=GND, P2=V3V3_D, **C_1U_0402)
 Capacitor(name="C72", P1=GND, P2=V3V3_D, **C_100N_0402)

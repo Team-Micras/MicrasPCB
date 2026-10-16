@@ -105,6 +105,12 @@ MK_12D18_G040 = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/MK-
 WSK2512_MID = Module("github.com/Team-Micras/MicrasPCB/components/vishay/WSK2512-MID/WSK2512-MID.zen")
 YSPIA0645_220M = Module("github.com/Team-Micras/MicrasPCB/components/yjycoin/YSPIA0645-220M/YSPIA0645-220M.zen")
 
+# Its own sheet in the board schematic (layout/main2.kicad_sch).
+Project(name="Regulators", path="layout", layout=False)
+
+# A signal port takes the name of the board net it carries (the firmware's pin label) wherever
+# that name is an identifier, so its sheet pin and hierarchical label match the root's label:
+# KiCad's ERC flags labels whose names differ only in case (similar_labels).
 BAT_P = io(Power)
 VBAT = io(Power)
 VSYS = io(Power)
@@ -112,8 +118,8 @@ V3V3_D = io(Power)
 V3V3_A = io(Power)
 V5V = io(Power)
 GND = io(Ground)
-GND_BAT = io(Net)
-BATTERY_VOLTAGE = io(Net)
+GND_BAT = io(Ground)
+Battery_Voltage = io(Net)
 BAT_I2C = io(I2c)
 BAT_ALERT = io(Net)
 
@@ -157,9 +163,9 @@ Resistor(name="R69", P1=V3V3_D, P2=BAT_I2C.SCL, **R_10K_0402)
 Resistor(name="R70", P1=V3V3_D, P2=BAT_ALERT, **R_10K_0402)
 
 # Battery measurement.
-Resistor(name="R44", P1=VBAT, P2=BATTERY_VOLTAGE, **R_100K_0402)
-Resistor(name="R45", P1=GND, P2=BATTERY_VOLTAGE, **R_20K_0402)
-Capacitor(name="C59", P1=GND, P2=BATTERY_VOLTAGE, **C_100N_0402)
+Resistor(name="R44", P1=VBAT, P2=Battery_Voltage, **R_100K_0402)
+Resistor(name="R45", P1=GND, P2=Battery_Voltage, **R_20K_0402)
+Capacitor(name="C59", P1=GND, P2=Battery_Voltage, **C_100N_0402)
 
 # Power path.
 B5819W(name="D14", A=VBAT, K=VSYS)

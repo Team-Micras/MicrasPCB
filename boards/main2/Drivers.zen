@@ -106,26 +106,32 @@ WSK2512_HIGH = Module("github.com/Team-Micras/MicrasPCB/components/vishay/WSK251
 XAL7070_473 = Module("github.com/Team-Micras/MicrasPCB/components/coilcraft/XAL7070-473/XAL7070-473.zen")
 XGL5030_472 = Module("github.com/Team-Micras/MicrasPCB/components/coilcraft/XGL5030-472/XGL5030-472.zen")
 
+# Its own sheet in the board schematic (layout/main2.kicad_sch).
+Project(name="Drivers", path="layout", layout=False)
+
+# A signal port takes the name of the board net it carries (the firmware's pin label) wherever
+# that name is an identifier, so its sheet pin and hierarchical label match the root's label:
+# KiCad's ERC flags labels whose names differ only in case (similar_labels).
 VBAT = io(Power)
 V3V3_D = io(Power)
 GND = io(Ground)
 
-MOTOR_RIGHT_EN = io(Net)
-MOTOR_RIGHT_PH = io(Net)
-MOTOR_LEFT_EN = io(Net)
-MOTOR_LEFT_PH = io(Net)
-MOTORS_ENABLE = io(Net)
-MOTORS_NFAULT = io(Net)
+Motor_Right_EN = io(Net)
+Motor_Right_PH = io(Net)
+Motor_Left_EN = io(Net)
+Motor_Left_PH = io(Net)
+Motors_Enable = io(Net)
+Motors_nFault = io(Net)
 MOTOR_R_SENSE_P = io(Net)
 MOTOR_R_SENSE_N = io(Net)
 MOTOR_L_SENSE_P = io(Net)
 MOTOR_L_SENSE_N = io(Net)
-CURRENT_SENSOR_RIGHT = io(Net)
-CURRENT_SENSOR_LEFT = io(Net)
+Current_Sensor_Right = io(Net)
+Current_Sensor_Left = io(Net)
 
-FAN_PWM = io(Net)
-FAN_ENABLE = io(Net)
-FAN_TOFF = io(Net)
+Fan_PWM = io(Net)
+Fan_Enable = io(Net)
+Fan_TOFF = io(Net)
 
 FAN_OUT = Net("FAN_OUT")
 FAN_MOTOR = Net("FAN_MOTOR")
@@ -162,8 +168,8 @@ def bridge(side, ic, en, ph, sense_p, sense_n, adc, motor, refs):
         CPL=cpl,
         EN_IN1=en,
         PH_IN2=ph,
-        NSLEEP=MOTORS_ENABLE,
-        NFAULT=MOTORS_NFAULT,
+        NSLEEP=Motors_Enable,
+        NFAULT=Motors_nFault,
         VREF=vref,
         IPROPI=ipropi,
         IMODE=GND,
@@ -190,11 +196,11 @@ def bridge(side, ic, en, ph, sense_p, sense_n, adc, motor, refs):
 bridge(
     "R",
     "IC8",
-    MOTOR_RIGHT_EN,
-    MOTOR_RIGHT_PH,
+    Motor_Right_EN,
+    Motor_Right_PH,
     MOTOR_R_SENSE_P,
     MOTOR_R_SENSE_N,
-    CURRENT_SENSOR_RIGHT,
+    Current_Sensor_Right,
     "M2",
     {
         "cvm1": "C82",
@@ -214,11 +220,11 @@ bridge(
 bridge(
     "L",
     "IC9",
-    MOTOR_LEFT_EN,
-    MOTOR_LEFT_PH,
+    Motor_Left_EN,
+    Motor_Left_PH,
     MOTOR_L_SENSE_P,
     MOTOR_L_SENSE_N,
-    CURRENT_SENSOR_LEFT,
+    Current_Sensor_Left,
     "M1",
     {
         "cvm1": "C91",
@@ -235,8 +241,8 @@ bridge(
         "choke_link": "R76",
     },
 )
-Resistor(name="R49", P1=GND, P2=MOTORS_ENABLE, **R_100K_0402)
-Resistor(name="R60", P1=V3V3_D, P2=MOTORS_NFAULT, **R_10K_0402)
+Resistor(name="R49", P1=GND, P2=Motors_Enable, **R_100K_0402)
+Resistor(name="R60", P1=V3V3_D, P2=Motors_nFault, **R_10K_0402)
 
 # Fan driver.
 STSPIN958(
@@ -254,16 +260,16 @@ STSPIN958(
     LSS2=FAN_LSS,
     V1=NotConnected(),
     V2=NotConnected(),
-    PWM1=FAN_PWM,
+    PWM1=Fan_PWM,
     PWM2_PH=GND,
-    EN_NFAULT=FAN_ENABLE,
+    EN_NFAULT=Fan_Enable,
     NSTBY=V3V3_D,
     MODE1=V3V3_D,
     MODE2=GND,
     MODE3=V3V3_D,
     OFFSET=GND,
     REF=FAN_REF,
-    TOFF=FAN_TOFF,
+    TOFF=Fan_TOFF,
     SR=FAN_SR,
 )
 Capacitor(name="C34", P1=VBAT, P2=GND, **C_470N_0603_50V)
@@ -273,8 +279,8 @@ Capacitor(name="C99", P1=VBAT, P2=GND, **C_10U_1206_50V)
 Capacitor(name="C31", P1=GND, P2=V3V3_D, **C_220N_0402)
 Capacitor(name="C32", P1=FAN_CP1, P2=FAN_CP2, **C_100N_0402)
 Capacitor(name="C33", P1=FAN_VSPUMP, P2=FAN_VBOOT, **C_1U_0402)
-Resistor(name="R27", P1=V3V3_D, P2=FAN_ENABLE, **R_39K_0402)
-Capacitor(name="C30", P1=GND, P2=FAN_ENABLE, **C_10N_0402)
+Resistor(name="R27", P1=V3V3_D, P2=Fan_Enable, **R_39K_0402)
+Capacitor(name="C30", P1=GND, P2=Fan_Enable, **C_10N_0402)
 Resistor(name="R28", P1=V3V3_D, P2=FAN_REF, **R_22K_0402)
 Resistor(name="R29", P1=GND, P2=FAN_REF, **R_9K1_0402)
 Resistor(name="R30", P1=GND, P2=FAN_SR, **R_1K_0402)

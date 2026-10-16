@@ -161,7 +161,13 @@ def outside_page(path, label_text: bool = True) -> list[str]:
 
 # Boards whose label text runs past a page edge, with the reason; each is a strict xfail, so the
 # entry must go once the labels fit.
-LABEL_TEXT_PAST_THE_PAGE: dict[str, str] = {}
+LABEL_TEXT_PAST_THE_PAGE: dict[str, str] = {
+    "main2": (
+        "pcb 0.4.81 packs the five module sheet symbols on the root by their boxes alone, so the"
+        " root labels at SENSORS' pins run up to 11 mm past the left edge (diodeinc/pcb#1520);"
+        " diodeinc/pcb#1522 spaces the sheet symbols clear of their pin labels"
+    ),
+}
 
 
 def _problems(board: str, label_text: bool) -> list[str]:

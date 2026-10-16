@@ -74,17 +74,23 @@ Resistor = Module("@stdlib/generics/Resistor.zen")
 ESP32_S3_MINI_1 = Module("github.com/Team-Micras/MicrasPCB/components/espressif/ESP32-S3-MINI-1/ESP32-S3-MINI-1.zen")
 TestPoint = Module("github.com/Team-Micras/MicrasPCB/components/micras/TestPoint/TestPoint.zen")
 
+# Its own sheet in the board schematic (layout/main2.kicad_sch).
+Project(name="Esp", path="layout", layout=False)
+
+# A signal port takes the name of the board net it carries (the firmware's pin label) wherever
+# that name is an identifier, so its sheet pin and hierarchical label match the root's label:
+# KiCad's ERC flags labels whose names differ only in case (similar_labels).
 V3V3_D = io(Power)
 V5V = io(Power)
 GND = io(Ground)
 USB = io(Usb2)
 SWDIO = io(Net)
 SWCLK = io(Net)
-RESET = io(Net)
-BOOT = io(Net)
+Reset = io(Net)
+Boot = io(Net)
 UART4_RX = io(Net)
 UART4_TX = io(Net)
-ESP_FLOW = io(Net)
+ESP_Flow = io(Net)
 BAT_I2C = io(I2c)
 BAT_ALERT = io(Net)
 
@@ -117,13 +123,13 @@ ESP32_S3_MINI_1(
     IO10=BAT_ALERT,
     IO11=SWDIO,
     IO12=ESP_SWCLK,
-    IO13=RESET,
+    IO13=Reset,
     IO14=ESP_BOOT0,
     IO15=NC(),
     IO16=NC(),
     IO17=ESP_TXD,
     IO18=UART4_TX,
-    IO21=ESP_FLOW,
+    IO21=ESP_Flow,
     IO26=NC(),
     IO33=NC(),
     IO34=NC(),
@@ -161,7 +167,7 @@ Resistor(name="R85", P1=USB.D.N, P2=ESP_USB.D.N, **R_22_0402)
 
 # MCU links.
 Resistor(name="R86", P1=ESP_SWCLK, P2=SWCLK, **R_22_0402)
-Resistor(name="R87", P1=ESP_BOOT0, P2=BOOT, **R_1K_0402)
+Resistor(name="R87", P1=ESP_BOOT0, P2=Boot, **R_1K_0402)
 Resistor(name="R88", P1=ESP_TXD, P2=UART4_RX, **R_100_0402)
 
 # VBUS detect.
