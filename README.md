@@ -60,10 +60,17 @@ components/**/*.zen             (Zener)      layout/<board>.kicad_pcb <─┘ pl
   `parts/jlc.toml` carries the LCSC number and a per-part rotation offset, and `make fab` builds
   the JLCPCB BOM and CPL from it. JLCPCB's placement preview is the final word on each part's
   rotation (`rotation_verified`).
-- **The main boards' schematics (`main`, `main2`) are one flat sheet each whose symbols do not fit
-  the largest page** (the exported PDF shows an empty page; open the schematic in KiCad): their
-  Zener modules become separate sheets only once Zener's module sheets are ERC-clean
-  ([diodeinc/pcb#1520](https://github.com/diodeinc/pcb/issues/1520)).
+- **Zener labels the nets between module sheets twice**: the main board's schematic has one
+  sheet per Zener module (`Project(..., layout = False)`), and pcb 0.4.81 puts a global label
+  beside each sheet pin and hierarchical label
+  ([diodeinc/pcb#1520](https://github.com/diodeinc/pcb/issues/1520)), so KiCad's ERC warns
+  `same_local_global_label` and `multiple_net_names` on those nets, and the sheet symbols on the
+  root sit close enough for their pin labels to overlap the next sheet's box. The board's
+  `erc.toml` accepts these two warnings with that reason, and only them; they go away with a pcb
+  release that includes [diodeinc/pcb#1522](https://github.com/diodeinc/pcb/pull/1522)
+  ([known faults](boards/main/layout/README.md#known-faults)).
+- **The `main2` schematic is one flat sheet whose symbols do not fit the largest page** (the
+  exported PDF shows an empty page; open the schematic in KiCad).
 - **KiCad 10 has no headless layout API**: the IPC API needs a running KiCad, and the SWIG
   `pcbnew` module is deprecated and goes away in KiCad 11. The tools use `kicad-cli` and edit the
   `.kicad_pcb` s-expressions directly (`tools/micras_pcb/sexpr.py`).
@@ -106,12 +113,12 @@ and fails if any gate failed.
 | warnings | `pcb build -D warnings` | a build warning: a net outside a part's declared operating range, a capacitor rated below its net |
 | test | `pcb test` | datasheet requirements: per component (`components/**/test/`) and per board (`boards/<board>/test/`: application circuits, values computed with the datasheet equations) |
 | layout-check | `pcb layout --check`, `micras-pcb rules/mech --check` | layout no longer matches the netlist, rules or spec drift |
-| ERC | `kicad-cli sch erc` | schematic electrical rules; `boards/<board>/erc.toml` names the nets supplied from off the board (the PWR_FLAG role) |
+| ERC | `kicad-cli sch erc` | schematic electrical rules; `boards/<board>/erc.toml` names the nets supplied from off the board (the PWR_FLAG role) and the warnings a board accepts, rule by rule with the reason |
 | LVS | `micras-pcb lvs` | schematic and PCB connect different pads |
 | previous | `micras-pcb previous compare <board>` | a replicated board (main, encoder, bluetooth) connects or names anything differently from its previous revision, except the changes in `boards/<board>/changes.toml` |
 | DRC | `kicad-cli pcb drc` + `rules/jlcpcb.kicad_dru` | JLCPCB clearances (copper, SMD pad to pad, hole to track), widths, drills, edge distances |
 | DFM | `pcb dfm` + `rules/jlcpcb-pdk.toml` | geometry-level manufacturability (Diode's sourced JLCPCB PDK) |
-| pytest | `pytest` | board contracts (encoder joint, firmware pin map), power tree, decoupling at the pin, encoder slot fit, routing style (every track straight at a multiple of 45 degrees, no arcs, no acute corners), courtyards, paste, 3D models, part data |
+| pytest | `pytest` | board contracts (encoder joint, firmware pin map), power tree, every schematic item on its sheet's page, decoupling at the pin, encoder slot fit, routing style (every track straight at a multiple of 45 degrees, no arcs, no acute corners), courtyards, paste, 3D models, part data |
 | lint | `ruff` | Python lint and format |
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 

@@ -25,16 +25,21 @@ The board files are in `boards/main/` (this README sits in its `layout/` folder)
 | [`Peripherals.zen`](../Peripherals.zen) | `PERIPHERALS` | SW1 DIP switch, SW2/SW3/SW5 buttons, BZ1 buzzer, D1/D2 addressable LEDs, D4/D5 LEDs, U2 USB-C with its ESD protection and VBUS sensing, the SBU supply for the Bluetooth module and its signature detector U7 |
 | [`passives.zen`](../passives.zen) | | value, package, rating and part number of every resistor, ceramic capacitor, LED and ferrite line |
 | [`changes.toml`](../changes.toml) | | connectivity, net-name and part-number changes against the previous revision, each with its review item |
-| [`erc.toml`](../erc.toml) | | nets supplied from off the board (VBAT, GND, +5V, SWD_VDD) or through a passive part (VDDA), the PWR_FLAG role for ERC |
+| [`erc.toml`](../erc.toml) | | nets supplied from off the board (VBAT, GND, GND_BAT, +5V, SWD_VDD) or through a passive part (VDDA), the PWR_FLAG role for ERC; the ERC warnings the module sheets leave (see [Known faults](#known-faults)) |
 | [`firmware.toml`](../firmware.toml) | | the firmware's pin map, supply setting, battery channel and drive duties, from MicrasFirmware (`micras-pcb firmware snapshot`) |
 | [`firmware_changes.toml`](../firmware_changes.toml) | | the firmware changes this board needs (see [Firmware changes](#firmware-changes)) |
 | [`test/`](../test) | | `pcb test` benches of the board's circuit: MCU, power, drivers, peripherals |
-| [`layout/`](.) | | this folder: the KiCad project; the `.kicad_pcb` holds placement and routing; `fixes.py` and `router.py` place and route the review fixes on it, `refine.py` and `usb_wall.py` the owner's layout decisions, `finish.py` the previous revision's pour and teardrop settings on the result, `rail_silk.py` U6's rail capacitor and the designator size, `octilinear.py` every track at 0/45/90 degrees, `swd_top.py` the top-entry SWD connector |
+| [`layout/`](.) | | this folder: the KiCad project; `main.kicad_sch` is the root sheet, with one sheet per module (`REGULATORS.kicad_sch`, ...); the `.kicad_pcb` holds placement and routing; `fixes.py` and `router.py` place and route the review fixes on it, `refine.py` and `usb_wall.py` the owner's layout decisions, `finish.py` the previous revision's pour and teardrop settings on the result, `rail_silk.py` U6's rail capacitor and the designator size, `octilinear.py` every track at 0/45/90 degrees, `swd_top.py` the top-entry SWD connector |
 | [`previous/`](../previous) | | the previous revision's connectivity snapshot, and the scripts that build the layout from that revision (`transfer_layout.py`, `rework.py`) |
 | [`spec/main.toml`](../../../spec/main.toml) | | mechanical interface: thickness, axle origin, extents, screw holes, encoder slots, USB-C peg holes, fan hole, wheel notches |
 
 Each sheet's docstring describes its circuit with the datasheet figure, table or equation behind
-each value.
+each value. Each module is its own sheet of the KiCad schematic (`Project(..., layout=False)` in
+its `.zen`), and the layout is the board's. A module's signal ports take the names of the nets
+they carry (`Fan_Enable`, not `FAN_ENABLE`), so the sheet pins match the root's labels; the
+SPI buses and the `Motor_*_Sense+`/`-` nets, whose names are not identifiers, keep their port
+names. The battery's minus, `GND_BAT`, is a ground port of `REGULATORS`: it appears on the root
+only at the sheet pin, and a power symbol there needs nothing else to join it.
 
 ## Power
 
@@ -416,12 +421,12 @@ generic parts set them otherwise:
 
 ## Known faults
 
-The board passes every gate: build, warnings, the Zener benches, layout sync, ERC, LVS, previous,
-DRC (no errors), DFM, pytest and parts. These DRC warnings stay:
+The board passes every gate. These ERC and DRC warnings stay:
 
 | Check (gate) | Fault | Why it stays |
 |---|---|---|
 | `silk_overlap`, `silk_over_copper` (drc, warnings) | package artwork on its own outline (the W1-W4 "C"/"E" and SW1 "ON" marks), outlines of neighbouring parts touching (D9/R14, D11/D12, D4/R4, D5/R5, R13/W1, R17/W2, R44/R45/C59), and the board artwork (the slogans, the frame lines, the arcs and circles) under parts (C58, C63, C65/C66, C69/C70, D3, M3, Q7, R48, R49, the test points, and the SBU detector U7, C77, C78, D13, R51, R52, R55 with F1, which sit on the "SUCUMBINDO SINCE 2024" frame) | cosmetic: JLCPCB clips silkscreen at pads, and no reference designator is among them |
+| `same_local_global_label`, `multiple_net_names` (erc, warnings) | pcb 0.4.81 labels a net that crosses a module sheet with a global label on the root and on the sheet, beside the sheet pin and the hierarchical label ([diodeinc/pcb#1520](https://github.com/diodeinc/pcb/issues/1520)): 48 `same_local_global_label`, and 14 `multiple_net_names` where the port name is not the net's (the SPI bus members, `MOTOR_L_SENSE_P` for `Motor_L_Sense+`). On the root, the sheet symbols sit close enough for their pin labels to overlap the next sheet's box | the netlist is right (LVS and previous pass); `erc.toml` accepts these two rules at warning severity, with this reason, and nothing else. They go away with a pcb release that includes [diodeinc/pcb#1522](https://github.com/diodeinc/pcb/pull/1522), which generates the sheet pins and hierarchical labels alone; then the `[accepted_warning]` table goes too |
 | `silk_edge_clearance` (drc, warning) | SW4's outline crosses the rear notch's edge | the battery switch overhangs the board edge by design, its lever outwards |
 
 Requirements without a check, and why:
