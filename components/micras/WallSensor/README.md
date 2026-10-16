@@ -28,7 +28,7 @@ origin, the pads 6.38 mm behind it.
 
 | Layer | Draws |
 |---|---|
-| F.CrtYd | both bodies at their largest (LED 9.0 mm long, 5.9 mm flange; TPS601A flange and key tab) and the pads, plus 0.25 mm: 6.93 mm in front of the origin to 6.64 mm behind it, 6.4 mm wide (6.77 mm at the TPS601A flange, whose key tab points to the pad 2/4 side) |
+| F.CrtYd | both bodies at their largest (LED 9.0 mm long, 5.9 mm flange; TPS601A flange and key tab) and the pads, plus 0.25 mm: 6.93 mm in front of the origin to 6.64 mm behind it, from x = -3.2 to +2.8 mm (the SFH 4550 flange's cathode flat faces the pad 2/4 side), out to +3.57 mm at the TPS601A flange, whose key tab points to that side |
 | User.13 | the two bodies at nominal size |
 | 3D | `WALL_SENSOR_STACKED.STEP`: the SFH 4550 (axis 9.75 mm above the board) over the TPS601A (axis 3.25 mm), nominal size, from MicrasHardware `micras/leds.py` |
 
