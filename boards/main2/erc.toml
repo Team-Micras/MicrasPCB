@@ -15,15 +15,3 @@ VSYS = "VBAT through the Schottky D14, or +5V through the P-MOSFET Q8"
 "REGULATORS.LDO_IN" = "VSYS through the 22 Ohm input resistor R58 of the 3V3_A LDO"
 VDDA = "3V3_A through the 0 Ohm link R67"
 "3V3_D" = "the L6981C33 buck IC7 through its inductor L3 (IC7's VOUT/FB pin is the feedback input; on the main board the probe's ideal diode U5 was the power output on 3V3)"
-
-# KiCad ERC warnings this board accepts, rule by rule (tools/micras_pcb/checks.py
-# `accepted_warnings`): the same rule at error severity, and every other rule, still fails.
-# Both come from how pcb 0.4.81 labels a net that crosses a module sheet
-# (diodeinc/pcb#1520): it puts a global label with the net's name on the root and on the module
-# sheet, next to the sheet pin and hierarchical label that carry the port, so KiCad sees each
-# such net named twice. The netlist is unaffected. diodeinc/pcb#1522 generates sheet pins and
-# hierarchical labels only; these warnings go away, and this table with them, when a pcb release
-# includes it.
-[accepted_warning]
-same_local_global_label = "pcb 0.4.81 labels a net that crosses a module sheet with a global label on both sheets beside the local label and sheet pin (diodeinc/pcb#1520); goes away with a pcb release that includes diodeinc/pcb#1522"
-multiple_net_names = "the global label (the net's name) and the hierarchical label (the module's port name) that pcb 0.4.81 puts on one net disagree where the port is an interface member (IMU_SPI.CS, BAT_I2C.SDA, USB.D.P) (diodeinc/pcb#1520); goes away with a pcb release that includes diodeinc/pcb#1522"

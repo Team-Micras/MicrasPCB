@@ -12,15 +12,3 @@ SWD_VDD = "the SWD probe's 3.3 V supply, P1 pin 1"
 # Nets supplied on the board through a passive part, which KiCad does not count as a power output.
 [passive_supply]
 VDDA = "3V3 through the ferrite bead FB1"
-
-# KiCad ERC warnings this board accepts, rule by rule (tools/micras_pcb/checks.py
-# `accepted_warnings`): the same rule at error severity, and every other rule, still fails.
-# Both come from how pcb 0.4.81 labels a net that crosses a module sheet
-# (diodeinc/pcb#1520): it puts a global label with the net's name on the root and on the module
-# sheet, next to the sheet pin and hierarchical label that carry the port, so KiCad sees each
-# such net named twice. The netlist is unaffected (LVS and the previous-revision comparison
-# pass). diodeinc/pcb#1522 generates sheet pins and hierarchical labels only; these warnings go
-# away, and this table with them, when a pcb release includes it.
-[accepted_warning]
-same_local_global_label = "pcb 0.4.81 labels a net that crosses a module sheet with a global label on both sheets beside the local label and sheet pin (diodeinc/pcb#1520); goes away with a pcb release that includes diodeinc/pcb#1522"
-multiple_net_names = "the global label (the net's name) and the hierarchical label (the module's port name) that pcb 0.4.81 puts on one net disagree where the net name is no identifier (Motor_L_Sense+) or the port is an interface member (IMU_SPI.CS) (diodeinc/pcb#1520); goes away with a pcb release that includes diodeinc/pcb#1522"
