@@ -1,6 +1,6 @@
-"""SM05B-SRSS-TB package: pins 1-5 on P1-P5, the reinforcement pads on MP, P prefix by default."""
+"""BM05B-SRSS-TB package: pins 1-5 on P1-P5, the reinforcement pads on MP, P prefix by default."""
 
-HEADER = Module("../SM05B-SRSS-TB.zen")
+HEADER = Module("../BM05B-SRSS-TB.zen")
 
 
 def net_of(module, pin):
@@ -22,7 +22,7 @@ def part(expected_prefix):
     def _check(module, inputs):
         c = module.components()["HEADER"]
         check(c.prefix == expected_prefix, "designator prefix must be " + expected_prefix + ", got " + c.prefix)
-        check(c.mpn == "SM05B-SRSS-TB(LF)(SN)", "MPN must be SM05B-SRSS-TB(LF)(SN)")
+        check(c.mpn == "BM05B-SRSS-TB(LF)(SN)", "MPN must be BM05B-SRSS-TB(LF)(SN)")
 
     return _check
 
@@ -30,14 +30,14 @@ def part(expected_prefix):
 NETS = dict({"P%d" % i: Net("N%d" % i) for i in range(1, 6)}, MP=Net("NMP"))
 
 TestBench(
-    name="SM05B_default_prefix",
+    name="BM05B_default_prefix",
     module=HEADER,
     test_cases={"default": NETS},
     checks=[pins, part("P")],
 )
 
 TestBench(
-    name="SM05B_j_prefix",
+    name="BM05B_j_prefix",
     module=HEADER,
     test_cases={"j": dict(NETS, prefix="J")},
     checks=[pins, part("J")],
