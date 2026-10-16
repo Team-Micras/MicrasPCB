@@ -1,5 +1,6 @@
-"""Every board's schematic fits its pages: each sheet's symbols, labels, wires and sheet symbols
-lie inside that sheet's paper, so the exported PDF and KiCad Prism show the whole circuit.
+"""Every board's schematic fits its pages: each sheet's symbols, labels (with their text), wires and
+sheet symbols lie inside that sheet's paper, so the exported PDF and KiCad Prism show the whole
+circuit.
 
 `pcb apply` grows a generated sheet's paper up to A0 and places what does not fit to the right of
 the page (pcb-kicad-sch placement.rs); it only warns. A symbol's extent is its body graphics and
@@ -105,17 +106,37 @@ def symbol_extent(sym: sexpr.Node, libs: dict[str, sexpr.Node]) -> list[tuple[fl
     return pts
 
 
-def _item_points(item: sexpr.Node) -> list[tuple[float, float]]:
+# pcb-kicad-sch compose.rs: a label's text is estimated at 0.8 em a character, and a global or
+# hierarchical label's shape adds 2.54 mm.
+LABEL_EM = 0.8
+LABEL_SHAPE = 2.54
+
+
+def label_extent(item: sexpr.Node) -> list[tuple[float, float]]:
+    """A label's anchor and the far end of its text, which runs along the label's angle."""
+    at = item.child("at").atoms()
+    x, y, angle = float(at[0]), float(at[1]), int(float(at[2]) if len(at) > 2 else 0) % 360
+    font = item.child("effects").child("font").child("size") if item.child("effects") else None
+    size = float(font.atoms()[1]) if font else 1.27
+    length = len(item.atoms()[0]) * size * LABEL_EM + (LABEL_SHAPE if item.head != "label" else 0)
+    dx, dy = {0: (1, 0), 90: (0, -1), 180: (-1, 0), 270: (0, 1)}[angle]
+    return [(x, y), (x + dx * length, y + dy * length)]
+
+
+def _item_points(item: sexpr.Node, label_text: bool) -> list[tuple[float, float]]:
     if item.head == "wire" or item.head == "bus":
         return [_xy(p) for p in item.child("pts").children("xy")]
     if item.head == "sheet":
         (x, y), (w, h) = _xy(item.child("at")), _xy(item.child("size"))
         return [(x, y), (x + w, y + h)]
+    if item.head.endswith("label") and label_text:
+        return label_extent(item)
     return [_xy(item.child("at"))]
 
 
-def outside_page(path) -> list[str]:
-    """What lies outside a sheet's paper: '<item> at (x, y)' for each item, the worst point."""
+def outside_page(path, label_text: bool = True) -> list[str]:
+    """What lies outside a sheet's paper: '<item> at (x, y)' for each item, the worst point. Without
+    label_text, a label counts by its anchor alone."""
     sch = sexpr.parse(path.read_text())
     w, h = paper_size(sch)
     libs = {s.atoms()[0]: s for s in sch.child("lib_symbols").children("symbol")} if sch.child("lib_symbols") else {}
@@ -128,7 +149,7 @@ def outside_page(path) -> list[str]:
             pts = symbol_extent(item, libs)
             name = f"symbol {item.prop('Reference')} ({item.child('lib_id').atoms()[0]})"
         else:
-            pts = _item_points(item)
+            pts = _item_points(item, label_text)
             text = item.atoms()[0] if item.head.endswith("label") else (item.prop("Sheetname") or "")
             name = f"{item.head} {text}".strip()
         off = [(x, y) for x, y in pts if x < -EPS or y < -EPS or x > w + EPS or y > h + EPS]
@@ -138,17 +159,42 @@ def outside_page(path) -> list[str]:
     return bad
 
 
-@pytest.mark.parametrize("board", boards())
-def test_schematic_fits_its_pages(board):
-    """Each sheet of the board's schematic holds its items inside its paper."""
+# Boards whose label text runs past a page edge, with the reason; each is a strict xfail, so the
+# entry must go once the labels fit.
+LABEL_TEXT_PAST_THE_PAGE: dict[str, str] = {}
+
+
+def _problems(board: str, label_text: bool) -> list[str]:
     problems = []
     for path in schematic_sheets(board_sch(board)):
-        sch = sexpr.parse(path.read_text())
-        w, h = paper_size(sch)
-        bad = outside_page(path)
+        w, h = paper_size(sexpr.parse(path.read_text()))
+        bad = outside_page(path, label_text)
         if bad:
             shown = "; ".join(bad[:8]) + (f"; and {len(bad) - 8} more" if len(bad) > 8 else "")
             problems.append(f"{path.name} ({w:.0f} x {h:.0f} mm): {len(bad)} item(s) off the page: {shown}")
+    return problems
+
+
+@pytest.mark.parametrize("board", boards())
+def test_schematic_fits_its_pages(board):
+    """Each sheet of the board's schematic holds its symbols, label anchors, wires and sheet
+    symbols inside its paper."""
+    problems = _problems(board, label_text=False)
+    assert not problems, "\n".join(problems)
+
+
+@pytest.mark.parametrize(
+    "board",
+    [
+        pytest.param(b, marks=pytest.mark.xfail(reason=LABEL_TEXT_PAST_THE_PAGE[b], strict=True))
+        if b in LABEL_TEXT_PAST_THE_PAGE
+        else b
+        for b in boards()
+    ],
+)
+def test_label_text_fits_its_pages(board):
+    """Each label's text, not only its anchor, stays inside its sheet's paper."""
+    problems = _problems(board, label_text=True)
     assert not problems, "\n".join(problems)
 
 
@@ -163,6 +209,10 @@ def test_an_item_past_the_paper_is_reported(tmp_path):
     (tmp_path / "a.kicad_sch").write_text(
         f'(kicad_sch (paper "A4") {lib} {on} {off} (label "N" (at 300 50 0)) (wire (pts (xy 10 10) (xy 10 20))))'
     )
-    assert outside_page(tmp_path / "a.kicad_sch") == ["label N at (300.0, 50.0)"]
+    assert outside_page(tmp_path / "a.kicad_sch") == ["label N at (301.0, 50.0)"]
+    # A label inside the page whose text runs past its left edge (2 characters at 0.8 em).
+    (tmp_path / "c.kicad_sch").write_text('(kicad_sch (paper "A4") (label "AB" (at 1 50 180)))')
+    assert outside_page(tmp_path / "c.kicad_sch") == ["label AB at (-1.0, 50.0)"]
+    assert outside_page(tmp_path / "c.kicad_sch", label_text=False) == []
     (tmp_path / "b.kicad_sch").write_text(f'(kicad_sch (paper "A4") {lib} {off.replace("90", "270")})')
     assert outside_page(tmp_path / "b.kicad_sch") == ["symbol R2 (R) at (298.8, 100.0)"]
