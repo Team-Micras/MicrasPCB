@@ -57,6 +57,9 @@ GT_USB_7010ASV = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/GT
 KASML010 = Module("github.com/Team-Micras/MicrasPCB/components/kuu/KASML010/KASML010.zen")
 WS2815C = Module("github.com/Team-Micras/MicrasPCB/components/worldsemi/WS2815C-2020/WS2815C-2020.zen")
 
+# Its own sheet in the board schematic (layout/main.kicad_sch); the layout stays the board's.
+Project(name="Peripherals", path="layout", layout=False)
+
 V3V3 = io(Power)
 V5V = io(Power)
 GND = io(Ground)

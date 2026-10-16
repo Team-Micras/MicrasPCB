@@ -59,6 +59,9 @@ L6205D = Module("github.com/Team-Micras/MicrasPCB/components/st/L6205D/L6205D.ze
 STSPIN958 = Module("github.com/Team-Micras/MicrasPCB/components/st/STSPIN958/STSPIN958.zen")
 VT1C221M0605 = Module("github.com/Team-Micras/MicrasPCB/components/acmecon/VT1C221M0605/VT1C221M0605.zen")
 
+# Its own sheet in the board schematic (layout/main.kicad_sch); the layout stays the board's.
+Project(name="Drivers", path="layout", layout=False)
+
 VBAT = io(Power)
 V3V3 = io(Power)
 V20V = io(Power)

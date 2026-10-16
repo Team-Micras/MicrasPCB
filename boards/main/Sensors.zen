@@ -34,6 +34,9 @@ LSM6DSV = Module("github.com/Team-Micras/MicrasPCB/components/st/LSM6DSV/LSM6DSV
 TSC2020 = Module("github.com/Team-Micras/MicrasPCB/components/st/TSC2020/TSC2020.zen")
 WallSensor = Module("github.com/Team-Micras/MicrasPCB/components/micras/WallSensor/WallSensor.zen")
 
+# Its own sheet in the board schematic (layout/main.kicad_sch); the layout stays the board's.
+Project(name="Sensors", path="layout", layout=False)
+
 V3V3 = io(Power)
 GND = io(Ground)
 
