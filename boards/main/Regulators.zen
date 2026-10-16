@@ -123,15 +123,21 @@ TPS61178 = Module("github.com/Team-Micras/MicrasPCB/components/ti/TPS61178/TPS61
 XAL6030_102 = Module("github.com/Team-Micras/MicrasPCB/components/coilcraft/XAL6030-102/XAL6030-102.zen")
 YSPIA0645_220M = Module("github.com/Team-Micras/MicrasPCB/components/yjycoin/YSPIA0645-220M/YSPIA0645-220M.zen")
 
+# Its own sheet in the board schematic (layout/main.kicad_sch); the layout stays the board's.
+Project(name="Regulators", path="layout", layout=False)
+
+# A signal port takes the name of the board net it carries (the firmware's pin label) wherever
+# that name is an identifier, so its sheet pin and hierarchical label match the root's label:
+# KiCad's ERC flags labels whose names differ only in case (similar_labels).
 VBAT = io(Power)
 V3V3 = io(Power)
 V5V = io(Power)
 V20V = io(Power)
 SWD_VDD = io(Power)
 GND = io(Ground)
-GND_BAT = io(Net)
-MOTORS_ENABLE = io(Net)
-BATTERY_VOLTAGE = io(Net)
+GND_BAT = io(Ground)
+Motors_Enable = io(Net)
+Battery_Voltage = io(Net)
 
 # The buck's input: VBAT or +5V through U4, whichever is higher (USB 4.4-5.25 V, battery up to
 # 12.6 V); the RCB release keeps it within 50 mV of the input in use (SLVSEA3F Table 7.5).
@@ -163,9 +169,9 @@ Resistor(name="R41", P1=GND_BAT, P2=BAT_SW_GATE, **R_100K_0402)
 Capacitor(name="C58", P1=GND, P2=BAT_SW_GATE, **C_47N_0603)
 
 # Battery measurement.
-Resistor(name="R44", P1=VBAT, P2=BATTERY_VOLTAGE, **R_100K_0402)
-Resistor(name="R45", P1=GND, P2=BATTERY_VOLTAGE, **R_27K_0402)
-Capacitor(name="C59", P1=GND, P2=BATTERY_VOLTAGE, **C_100N_0402)
+Resistor(name="R44", P1=VBAT, P2=Battery_Voltage, **R_100K_0402)
+Resistor(name="R45", P1=GND, P2=Battery_Voltage, **R_27K_0402)
+Capacitor(name="C59", P1=GND, P2=Battery_Voltage, **C_100N_0402)
 
 # Supply selection.
 TPS2121(
@@ -216,7 +222,7 @@ TPS61178(
     name="U1",
     mpn="TPS61178RNWR",
     VIN=VBAT,
-    EN=MOTORS_ENABLE,
+    EN=Motors_Enable,
     VOUT=V20V,
     VCC=BOOST_VCC,
     GND=GND,

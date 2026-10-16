@@ -22,10 +22,11 @@ setup: ## install the Python tools and the pinned Zener toolchain
 gen: ## regenerate every generated file from the sources (Zener, spec, rules)
 	$(PCB) sync
 	$(PCB) fmt .
-	@# The schematic is written afresh each time: `pcb apply` on an existing schematic only
-	@# repairs netlist differences and keeps power symbols, labels and wires a pin has left
-	@# (pcb-kicad-sch DESIGN.md), which ERC reports as dangling. Generation is deterministic.
-	@for b in $(BOARDS); do rm -f boards/$$b/layout/$$b.kicad_sch; $(PCB) apply --no-open boards/$$b/$$b.zen || exit 1; done
+	@# The schematic, root and module sheets, is written afresh each time: `pcb apply` on an
+	@# existing schematic only repairs netlist differences and keeps power symbols, labels and
+	@# wires a pin has left (pcb-kicad-sch DESIGN.md), which ERC reports as dangling, and it
+	@# refuses to write a new root over existing module sheets. Generation is deterministic.
+	@for b in $(BOARDS); do rm -f boards/$$b/layout/*.kicad_sch; $(PCB) apply --no-open boards/$$b/$$b.zen || exit 1; done
 	$(TOOL) rules
 	$(TOOL) mech
 
