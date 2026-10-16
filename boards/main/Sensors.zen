@@ -61,6 +61,9 @@ WallSensor = Module("github.com/Team-Micras/MicrasPCB/components/micras/WallSens
 # Its own sheet in the board schematic (layout/main.kicad_sch); the layout stays the board's.
 Project(name="Sensors", path="layout", layout=False)
 
+# A signal port takes the name of the board net it carries (the firmware's pin label) wherever
+# that name is an identifier, so its sheet pin and hierarchical label match the root's label:
+# KiCad's ERC flags labels whose names differ only in case (similar_labels).
 V3V3 = io(Power)
 GND = io(Ground)
 
@@ -72,24 +75,24 @@ MOTOR_L_SENSE_P = io(Net)
 MOTOR_L_SENSE_N = io(Net)
 MOTOR_R_SENSE_P = io(Net)
 MOTOR_R_SENSE_N = io(Net)
-CURRENT_SENSOR_LEFT = io(Net)
-CURRENT_SENSOR_RIGHT = io(Net)
+Current_Sensor_Left = io(Net)
+Current_Sensor_Right = io(Net)
 
-WALL_SENSOR_PWM_0 = io(Net)
-WALL_SENSOR_PWM_1 = io(Net)
-WALL_SENSOR_PWM_2 = io(Net)
-WALL_SENSOR_PWM_3 = io(Net)
-WALL_SENSOR_0 = io(Net)
-WALL_SENSOR_1 = io(Net)
-WALL_SENSOR_2 = io(Net)
-WALL_SENSOR_3 = io(Net)
+Wall_Sensor_PWM_0 = io(Net)
+Wall_Sensor_PWM_1 = io(Net)
+Wall_Sensor_PWM_2 = io(Net)
+Wall_Sensor_PWM_3 = io(Net)
+Wall_Sensor_0 = io(Net)
+Wall_Sensor_1 = io(Net)
+Wall_Sensor_2 = io(Net)
+Wall_Sensor_3 = io(Net)
 
 ENCODER_RIGHT_SPI = io(Spi)
-ENCODER_RIGHT_ABI_A = io(Net)
-ENCODER_RIGHT_ABI_B = io(Net)
+Encoder_Right_ABI_A = io(Net)
+Encoder_Right_ABI_B = io(Net)
 ENCODER_LEFT_SPI = io(Spi)
-ENCODER_LEFT_ABI_A = io(Net)
-ENCODER_LEFT_ABI_B = io(Net)
+Encoder_Left_ABI_A = io(Net)
+Encoder_Left_ABI_B = io(Net)
 
 # IMU.
 LSM6DSV(
@@ -115,7 +118,7 @@ TSC2020(
     IN_N=MOTOR_R_SENSE_N,
     VREF1=V3V3,
     VREF2=GND,
-    OUT=CURRENT_SENSOR_RIGHT,
+    OUT=Current_Sensor_Right,
 )
 Capacitor(name="C67", P1=GND, P2=V3V3, **C_100N_0402)
 TSC2020(
@@ -126,7 +129,7 @@ TSC2020(
     IN_N=MOTOR_L_SENSE_N,
     VREF1=V3V3,
     VREF2=GND,
-    OUT=CURRENT_SENSOR_LEFT,
+    OUT=Current_Sensor_Left,
 )
 Capacitor(name="C68", P1=GND, P2=V3V3, **C_100N_0402)
 
@@ -148,15 +151,15 @@ def wall_sensor(n, sensor, switch, r_gate, r_pulldown, c_gate, d_clamp, r_emitte
     Capacitor(name=cap, P1=GND, P2=V3V3, **C_1U_0402)
 
 
-wall_sensor(0, "W1", "Q2", "R11", "R12", "C73", "D9", "R13", "R14", "C26", WALL_SENSOR_PWM_0, WALL_SENSOR_0)
-wall_sensor(1, "W2", "Q3", "R15", "R16", "C74", "D10", "R17", "R18", "C27", WALL_SENSOR_PWM_1, WALL_SENSOR_1)
-wall_sensor(2, "W3", "Q4", "R19", "R20", "C75", "D11", "R21", "R22", "C28", WALL_SENSOR_PWM_2, WALL_SENSOR_2)
-wall_sensor(3, "W4", "Q5", "R23", "R24", "C76", "D12", "R25", "R26", "C29", WALL_SENSOR_PWM_3, WALL_SENSOR_3)
+wall_sensor(0, "W1", "Q2", "R11", "R12", "C73", "D9", "R13", "R14", "C26", Wall_Sensor_PWM_0, Wall_Sensor_0)
+wall_sensor(1, "W2", "Q3", "R15", "R16", "C74", "D10", "R17", "R18", "C27", Wall_Sensor_PWM_1, Wall_Sensor_1)
+wall_sensor(2, "W3", "Q4", "R19", "R20", "C75", "D11", "R21", "R22", "C28", Wall_Sensor_PWM_2, Wall_Sensor_2)
+wall_sensor(3, "W4", "Q5", "R23", "R24", "C76", "D12", "R25", "R26", "C29", Wall_Sensor_PWM_3, Wall_Sensor_3)
 
 # Encoder slots.
-EncoderSlot(name="EC1", VDD=V3V3, GND=GND, SPI=ENCODER_RIGHT_SPI, A=ENCODER_RIGHT_ABI_A, B=ENCODER_RIGHT_ABI_B)
+EncoderSlot(name="EC1", VDD=V3V3, GND=GND, SPI=ENCODER_RIGHT_SPI, A=Encoder_Right_ABI_A, B=Encoder_Right_ABI_B)
 Capacitor(name="C69", P1=GND, P2=V3V3, **C_1U_0402)
 Capacitor(name="C70", P1=GND, P2=V3V3, **C_100N_0402)
-EncoderSlot(name="EC2", VDD=V3V3, GND=GND, SPI=ENCODER_LEFT_SPI, A=ENCODER_LEFT_ABI_A, B=ENCODER_LEFT_ABI_B)
+EncoderSlot(name="EC2", VDD=V3V3, GND=GND, SPI=ENCODER_LEFT_SPI, A=Encoder_Left_ABI_A, B=Encoder_Left_ABI_B)
 Capacitor(name="C71", P1=GND, P2=V3V3, **C_1U_0402)
 Capacitor(name="C72", P1=GND, P2=V3V3, **C_100N_0402)

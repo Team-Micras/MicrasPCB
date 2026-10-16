@@ -5430,16 +5430,16 @@
 			)
 		)
 	)
-	(hierarchical_label "SWITCH_0"
+	(hierarchical_label "USB_VBUS_Sense"
 		(shape bidirectional)
-		(at 181.61 132.08 180)
+		(at 152.4 361.95 270)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right)
 		)
-		(uuid "04746aef-8204-5d00-bda6-ea0ec1ecdb5b")
+		(uuid "02b72fb4-8a26-5055-9f8c-7aef04436e4e")
 	)
 	(hierarchical_label "USBD_P"
 		(shape bidirectional)
@@ -5452,6 +5452,28 @@
 		)
 		(uuid "1f438cf5-70fe-50ed-80ef-7d41d4f30674")
 	)
+	(hierarchical_label "Boot"
+		(shape bidirectional)
+		(at 314.96 199.39 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "22ae2cf1-0e3e-58e1-bdad-f273973458dd")
+	)
+	(hierarchical_label "Switch_0"
+		(shape bidirectional)
+		(at 181.61 132.08 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "324013d4-063f-5b7d-83f2-60139e1926d5")
+	)
 	(hierarchical_label "LED_ARGB"
 		(shape bidirectional)
 		(at 416.56 68.58 180)
@@ -5463,62 +5485,18 @@
 		)
 		(uuid "5c953023-b2bb-5e1a-b46f-42ea071faff4")
 	)
-	(hierarchical_label "BOOT"
+	(hierarchical_label "Switch_2"
 		(shape bidirectional)
-		(at 314.96 199.39 90)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "667684bd-ced1-5a82-b96a-5e9e0546076d")
-	)
-	(hierarchical_label "BUZZER"
-		(shape bidirectional)
-		(at 118.11 361.95 270)
+		(at 181.61 137.16 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right)
 		)
-		(uuid "6e30aa5a-4067-51ec-af46-03fe87c8f1cf")
+		(uuid "7c31381b-a611-5cf1-acf5-49bc60184a0a")
 	)
-	(hierarchical_label "LED_RED"
-		(shape bidirectional)
-		(at 240.03 306.07 270)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "6f3f33ca-036f-5301-be0b-a10cae198dcb")
-	)
-	(hierarchical_label "BUTTON"
-		(shape bidirectional)
-		(at 251.46 199.39 90)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "77b3b50a-ca69-5fd0-9346-1bff641e97a6")
-	)
-	(hierarchical_label "SWITCH_1"
-		(shape bidirectional)
-		(at 181.61 134.62 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "9242e141-d137-5527-b4d0-4b4b151aca13")
-	)
-	(hierarchical_label "SWITCH_3"
+	(hierarchical_label "Switch_3"
 		(shape bidirectional)
 		(at 181.61 139.7 180)
 		(effects
@@ -5527,7 +5505,18 @@
 			)
 			(justify right)
 		)
-		(uuid "9604e25d-def4-5a11-a1aa-ab428418d05a")
+		(uuid "8f326ee3-e2e9-5a84-9211-2b1135eb42a2")
+	)
+	(hierarchical_label "Reset"
+		(shape bidirectional)
+		(at 283.21 199.39 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "9a96dd7f-72b3-57e2-b037-30ac9bacb220")
 	)
 	(hierarchical_label "USBD_N"
 		(shape bidirectional)
@@ -5540,38 +5529,49 @@
 		)
 		(uuid "a12784b3-ba40-58ef-89c8-0ff613409865")
 	)
-	(hierarchical_label "USB_VBUS_SENSE"
+	(hierarchical_label "Button"
 		(shape bidirectional)
-		(at 152.4 361.95 270)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "af140d14-cd5c-53c4-93d5-13ff7f8c58ac")
-	)
-	(hierarchical_label "SWITCH_2"
-		(shape bidirectional)
-		(at 181.61 137.16 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "d5a7b533-8d91-5f99-8181-086c1523bcf7")
-	)
-	(hierarchical_label "RESET"
-		(shape bidirectional)
-		(at 283.21 199.39 90)
+		(at 251.46 199.39 90)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify left)
 		)
-		(uuid "e5659c72-9cef-5256-8c10-79c73528de3a")
+		(uuid "a9171465-3738-5cbb-bfc2-61338252bbe9")
+	)
+	(hierarchical_label "Buzzer"
+		(shape bidirectional)
+		(at 118.11 361.95 270)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "c620774c-da22-57b9-bfb6-d2a8f730c437")
+	)
+	(hierarchical_label "LED_Red"
+		(shape bidirectional)
+		(at 240.03 306.07 270)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "fbdb28e1-9192-51a7-8982-807a450de09d")
+	)
+	(hierarchical_label "Switch_1"
+		(shape bidirectional)
+		(at 181.61 134.62 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "fde9a4fc-d312-56d8-a49f-b0eeb63bc0fa")
 	)
 	(symbol
 		(lib_id "GT-TC048B-H025-L1")
