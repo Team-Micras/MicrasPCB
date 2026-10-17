@@ -1,0 +1,93 @@
+* (d) separate rails: buck 3V3 digital; 5 V buck -> TPS7A20-class LDO 3V3A for VDDA + sensors; emitters from 5 V through constant-current sinks (170 mA)
+
+* Emitter gate: one emitter at a time; frame 1 ms = 5 ends of 200 us; emitter lit 150 us at ends 0..3
+Bgate graw 0 V = (time > 0.008) ? ( ((time-0.008) - floor((time-0.008)/1m)*1m) < 0.8m ? ( (((time-0.008) - floor((time-0.008)/0.2m)*0.2m) < 0.15m) ? 1 : 0 ) : 0 ) : 0
+Rg graw g 1k
+Cg g 0 0.1n
+
+.model dled D(IS=1.3e-9 N=3.02 RS=0.8)
+.model swm SW(RON=0.05 ROFF=1e6 VT=0.5 VH=0.05)
+
+* bk: averaged L6981-like buck, Vref=3.3 V, K=7.654 A/V 
+Bbke bk_e 0 V = 3.3 - v(v3)
+Bbkr bk_r 0 V = 7.65406*v(bk_e) + v(bk_i)
+Bbki 0 bk_i I = 144276*v(bk_e) + 5e4*(v(bk_c) - v(bk_r))
+Cbki bk_i 0 1
+Rbki bk_i 0 1e9
+Bbkc bk_c 0 V = max(0, min(2.0, v(bk_r)))
+Rbkl bk_c bk_l 2k
+Cbkl bk_l 0 1n
+Gbko 0 v3 bk_l 0 1
+.ic v(bk_i)=0.2 v(v3)=3.3
+CCb v3_Cb 0 58u
+RCbesr v3 v3_Cb 0.003
+
+* MCU (DS13311 Table 24: 125 mA typ SMPS ON, 550 MHz, all peripherals) + encoders 2x16 mA + IMU/amps
+Imcu v3 0 0.17
+Iesp v3 0 PWL(0 0.088 0.00835 0.088 0.008351 0.340 0.00935 0.340 0.009351 0.088)
+
+* b5: averaged L6981-like buck, Vref=5.0 V, K=5.052 A/V 
+Bb5e b5_e 0 V = 5.0 - v(v5)
+Bb5r b5_r 0 V = 5.05168*v(b5_e) + v(b5_i)
+Bb5i 0 b5_i I = 95221.9*v(b5_e) + 5e4*(v(b5_c) - v(b5_r))
+Cb5i b5_i 0 1
+Rb5i b5_i 0 1e9
+Bb5c b5_c 0 V = max(0, min(2.0, v(b5_r)))
+Rb5l b5_c b5_l 2k
+Cb5l b5_l 0 1n
+Gb5o 0 v5 b5_l 0 1
+.ic v(b5_i)=0.2 v(v5)=5.0
+CCb5 v5_Cb5 0 30u
+RCb5esr v5 v5_Cb5 0.003
+
+* la: behavioural LDO, Vref=3.3 V, unity-gain ~600 kHz with 1.0 uF, Ilim 0.3 A
+Blae la_e 0 V = 3.3 - v(va)
+Blar la_r 0 V = 3.76991*v(la_e) + v(la_i)
+Blai 0 la_i I = 473741*v(la_e) + 5e4*(v(la_c) - v(la_r))
+Clai la_i 0 1
+Rlai la_i 0 1e9
+Blac la_c 0 V = max(0, min(0.3, v(la_r)))
+Rlal la_c la_l 100
+Clal la_l 0 1n
+* pass element: current command, only while there is headroom (crude dropout ~150 mV)
+Blao v5 va I = v(la_l) * min(1, max(0, (v(v5) - v(va) - 0.05) / 0.1))
+.ic v(la_i)=0.05 v(va)=3.3
+CCa va_Ca 0 2.2u
+RCaesr va va_Ca 0.005
+Iana va 0 6m
+Rva va vdda 0.05
+CC11 vdda_C11 0 1u
+RC11esr vdda vdda_C11 0.01
+CC10 vdda_C10 0 100n
+RC10esr vdda vdda_C10 0.02
+Iadc vdda 0 1.5m
+Rtr v5 vs 0.05
+Ltr vs vsx 40n
+Rtrx vsx vsn 1m
+CCs vsn_Cs 0 4u
+RCsesr vsn vsn_Cs 0.005
+Dled vsn a dled
+Vmeas a ax 0
+Bcc ax 0 I = 0.170*v(g)*min(1, max(0, v(ax)/0.3))
+
+
+.control
+  set noaskquit
+  tran 0.1u 0.011 0.0075 0.1u uic
+  meas tran v3_pre FIND v(v3) AT=0.010199000000000001
+  meas tran v3_min MIN v(v3) FROM=0.0102 TO=0.010350000000000002
+  meas tran v3_75 FIND v(v3) AT=0.010275000000000001
+  meas tran v3_150 FIND v(v3) AT=0.010349
+  meas tran vdda_pre FIND v(vdda) AT=0.010199000000000001
+  meas tran vdda_min MIN v(vdda) FROM=0.0102 TO=0.010350000000000002
+  meas tran vdda_max MAX v(vdda) FROM=0.0102 TO=0.010400000000000001
+  meas tran vdda_75 FIND v(vdda) AT=0.010275000000000001
+  meas tran vdda_150 FIND v(vdda) AT=0.010349
+  meas tran iled_75 FIND i(Vmeas) AT=0.010275000000000001
+  meas tran iled_150 FIND i(Vmeas) AT=0.010349
+  meas tran v3_ppall PP v(v3) FROM=0.009000000000000001 TO=0.011
+  meas tran vdda_ppall PP v(vdda) FROM=0.009000000000000001 TO=0.011
+  wrdata d.dat v(v3) v(vdda) i(Vmeas) v(v5) v(va)
+.endc
+
+.end

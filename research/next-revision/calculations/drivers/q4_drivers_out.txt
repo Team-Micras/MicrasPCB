@@ -1,0 +1,27 @@
+Loss per bridge at 16.8 V, 100 kHz, ripple 0.69 A pp included (W). typ@25C | max@hot
+driver    I (A) |   cond     sw   dead  quies  total | total max hot | % of 0.5xVxI
+L6205D      0.5 |  0.180  0.084  0.115  0.042  0.421 |         0.748 |  10.0 % typ,  17.8 % max
+L6205D      1.0 |  0.645  0.168  0.230  0.042  1.085 |         1.928 |  12.9 % typ,  23.0 % max
+L6205D      3.0 |  5.605  0.504  0.690  0.042  6.841 |        12.248 |  27.1 % typ,  48.6 % max
+DRV8874     0.5 |  0.058  0.126  0.009  0.050  0.243 |         0.340 |   5.8 % typ,   8.1 % max
+DRV8874     1.0 |  0.208  0.252  0.018  0.050  0.528 |         0.700 |   6.3 % typ,   8.3 % max
+DRV8874     3.0 |  1.808  0.756  0.054  0.050  2.668 |         3.640 |  10.6 % typ,  14.4 % max
+DRV8262     0.5 |  0.029  0.092  0.030  0.042  0.193 |         0.243 |   4.6 % typ,   5.8 % max
+DRV8262     1.0 |  0.104  0.185  0.060  0.042  0.391 |         0.503 |   4.7 % typ,   6.0 % max
+DRV8262     3.0 |  0.904  0.554  0.180  0.042  1.680 |         2.465 |   6.7 % typ,   9.8 % max
+
+L6205D   package: run 1.0 A rms both motors  3.86 W -> + 197 K steady (RthJA 51.0) | 1 s stall at 3 A both motors 24.50 W -> <= 1249 K (steady-state bound; no transient Zth published)
+DRV8874  package: run 1.0 A rms both motors  0.70 W -> +  25 K steady (RthJA 36.0) | 1 s stall at 3 A both motors  3.64 W ->    55 K (Zth 1 s 15.0 C/W)
+DRV8262  package: run 1.0 A rms both motors  1.01 W -> +  22 K steady (RthJA 22.2) | 1 s stall at 3 A both motors  4.93 W ->    23 K (Zth 1 s 4.7 C/W)
+
+L6205D   VM 16.8 V: unregulated stall 4.77 A, full-speed reversal 6.27 A
+L6205D   VM 12.0 V: unregulated stall 3.41 A, full-speed reversal 4.91 A
+DRV8874  VM 16.8 V: unregulated stall 5.42 A, full-speed reversal 7.12 A
+DRV8874  VM 12.0 V: unregulated stall 3.87 A, full-speed reversal 5.57 A
+DRV8262  VM 16.8 V: unregulated stall 5.60 A, full-speed reversal 7.36 A
+DRV8262  VM 12.0 V: unregulated stall 4.00 A, full-speed reversal 5.76 A
+L6205 ISOVER 4.0 / 5.6 / 7.1 A; DRV8874 IOCP 6 A min (10 A typ); DRV8262 IOCP 8 A min per FET
+
+L6205D   duty distortion ~10.0 % at 100 kHz = 1.68 V =  579 mA at stall (DCX 10 L 2.9 ohm)
+DRV8874  duty distortion ~ 1.0 % at 100 kHz = 0.17 V =   58 mA at stall (DCX 10 L 2.9 ohm)
+DRV8262  duty distortion ~ 3.0 % at 100 kHz = 0.50 V =  174 mA at stall (DCX 10 L 2.9 ohm)

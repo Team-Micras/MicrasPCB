@@ -1,0 +1,52 @@
+"""WS2812C-2020-V6 - 3.3-5.3 V addressable RGB LED, single-wire data, 2.2 x 2.0 mm SMD-4P.
+
+Datasheet: Worldsemi WS2812C-2020-V6 V1.0 (2026-05-21, "upgraded from the WS2812C-2020-V1"),
+9 pages, LCSC C55109522 ("WS-DS").
+
+Supply: VDD +3.3 to +5.3 V (WS-DS p.2, maximum ratings table, "电源电压"); the LED is rated at
+5 V and the driving voltage must never exceed 7 V; a reversed supply does not damage it; static
+current below 1 uA; "stable supply down to 3.3 V" (p.1 features). The electrical, switching and
+LED tables are given at VDD = 5 V only: 3.3 V appears only in the feature text and the ratings
+range, so brightness and colour at the bottom of a 3.3 V rail are not specified (TODO: bench
+check of blue and green at 3.2-3.3 V). VDD is declared with the 3.3-5.3 V range, so a rail whose
+declared range dips below 3.3 V raises a build warning.
+
+Data (WS-DS p.3, VDD = 5 V): DI VIH 0.55 x VDD min (1.82 V at 3.3 V), VIL 0.7 V max, input
+range -0.3 V to VDD + 0.7 V (p.2), input current +-1 uA, input capacitance 15 pF max; DI to DO
+delay 300 ns max. DI and DO are interchangeable ("输入输出信号任意对调，不分方向", p.2 pin table).
+Bit timing (p.3-4): T0H 220-380 ns, T1H 580 ns-1 us, T0L 580 ns-1 us, T1L 580 ns-1 us (the
+low times are capped at 1 us, unlike the WS2815C's 5 us), reset (RES) low >= 280 us; up to
+800 kbit/s; 24 bits per LED, GRB order, MSB first. DO re-shapes and forwards the data.
+
+Current: 5 mA per colour channel (p.1 features); LED table (p.3) at 5 mA: red 100-150 mcd
+620-630 nm, green 250-400 mcd 520-530 nm, blue 45-75 mcd 464-470 nm.
+
+External parts: a 100 nF filter capacitor on VDD ("C1 ... 一般取值 100NF", p.5 typical
+application circuit); integrator-owned.
+
+Pins (p.2, "引出端排列及功能"): 1 DO, 2 GND, 3 DI, 4 VDD; same top-view arrangement as the
+WS2815C-2020-4P. Package (p.2): 2.20 x 2.00 mm, 0.84 mm high; solder pad drawing 0.7 x 0.7 mm
+pads, 1.13 mm apart across the body and 0.40 mm along it. Footprint: the LCSC/EasyEDA land of
+C55109522, identical to the WS2815C-2020-4P's: pad 1 (-0.865, -0.55), 2 (-0.865, +0.55),
+3 (+0.865, +0.55), 4 (+0.865, -0.55), 0.8 x 0.8 mm. Moisture sensitivity level 5a; bake 70-75 C
+for >= 24 h (reel) or 120 C for 4 h (loose) before reflow (p.8).
+"""
+
+VDD = io(Power(voltage="3.3V to 5.3V"))
+GND = io(Ground)
+DI = io(Net)
+DO = io(Net)
+
+Component(
+    name="LED",
+    prefix="D",
+    symbol=Symbol(library="WS2812C-2020.kicad_sym"),
+    footprint=File("LED-SMD_4P-L2.2-W2.0-P1.00_WS2812C-2020-V6.kicad_mod"),
+    part=Part(mpn="WS2812C-2020-V6", manufacturer="Worldsemi"),
+    pins={
+        "DO": DO,
+        "GND": GND,
+        "DI": DI,
+        "VDD": VDD,
+    },
+)

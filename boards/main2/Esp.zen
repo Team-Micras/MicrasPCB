@@ -1,0 +1,175 @@
+"""ESP32-S3-MINI-1-N8: the radio, the USB device and the MCU's debug probe (research/next-revision,
+ESP32 and USB, ESP32 form factor and A.6).
+
+The module, U13 (Espressif ESP32-S3-MINI-1 & MINI-1U datasheet v1.7), replaces the HM-19 module
+and the SWD connector P1: it bridges the PC's USB to the MCU's UART4, flashes and debugs the MCU
+over SWD (CMSIS-DAP over USB and over Wi-Fi), and relays Wi-Fi and Bluetooth LE telemetry. The
+S3 is the Wi-Fi/BLE ESP32 with a general-purpose USB OTG controller (ESP32-S3 datasheet section
+4.2.1.7), so the one USB-C port can be a CMSIS-DAP v2 probe, a CDC serial port and a mass-storage
+drive at once (research Q2). Fallback, same footprint family: the ESP32-S3-MINI-1U-N8 (LCSC
+C2980299) with an external antenna, if the PCB antenna's overhang is rejected (TODO: the antenna
+bench test in the chassis decides; research ESP32 form factor).
+
+Placement (a layout decision for the owner): the rear-left corner with the PCB antenna 5.05 mm
+beyond the rear edge, its feed end at the corner; it needs the screw hole M1 moved, the corner
+squared and the left drive block about 1 mm forward. Keep the antenna area free of copper on
+every layer (the footprint carries the keep-out), the module away from the bridges and the
+USB/UART lines, and dense GND vias along the antenna edge.
+
+Supply (Table 6-2: 3.0-3.6 V, at least 0.5 A; Wi-Fi TX peaks 355 mA, Table 6-4): 3V3_D from the
+L6981C33 (1.5 A), with C107 10 uF and C108 100 nF at the module and C109 22 uF DNP (Figure 9-1
+shows 22 uF + 0.1 uF; with C109 fitted 3V3_D carries about 104 uF, inside the buck's
+30.5-145 uF window, boards/main2/test/test_power.zen). The EPAD is on GND.
+
+EN: R89 10 kOhm to 3V3_D and C110 1 uF to GND, the RC delay of section 9 ("usually R = 10 kOhm
+and C = 1 uF"), so EN rises after 3V3_D. The ESP_EN pad pulls it to GND (reset).
+GPIO0 (strapping: low at reset enters ROM download, Table 4-1): R90 10 kOhm to 3V3_D (the
+schematic checklist recommends a pull-up) and the ESP_BOOT pad to GND. Recovery: a crashed USB
+OTG application leaves the PC no USB device; hold ESP_BOOT to GND and pulse ESP_EN (research,
+Recovery). Pads rather than buttons: recovery is rare, and the rear-left corner is tight.
+The other strapping pins, GPIO3, GPIO45 and GPIO46, are left open (their defaults, Table 4-1).
+
+USB: USBD_P/USBD_N from the USB-C receptacle (through the USBLC6 U6, peripherals sheet) to
+GPIO20 (USB_D+) and GPIO19 (USB_D-) through R84/R85 22 Ohm close to the module (checklist, USB:
+"reserve series resistors (initial value can be 22/33 Ohm)"). Route 90 Ohm differential, short,
+away from the antenna.
+
+Links to the MCU (A.6). Host lines stay off the strapping pins:
+- SWD: GPIO11 to SWDIO (PA13); GPIO12, SPI-capable for SWD acceleration, to SWCLK (PA14) through
+  R86 22 Ohm (checklist, SPI: a series resistor on the clock trace).
+- NRST: GPIO13 to Reset, driven open-drain by the firmware (NRST has its 30-50 kOhm pull-up, SW3
+  and C21; DS13311 Table 61).
+- BOOT0 (optional, research Flashing): GPIO14 through R87 1 kOhm, so SW5 (to 3V3_D) and the ESP
+  pin never fight; driven high, BOOT0 sits at 3.3 x 10 / 11 = 3.0 V against R42 10 kOhm. While
+  GPIO14 is high impedance at the ESP's reset, R42 holds BOOT0 low.
+- UART (UART1, IO MUX pins of Table 3-1, not UART0, which carries the ROM messages): GPIO17
+  U1TXD through R88 100 Ohm (checklist, UART: a series resistor on TX) to UART4_RX (PA11),
+  GPIO18 U1RXD from UART4_TX (PA12). Up to 5 Mbaud (research H7 data link).
+- GPIO21 to ESP_Flow (PH1), the flow-control line toward the MCU.
+Battery monitor (U9 INA228, regulators sheet): GPIO8 BAT_SDA, GPIO9 BAT_SCL, GPIO10 BAT_ALERT
+(pull-ups at U9). The MCU has no free I2C pins; the ESP relays the readings over UART4.
+VBUS detect: R91 22 kOhm / R92 33 kOhm from +5V into ESP_VBUS_Sense (GPIO7, ADC1_CH6):
+5.25 V x 33 / 55 = 3.15 V at most (below VDD + 0.3 V) and 4.4 V x 0.6 = 2.64 V at least (above
+VIH 0.75 x VDD = 2.48 V; Table 6-3). The ESP reports USB power to the MCU over UART4, which
+has no VBUS sense of its own (boards/main2/firmware_changes.toml, esp).
+"""
+
+load("@stdlib/interfaces.zen", "DiffPair", "I2c", "Usb2")
+load(
+    "./passives.zen",
+    "C_100N_0402",
+    "C_10U_0603",
+    "C_1U_0402",
+    "C_22U_0805_25V",
+    "R_100_0402",
+    "R_10K_0402",
+    "R_1K_0402",
+    "R_22K_0402",
+    "R_22_0402",
+    "R_33K_0402",
+)
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+ESP32_S3_MINI_1 = Module("github.com/Team-Micras/MicrasPCB/components/espressif/ESP32-S3-MINI-1/ESP32-S3-MINI-1.zen")
+TestPoint = Module("github.com/Team-Micras/MicrasPCB/components/micras/TestPoint/TestPoint.zen")
+
+# Its own sheet in the board schematic (layout/main2.kicad_sch).
+Project(name="Esp", path="layout", layout=False)
+
+# A signal port takes the name of the board net it carries (the firmware's pin label) wherever
+# that name is an identifier, so its sheet pin and hierarchical label match the root's label:
+# KiCad's ERC flags labels whose names differ only in case (similar_labels).
+V3V3_D = io(Power)
+V5V = io(Power)
+GND = io(Ground)
+USB = io(Usb2)
+SWDIO = io(Net)
+SWCLK = io(Net)
+Reset = io(Net)
+Boot = io(Net)
+UART4_RX = io(Net)
+UART4_TX = io(Net)
+ESP_Flow = io(Net)
+BAT_I2C = io(I2c)
+BAT_ALERT = io(Net)
+
+ESP_EN = Net("ESP_EN")
+ESP_BOOT = Net("ESP_BOOT")
+ESP_USB = Usb2(D=DiffPair(P=Net("ESP_USB_D_P"), N=Net("ESP_USB_D_N")))
+ESP_SWCLK = Net("ESP_SWCLK")
+ESP_BOOT0 = Net("ESP_BOOT0")
+ESP_TXD = Net("ESP_TXD")
+ESP_VBUS_SENSE = Net("ESP_VBUS_Sense")
+
+NC = NotConnected
+
+ESP32_S3_MINI_1(
+    name="U13",
+    V3V3=V3V3_D,
+    GND=GND,
+    EN=ESP_EN,
+    USB=ESP_USB,
+    IO0=ESP_BOOT,
+    IO1=NC(),
+    IO2=NC(),
+    IO3=NC(),
+    IO4=NC(),
+    IO5=NC(),
+    IO6=NC(),
+    IO7=ESP_VBUS_SENSE,
+    IO8=BAT_I2C.SDA,
+    IO9=BAT_I2C.SCL,
+    IO10=BAT_ALERT,
+    IO11=SWDIO,
+    IO12=ESP_SWCLK,
+    IO13=Reset,
+    IO14=ESP_BOOT0,
+    IO15=NC(),
+    IO16=NC(),
+    IO17=ESP_TXD,
+    IO18=UART4_TX,
+    IO21=ESP_Flow,
+    IO26=NC(),
+    IO33=NC(),
+    IO34=NC(),
+    IO35=NC(),
+    IO36=NC(),
+    IO37=NC(),
+    IO38=NC(),
+    IO39=NC(),
+    IO40=NC(),
+    IO41=NC(),
+    IO42=NC(),
+    IO43=NC(),
+    IO44=NC(),
+    IO45=NC(),
+    IO46=NC(),
+    IO47=NC(),
+    IO48=NC(),
+)
+
+# Supply.
+Capacitor(name="C107", P1=GND, P2=V3V3_D, **C_10U_0603)
+Capacitor(name="C108", P1=GND, P2=V3V3_D, **C_100N_0402)
+Capacitor(name="C109", P1=GND, P2=V3V3_D, dnp=True, **C_22U_0805_25V)
+
+# EN and GPIO0: RC delay, pull-up, recovery pads.
+Resistor(name="R89", P1=V3V3_D, P2=ESP_EN, **R_10K_0402)
+Capacitor(name="C110", P1=GND, P2=ESP_EN, **C_1U_0402)
+Resistor(name="R90", P1=V3V3_D, P2=ESP_BOOT, **R_10K_0402)
+TestPoint(name="ESP_EN", prefix="ESP_EN", P1=ESP_EN)
+TestPoint(name="ESP_BOOT", prefix="ESP_BOOT", P1=ESP_BOOT)
+
+# USB.
+Resistor(name="R84", P1=USB.D.P, P2=ESP_USB.D.P, **R_22_0402)
+Resistor(name="R85", P1=USB.D.N, P2=ESP_USB.D.N, **R_22_0402)
+
+# MCU links.
+Resistor(name="R86", P1=ESP_SWCLK, P2=SWCLK, **R_22_0402)
+Resistor(name="R87", P1=ESP_BOOT0, P2=Boot, **R_1K_0402)
+Resistor(name="R88", P1=ESP_TXD, P2=UART4_RX, **R_100_0402)
+
+# VBUS detect.
+Resistor(name="R91", P1=V5V, P2=ESP_VBUS_SENSE, **R_22K_0402)
+Resistor(name="R92", P1=GND, P2=ESP_VBUS_SENSE, **R_33K_0402)

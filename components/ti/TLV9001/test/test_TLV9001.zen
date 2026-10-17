@@ -1,0 +1,59 @@
+"""TLV9001 package facts (TI SBOS833R) and its headroom as the IR emitter current-sink amplifier."""
+
+OPAMP = Module("../TLV9001.zen")
+
+# The emitter sink of the next main board (research/next-revision A.4): 170 mA through 1.2 Ohm,
+# so IN+ and IN- sit at 0.204 V; the AO3400A gate needs about 2.5 V (VGS at 170 mA plus the
+# sense voltage).
+SENSE_V = 0.170 * 1.2
+GATE_V = 2.5
+
+
+def part(module):
+    return module.components()["TLV9001"]
+
+
+def orderable_part(module, inputs):
+    c = part(module)
+    check(c.mpn == "TLV9001IDBVR", "MPN must be TLV9001IDBVR, got " + str(c.mpn))
+    check(c.manufacturer == "Texas Instruments", "manufacturer")
+    check(c.prefix == "U", "reference prefix must be U")
+
+
+def pinout(module, inputs):
+    # Figure 6-1 / Table 6-1, TLV9001 DBV: 1 OUT, 2 V-, 3 IN+, 4 IN-, 5 V+.
+    pins = part(module).pins
+    check(sorted(pins.keys()) == ["+", "-", "OUT", "V+", "V-"], "pins: " + str(sorted(pins.keys())))
+    check(pins["+"].name == "SETPOINT", "IN+ must be the IN_P io")
+    check(pins["-"].name == "SENSE", "IN- must be the IN_N io")
+    check(pins["OUT"].name == "GATE", "OUT must be the OUT io")
+    check(pins["V+"].name == "V3V3_A", "V+ must be the VCC io")
+    check(pins["V-"].name == "GND", "V- must be the GND io")
+
+
+def current_sink_headroom(module, inputs):
+    vcc = part(module).pins["V+"].voltage
+    # Section 7.10: input common mode (V-) - 0.1 V to (V+) + 0.1 V; the set-point and the sense
+    # voltage must be inside it at the lowest supply.
+    check(SENSE_V > -0.1 and SENSE_V < vcc.min + 0.1, "the 0.204 V sense voltage is outside the input range")
+    # Section 7.10: output swing within 55 mV of the rails (RL 2 kOhm, the heavier of the two
+    # specified loads; the gate is a capacitive load).
+    check(GATE_V < vcc.min - 0.055, "OUT cannot reach the 2.5 V gate drive at V+ = " + str(vcc.min) + " V")
+    # Section 7.10: VOS +-2 mV max over -40 to 125 C; keep the set-point error under 1 %.
+    check(0.002 / SENSE_V <= 0.0100, "VOS is above 1 % of the set-point")
+
+
+TestBench(
+    name="TLV9001_emitter_sink",
+    module=OPAMP,
+    test_cases={
+        "3v3_a": {
+            "VCC": Power("V3V3_A", voltage="3.24V to 3.36V"),
+            "GND": Ground("GND"),
+            "IN_P": Net("SETPOINT"),
+            "IN_N": Net("SENSE"),
+            "OUT": Net("GATE"),
+        },
+    },
+    checks=[orderable_part, pinout, current_sink_headroom],
+)

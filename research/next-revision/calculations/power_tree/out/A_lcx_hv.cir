@@ -1,0 +1,77 @@
+* (A) analog buck FPWM (TPS560430X3F-like) + post-filter 'lcx'
+
+* 4S battery 14.8 V + motor PWM ripple (100 kHz) + fan (300 kHz), assumed amplitudes
+Vbatdc b0 0 14.8
+Btri b1 b0 V = 0.21*(2*abs(2*(time*100e3 - floor(time*100e3 + 0.5))) - 1)/2
+Bsq b2 b1 V = 0.09*((time*100e3 - floor(time*100e3)) < 0.5 ? 0.5 : -0.5)
+Bfan b3 b2 V = 0.1*((time*300e3 - floor(time*300e3)) < 0.37 ? 0.5 : -0.5)
+Rsrc b3 vbat 0.1
+Cbat vbat 0 1u
+
+* digital 3V3_D: averaged L6981C33, K=7.654 A/V, 58 uF eff
+Bde de 0 V = 3.3 - v(v3d)
+Bdr dr 0 V = 7.65406*v(de) + v(di)
+Bdi 0 di I = 144276*v(de) + 5e4*(v(dc) - v(dr))
+Cdi di 0 1
+Rdi di 0 1e9
+Bdc dc 0 V = max(0, min(2.0, v(dr)))
+Rdl dc dl 2k
+Cdl dl 0 1n
+Gdo 0 v3d dl 0 1
+Cdo v3d v3d_c 58u
+Rdo v3d_c 0 3m
+Bdload v3d 0 I = (0.170 + (((time - floor(time/1.5m)*1.5m) > 0.3m) && ((time - floor(time/1.5m)*1.5m) < 0.7m) ? 0.355 : 0.095) + 0.170*(((time > 0.001) ? ( ((time-0.001) - floor((time-0.001)/1m)*1m) < 0.8m ? ( (((time-0.001) - floor((time-0.001)/0.2m)*0.2m) < 0.15m) ? 1 : 0 ) : 0 ) : 0)))
+Bdin vbat 0 I = v(v3d)*(0.170 + (((time - floor(time/1.5m)*1.5m) > 0.3m) && ((time - floor(time/1.5m)*1.5m) < 0.7m) ? 0.355 : 0.095) + 0.170*(((time > 0.001) ? ( ((time-0.001) - floor((time-0.001)/1m)*1m) < 0.8m ? ( (((time-0.001) - floor((time-0.001)/0.2m)*0.2m) < 0.15m) ? 1 : 0 ) : 0 ) : 0)))/(0.88*max(v(vbat),3))
+.ic v(di)=0.4 v(v3d)=3.3
+
+* ab: generic peak-current-mode buck, FPWM, fSW 1100 kHz, L 12.0 uH, COUT 15.0 uF eff, K 5.18 A/V
+Vabclk abclk 0 PULSE(0 1 0 1n 1n 20n 9.09091e-07)
+Vabrmp abrmp 0 PULSE(0 1 0 9.07091e-07 1n 0 9.09091e-07)
+Babe abe 0 V = 3.3 - v(va0)
+Babraw abraw 0 V = 5.18363*v(abe) + v(abvi)
+Babpk abpk 0 V = max(-0.5, min(1.1, v(abraw)))
+Babvi 0 abvi I = 325697*v(abe) + 2e5*(v(abpk) - v(abraw))
+Cabvi abvi 0 1
+Rabvi abvi 0 1e9
+Babrst abrst 0 V = (v(abrmp) > 0.89) ? 1 : ((v(abrmp) > 0.066) ? 0.5*(1+tanh((v(abil) + 0.175*v(abrmp) - v(abpk))*400)) : 0)
+Babset abset 0 V = v(abclk)*1
+Babq 0 abq I = 2e-3*(v(abset)*(1-v(abq))*(1-v(abrst)) - v(abrst)*v(abq))
+Cabq abq 0 1p
+Rabq abq 0 1e9
+Babil 0 abil I = 1 ? (v(abq)*v(vbat) - v(va0) - 0.35*v(abil)) : max(0, (v(abq)*v(vbat) - v(va0) - 0.35*v(abil)))
+Cabil abil 0 1.2e-05
+Rabil abil 0 1e6
+Gabo 0 va0 abil 0 1
+Babin vbat 0 I = v(abq)*v(abil)
+Cabo va0 abo1 1.5e-05
+Rabo abo1 abo2 0.005
+Labo abo2 0 5e-10
+.ic v(abvi)=0.02 v(va0)=3.3 v(abil)=0.02 v(abq)=0
+Rpf va0 pf1 0.05
+Lpf pf1 va 2.2u
+Cpf va pfc 15u
+Rpfc pfc 0 5m
+Rdmp va pfd 0.33
+Cdmp pfd 0 30u
+
+* 3V3_A loads: 2 x INA241A2 (2 x 2.5 mA), op-amp+divider 0.3 mA, ambient photocurrents 4 x 0.3 mA,
+* lit phototransistor 2 mA during the pulse, ADC 1.0 mA + 0.7 mA during scans (VDDA pin)
+Iana va 0 6.5m
+Bphoto va 0 I = 2m*((time > 0.001) ? ( ((time-0.001) - floor((time-0.001)/1m)*1m) < 0.8m ? ( (((time-0.001) - floor((time-0.001)/0.2m)*0.2m) < 0.15m) ? 1 : 0 ) : 0 ) : 0)
+
+* VDDA pin: trace + 1 uF + 100 nF at the pin (AN5419 Table 2), ADC current
+Rvd va vdda 0.02
+Cvd1 vdda vdda_1 1u
+Rvd1 vdda_1 0 10m
+Cvd2 vdda vdda_2 100n
+Rvd2 vdda_2 0 20m
+Badc vdda 0 I = 1.0m + 0.7m*((time > 0.001) ? ( ((((time-0.001) - floor((time-0.001)/0.2m)*0.2m) > 75u) && (((time-0.001) - floor((time-0.001)/0.2m)*0.2m) < 0.15m)) ? 1 : 0 ) : 0)
+
+.options method=gear reltol=1e-4 abstol=1e-9 vntol=1e-7 itl4=200
+.control
+  set noaskquit
+  tran 2e-08 0.007 0.002 5n uic
+  linearize v(vdda) v(v3d) v(vbat) v(va0)
+  wrdata A_lcx_hv.dat v(vdda) v(v3d) v(vbat) v(va0)
+.endc
+.end

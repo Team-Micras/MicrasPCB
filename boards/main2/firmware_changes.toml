@@ -1,0 +1,66 @@
+# Firmware changes the main2 board needs against the v1 firmware (boards/main/firmware.toml, from
+# MicrasFirmware), on top of boards/main/firmware_changes.toml (C1 and M11 apply first and the
+# changes below move their pins: the battery divider to PC5, PH0 to Switch_0, PA5 to the emitter
+# DAC; m17, the pull-up on UART4_RX, carries over). tests/test_main2.py checks the board against
+# firmware.toml with both files applied in order. Format:
+# tools/micras_pcb/firmware.py. Sources: research/next-revision/README.md and the board's sheets.
+
+[[change]]
+id = "drive"
+summary = "DRV8874 bridges in PH/EN mode (PMODE = GND, SLVSF66A Table 3): the timer PWM on EN, the direction on PH as a GPIO, replacing the L6205 IN1/IN2 forward/backward PWM pairs. EN = 0 is the low-side brake, so the bridge alternates drive and slow decay"
+pins = { "PA8" = { signal = "S_TIM1_CH1", label = "Motor_Right_EN" }, "PA9" = { signal = "GPIO_Output", label = "Motor_Right_PH" }, "PC7" = { signal = "S_TIM3_CH2", label = "Motor_Left_EN" }, "PC9" = { signal = "GPIO_Output", label = "Motor_Left_PH" } }
+behaviour = { motor_pwm = "100 kHz (the DRV8874's fPWM maximum, below the INA241's 125 kHz PWM rejection), centre-aligned, unipolar sign-magnitude; TIM3 slaved to TIM1 over ITR with the two bridges 180 degrees apart; duty feed-forward scaled by the measured VBAT", motor_polarity = "forward = PH high: OUT1 high, current from the bridge through the shunt into connector pin 2 (M2 right, M1 left); check each wheel's sign on the bench" }
+
+[[change]]
+id = "sleep"
+summary = "Motors_Enable (PA10) drives both DRV8874 nSLEEP inputs (R49 holds them asleep in reset): high wakes the bridges, which need up to 1 ms (tWAKE, SLVSF66A section 6.5) before the first PWM edge; PMODE and IMODE latch on that wake"
+behaviour = { motors_enable = "set Motors_Enable at least 1 ms before driving EN; clear it to sleep both bridges (outputs Hi-Z)" }
+
+[[change]]
+id = "fault"
+summary = "Motors_nFault on PC15: both DRV8874 nFAULT outputs wire-ORed with a 10 kOhm pull-up. IMODE = GND (fixed off-time, automatic retry), so it falls only on a real fault (UVLO, OCP, thermal shutdown), never on an ITRIP chop"
+pins = { "PC15-OSC32_OUT" = { signal = "GPIO_EXTI15", label = "Motors_nFault", pull = "none" } }
+behaviour = { motor_fault = "EXTI on the falling edge of Motors_nFault: stop the drive, report the fault; the bridges retry by themselves after 2 ms (OCP) or on cooling (TSD)" }
+
+[[change]]
+id = "current"
+summary = "Motor current from the INA241A2 amplifiers: 20 V/V on 10 mOhm, 0.2 V/A, zero at VDDA / 2 (ratiometric), positive from the bridge into the motor; range about +7.1 / -8.0 A. The pins stay PC0 (left) and PC1 (right) until the CubeMX check of the research's fast-channel swap"
+behaviour = { current_sampling = "TIM1 TRGO2 = Update (CNT = 0 and CNT = ARR) triggers ADC1 + ADC2 in dual injected-simultaneous mode (optional JOVSE x4); tag each sample mid-on or mid-off by TIM1 DIR; no wall-sensor conversion overlapping the injected samples", current_calibration = "offset and linearity calibration at boot, the zero with the bridge braking at each prepare(), a per-board gain in flash" }
+
+[[change]]
+id = "battery"
+summary = "Battery divider 100 kOhm / 20 kOhm on PC5 (ADC1/ADC2 channel 8, a slow channel, DS13311 Table 85; analog, no pull) for the 4S pack (2.90 V at 17.4 V): the firmware divides by 6.0, replacing C1's 4.704. PA5 becomes the emitter DAC (emitters), and PC5's Switch_0 moves to PH0 (switches)"
+pins = { "PC5" = { signal = "ADCx_INP8", label = "Battery_Voltage", pull = "none" } }
+battery = { channel = "pin", divider = 6.0 }
+
+[[change]]
+id = "switches"
+summary = "Switch_0 of the DIP switch on PH0 (GPIO input with the internal pull-up, as Switch_1-3), replacing M11's USB_VBUS_Sense: the H7 has no VBUS divider, the ESP32 reports USB power over UART4 (esp). The HSE stays off (no crystal)"
+pins = { "PH0-OSC_IN" = { signal = "GPIO_Input", label = "Switch_0", pull = "up" } }
+
+[[change]]
+id = "fan"
+summary = "STSPIN958 fan PWM on TIM12_CH2 (PB15) at 400 kHz (ARR 687) for a drone-class motor on 4S"
+behaviour = { fan_pwm = "400 kHz; duty = V_cmd / VBAT, never below the 11.2 % floor of the 280 ns minimum pulse except 0; ramp the duty and let the REF limit (3.86 A) absorb the start-up; Fan_TOFF high means the limiter is active (stall flag)" }
+
+[[change]]
+id = "esp"
+summary = "UART4 (PA11 RX, PA12 TX) is the link to the ESP32-S3 (its UART1) at up to 5 Mbaud; ESP_Flow (PH1) is the ESP's flow-control line toward the MCU (low: hold off). PA11/PA12 carry no USB: the USB-C port is the ESP32's"
+pins = { "PH1-OSC_OUT" = { signal = "GPIO_Input", label = "ESP_Flow", pull = "down" } }
+behaviour = { uart4 = "UART4 at up to 5 Mbaud with DMA; ESP-to-MCU attention in band; battery-monitor readings (the INA228 on the ESP's I2C) arrive over this link", usb_power = "the ESP32 senses VBUS on its own divider (ESP_VBUS_Sense, GPIO7) and reports USB power over UART4; the H7 has no VBUS input", usb_only = "with USB power reported by the ESP32 and no battery reading, keep the emitters, LEDs and motors off or dim (the USB budget is 500 mA)" }
+
+[[change]]
+id = "emitters"
+summary = "The four IR emitters share one constant-current sink whose current DAC1 channel 2 sets on PA5 (Wall_Emitter_Set, output buffer off, 12-bit right-aligned): I = (1.005 x code / 4096 x VDDA x 20 / (RO + 220 kOhm) - 16.4 mV) / 1.2 Ohm, RO 10.3-16 kOhm (DS13311 Table 90): about 175 mA at code 3258, 223 mA at 4095, nothing below code 236. Each selector's gate is AC-coupled: a Wall_Sensor_PWM pin held high turns its emitter off within 11 ms"
+pins = { "PA5" = { signal = "DAC1_OUT2", label = "Wall_Emitter_Set", pull = "none" } }
+behaviour = { wall_emitters = "time-multiplex the four Wall_Sensor_PWM channels (TIM4) so their on-times never overlap; read each receiver during its own emitter's pulse", emitter_dac = "DAC1 channel 2 in normal mode with the output buffer off (0 V to VREF+, DS13311 Table 90) holds the slot's code only while that slot's selector is on: it steps up at or after the selector's rising edge and to 0 at or before its falling edge, and stays 0 in the dark slot. One way: DMA writes DAC_DHR12R2 (TEN2 = 0, the output follows one dac_pclk later, RM0468 section 31.4.5) on the compare events of a timer slaved to TIM4 (TIM23 or TIM24 on ITR3, RM0468 Table 355), or the DAC's own DMA on tim23_trgo / tim24_trgo (Table 264). A DAC leading or trailing its selector by 5 us starts the pulse at 284 mA, still settled before the scan (Sensors.zen)", emitter_brightness = "a code per emitter, kept in flash with the sensor calibration (CalibrationRecord): 58 uA per code; the static gain errors (DAC, RO, divider, op-amp offset) are part of each sensor's calibration", emitter_duty = "each emitter lit 150 us per 1 ms frame (15 %), the shared sink 60 %: the 3.3 Ohm emitter resistors and Q9 are rated for that duty (Sensors.zen); a longer duty needs their numbers rechecked" }
+
+[[change]]
+id = "leds"
+summary = "Status LEDs WS2812C-2020-V6 on 3V3_D (replacing the WS2815C-2020 on VBAT), same GRB protocol on LED_ARGB (PC6, TIM8_CH1)"
+behaviour = { led_timing = "T0H 220-380 ns, T1H 580 ns-1 us, T0L and T1L 580 ns-1 us (the WS2815C allowed 5 us), reset low >= 280 us (WS2812C-2020-V6 V1.0 p3-4)" }
+
+[[change]]
+id = "flash"
+summary = "The MCU is flashed and debugged through the ESP32 over SWD with connect-under-reset (CMSIS-DAP over USB or Wi-Fi): OpenOCD (cmsis-dap) or probe-rs; ST-Link and STM32CubeProgrammer are not supported, and the system bootloader is not used"
+behaviour = { flashing = "make flash moves to OpenOCD or probe-rs through the ESP32's CMSIS-DAP; the A/B images live in the ESP32's flash" }

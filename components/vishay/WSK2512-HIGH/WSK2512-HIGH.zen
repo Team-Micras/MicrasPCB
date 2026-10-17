@@ -1,0 +1,83 @@
+"""Vishay WSK2512, 5 mOhm to 0.2 Ohm - 4-terminal (Kelvin) Power Metal Strip current-sense
+resistor, 2512 (6332 metric), 1 W. Bare part.
+
+Datasheet: Vishay Dale WSK2512, document 30108, revision 11-Dec-2023.
+
+Why a package per resistance band: the WSK2512 terminal length T and the recommended land
+pattern depend on the resistance (Dimensions and Solder Pad Dimensions tables): T 1.19 mm with
+force pads a = 2.29 mm, l = 3.68 mm apart for 0.005 to 0.2 Ohm; T 2.21 mm (0.001-0.0049 Ohm) or
+2.66 mm (0.0005-0.00099 Ohm) with a = 3.30 mm, l = 1.65 mm below. This package is the 0.005 to
+0.2 Ohm band; `vishay/WSK2512-MID` is 0.001 to 0.0049 Ohm.
+
+Part number (Global Part Number Information): WSK2512 + value + tolerance + packaging.
+Value: R0100 = 0.0100 Ohm, 5L000 = 5.000 mOhm ("L" for values below 0.01 Ohm). Tolerance F = 1 %,
+D = 0.5 %, B = 0.1 %. EA = lead-free tape and reel (2000 per 7" reel, Packaging table).
+Selectable parts (`mpn`), each on LCSC (queried 2026-10-15):
+- WSK2512R0100FEA: 10 mOhm 1 % (default; LCSC C3985410).
+- WSK2512R0100DEA: 10 mOhm 0.5 % (LCSC C1517461). Same footprint, same TCR; only the initial
+  tolerance differs.
+- WSK25125L000FEA: 5 mOhm 1 % (LCSC C1517444), for a motor peak above the 10 mOhm range.
+
+Ratings (Standard Electrical Specifications, Technical Specifications):
+- Power 1.0 W at 70 C, derated linearly to 0 at 170 C (Derating figure); maximum working voltage
+  (P x R)^0.5 (0.1 V at 10 mOhm, so 10 A continuous at 70 C).
+- TCR +-35 ppm/C for 0.005 to 0.2 Ohm (+-75 ppm/C at 3-4.9 mOhm, +-250 ppm/C at 1-2.9 mOhm).
+- Tolerance 1 % from 0.0005 Ohm, 0.5 % from 0.001 Ohm, 0.1 % from 0.01 Ohm.
+- Operating temperature -65 to +170 C; inductance 0.5 to 5 nH (Features); AEC-Q200.
+- Stability (Performance table): load life, 1000 h at rated power and 70 C, +-(1.0 % + 0.5 mOhm);
+  thermal shock +-(0.5 % + 0.5 mOhm).
+
+Terminals (Electrical Connection figure): I1 and I2 carry the current, E1 and E2 are the voltage
+sense connections. E1 is the sense finger of the I1 end, E2 of the I2 end. Pads (footprint and
+KiCad's Device:R_Shunt numbering): 1 I1, 2 E1 (left end), 3 E2, 4 I2 (right end).
+
+io: P1/P2 are the force (current) terminals I1/I2, S1/S2 the sense terminals E1/E2. S1 senses the
+P1 end. The package fails the build if a sense terminal shares a net with a force terminal or
+with the other sense terminal: that would defeat the Kelvin connection (a 4-terminal part exists
+so that no current-carrying copper sits between the sense pins). For a two-terminal use, take the
+R2512 package instead.
+"""
+
+load("@stdlib/units.zen", "Power", "Resistance")
+load("@stdlib/utils.zen", "format_value")
+
+Mpn = enum("WSK2512R0100FEA", "WSK2512R0100DEA", "WSK25125L000FEA")
+mpn = config(Mpn, default="WSK2512R0100FEA", help="10 mOhm 1 % / 10 mOhm 0.5 % / 5 mOhm 1 %")
+
+# Global Part Number Information: value and tolerance codes of each selectable part.
+RESISTANCE = {
+    "WSK2512R0100FEA": "10mOhm 1%",
+    "WSK2512R0100DEA": "10mOhm 0.5%",
+    "WSK25125L000FEA": "5mOhm 1%",
+}
+
+P1 = io(Net)
+P2 = io(Net)
+S1 = io(Net)
+S2 = io(Net)
+
+resistance = Resistance(RESISTANCE[mpn.value])
+power = Power("1W")  # Standard Electrical Specifications: P70 C
+
+for s, name in [(S1, "S1"), (S2, "S2")]:
+    check(
+        s.name not in (P1.name, P2.name),
+        f"WSK2512 {name} ({s.name}) shares a net with a force terminal: the Kelvin connection is lost",
+    )
+check(S1.name != S2.name, "WSK2512 S1 and S2 are on the same net")
+
+Component(
+    name="WSK2512",
+    prefix="R",
+    symbol=Symbol(library="WSK2512-HIGH.kicad_sym"),
+    footprint=File("Vishay_WSK2512_6332Metric_5mR-200mR.kicad_mod"),
+    part=Part(mpn=mpn.value, manufacturer="Vishay Dale"),
+    pins={"I1": P1, "E1": S1, "E2": S2, "I2": P2},
+    properties={
+        "value": format_value(resistance, power),
+        "package": "2512",
+        "resistance": resistance,
+        "power": power,
+    },
+    type="resistor",
+)

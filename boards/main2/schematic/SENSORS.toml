@@ -1,0 +1,238 @@
+# Placement of the main2 board's SENSORS sheet (micras-pcb sch; units of 1.27 mm, y down).
+paper = "A3"
+title = "Sensors: IMU, encoders, motor current, wall sensors"
+ports = { at = [236, 76], rows = 23, title = "Sheet ports" }
+
+[[block]]
+title = "Emitter current sink: TLV9001 + AO3400A, DAC set-point, 175 mA at 0.21 V / 1.2 Ohm"
+at = [10, 10]
+size = [116, 52]
+parts.R80 = { at = [20, 22], rot = 90, fields = "top" }
+parts.R81 = { at = [24, 28], rot = 180, fields = "left" }
+parts.U12 = [44, 24]
+parts.C106 = [56, 16, 180]
+parts.R82 = [68, 24, 90]
+parts.Q9 = [92, 24]
+parts.R83 = [94, 36]
+parts.R94 = { at = [20, 40], fields = "left" }
+parts.C113 = { at = [46, 40], rot = 270, fields = "bottom" }
+parts.R93 = { at = [76, 46], rot = 270, fields = "top" }
+wires = [
+    ["R80.2", "U12.3"],
+    ["R81.2", [24, 22]],
+    ["U12.5", [42, 10]],
+    ["C106.2", [56, 12], [42, 12]],
+    ["U12.1", "R82.1"],
+    ["R82.2", "Q9.G"],
+    ["Q9.D", [94, 12], { label = "right" }],
+    ["Q9.S", "R83.1"],
+    ["R93.2", [28, 46], [28, 26], "U12.4"],
+    ["R93.1", [88, 46], [88, 31], [94, 31]],
+    ["C113.2", [28, 40]],
+    ["C113.1", [65, 40], [65, 24]],
+    ["R94.2", [20, 44], [28, 44]],
+]
+taps = ["R83.1"]
+stubs."R83.1" = { label = "right" }
+
+[[block]]
+title = "Wall sensor 0: W1, emitter selector Q2 (AC-coupled gate), receiver load R14"
+at = [10, 64]
+size = [116, 38]
+parts.R11 = { at = [22, 26], rot = 270, fields = "top" }
+parts.C73 = { at = [44, 26], rot = 90, fields = "top" }
+parts.D9 = { at = [57, 31], fields = "bottom" }
+parts.R12 = { at = [67, 30], rot = 180, fields = "right" }
+parts.Q2 = [73, 26]
+parts.R13 = [50, 12, 180]
+parts.C26 = { at = [40, 12], rot = 180, fields = "left" }
+parts.W1 = [85, 18]
+parts.R14 = [97, 22, 180]
+wires = [
+    ["R13.2", [50, 8], [40, 8], "C26.2"],
+    [[40, 8], [36, 8]],
+    ["W1.1", [50, 16], "R13.1"],
+    ["W1.2", [75, 18], "Q2.D"],
+    ["R11.1", "C73.1"],
+    ["C73.2", "Q2.G"],
+    ["D9.K", [64, 31], [64, 26]],
+    ["R12.2", [67, 26]],
+    ["W1.3", [95, 16], [95, 12]],
+    ["W1.4", [97, 18], "R14.2"],
+    [[97, 18], [100, 18]],
+]
+stubs."Q2.2" = { label = "right" }
+
+[[block]]
+title = "Wall sensor 1: W2, emitter selector Q3 (AC-coupled gate), receiver load R18"
+at = [10, 104]
+size = [116, 38]
+parts.R15 = { at = [22, 26], rot = 270, fields = "top" }
+parts.C74 = { at = [44, 26], rot = 90, fields = "top" }
+parts.D10 = { at = [57, 31], fields = "bottom" }
+parts.R16 = { at = [67, 30], rot = 180, fields = "right" }
+parts.Q3 = [73, 26]
+parts.R17 = [50, 12, 180]
+parts.C27 = { at = [40, 12], rot = 180, fields = "left" }
+parts.W2 = [85, 18]
+parts.R18 = [97, 22, 180]
+wires = [
+    ["R17.2", [50, 8], [40, 8], "C27.2"],
+    [[40, 8], [36, 8]],
+    ["W2.1", [50, 16], "R17.1"],
+    ["W2.2", [75, 18], "Q3.D"],
+    ["R15.1", "C74.1"],
+    ["C74.2", "Q3.G"],
+    ["D10.K", [64, 31], [64, 26]],
+    ["R16.2", [67, 26]],
+    ["W2.3", [95, 16], [95, 12]],
+    ["W2.4", [97, 18], "R18.2"],
+    [[97, 18], [100, 18]],
+]
+stubs."Q3.2" = { label = "right" }
+
+[[block]]
+title = "Wall sensor 2: W3, emitter selector Q4 (AC-coupled gate), receiver load R22"
+at = [10, 144]
+size = [116, 38]
+parts.R19 = { at = [22, 26], rot = 270, fields = "top" }
+parts.C75 = { at = [44, 26], rot = 90, fields = "top" }
+parts.D11 = { at = [57, 31], fields = "bottom" }
+parts.R20 = { at = [67, 30], rot = 180, fields = "right" }
+parts.Q4 = [73, 26]
+parts.R21 = [50, 12, 180]
+parts.C28 = { at = [40, 12], rot = 180, fields = "left" }
+parts.W3 = [85, 18]
+parts.R22 = [97, 22, 180]
+wires = [
+    ["R21.2", [50, 8], [40, 8], "C28.2"],
+    [[40, 8], [36, 8]],
+    ["W3.1", [50, 16], "R21.1"],
+    ["W3.2", [75, 18], "Q4.D"],
+    ["R19.1", "C75.1"],
+    ["C75.2", "Q4.G"],
+    ["D11.K", [64, 31], [64, 26]],
+    ["R20.2", [67, 26]],
+    ["W3.3", [95, 16], [95, 12]],
+    ["W3.4", [97, 18], "R22.2"],
+    [[97, 18], [100, 18]],
+]
+stubs."Q4.2" = { label = "right" }
+
+[[block]]
+title = "Wall sensor 3: W4, emitter selector Q5 (AC-coupled gate), receiver load R26"
+at = [10, 184]
+size = [116, 38]
+parts.R23 = { at = [22, 26], rot = 270, fields = "top" }
+parts.C76 = { at = [44, 26], rot = 90, fields = "top" }
+parts.D12 = { at = [57, 31], fields = "bottom" }
+parts.R24 = { at = [67, 30], rot = 180, fields = "right" }
+parts.Q5 = [73, 26]
+parts.R25 = [50, 12, 180]
+parts.C29 = { at = [40, 12], rot = 180, fields = "left" }
+parts.W4 = [85, 18]
+parts.R26 = [97, 22, 180]
+wires = [
+    ["R25.2", [50, 8], [40, 8], "C29.2"],
+    [[40, 8], [36, 8]],
+    ["W4.1", [50, 16], "R25.1"],
+    ["W4.2", [75, 18], "Q5.D"],
+    ["R23.1", "C76.1"],
+    ["C76.2", "Q5.G"],
+    ["D12.K", [64, 31], [64, 26]],
+    ["R24.2", [67, 26]],
+    ["W4.3", [95, 16], [95, 12]],
+    ["W4.4", [97, 18], "R26.2"],
+    [[97, 18], [100, 18]],
+]
+stubs."Q5.2" = { label = "right" }
+
+[[block]]
+title = "IMU: LSM6DSV on the SPI bus, mode 1 (SDx, SCx grounded)"
+at = [130, 10]
+size = [86, 52]
+parts.IC2 = [60, 28]
+parts.C24 = { at = [40, 14], rot = 180, fields = "left" }
+parts.C25 = { at = [20, 14], rot = 180, fields = "left" }
+wires = [
+    ["IC2.8", [48, 18], [48, 8]],
+    ["IC2.5", [48, 20], [48, 18]],
+    ["C24.2", [40, 10], [48, 10]],
+    ["C25.2", [20, 10], [40, 10]],
+    ["IC2.7", [62, 44], [60, 44]],
+    ["IC2.6", [60, 46]],
+]
+stubs."IC2.2" = { point = "out" }
+stubs."IC2.3" = { point = "out" }
+
+[[block]]
+title = "Encoder slot EC1: right wheel"
+at = [220, 10]
+size = [94, 30]
+parts.EC1 = [28, 22]
+parts.C69 = [48, 14, 180]
+parts.C70 = [66, 14, 180]
+wires = [
+    ["EC1.5", [40, 18], [40, 8]],
+    ["C69.2", [48, 10], [40, 10]],
+    ["C70.2", [66, 10], [48, 10]],
+]
+stubs."EC1.6" = { point = "out" }
+
+[[block]]
+title = "Encoder slot EC2: left wheel"
+at = [220, 42]
+size = [94, 30]
+parts.EC2 = [28, 22]
+parts.C71 = [48, 14, 180]
+parts.C72 = [66, 14, 180]
+wires = [
+    ["EC2.5", [40, 18], [40, 8]],
+    ["C71.2", [48, 10], [40, 10]],
+    ["C72.2", [66, 10], [48, 10]],
+]
+stubs."EC2.6" = { point = "out" }
+
+[[block]]
+title = "Motor current, right motor: U10 INA241A2, 20 V/V, mid-supply reference"
+at = [130, 74]
+size = [100, 46]
+parts.U10 = [34, 26]
+parts.C100 = [50, 14, 180]
+parts.C101 = { at = [18, 32], rot = 180, fields = "left" }
+parts.R78 = [70, 26, 90]
+parts.C102 = [76, 30, 180]
+wires = [
+    ["U10.6", [34, 8]],
+    ["C100.2", [50, 10], [34, 10]],
+    ["U10.7", [14, 28], { point = "out" }],
+    ["C101.2", [18, 28]],
+    ["U10.3", [22, 30], [22, 34]],
+    ["U10.4", [36, 38], [32, 38]],
+    ["U10.2", [32, 40]],
+    ["U10.5", "R78.1"],
+    ["R78.2", [76, 26], "C102.2"],
+    [[76, 26], [80, 26]],
+]
+
+[[block]]
+title = "Motor current, left motor: U11 INA241A2, 20 V/V, mid-supply reference"
+at = [130, 122]
+size = [100, 46]
+parts.U11 = [34, 26]
+parts.C103 = [50, 14, 180]
+parts.C104 = { at = [18, 32], rot = 180, fields = "left" }
+parts.R79 = [70, 26, 90]
+parts.C105 = [76, 30, 180]
+wires = [
+    ["U11.6", [34, 8]],
+    ["C103.2", [50, 10], [34, 10]],
+    ["U11.7", [14, 28], { point = "out" }],
+    ["C104.2", [18, 28]],
+    ["U11.3", [22, 30], [22, 34]],
+    ["U11.4", [36, 38], [32, 38]],
+    ["U11.2", [32, 40]],
+    ["U11.5", "R79.1"],
+    ["R79.2", [76, 26], "C105.2"],
+    [[76, 26], [80, 26]],
+]

@@ -1,7 +1,8 @@
 """Layout checks on every board: decoupling next to its pin, the encoder joint's slot, fab hygiene.
 
 The placement-dependent checks skip, with the reason, while a board's layout has no outline: until
-then the footprints sit where the netlist sync packed them, which says nothing about the design.
+then the footprints sit where the netlist sync packed them, which says nothing about the design. A
+schematic-only board (no layout file, Project(layout = False)) is not listed at all.
 """
 
 import json
@@ -11,7 +12,7 @@ import tomllib
 
 import pytest
 from micras_pcb import layout, sexpr, spec
-from micras_pcb.paths import ROOT, board_pcb, boards, layout_dir
+from micras_pcb.paths import ROOT, board_pcb, layout_boards, layout_dir
 
 from .conftest import needs_kicad
 from .design import design
@@ -53,6 +54,35 @@ DECOUPLING = [
     ),
     ("STSPIN958", ("VS",), 2, (420e-9, 520e-9), "DS14341 Rev 1 section 8, Table 12: 2 x 470 nF close to the VS pins"),
     ("STSPIN958", ("VDD",), 1, (198e-9, 242e-9), "DS14341 Rev 1 section 8, Table 12: 220 nF close to VDD"),
+    (
+        "INA241",
+        ("VS",),
+        1,
+        (90e-9, 110e-9),
+        "SBOSA30D sections 8.3.1, 8.4.1: 0.1 uF as close as possible to the supply and ground pins",
+    ),
+    ("INA228", ("VS",), 1, (90e-9, 110e-9), "SLYS021A sections 9, 10.1: 0.1 uF as close as possible to VS and GND"),
+    (
+        "DRV8874",
+        ("VM",),
+        1,
+        (90e-9, 110e-9),
+        "SLVSF66A Table 1, section 10.1: CVM1 0.1 uF from VM to GND close to the pins",
+    ),
+    (
+        "ADP7142",
+        ("VIN",),
+        1,
+        (2.2e-6, 22e-6),
+        "ADP7142 Rev H Table 2, p20: >= 2.2 uF input capacitor close to the pins",
+    ),
+    (
+        "ADP7142",
+        ("VOUT",),
+        1,
+        (2.2e-6, 22e-6),
+        "ADP7142 Rev H Table 2, p20: >= 2.2 uF output capacitor close to the pins",
+    ),
 ]
 # Not listed: the AS5047U in 3.3 V mode. Its datasheet (v1-00 p11, Figure 11) asks "close to chip"
 # only for the 1 uF of the 5 V LDO mode; the 3.3 V mode drawing just shows 100 nF on VDD.
@@ -61,7 +91,8 @@ DECOUPLING = [
 # previous main board's LSM6DSV capacitors sit 2.1-2.5 mm from the part).
 MAX_DECOUPLING_MM = 3.0
 
-LAYOUT_BOARDS = boards()
+# A schematic-only board (no .kicad_pcb yet) has nothing to check here.
+LAYOUT_BOARDS = layout_boards()
 
 
 def _placed(board: str) -> layout.Board:

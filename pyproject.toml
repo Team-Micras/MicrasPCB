@@ -24,6 +24,8 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 120
+# research/ holds standalone calculation scripts, not maintained tooling.
+extend-exclude = ["research"]
 
 [tool.ruff.lint]
 # E501 is left to the formatter.

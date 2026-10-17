@@ -1,0 +1,143 @@
+# Placement of main2's root sheet (micras-pcb sch; units of 1.27 mm, y down).
+# The MCU in the middle with its supply domains as rails above it, the module sheets left and
+# right of it with their pins facing it (links between two modules on the far side), the test
+# pads and screw holes below.
+paper = "A3"
+title = "MCU and module sheets"
+
+[[block]]
+at = [0, 0]
+frame = [[88, 14, 154, 150, "MCU: STM32H725RGV6, its supply domains and their decoupling"]]
+parts.IC1 = { at = [140, 112], fields = [11, 43] }
+# VBAT (3V3_D, no backup battery)
+parts.C8 = [126, 64, 180]
+parts.C9 = [146, 64, 180]
+# VDD (3V3_D), one 100 nF per pin and the bulk
+parts.C12 = [122, 54, 180]
+parts.C13 = [142, 54, 180]
+parts.C14 = [162, 54, 180]
+parts.C15 = [182, 54, 180]
+parts.C16 = [202, 54, 180]
+parts.C17 = [222, 54, 180]
+# VDDA from 3V3_A through R67
+parts.C10 = [124, 44, 180]
+parts.C11 = [144, 44, 180]
+parts.R67 = { at = [168, 42], rot = 270, fields = "top" }
+# VDDSMPS (3V3_D)
+parts.C1 = [122, 34, 180]
+parts.C2 = [141, 34, 180]
+# SMPS: VLXSMPS through L1 to VCORE, VFBSMPS and VCAP1-3 on VCORE
+parts.L1 = { at = [110, 72], rot = 270, fields = "left" }
+parts.C3 = [114, 24, 180]
+parts.C4 = [133, 24, 180]
+parts.C7 = [152, 24, 180]
+parts.C6 = [172, 24, 180]
+parts.C5 = [192, 24, 180]
+wires = [
+    # VBAT
+    ["IC1.1", [120, 74], [120, 62], "C8.2", "C9.2", [160, 62], { point = "out" }],
+    # VDD
+    ["IC1.9", [118, 76]],
+    ["IC1.22", [118, 78]],
+    ["IC1.35", [118, 80]],
+    ["IC1.51", [118, 82]],
+    ["IC1.68", [118, 84], [118, 52], "C12.2", "C13.2", "C14.2", "C15.2", "C16.2", "C17.2", [238, 52], [238, 50]],
+    # VDDA
+    ["IC1.16", [116, 86], [116, 42], "C10.2", "C11.2", "R67.2"],
+    [[162, 42], [162, 40]],
+    # VDDSMPS
+    ["IC1.6", [114, 88], [114, 32], "C1.2", "C2.2", [158, 32], { point = "out" }],
+    # SMPS
+    ["IC1.5", [106, 92]],
+    ["L1.2", [110, 92]],
+    ["L1.1", [110, 22]],
+    ["IC1.33", [96, 96]],
+    ["IC1.49", [96, 98]],
+    ["IC1.7", [96, 94]],
+    ["IC1.66", [96, 100], [96, 22], "C3.2", "C4.2", "C7.2", "C6.2", "C5.2", [208, 22], { point = "out" }],
+    # grounds
+    ["IC1.8", [134, 156], [148, 156], "IC1.4"],
+    [[140, 156], [140, 158]],
+    ["IC1.21", [136, 156]],
+    ["IC1.34", [138, 156]],
+    ["IC1.50", [140, 156]],
+    ["IC1.67", [142, 156]],
+    ["IC1.69", [144, 156]],
+    ["IC1.15", [146, 156]],
+]
+
+[[block]]
+at = [0, 0]
+frame = [[88, 168, 84, 54, "Test pads: IMU interrupts and fan driver (bare pads)"]]
+parts.IMU_INT1 = [106, 184]
+parts.IMU_INT2 = [106, 204]
+parts.FAN_PWM1 = [148, 182]
+parts.FAN_ENABLE1 = [148, 196]
+parts.FAN_OVERCURRENT1 = [148, 210]
+
+[[block]]
+at = [0, 0]
+frame = [[176, 168, 58, 54, "Test pads: SWD backstop (bare pads)"]]
+parts.SWDIO1 = [192, 184]
+parts.SWCLK1 = [192, 204]
+parts.NRST1 = [218, 184]
+parts.GND1 = [218, 204]
+
+[[block]]
+at = [0, 0]
+frame = [[245, 14, 76, 22, "M2 screw holes to the chassis"]]
+parts.H1 = [251, 28]
+parts.H2 = [269, 28]
+parts.H3 = [287, 28]
+parts.H4 = [305, 28]
+
+[[block]]
+at = [0, 0]
+frame = [
+    [12, 28, 74, 96, "Module sheets: power, radio, user interface"],
+    [245, 56, 76, 98, "Module sheets: sensors, drivers"],
+]
+
+[sheet.REGULATORS]
+at = [36, 36]
+size = [30, 8]
+left = ["BAT_I2C.SDA", "BAT_I2C.SCL", "BAT_ALERT"]
+right = ["Battery_Voltage"]
+
+[sheet.ESP]
+at = [36, 60]
+size = [30, 16]
+left = ["BAT_I2C.SDA", "BAT_I2C.SCL", "BAT_ALERT", "USB.D.P", "USB.D.N"]
+right = ["Reset", "Boot", "SWDIO", "SWCLK", "UART4_RX", "UART4_TX", "ESP_Flow"]
+
+[sheet.PERIPHERALS]
+at = [36, 92]
+size = [30, 24]
+left = ["USB.D.P", "USB.D.N"]
+right = [
+    "Reset", "Boot", "Button", "Switch_0", "Switch_1", "Switch_2", "Switch_3", "Buzzer",
+    "LED_ARGB", "LED_Red",
+]
+
+[sheet.SENSORS]
+at = [267, 66]
+size = [36, 48]
+left = [
+    "SPI_SCK", "SPI_MISO", "SPI_MOSI", "IMU_SPI_CSn", "IMU_INT1", "IMU_INT2",
+    "Encoder_Left_CSn", "Encoder_Left_ABI_A", "Encoder_Left_ABI_B",
+    "Encoder_Right_CSn", "Encoder_Right_ABI_A", "Encoder_Right_ABI_B",
+    "Wall_Sensor_PWM_0", "Wall_Sensor_PWM_1", "Wall_Sensor_PWM_2", "Wall_Sensor_PWM_3",
+    "Wall_Emitter_Set", "Wall_Sensor_0", "Wall_Sensor_1", "Wall_Sensor_2", "Wall_Sensor_3",
+    "Current_Sensor_Left", "Current_Sensor_Right",
+]
+right = ["MOTOR_L_SENSE_P", "MOTOR_L_SENSE_N", "MOTOR_R_SENSE_P", "MOTOR_R_SENSE_N"]
+
+[sheet.DRIVERS]
+at = [267, 124]
+size = [36, 24]
+left = [
+    "Motor_Left_EN", "Motor_Left_PH", "Motor_Right_EN", "Motor_Right_PH", "Motors_Enable",
+    "Motors_nFault", "Current_Sensor_Left", "Current_Sensor_Right", "Fan_PWM", "Fan_Enable",
+    "Fan_TOFF",
+]
+right = ["MOTOR_L_SENSE_P", "MOTOR_L_SENSE_N", "MOTOR_R_SENSE_P", "MOTOR_R_SENSE_N"]

@@ -7,7 +7,10 @@ import sys
 from pathlib import Path
 
 from . import checks, firmware, jlc, lvs, mech, outputs, placement, previous
-from .paths import boards
+from .paths import SCHEMATIC_ONLY, boards, has_layout
+
+# Commands that read the layout: a schematic-only board skips them with the reason.
+LAYOUT_COMMANDS = {"lvs", "drc", "dfm"}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -80,6 +83,9 @@ def main(argv: list[str] | None = None) -> int:
     status = 0
     for b in a.boards or boards():
         print(f"== {a.cmd} {b}")
+        if a.cmd in LAYOUT_COMMANDS and not has_layout(b):
+            print(f"{b}: {a.cmd} skipped: {SCHEMATIC_ONLY}")
+            continue
         if a.cmd == "mech":
             status |= mech.run(b, a.check)
         elif a.cmd == "rules":
