@@ -163,3 +163,14 @@ Capacitor(name="C70", P1=GND, P2=V3V3, **C_100N_0402)
 EncoderSlot(name="EC2", VDD=V3V3, GND=GND, SPI=ENCODER_LEFT_SPI, A=Encoder_Left_ABI_A, B=Encoder_Left_ABI_B)
 Capacitor(name="C71", P1=GND, P2=V3V3, **C_1U_0402)
 Capacitor(name="C72", P1=GND, P2=V3V3, **C_100N_0402)
+
+# Schematic placement hints for `micras-pcb sch --draft` (pcb evaluates and ignores this value):
+# the four channels are one function each, told apart by their number.
+SCHEMATIC_HINTS = {
+    "titles": {
+        "W1": "Wall sensor 0: W1, emitter switch Q2",
+        "W2": "Wall sensor 1: W2, emitter switch Q3",
+        "W3": "Wall sensor 2: W3, emitter switch Q4",
+        "W4": "Wall sensor 3: W4, emitter switch Q5",
+    },
+}
