@@ -16,7 +16,7 @@ parts.R27 = { at = [32, 30], fields = "left" }
 parts.C30 = { at = [26, 38], rot = 180, fields = "left" }
 parts.R28 = { at = [18, 46], fields = "left" }
 parts.R29 = { at = [18, 54], rot = 180, fields = "left" }
-parts.R30 = { at = [36, 56], rot = 180, fields = "left" }
+parts.R30 = { at = [44, 60], rot = 180, fields = "left" }
 parts.R31 = [92, 42]
 parts.M3 = [120, 38]
 parts.C32 = [110, 52]
@@ -34,8 +34,8 @@ wires = [
     [[26, 34], [22, 34]],
     ["IC6.15", [18, 50]],
     ["R28.2", "R29.2"],
-    ["IC6.21", "R30.2"],
-    [[36, 54], [34, 54]],
+    ["IC6.21", [44, 54], "R30.2"],
+    [[44, 56], [40, 56], { label = "left" }],
     ["IC6.31", [84, 30], [84, 38], "M3.1"],
     ["IC6.32", [84, 32]],
     ["IC6.25", [84, 34]],
@@ -69,8 +69,6 @@ size = [170, 92]
 parts.IC5 = { at = [90, 70], fields = [-10, 16] }
 parts.C37 = [14, 30, 270]
 parts.C38 = [30, 28, 180]
-parts.C65 = [49, 28, 180]
-parts.C66 = [68, 28, 180]
 parts.D6 = { at = [20, 44], fields = "top" }
 parts.D7 = { at = [40, 44], fields = "bottom" }
 parts.R34 = { at = [30, 48], fields = "left" }
@@ -81,7 +79,6 @@ parts.M1 = { at = [130, 62], mirror = "x", fields = "right" }
 parts.R33 = [118, 84, 270]
 parts.M2 = { at = [134, 86], mirror = "x", fields = "right" }
 parts.R35 = { at = [50, 68], rot = 270, fields = "bottom" }
-parts.R49 = { at = [44, 70], rot = 180, fields = "left" }
 parts.C41 = { at = [56, 76], fields = "left" }
 wires = [
     ["IC5.17", [86, 26], "C37.1"],
@@ -110,10 +107,9 @@ wires = [
     [[124, 84], [124, 80], { label = "right" }],
     ["IC5.20", [56, 64], [56, 72], "IC5.11"],
     ["R35.1", [56, 68]],
+    [[48, 68], [44, 68]],
     ["C41.1", [56, 72]],
     [[56, 64], [52, 64]],
-    ["R35.2", "R49.2"],
-    [[44, 68], [40, 68]],
 ]
 taps = ["IC5.18", "M2.1"]
 stubs."D6.1" = { point = "out" }
