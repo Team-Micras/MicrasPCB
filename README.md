@@ -167,7 +167,8 @@ boards/<board>/schematic/  one placement file per schematic sheet (micras-pcb sc
 boards/<board>/previous/  snapshot of the board's previous revision (board.json) for the connectivity comparison,
                        and the scripts that build its layout from that revision (transfer_layout.py; main: rework.py)
 boards/main/layout/*.py  the one-off scripts that place and route the review fixes and the owner's layout
-                       decisions (fixes.py, refine.py, usb_wall.py, finish.py, rail_silk.py, octilinear.py), and
+                       decisions (fixes.py, refine.py, usb_wall.py, finish.py, rail_silk.py, octilinear.py, swd_top.py,
+                       wall_inside.py), and
                        their 45-degree grid router (router.py)
 boards/main/firmware.toml  the firmware's pin map and drive settings (from MicrasFirmware), tested against the board
 boards/main/firmware_changes.toml  the firmware changes the board needs, applied on top of firmware.toml in the tests
