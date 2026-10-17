@@ -1,0 +1,145 @@
+# Placement of the main2 board's PERIPHERALS sheet (micras-pcb sch; units of 1.27 mm, y down).
+paper = "A4"
+title = "User interface and USB-C"
+ports = { at = [150, 94], rows = 14, title = "Sheet ports" }
+
+[[block]]
+title = "USB-C receptacle (ESP32 USB), VBUS sense, ESD"
+at = [8, 10]
+size = [132, 52]
+parts.U2 = [70, 24]
+parts.R47 = { at = [12, 10], fields = "left" }
+parts.R48 = { at = [12, 18], rot = 180, fields = "left" }
+parts.D8 = { at = [44, 10], rot = 90, fields = "left" }
+parts.R6 = { at = [24, 22], rot = 90, fields = "top" }
+parts.R7 = { at = [30, 28], rot = 90, fields = "top" }
+parts.U6 = { at = [108, 15], mirror = "y" }
+parts.C79 = { at = [116, 28], rot = 180, fields = "left" }
+wires = [
+    # VBUS: +5V, the H7's sense divider, the TVS
+    ["U2.A4B9", [54, 12], [54, 14], "U2.B4A9"],
+    [[54, 12], [54, 6], [6, 6]],
+    ["R47.1", [12, 6]],
+    ["D8.2", [44, 6]],
+    ["R47.2", "R48.2"],
+    [[12, 14], [14, 14], { label = "right" }],
+    # CC1 and CC2: Rd to GND
+    ["U2.A5", [50, 18], [50, 22], "R6.2"],
+    ["U2.B5", [54, 20], [54, 28], "R7.2"],
+    # GND and shell
+    ["U2.A1B12", [64, 44], [78, 44], "U2.4"],
+    ["U2.B1A12", [68, 44]],
+    ["U2.1", [72, 44]],
+    ["U2.2", [74, 44]],
+    ["U2.3", [76, 44]],
+    [[70, 44], [70, 46]],
+    # D+ and D- through U6 (in on pins 6/4, out on pins 1/3)
+    ["U2.B6", [86, 14], [86, 12]],
+    ["U2.A6", "U6.6"],
+    ["U2.B7", [86, 18], [86, 16]],
+    ["U2.A7", [90, 16], [90, 14], "U6.4"],
+    ["U6.1", [120, 12]],
+    ["U6.3", [120, 14]],
+    [[96, 12], [96, 8], { label = "left" }],
+    [[96, 14], [96, 20], { label = "left" }],
+    ["U6.5", [116, 18], "C79.2"],
+    [[116, 18], [120, 18], { point = "out" }],
+]
+taps = ["R6.2", "R7.2"]
+
+[[block]]
+title = "Buzzer: FUET-5030, low-side switch Q1"
+at = [143, 10]
+size = [80, 52]
+parts.D3 = { at = [38, 16], rot = 90, fields = "left" }
+parts.BZ1 = [60, 22]
+parts.R3 = { at = [38, 26], rot = 180, fields = "left" }
+parts.Q1 = [36, 38]
+parts.R1 = { at = [16, 38], rot = 270, fields = "bottom" }
+parts.R2 = { at = [24, 42], rot = 180 }
+wires = [
+    ["D3.2", [38, 6]],
+    ["BZ1.1", [50, 20], [50, 8], [38, 8]],
+    ["BZ1.2", "D3.1"],
+    ["D3.1", "R3.2"],
+    [[46, 22], [46, 28], { label = "right" }],
+    ["R3.1", "Q1.3"],
+    [[38, 31], [42, 31], { label = "right" }],
+    ["R1.1", "Q1.1"],
+    ["R2.2", [24, 38]],
+    [[28, 38], [28, 34], { label = "left" }],
+]
+
+[[block]]
+title = "Buttons: user, reset (NRST), boot (BOOT0)"
+at = [8, 68]
+size = [60, 54]
+parts.SW2 = [12, 12]
+parts.C20 = { at = [26, 14], rot = 180 }
+parts.SW3 = [12, 28]
+parts.C21 = { at = [26, 30], rot = 180 }
+parts.SW5 = { at = [12, 44], mirror = "y" }
+parts.R42 = { at = [26, 46], rot = 180 }
+parts.C60 = [36, 46]
+wires = [
+    ["SW2.1", [4, 10], [4, 14]],
+    ["SW2.2", [4, 12]],
+    ["SW2.3", [44, 10]],
+    ["SW2.4", [20, 12], [20, 10]],
+    ["C20.2", [26, 10]],
+    ["SW3.1", [4, 26], [4, 30]],
+    ["SW3.2", [4, 28]],
+    ["SW3.3", [44, 26]],
+    ["SW3.4", [20, 28], [20, 26]],
+    ["C21.2", [26, 26]],
+    ["SW5.4", [4, 44], [4, 40]],
+    ["SW5.3", [4, 42]],
+    ["SW5.1", [44, 42]],
+    ["SW5.2", [20, 44], [20, 42]],
+    ["R42.2", [26, 42]],
+    ["C60.1", [36, 42]],
+]
+
+[[block]]
+title = "Addressable LEDs: WS2812C-2020 chain"
+at = [72, 68]
+size = [102, 24]
+parts.D1 = [40, 12]
+parts.C19 = { at = [24, 16], rot = 180 }
+parts.D2 = [86, 12]
+parts.C18 = { at = [72, 16], rot = 180 }
+wires = [
+    ["D1.4", [12, 12], { point = "out" }],
+    ["C19.2", [24, 12]],
+    ["D1.1", "D2.3"],
+    ["D2.4", [64, 12], { point = "out" }],
+    ["C18.2", [72, 12]],
+]
+
+[[block]]
+title = "Strategy DIP switch"
+at = [178, 68]
+size = [45, 24]
+parts.SW1 = [24, 13]
+wires = [
+    ["SW1.8", [34, 9], [34, 18]],
+    ["SW1.7", [34, 11]],
+    ["SW1.6", [34, 13]],
+    ["SW1.5", [34, 15]],
+]
+
+[[block]]
+title = "Status LEDs"
+at = [72, 94]
+size = [66, 28]
+parts.R4 = { at = [10, 12], rot = 180 }
+parts.D4 = { at = [10, 20], rot = 90 }
+parts.R5 = { at = [40, 12], rot = 180 }
+parts.D5 = { at = [40, 20], rot = 90 }
+wires = [
+    ["R4.1", "D4.2"],
+    [[10, 16], [12, 16], { label = "right" }],
+    ["R5.1", "D5.2"],
+    [[40, 16], [42, 16], { label = "right" }],
+]
+stubs."R4.2" = { label = "right" }
