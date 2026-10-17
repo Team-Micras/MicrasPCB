@@ -142,7 +142,7 @@ def label_box(kind: str, text: str, at, angle: int, size: float = FONT) -> Box:
     if kind == "label":
         start, length, lo, hi = 0.25, w, -0.45 - 1.05 * size, -0.2  # above the wire (left of a vertical one)
     elif kind == "global_label":
-        start, length, lo, hi = 0.0, w + 2.4, -1.05, 1.05
+        start, length, lo, hi = 0.0, w + 3.0, -1.05, 1.05
     else:
         start, length, lo, hi = 0.0, w + 1.9, -0.85, 0.85
     d = {0: (1, 0), 90: (0, -1), 180: (-1, 0), 270: (0, 1)}[angle % 360]
