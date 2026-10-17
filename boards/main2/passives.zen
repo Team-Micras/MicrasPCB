@@ -87,6 +87,9 @@ C_470N_0603_50V = _c("470nF 10%", "0603", "50V", "X7R", "CC0603KRX7R9BB474", man
 C_10U_0603 = _c("10uF 20%", "0603", "25V", "X5R", "CL10A106MA8NRNC")
 C_22U_0805_25V = _c("22uF 20%", "0805", "25V", "X5R", "CL21A226MAQNNNE")
 C_10U_1206_50V = _c("10uF 10%", "1206", "50V", "X7R", "CL31B106KBHNNNE")
+# 1210 X7R 10 uF 50 V: the bridges' VBAT bulk. About 6.1 uF left at 16.8 V against 3.2 uF for the
+# 1206 (Samsung DC-bias curves of CL32B106KBJNNN and CL31B106KBHNNN, -39 % and -68 %).
+C_10U_1210_50V = _c("10uF 10%", "1210", "50V", "X7R", "CL32B106KBJNNNE")
 
 # Indicator LEDs, 0603.
 LED_YELLOW_0603 = {"package": "0603", "color": "yellow", "mpn": "NCD0603Y2", "manufacturer": "NationStar"}

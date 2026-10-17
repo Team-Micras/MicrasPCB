@@ -1,0 +1,159 @@
+=== 1. MLCC effective capacitance (Samsung DC-bias curves) ===
+part                                   14.8 V   16.8 V   17.4 V  uF/mm2 @16.8  height
+CL31B106KBHNNNE 10u 50V X7R 1206       3.70uF   3.21uF   3.09uF          0.63   1.6mm
+CL31A106KBHNNNE 10u 50V X5R 1206       2.59uF   2.20uF   2.10uF          0.43   1.6mm
+CL32B106KBJNNNE 10u 50V X7R 1210       6.61uF   6.06uF   5.90uF          0.76   2.5mm
+CL32A106KBJNNNE 10u 50V X5R 1210       7.51uF   7.01uF   6.86uF          0.88   2.5mm
+CL32Y106KBJ4PNE 10u 50V X7S 1210       6.98uF   6.49uF   6.34uF          0.81   2.5mm
+CL32B226KAJNNNE 22u 25V X7R 1210       7.04uF   6.07uF   5.87uF          0.76   2.5mm
+CL31A226KAHNNNE 22u 25V X5R 1206       4.33uF   3.65uF   3.50uF          0.71   1.6mm
+Polymer tantalum: capacitance does not fall with DC bias (rated value used).
+
+=== 2. VBAT ripple, 16.8 V, pack 0.1 Ohm behind 100 nH, two bridges at D = 0.5 + fan ===
+Effective VBAT capacitance at 16.8 V (all VBAT caps on one node; 100 kHz trace impedance ignored):
+  electrolytic: JVS25V100M6X4 per bridge              232.1 uF
+  ceramic only, bulk removed                           32.1 uF
+  ceramic: 2 x 1210 10u 50V X7R per bridge             56.3 uF
+  ceramic: 4 x 1210 10u 50V X7R per bridge             80.6 uF
+  polymer: 25TQC33MYF per bridge                       98.1 uF
+  polymer: 25TQC100MD3 per bridge                     232.1 uF
+Bridges in phase (the worst case, and the firmware's interleave is untested) at D = 0.5, and
+interleaved 180 degrees at D = 0.25 (the interleaved worst case; at D = 0.5 the two cancel).
+
+option                                             I motor     phase  VBAT pp  pack ac  capacitor rms (per part)
+electrolytic: JVS25V100M6X4 per bridge               2.4 A    0, D.5    363mV   0.98 A  bulk 0.12 A, CL31B106x10 0.28 A
+electrolytic: JVS25V100M6X4 per bridge               2.4 A 180, D.25    115mV   0.19 A  bulk 0.03 A, CL31B106x10 0.17 A
+electrolytic: JVS25V100M6X4 per bridge               3.0 A    0, D.5    453mV   1.23 A  bulk 0.15 A, CL31B106x10 0.34 A
+electrolytic: JVS25V100M6X4 per bridge               3.0 A 180, D.25    138mV   0.23 A  bulk 0.04 A, CL31B106x10 0.19 A
+ceramic only, bulk removed                           2.4 A    0, D.5    395mV   1.04 A  CL31B106x10 0.29 A
+ceramic only, bulk removed                           2.4 A 180, D.25    117mV   0.19 A  CL31B106x10 0.17 A
+ceramic only, bulk removed                           3.0 A    0, D.5    493mV   1.30 A  CL31B106x10 0.36 A
+ceramic only, bulk removed                           3.0 A 180, D.25    139mV   0.23 A  CL31B106x10 0.20 A
+ceramic: 2 x 1210 10u 50V X7R per bridge             2.4 A    0, D.5    229mV   0.57 A  CL31B106x10 0.16 A, CL32B106x4 0.30 A
+ceramic: 2 x 1210 10u 50V X7R per bridge             2.4 A 180, D.25     67mV   0.10 A  CL31B106x10 0.10 A, CL32B106x4 0.18 A
+ceramic: 2 x 1210 10u 50V X7R per bridge             3.0 A    0, D.5    285mV   0.71 A  CL31B106x10 0.20 A, CL32B106x4 0.37 A
+ceramic: 2 x 1210 10u 50V X7R per bridge             3.0 A 180, D.25     79mV   0.13 A  CL31B106x10 0.11 A, CL32B106x4 0.20 A
+ceramic: 4 x 1210 10u 50V X7R per bridge             2.4 A    0, D.5    159mV   0.38 A  CL31B106x10 0.11 A, CL32B106x8 0.21 A
+ceramic: 4 x 1210 10u 50V X7R per bridge             2.4 A 180, D.25     47mV   0.07 A  CL31B106x10 0.07 A, CL32B106x8 0.12 A
+ceramic: 4 x 1210 10u 50V X7R per bridge             3.0 A    0, D.5    198mV   0.48 A  CL31B106x10 0.14 A, CL32B106x8 0.25 A
+ceramic: 4 x 1210 10u 50V X7R per bridge             3.0 A 180, D.25     55mV   0.09 A  CL31B106x10 0.08 A, CL32B106x8 0.14 A
+polymer: 25TQC33MYF per bridge                       2.4 A    0, D.5    171mV   0.43 A  bulk 0.71 A, CL31B106x10 0.17 A
+polymer: 25TQC33MYF per bridge                       2.4 A 180, D.25     73mV   0.12 A  bulk 0.33 A, CL31B106x10 0.13 A
+polymer: 25TQC33MYF per bridge                       3.0 A    0, D.5    212mV   0.53 A  bulk 0.88 A, CL31B106x10 0.20 A
+polymer: 25TQC33MYF per bridge                       3.0 A 180, D.25     86mV   0.15 A  bulk 0.40 A, CL31B106x10 0.15 A
+polymer: 25TQC100MD3 per bridge                      2.4 A    0, D.5    153mV   0.40 A  bulk 0.81 A, CL31B106x10 0.17 A
+polymer: 25TQC100MD3 per bridge                      2.4 A 180, D.25     71mV   0.13 A  bulk 0.37 A, CL31B106x10 0.14 A
+polymer: 25TQC100MD3 per bridge                      3.0 A    0, D.5    183mV   0.50 A  bulk 1.01 A, CL31B106x10 0.20 A
+polymer: 25TQC100MD3 per bridge                      3.0 A 180, D.25     83mV   0.16 A  bulk 0.44 A, CL31B106x10 0.16 A
+Target: the power-tree model assumed 150 mV pp (300 mV in its HV case) at 100 kHz on VBAT
+(calculations/power_tree/sim_power_tree.py), and the analog rail met its budget with it.
+MLCC ripple capability: CL31B106KBHNNN 2.60 A rms for a 10 C rise, 3.66 A for 20 C
+(Samsung product page, ripple-current curve at its 80 kHz setting).
+
+=== 3. Input LC: source impedance seen by the bridges (AC, 16.8 V bias) ===
+Q = Z0 / (pack or lead resistance + R59): the damping by the source alone; a lossy bulk adds
+its own damping, which shows in |Z| max.
+|Z| max over 1 kHz-10 MHz: equal to the pack resistance when nothing resonates.
+option                                             source                       f0      Z0     Q   |Z| max  |Z|100k
+electrolytic: JVS25V100M6X4 per bridge             pack 0.1R, 100 nH        33.0k    21m  0.20      96mO     54mO
+electrolytic: JVS25V100M6X4 per bridge             pack 0.1R, 300 nH        19.1k    36m  0.35     112mO     60mO
+electrolytic: JVS25V100M6X4 per bridge             pack 0.3R, 100 nH        33.0k    21m  0.07     248mO     49mO
+electrolytic: JVS25V100M6X4 per bridge             bench 30m, 1 uH          10.4k    66m  2.05     332mO     53mO
+ceramic only, bulk removed                         pack 0.1R, 100 nH        88.8k    56m  0.55     102mO     57mO
+ceramic only, bulk removed                         pack 0.1R, 300 nH        51.3k    97m  0.95     139mO     61mO
+ceramic only, bulk removed                         pack 0.3R, 100 nH        88.8k    56m  0.18     301mO     50mO
+ceramic only, bulk removed                         bench 30m, 1 uH          28.1k   177m  5.52     974mO     54mO
+ceramic: 2 x 1210 10u 50V X7R per bridge           pack 0.1R, 100 nH        67.1k    42m  0.41     102mO     31mO
+ceramic: 2 x 1210 10u 50V X7R per bridge           pack 0.1R, 300 nH        38.7k    73m  0.72     105mO     32mO
+ceramic: 2 x 1210 10u 50V X7R per bridge           pack 0.3R, 100 nH        67.1k    42m  0.14     300mO     29mO
+ceramic: 2 x 1210 10u 50V X7R per bridge           bench 30m, 1 uH          21.2k   133m  4.16     563mO     30mO
+ceramic: 4 x 1210 10u 50V X7R per bridge           pack 0.1R, 100 nH        56.1k    35m  0.35     102mO     21mO
+ceramic: 4 x 1210 10u 50V X7R per bridge           pack 0.1R, 300 nH        32.4k    61m  0.60     102mO     21mO
+ceramic: 4 x 1210 10u 50V X7R per bridge           pack 0.3R, 100 nH        56.1k    35m  0.12     299mO     20mO
+ceramic: 4 x 1210 10u 50V X7R per bridge           bench 30m, 1 uH          17.7k   111m  3.48     400mO     20mO
+polymer: 25TQC33MYF per bridge                     pack 0.1R, 100 nH        50.8k    32m  0.31     102mO     24mO
+polymer: 25TQC33MYF per bridge                     pack 0.1R, 300 nH        29.3k    55m  0.54     102mO     25mO
+polymer: 25TQC33MYF per bridge                     pack 0.3R, 100 nH        50.8k    32m  0.11     297mO     23mO
+polymer: 25TQC33MYF per bridge                     bench 30m, 1 uH          16.1k   101m  3.16     239mO     25mO
+polymer: 25TQC100MD3 per bridge                    pack 0.1R, 100 nH        33.0k    21m  0.20     101mO     22mO
+polymer: 25TQC100MD3 per bridge                    pack 0.1R, 300 nH        19.1k    36m  0.35     101mO     24mO
+polymer: 25TQC100MD3 per bridge                    pack 0.3R, 100 nH        33.0k    21m  0.07     273mO     23mO
+polymer: 25TQC100MD3 per bridge                    bench 30m, 1 uH          10.4k    66m  2.05      95mO     24mO
+
+6 A load release (both bridges and the fan stop at once) from the 17.4 V HV pack:
+  electrolytic: JVS25V100M6X4 per bridge             pack 100nH 17.40 V   pack 300nH 17.42 V   bench 1uH 18.07 V
+  ceramic only, bulk removed                         pack 100nH 17.40 V   pack 300nH 17.56 V   bench 1uH 18.33 V
+  ceramic: 2 x 1210 10u 50V X7R per bridge           pack 100nH 17.40 V   pack 300nH 17.45 V   bench 1uH 18.06 V
+  ceramic: 4 x 1210 10u 50V X7R per bridge           pack 100nH 17.40 V   pack 300nH 17.41 V   bench 1uH 17.93 V
+  polymer: 25TQC33MYF per bridge                     pack 100nH 17.40 V   pack 300nH 17.40 V   bench 1uH 17.81 V
+  polymer: 25TQC100MD3 per bridge                    pack 100nH 17.40 V   pack 300nH 17.40 V   bench 1uH 17.59 V
+
+=== 4. Hot plug and the battery switch (Q6 HSBB3072, R43/R41 100k, C58 47 nF G-D) ===
+option                                             source              SW4  board max  Q6 VDS max  I peak  VGS max
+electrolytic: JVS25V100M6X4 per bridge             pack 100 nH         off    15.32 V      3.33 V  98.7 A   3.15 V
+electrolytic: JVS25V100M6X4 per bridge             pack 100 nH          on    17.39 V      3.32 V  98.7 A   5.90 V
+electrolytic: JVS25V100M6X4 per bridge             pack 300 nH         off    15.32 V      3.17 V  79.4 A   3.00 V
+electrolytic: JVS25V100M6X4 per bridge             pack 300 nH          on    17.39 V      3.16 V  79.4 A   5.90 V
+electrolytic: JVS25V100M6X4 per bridge             bench 1 uH          off    19.62 V      3.13 V  75.0 A   2.96 V
+electrolytic: JVS25V100M6X4 per bridge             bench 1 uH           on    19.64 V      3.12 V  75.0 A   5.92 V
+ceramic only, bulk removed                         pack 100 nH         off    15.62 V      3.32 V  98.0 A   3.15 V
+ceramic only, bulk removed                         pack 100 nH          on    17.39 V      3.32 V  98.0 A   5.96 V
+ceramic only, bulk removed                         pack 300 nH         off    16.76 V      3.15 V  78.1 A   2.99 V
+ceramic only, bulk removed                         pack 300 nH          on    17.39 V      3.15 V  78.1 A   5.97 V
+ceramic only, bulk removed                         bench 1 uH          off    25.35 V      3.08 V  70.3 A   2.92 V
+ceramic only, bulk removed                         bench 1 uH           on    25.38 V      3.08 V  70.3 A   5.98 V
+ceramic: 2 x 1210 10u 50V X7R per bridge           pack 100 nH         off    15.61 V      3.39 V 106.9 A   3.22 V
+ceramic: 2 x 1210 10u 50V X7R per bridge           pack 100 nH          on    17.39 V      3.39 V 106.9 A   5.95 V
+ceramic: 2 x 1210 10u 50V X7R per bridge           pack 300 nH         off    15.62 V      3.25 V  88.8 A   3.08 V
+ceramic: 2 x 1210 10u 50V X7R per bridge           pack 300 nH          on    17.39 V      3.24 V  88.8 A   5.95 V
+ceramic: 2 x 1210 10u 50V X7R per bridge           bench 1 uH          off    24.15 V      3.25 V  88.7 A   3.08 V
+ceramic: 2 x 1210 10u 50V X7R per bridge           bench 1 uH           on    24.18 V      3.24 V  88.8 A   5.97 V
+polymer: 25TQC33MYF per bridge                     pack 100 nH         off    15.57 V      3.38 V 106.0 A   3.21 V
+polymer: 25TQC33MYF per bridge                     pack 100 nH          on    17.39 V      3.38 V 106.0 A   5.94 V
+polymer: 25TQC33MYF per bridge                     pack 300 nH         off    15.58 V      3.27 V  91.9 A   3.10 V
+polymer: 25TQC33MYF per bridge                     pack 300 nH          on    17.39 V      3.27 V  91.9 A   5.94 V
+polymer: 25TQC33MYF per bridge                     bench 1 uH          off    21.24 V      3.37 V 102.6 A   3.18 V
+polymer: 25TQC33MYF per bridge                     bench 1 uH           on    21.28 V      3.35 V 102.7 A   5.98 V
+With an SMAJ18A from BAT_P to GND_BAT at J1:
+ceramic only, bulk removed                         pack 100 nH          on    17.39 V      3.32 V  98.0 A   5.95 V
+ceramic only, bulk removed                         bench 1 uH           on    24.29 V      3.08 V  70.3 A   5.97 V
+ceramic: 2 x 1210 10u 50V X7R per bridge           pack 100 nH          on    17.39 V      3.39 V 106.9 A   5.95 V
+ceramic: 2 x 1210 10u 50V X7R per bridge           bench 1 uH           on    23.49 V      3.24 V  88.8 A   5.96 V
+Reference, Q6 shorted (a plain switch or no switch: the pack lands straight on the capacitors):
+electrolytic: JVS25V100M6X4 per bridge             pack 100 nH           -    17.39 V           - 120.5 A
+electrolytic: JVS25V100M6X4 per bridge             bench 1 uH            -    23.63 V           -  90.1 A
+ceramic only, bulk removed                         pack 100 nH           -    17.41 V           - 119.7 A
+ceramic only, bulk removed                         bench 1 uH            -    30.34 V           -  84.3 A
+ceramic: 2 x 1210 10u 50V X7R per bridge           pack 100 nH           -    17.39 V           - 131.2 A
+ceramic: 2 x 1210 10u 50V X7R per bridge           bench 1 uH            -    29.15 V           - 107.3 A
+polymer: 25TQC33MYF per bridge                     pack 100 nH           -    17.39 V           - 130.1 A
+polymer: 25TQC33MYF per bridge                     bench 1 uH            -    25.77 V           - 125.1 A
+
+SW4 closing (pack plugged, 3 Ohm load) and SW4 opening under a 5.8 A load (3 Ohm at 17.4 V),
+pack 0.1 Ohm behind 100 nH:
+  ceramic only, bulk removed                         close: board max 16.81 V, 10-90 % in  5.24 ms, inrush  5.60 A | open: Q6 VDS max 17.40 V, board max 16.81 V, fall 36.22 ms
+  ceramic: 2 x 1210 10u 50V X7R per bridge           close: board max 16.81 V, 10-90 % in  5.24 ms, inrush  5.64 A | open: Q6 VDS max 17.40 V, board max 16.81 V, fall 36.23 ms
+
+=== 5. Regeneration into VBAT with the pack disconnected ===
+Back-EMF at 14,300 rpm: 5.27 V, far below the 12-17.4 V pack: a coasting motor never
+charges VBAT through the body diodes. Only active braking pumps energy into VBAT (the bridge
+boosts): at most E^2 / (4 R) = 1.91 W per motor, 3.82 W for both, at full speed.
+   76 g at 4 m/s: kinetic energy 0.64 J (motor and bridge losses ignored: an upper bound)
+  100 g at 4 m/s: kinetic energy 0.83 J (motor and bridge losses ignored: an upper bound)
+  130 g at 4 m/s: kinetic energy 1.07 J (motor and bridge losses ignored: an upper bound)
+Net charging power with 0.6 W of logic load: 3.2 W. Time for VBAT to climb from 16.8 V:
+option                                              to 25 V  to 30 V  to 40 V
+electrolytic: JVS25V100M6X4 per bridge               12.3ms   22.2ms   47.2ms
+ceramic only, bulk removed                            1.6ms    3.0ms    6.3ms
+ceramic: 2 x 1210 10u 50V X7R per bridge              2.9ms    5.2ms   11.2ms
+ceramic: 4 x 1210 10u 50V X7R per bridge              4.2ms    7.5ms   16.0ms
+polymer: 25TQC33MYF per bridge                        5.2ms    9.3ms   19.8ms
+polymer: 25TQC100MD3 per bridge                      12.3ms   22.2ms   47.2ms
+A stop from 4 m/s lasts hundreds of ms: no capacitor bank absorbs it. Either the firmware
+stops regenerative braking (coast or low-side brake, EN = 0) when VBAT rises above the pack's
+maximum, or a TVS takes the energy.
+
+=== 6. TVS clamp on the battery input (BAT_P to GND_BAT, at J1) ===
+Regen clamp current about 0.15 A at about 21 V: the TVS sits near VBR (20-22.1 V),
+far below VC 29.2 V at 13.7 A; 3.2 W for a few hundred ms (0.83 J at most).
+Hot plug: the TVS also holds Q6's VDS (30 V absolute maximum) below 30 V.

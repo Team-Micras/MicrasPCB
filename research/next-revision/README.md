@@ -50,7 +50,7 @@ assumed 90 %). The TPS61178 could not stay anyway: recommended VOUT tops out at 
 
 ```text
 4S LiPo 12.0-16.8 V (17.4 V HV) ─ J1 ─ Q6 HSBB3072 (slew-limited low-side switch) ─ VBAT
-   [reverse polarity: TODO]  [TVS: TODO]
+   [reverse polarity: keyed connector only]  [TVS: SMAJ18A recommended, owner's decision]
    VBAT ─┬─ R_bat 2 mΩ 4-terminal ─ INA228 (I²C to the ESP32)
          ├─ DRV8874 (right) ─ WSK2512 10 mΩ ─ choke footprint (47 µH or 0 Ω) ─ DCX 10 L 4.5 V   INA241A2 on the shunt
          ├─ DRV8874 (left)  ─ WSK2512 10 mΩ ─ choke footprint (47 µH or 0 Ω) ─ DCX 10 L 4.5 V   INA241A2 on the shunt
@@ -141,12 +141,79 @@ DRV8874 nFAULT ×2 wire-OR ─ PC15
   441 mA, everything including emitters and white LEDs 588 mA, against 500 mA from a USB 2.0 port.
   On USB alone the firmware keeps the emitters and LEDs off or dim and may cap TX power; BLE at
   9 dBm draws 204 mA against 340 mA at 20 dBm (power-tree study §8, [ESP32-S3-MINI-1] Table 6-5).
-- **4S ratings**: C36 (16 V) becomes ≥ 25 V; SW4 (12 V DC) becomes a part rated for ≥ 16.8 V (17.4 V with HV cells);
+- **4S ratings**: C36 (16 V) becomes ≥ 25 V; SW4 (MK-12D18-G040, DC 12 V) becomes the G-Switch SK-12D29-G060
+  (DC 24 V 1 A, 1.38× the 17.4 V HV pack; the same 8.6 × 3.6 mm body with a 6.0 mm black lever; three
+  pins at 2.0 mm pitch and two frame legs, so a new footprint; `components/g-switch/SK-12D29-G060`);
   R44/R45 (100k/27k gives 3.57-3.70 V on PA5, above VDDA) becomes 100k/20k, 2.90 V at 17.4 V
   (firmware constant 6.0); 25 V capacitors sit at 67 % of rating on 4S (drivetrain study §4).
 - **Battery switch**: Q6 HSBB3072 stays: VDS 30 V (1.79× margin at 16.8 V), VGS = VBAT/2 = 6-8.4 V,
   0.61-0.97 W at 16 A. It gives **no reverse-polarity protection**: its body diode conducts with
-  the pack reversed (driver study Q6).
+  the pack reversed (driver study Q6); the connector keys the polarity.
+- **VBAT capacitance, no electrolytics** (calculations/power_tree/vbat_bulk.py): the board carries
+  only ceramics. On VBAT the bulk does four jobs; with a 4S pack and the slew-limited Q6 the
+  ceramics cover each:
+  - *100 kHz ripple*: the bridges draw I·√(D(1−D)) each; the ceramics carry it (0.2-0.4 A rms per
+    part, against 2.6 A for a 10 °C rise on the 1206's Samsung curve). An electrolytic adds almost
+    nothing at 100 kHz: its ohm-level ESR leaves it 0.15 A.
+  - *Damping the pack leads against the ceramics*: the pack's own 0.1-0.3 Ω (the 0.5-1.5 V sag at
+    5 A) is above the LC's characteristic impedance (42-73 mΩ at 100-300 nH), so the source does not
+    ring (Q ≤ 0.72). A bench supply on 1 m leads (1 µH, 30 mΩ) does (Q ≈ 4); keep bench leads short.
+  - *Hot plug and switch-on*: Q6 sits between the pack and the capacitors. At plug-in, C58 couples
+    the pack's edge onto Q6's gate, Q6 conducts at about 3 V and the ceramics charge in
+    microseconds, the current limited by the pack's resistance (≈ 100 A peak from 0.1 Ω, under the
+    HSBB3072's 240 A IDM), without overshoot from the pack's leads; from a bench supply on 1 m leads
+    VBAT overshoots to 24 V from 17.4 V. Closing SW4 ramps VBAT over about 5 ms, and opening it
+    under a 5.8 A load lets VBAT fall over tens of ms: no inductive kick on Q6.
+  - *Regeneration*: with the pack connected it takes the braking energy (through Q6's body diode
+    when Q6 is off). With the pack pulled while the firmware brakes, no capacitor bank absorbs it
+    (see VBAT overvoltage below).
+
+  Options per bridge, as the bulk beside the four 10 µF 50 V X7R 1206 at each DRV8874 (the board's
+  VBAT also has the fan's two 1206). VBAT ripple: both bridges at 3 A, D = 0.5, in phase (the
+  worst case; the interleave is untested) plus the fan at 2.5 A, 0.1 Ω pack on 100 nH, 16.8 V;
+  the power-tree model assumed 150 mV pp (300 mV in its HV case). Prices JLCPCB 2026-10-17, qty 1:
+
+  | Bulk per bridge | VBAT C at 16.8 V (board) | Ripple pp | Bulk ripple current | Area (body) | Height | Cost per bridge | Damping, ratings | LCSC |
+  |---|---|---|---|---|---|---|---|---|
+  | Main board: JVS25V100M6X4 100 µF 25 V on +20V (L6205), VT1C221M0605 220 µF 16 V on VBAT (fan) | – | – | 54 mA / 72 mA rated at 120 Hz | 6.6 × 6.6 mm base each (61 mm² courtyard) | 4.5 / 5.4 mm | $0.08 / $0.04 | tan δ 0.18-0.20 at 120 Hz (1.2-2.4 Ω); no 100 kHz ESR given | C51953404 / C22383774 |
+  | JVS25V100M6X4 100 µF 25 V electrolytic | 232 µF | 453 mV | 0.15 A (54 mA rated at 120 Hz) | 43.6 mm² base | 4.5 mm | $0.08 | damps everything (Q ≤ 0.35 on the pack; bench peak 0.33 Ω); 1.4× the HV pack | C51953404 |
+  | None (the four 1206 only) | 32 µF | 493 mV | – | 0 | – | 0 | Q 0.55-0.95 on the pack; bench Q 5.5 (0.97 Ω peak) | – |
+  | **2 × CL32B106KBJNNNE 10 µF 50 V X7R 1210 (chosen)** | **56 µF** | **285 mV** (79 mV interleaved) | **0.37 A rms per part** | **16 mm² (2 × 3.2 × 2.5)** | **2.5 mm** | **$0.66** | **Q 0.41-0.72 on the pack; bench Q 4.2 (0.56 Ω peak); 50 V, 2.9× the HV pack** | **C138687, 79 k stock** |
+  | 4 × CL32B106KBJNNNE 1210 | 81 µF | 198 mV | 0.25 A rms | 32 mm² | 2.5 mm | $1.32 | bench Q 3.5 | C138687 |
+  | Panasonic 25TQC33MYF 33 µF 25 V polymer tantalum | 98 µF | 212 mV | 0.88 A rms (1.4 A rated at 100 kHz) | 31.4 mm² (7.3 × 4.3) | 1.9 mm | $0.94 | ESR 60 mΩ ≈ Z0: damps the bench too (0.24 Ω peak); 25 V, used at 70 % on the HV pack (Kyocera-AVX TCJ: 80 % of Vr ≥ 16 V up to 85 °C, less above); transients must stay ≤ 25 V (Panasonic TQC); fails short | C191808, 4.3 k stock |
+  | Panasonic 25TQC100MD3 100 µF 25 V polymer tantalum | 232 µF | 183 mV | 1.0 A rms (1.6 A rated) | 31.4 mm² | 2.8 mm | $2.50 | as above (bench 0.10 Ω peak) | C3018702, 4.6 k stock |
+  | Hybrid: ceramics + R-C damping leg | – | – | – | – | – | – | a damping leg needs about 4× the ceramic capacitance (≈ 130-220 µF) behind R ≈ Z0 (0.1-0.2 Ω): an electrolytic- or polymer-sized part, or 30-60 more MLCCs; a small R-C does not damp | – |
+
+  KEMET T521 25 V polymers (T521V226M025ATE040, T521D476M025ATE065) have no JLCPCB stock; 35 V
+  polymers come at 10-15 µF (Panasonic 35TQC, 120-150 mΩ) or in 4.1 mm E cases (Kyocera-AVX
+  TCJE476M035). The 1210 holds twice the 1206's capacitance at 16.8 V (6.1 against 3.2 µF, Samsung
+  DC-bias curves: −39 % against −68 %) in a third more area, so two per bridge bring the ripple
+  inside the 300 mV of the analog-rail model's HV case at a sixth of the electrolytic's footprint
+  and half its height, rated at 50 V, with no short-failure mode. What the ceramics give up: the
+  damping of a bench supply on long leads, and some milliseconds of regeneration hold-up.
+- **VBAT overvoltage and a TVS** (calculations/power_tree/vbat_bulk.py). The lowest ratings on VBAT
+  and VSYS: the 25 V MLCCs on VSYS (C52, C53, C80), Q8 AO3401A (−30 V VDS, VSYS against an absent
+  VBUS), Q6 HSBB3072 (30 V VDS, with the pack connected), then 40 V (DRV8874 VM abs max, B5819W),
+  42 V (L6981 VIN), 44 V (ADP7142), 62 V (STSPIN958 VS), 85 V (INA228). Per case:
+  - *Hot plug*: none from the pack (VBAT ≤ 17.4 V, Q6 VDS ≤ 3.4 V); 24.2 V from a bench supply on
+    1 m leads (23.5 V with an SMAJ18A at J1).
+  - *SW4 off, or Q6 turning off under load*: none; the back-EMF of a coasting DCX 10 L 4.5 V is at
+    most 5.3 V at 14,300 rpm, far below the pack, so the bridges' body diodes never charge VBAT, and
+    Q6's turn-off is slewed over tens of ms (no L·di/dt).
+  - *Pack pulled while the firmware brakes*: each motor can push at most E²/(4R) = 1.9 W into VBAT
+    at full speed (3.8 W for both; 3.2 W net of a 0.6 W logic load), from 0.64-1.07 J of kinetic
+    energy (76-130 g at 4 m/s). The 56 µF of ceramics reach 25 V in 2.9 ms, 30 V in 5.2 ms and the
+    DRV8874's 40 V in 11 ms (the electrolytics bought 12-47 ms); a stop lasts hundreds of ms.
+
+  Recommendation (not on the board, the owner's decision): an **SMAJ18A** (Littelfuse; VR 18 V
+  above the 17.4 V pack, VBR 20.0-22.1 V, VC 29.2 V at 13.7 A, 400 W 10/1000 µs, 3.3 W on an
+  infinite heatsink; DO-214AC 4.8-5.3 × 2.4-2.8 × 1.9-2.3 mm, about 18 mm² with its pads; LCSC
+  C148219, $0.11, or C908771 $0.03) from BAT_P to GND_BAT at J1. Q6 is on while the board runs, so
+  it clamps VBAT too: braking regeneration at about 0.15 A and 21 V for a few hundred ms, under
+  every rating above, and a bench hot plug. The SOD-123FL SMF18A (200 W, RθJA 220 °C/W; 3.9 ×
+  2.0 × 1.1 mm, C409420, $0.12) has the same voltages in half the area but marginal heat capacity
+  for 1 J over a stop. Without a TVS, the firmware must stop regenerative braking (coast, or EN = 0
+  low-side brake, which dissipates in the motor) whenever VBAT rises above the pack's maximum.
 
 ### Drivetrain
 
@@ -198,9 +265,9 @@ DRV8874 nFAULT ×2 wire-OR ─ PC15
   16.8 V, so the wheel speed command is capped at about 4 m/s at G ≈ 4.27 (or 4.6 m/s at 3.7:1).
   The pack sags 0.5-1.5 V at 5 A (assumed 4 × cell IR + 3.4 mΩ), so the bridges see about
   11.5-16.8 V and the duty feed-forward scales by the measured VBAT.
-- **Bridge decoupling**: per bridge, 2-4 × 10 µF X7R 50 V within a few mm plus 100-220 µF low-ESR
-  polymer, 25 V or higher; 0.1 µF at VM. The input ripple is I·√(D(1−D)), about 1-1.2 A rms per bridge
-  at 2.4 A (drivetrain study §5, driver study Q6). Size the battery input, Q6, the VBAT plane and the
+- **Bridge decoupling**: per bridge, 4 × 10 µF X7R 50 V 1206 within a few mm plus 2 × 10 µF X7R 50 V
+  1210 as bulk, no electrolytic ([VBAT capacitance](#power-tree)); 0.1 µF at VM. The input ripple
+  is I·√(D(1−D)), about 1-1.2 A rms per bridge at 2.4 A (drivetrain study §5, driver study Q6). Size the battery input, Q6, the VBAT plane and the
   bridge supply for about 6 A peak and 3-4 A rms; each motor trace for about 3 A peak and 1-1.5 A rms.
 - **Motor safety in reset**: nSLEEP of both bridges on Motors_Enable (PA10) with the R49 100 kΩ
   pull-down, so the bridges sleep while the H7 is in reset or halted for SWD flashing.
@@ -405,7 +472,7 @@ New or changed parts; JLC numbers and prices as queried on 2026-10-15 (stock is 
 | Motors | maxon DCX 10 L 4.5 V × 2 | new; order code **TODO**; length against MicrasHardware `Motor.body_l` = 20 **TODO** | 2.9 Ω, 45 µH, kt 3.52 mNm/A, 0.648 A cont., 14,300 rpm, 11 g | [maxon p100] |
 | Battery | 4S 150-300 mAh: four 1S 300 mAh cells (~28 g) or a 4S pack (22-36 g) | new; IR unmeasured | non-HV charging keeps the TPS2121 option open | drivetrain study §4-§5 |
 | Battery switch | HSBB3072 (Q6) | keep | 30 V VDS, VGS = VBAT/2 | repo `components/huashuo/HSBB3072` |
-| Reverse polarity, TVS | back-to-back FET or ideal-diode controller; TVS | **TODO** | TVS clamp below the lowest abs max on VBAT | driver study Q6 |
+| Reverse polarity, TVS | none (the connector keys the polarity); TVS SMAJ18A at J1 recommended, not fitted | owner's decision | VR 18 V, VBR 20-22.1 V, VC 29.2 V at 13.7 A; C148219 $0.11 | [VBAT overvoltage](#power-tree) |
 | Power path | 40 V 1 A Schottky + AO3401A-class P-FET, or 2 × LM74700-Q1/MX74700T + N-FETs; TPS2121 with non-HV cells only | replaces the TPS2121 mux for HV cells | B5819W C8598 basic; LM74700QDDFRQ1 C3236229 $1.32; MX74700T C22468156 $0.41 | power-tree study §8 |
 | Digital 3V3 | L6981C33 | keep | 1.5 A, 3.5-38 V, 30.5-145 µF window; C5268096 shows 1 in stock | [L6981] |
 | Analog 3V3_A | ADP7142ACPZN3.3 (LFCSP) or TPS7A4901DGNR, behind 22 Ω + 10 µF | new | 40 V / 36 V, 11 / 15.4 µVrms; C659360 $2.88 / C16430 $1.26 | ADP7142 Rev H; [TPS7A49] |
@@ -416,13 +483,13 @@ New or changed parts; JLC numbers and prices as queried on 2026-10-15 (stock is 
 | Motor shunts | WSK2512R0100FEA (±1 %, C3985410, 4955 stock) or WSK2512R0100DEA (±0.5 %, C1517461, 0 stock) × 2 | replaces the 40 mΩ 2-pad 2512 | 4-terminal, ±35 ppm/K | [WSK2512] |
 | Current amplifiers | INA241A2IDGKR × 2 | replaces TSC2020 | ±15 µV, ±0.01 %, 1 µs hold, ≤ 125 kHz PWM; C36752877, 2 stock, $5.71-4.08 | [INA241] |
 | Battery monitor | INA228 + 2 mΩ 4-terminal shunt (WSK25122L000FEA) | new | ±20.48 A, ±1 µV, ±0.05 % | [INA228] |
-| Bridge decoupling | 2-4 × 10 µF X7R 50 V + 100-220 µF polymer ≥ 25 V per bridge | new | 1-1.2 A rms input ripple per bridge at 2.4 A | drivetrain study §5 |
+| Bridge decoupling | 4 × 10 µF X7R 50 V 1206 + 2 × CL32B106KBJNNNE 10 µF X7R 50 V 1210 per bridge, no electrolytic | new | 285 mV pp worst case at 100 kHz; C138687 $0.33 | calculations/power_tree/vbat_bulk.py |
 | Fan driver | STSPIN958 (keep); R31 20-25 mΩ 1206; RSR 1-2.2 kΩ; C36 ≥ 25 V; C34/C35 50 V; choke footprint 4.7-10 µH | modify | 5.05-58 V, 500 kHz, 280 ns min pulse; C20033901, 0 stock, $4.23 | [STSPIN958], fan study §5 |
 | Fan fallback | TPS28225DR + 2 × CSD17578Q3A + TLV3201/TLV7031 + shunt | only above ~3 A | TPS28225DR C52897 $0.85; CSD17578Q3A $0.42 | fan study §3 |
 | Emitter drive | TLV9001 + AO3400A + 1.2 Ω 0.1 % sense; 3.3 Ω per emitter | new | 170 mA, set-point from 3V3_A | power-tree study §6 |
 | Status LEDs | WS2812C-2020-V6 × 2 | replaces WS2815C-2020 (needs 9.5-13.5 V) | 3.3-5.3 V, 5 mA per colour; C55109522 | [WS2812C-2020-V6] |
 | Radio / probe | ESP32-S3-MINI-1-N8, rear-left corner, antenna beyond the rear edge (MINI-1U-N8 fallback) | replaces HM-19 and P1 | 355 mA TX peak, ≥ 0.5 A supply; C2913206, 3754 stock, $4.72 (-1U C2980299, $4.89) | [ESP32-S3-MINI-1], [ESP32 form factor](#esp32-form-factor) |
-| Switches, divider | SW4 rated ≥ 16.8 V (17.4 V HV); R44/R45 100k/20k | modify | firmware constant 6.0 | drivetrain study §4 |
+| Switches, divider | SW4 → SK-12D29-G060 (DC 24 V 1 A, 6.0 mm lever, new footprint); R44/R45 100k/20k | modify | C2848877, 531 stock, $0.13; firmware constant 6.0 | drivetrain study §4; `components/g-switch/SK-12D29-G060` |
 | VDDA filter | FB1 → 0 Ω or ≤ 50 mΩ bead | modify | – | power-tree study §9 |
 | Removed | TPS61178 + 1 µH + 7 capacitors; L6205D and its parts; 2 × TSC2020; 2 × 40 mΩ shunts; P1; U5; SBU chain (Q7, F1, D13, C77, C78, R50-R55, U7); WS2815C D1/D2 | remove | – | – |
 
@@ -674,8 +741,8 @@ requires it.
   about 32 µs, (45 + 47 µH) / 2.9 Ω, DCR ignored (computed). That is irrelevant for the fan and
   acceptable for the wheel loop: still about three PWM periods, below one 10-20 kHz loop period
   (inference).
-- **Stored energy is negligible.** ½·L·I² = 0.21 mJ at 47 µH and 3 A (computed), against 14 mJ in
-  100 µF of bulk at 16.8 V.
+- **Stored energy is negligible.** ½·L·I² = 0.21 mJ at 47 µH and 3 A (computed), against 7.9 mJ in
+  the 56 µF of VBAT ceramics at 16.8 V.
 - **Current sensing gets smoother.** The ripple halves (0.93 → 0.46 A pp at the datasheet L), the
   ripple becomes close to triangular, and a phase-centre sample then equals the period mean.
 - **No capacitor across the motor.** A capacitor at the motor terminals forms an LC with the choke;
@@ -762,7 +829,7 @@ path on the same board.
 | Fan motor and driver | STSPIN958 (≤ ~3 A continuous) / TPS28225 half-bridge (above) | Fan motor not chosen |
 | Analog LDO | ADP7142ACPZN3.3 (fixed) / TPS7A4901 (adjustable, cheaper) | Package thermal at ≈ 0.33 W |
 | Power path | Schottky + P-FET / 2 × LM74700-Q1 / TPS2121 (non-HV only) | – |
-| Protection | reverse-polarity FET or ideal diode / keyed connector only; TVS part | – |
+| TVS on the battery input | SMAJ18A at J1 (recommended) / none, with a firmware VBAT limit on braking | Reverse polarity: the keyed connector only (owner) |
 | ESP form factor | MINI-1-N8 in the rear-left corner, antenna 5 mm beyond the rear edge (recommended) / MINI-1U-N8 with an external antenna / PICO-1 + chip antenna | Overhang, M1 and the drive block against antenna tuning; antenna bench test |
 | ESP chip | S3 (recommended) / C5 under the Q2 conditions | – |
 | Toolchain | CMSIS-DAP through OpenOCD (master) or probe-rs | ST-Link and CubeProgrammer workflows are lost |
@@ -789,8 +856,9 @@ path on the same board.
   running on VFQFPN68 (DS13311 Table 84 is for BGA, one ADC); the arena-light phototransistor current.
 - **Power path**: no 40 V Schottky checked for leakage and VF; the AO3401A VGS rating not re-read; the
   Type-C Rp advertisement not used for a higher USB budget.
-- **Battery input**: reverse-polarity protection and TVS part; B02B-PASK connector rating at about
-  5 A; no published IR for 4S 200-300 mAh packs; MLCC DC-bias derating at 25-50 V not retrieved.
+- **Battery input**: the TVS decision; B02B-PASK connector rating at about 5 A; no published IR for
+  4S 200-300 mAh packs; SW4's ON position (the SK-12D29 drawing does not say which lever position
+  joins which pin); the HSBB3072 model in vbat_bulk.py is fitted to its datasheet table, not measured.
 - **Fan**: no drone motor publishes inductance (the 1-12 µH range is inferred); NFP figures are from
   search snippets; STSPIN958 supply current, dead time and RDS(on) temperature curve unpublished; the
   discrete limiter is not a validated design; its 4.5-8.8 V gate supply is not designed.
@@ -832,6 +900,7 @@ MB, git-ignored) into their `out/` folder; the netlists (`.cir`), logs and summa
 | [supply3v3/sim3v3.py](calculations/supply3v3/sim3v3.py), [analyze.py](calculations/supply3v3/analyze.py) | `out/summary_meas.txt`, `out/summary_slots.txt` | Averaged 3V3/VDDA droop model during the emitter pulses (ngspice, seconds) |
 | [power_tree/sim_power_tree.py](calculations/power_tree/sim_power_tree.py), [analyze.py](calculations/power_tree/analyze.py) | `out/summary.txt` | Switching-level analog-rail model, cases A-F (ngspice, about 5 min per case, 6 in parallel) |
 | [power_tree/calc_power_tree.py](calculations/power_tree/calc_power_tree.py) | `out/calc_power_tree.txt` | Analog-rail load, LDO heat, emitter sink, USB budget, ADC noise, LC filter |
+| [power_tree/vbat_bulk.py](calculations/power_tree/vbat_bulk.py) | `vbat_bulk_out.txt` | VBAT capacitor options (MLCC DC bias, 100 kHz ripple, source impedance), hot plug and Q6 switching, regeneration with the pack pulled, TVS clamp (ngspice, about 5 min) |
 
 The power-tree netlists of the cases A_none, A_bead, A_lc, A_lcd, A6981_lc, F and Frc lack the 1 MΩ
 bleed resistor the script adds to the buck output nodes (negligible at mA loads); rerun
@@ -877,6 +946,12 @@ refer to these editions.
 | ESP certificates | [Espressif certificates](https://www.espressif.com/en/support/documents/certificates) |
 | [ESP-FAQ USB] | [ESP-FAQ, USB](https://docs.espressif.com/projects/esp-faq/en/latest/software-framework/peripherals/usb.html) |
 | [ESP-IDF Wi-Fi performance] | [ESP-IDF Wi-Fi performance, ESP32-S3](https://docs.espressif.com/projects/esp-idf/en/v6.1/esp32s3/api-guides/wifi-driver/wifi-performance-and-power-save.html) |
+| [SK-12D29] | [G-Switch SK-12D29-GXXX drawing (2016-05-29), LCSC C2848877](https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2108301530_G-Switch-SK-12D29-G060_C2848877.pdf) |
+| [Samsung MLCC] | [Samsung product pages, DC-bias and ripple-current curves, e.g. CL32B106KBJNNN](https://product.samsungsem.com/mlcc/CL32B106KBJNNN.do) |
+| [Panasonic TQC] | [Panasonic POSCAP TQC series (2023-06-30), LCSC C3018702](https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2401241128_PANASONIC-25TQC100MD3_C3018702.pdf) |
+| [Kyocera-AVX TCJ] | [Kyocera-AVX TCJ series, TDS-PTNO-0027 Rev 19](https://datasheets.kyocera-avx.com/TCJ.pdf) |
+| [SMAJ] | [Littelfuse SMAJ series (rev. 11/20/15), LCSC C148219](https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2304140030_Littelfuse-SMAJ18A_C148219.pdf) |
+| [SMF] | [Littelfuse SMF series, LCSC C409420](https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/1912111437_Littelfuse-SMF18A_C409420.pdf) |
 | Probe firmware | [espressif/esp-usb-bridge](https://github.com/espressif/esp-usb-bridge), [bkuschak/cmsis_dap_tcp_esp32](https://github.com/bkuschak/cmsis_dap_tcp_esp32), [windowsair/wireless-esp8266-dap](https://github.com/windowsair/wireless-esp8266-dap) |
 | SFH 4550, AN5419, TPS28225, CSD17578Q3A, TLV9001 SBOS833R | vendor datasheets; no URL recorded |
 
@@ -910,6 +985,12 @@ refer to these editions.
 [ESP schematic]: https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32s3/schematic-checklist.html
 [ESP-FAQ USB]: https://docs.espressif.com/projects/esp-faq/en/latest/software-framework/peripherals/usb.html
 [ESP-IDF Wi-Fi performance]: https://docs.espressif.com/projects/esp-idf/en/v6.1/esp32s3/api-guides/wifi-driver/wifi-performance-and-power-save.html
+[SK-12D29]: https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2108301530_G-Switch-SK-12D29-G060_C2848877.pdf
+[Samsung MLCC]: https://product.samsungsem.com/mlcc/CL32B106KBJNNN.do
+[Panasonic TQC]: https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2401241128_PANASONIC-25TQC100MD3_C3018702.pdf
+[Kyocera-AVX TCJ]: https://datasheets.kyocera-avx.com/TCJ.pdf
+[SMAJ]: https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2304140030_Littelfuse-SMAJ18A_C148219.pdf
+[SMF]: https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/1912111437_Littelfuse-SMF18A_C409420.pdf
 
 The research studies behind this proposal are kept outside the repository and are cited by name
 with their section: the drivetrain study (motor, battery, 4S), the driver study (motor drivers and
@@ -924,7 +1005,7 @@ Proposals to verify against the datasheets when entered in Zener.
 
 ### A.1 DRV8874PWPR, one per motor
 
-- **VM** (11) to VBAT: 0.1 µF plus the bridge bulk (2-4 × 10 µF X7R 50 V, 100-220 µF polymer ≥ 25 V).
+- **VM** (11) to VBAT: 0.1 µF plus 4 × 10 µF X7R 50 V 1206 and the bulk, 2 × 10 µF X7R 50 V 1210.
 - **VCP** (12): 100 nF 16 V to VM. **CPH/CPL** (13/14): 22 nF, VM-rated.
 - **GND** (15), **PGND** (9), **PAD** to GND.
 - **PMODE** (16) to GND: PH/EN mode.
@@ -943,7 +1024,7 @@ Proposals to verify against the datasheets when entered in Zener.
 ### A.2 DRV8262DDW, dual H-bridge (alternative)
 
 - **VM** (2, 11, 12, 21) to VBAT: 0.01 µF X7R 50 V at VM-PGND12 and at VM-PGND34; ≥ 2-4 × 10 µF X7R
-  50 V within a few mm; 100-220 µF low-ESR polymer ≥ 25 V.
+  50 V within a few mm; 2 × 10 µF X7R 50 V 1210 as bulk.
 - **PGND12, PGND34, GND, PAD** to the GND plane, thermal via array under the pad (13 × 5 in the
   datasheet simulation).
 - **VCP** (1): 1 µF 16 V X7R to VM. **CPH/CPL** (44/43): 0.1 µF X7R, VM-rated. **DVDD** (24): 1 µF
@@ -1002,7 +1083,7 @@ Source: power-tree study §6-§9; [TPS560430] Table 1; [TPS7A49]; ADP7142 Rev H.
 ### A.5 Fan, STSPIN958
 
 ```text
-VBAT ── VS (27-30) ── 2 × 470 nF 50 V 0603 at the pins, 2 × 10 µF 50 V 1206, VBAT bulk ≥ 25 V
+VBAT ── VS (27-30) ── 2 × 470 nF 50 V 0603 at the pins, 2 × 10 µF 50 V 1206, the bridges' VBAT bulk
 VSPUMP (4) ── C33 1 µF ── VBOOT (7) ; CP1 (5) ── C32 100 nF ── CP2 (6)
 3V3_D ── VDD (13) ── C31 220 nF ; nSTBY (10) ── 3V3_D
 MODE1 (20) = 3V3, MODE2 (19) = GND, MODE3 (18) = 3V3   (parallel half-bridge, PWM trimming, Table 8)

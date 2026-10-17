@@ -9,7 +9,7 @@ ESP32-S3 radio and debug probe on the USB-C port, and the user interface.
 The design is [research/next-revision/README.md](../../../research/next-revision/README.md): its
 design basis (maxon DCX 10 L 4.5 V motors on a 4S pack, no boost; USB-C to the ESP32 only; no
 5 V rail), the options it recommends, and its connection lists A.1-A.6. The blocks it keeps are
-`boards/main`'s, with their designators; new parts continue each series (C80-C110, D14, IC8-IC9,
+`boards/main`'s, with their designators; new parts continue each series (C80-C112, D14, IC8-IC9,
 L4-L6, Q8-Q9, R56-R92, U8-U13), and the designators of removed parts are not reused.
 
 The board is **schematic only**: its Zener root declares `Project(layout = False)`, so `make gen`
@@ -70,7 +70,12 @@ USB VBUS (+5V) ─ Q8 AO3401A (gate follows VBAT) ─┴─ VSYS 4.3-17.4 V
 - **3V3_A**: the ADP7142ACPZN3.3 LDO from VSYS through 22 Ohm + 10 uF, its EN on 3V3_D so VDDA
   never leads VDD; about 10 mA typical, 23 mA worst case, 0.32 W at the HV pack's top.
 - **No 5 V rail**: VBUS feeds only Q8, its clamp D8 and the two VBUS-sense dividers.
-- **Battery switch**: Q6 and SW4 as on the main board; Q6 gives no reverse-polarity protection.
+- **Battery switch**: Q6 as on the main board; SW4 is the SK-12D29-G060 (DC 24 V, the main board's
+  switch body with a 6.0 mm lever, its own footprint). No reverse-polarity protection: the connector
+  keys the polarity.
+- **No electrolytics**: VBAT carries only ceramics (56 uF effective at 16.8 V); the research's
+  [VBAT capacitance](../../../research/next-revision/README.md#power-tree) compares the options and
+  quantifies the VBAT overvoltage cases.
 
 ## Drivetrain and current sensing
 
@@ -78,8 +83,8 @@ USB VBUS (+5V) ─ Q8 AO3401A (gate follows VBAT) ─┴─ VSYS 4.3-17.4 V
   PH (right PA8/PA9, left PC7/PC9), IMODE = GND (fixed off-time, automatic retry), ITRIP 2.97 A
   from RIPROPI 2.0 kOhm and VREF 2.68 V (5.6k/24k from 3V3_D). nSLEEP of both on Motors_Enable
   (PA10) with R49 100 kOhm to GND; nFAULT of both wire-ORed on Motors_nFault (PC15) with R60
-  10 kOhm to 3V3_D. Per bridge: 100 nF + 4 x 10 uF 50 V X7R + 100 uF 25 V on VM, 100 nF VCP,
-  22 nF CPH-CPL.
+  10 kOhm to 3V3_D. Per bridge: 100 nF + 4 x 10 uF 50 V X7R 1206 + 2 x 10 uF 50 V X7R 1210 (the
+  bulk) on VM, 100 nF VCP, 22 nF CPH-CPL.
 - **Motor path**: OUT1 -> 10 mOhm WSK2512 4-terminal shunt -> 47 uH XAL7070-473 choke -> motor
   connector; OUT2 -> connector. Each choke has a 2512 0 Ohm alternative across it, DNP: the choke
   is fitted until the motor's inductance at 100 kHz is measured.
@@ -158,10 +163,9 @@ decisions for the owner:
 
 Each is a visible TODO in the sheet that owns it.
 
-- Battery input: reverse-polarity protection and a TVS; a switch rated for the 4S pack in place
-  of SW4 (12 V DC); the B02B-PASK rating at about 5 A.
-- Bridge bulk: a low-ESR polymer capacitor (the research's 100-220 uF) needs a component
-  package; the 25 V electrolytic stands in, with four ceramics per bridge for the ripple.
+- Battery input: a TVS at J1 (the research recommends an SMAJ18A against braking regeneration with
+  the pack pulled; the owner's decision); the B02B-PASK rating at about 5 A; which SW4 lever
+  position is ON (the SK-12D29 drawing does not say).
 - Choke 0 Ohm alternatives: the 2512 jumper's current rating.
 - Emitter sink: the set-point is always on (the research asks it off between pulses); a
   selector held on puts 175 mA DC through an emitter; the TLV9001 loop's step response with

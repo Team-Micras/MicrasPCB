@@ -240,6 +240,17 @@ def battery_switch_rating(module, inputs):
     report([] if rated >= vmax else ["SW4 is rated " + eng(rated, "V") + " DC, below the " + eng(vmax, "V") + " pack"])
 
 
+def ceramic_capacitors_only(module, inputs):
+    # The owner's decision for main2: no electrolytic capacitors (too big). Every capacitor is a
+    # stdlib ceramic with a dielectric (VBAT bulk: research calculations/power_tree/vbat_bulk.py).
+    b = index(module)
+    p = []
+    for ref, c in b.parts.items():
+        if c.type == "capacitor" and not (hasattr(c, "dielectric") and c.dielectric != None):
+            p.append(ref + " (" + str(c.mpn) + ") is not a ceramic capacitor")
+    report(p)
+
+
 def capacitor_voltage_ratings(module, inputs):
     # Every capacitor's rated voltage must cover the largest voltage across it, from the
     # declared ranges of the nets it joins (nets without a declared range are skipped).
@@ -272,6 +283,7 @@ TestBench(
         battery_monitor,
         battery_switch_slew,
         battery_switch_rating,
+        ceramic_capacitors_only,
         capacitor_voltage_ratings,
     ],
 )
