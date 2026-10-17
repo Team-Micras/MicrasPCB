@@ -116,6 +116,7 @@ wires = [
     [[92, 38], [92, 34], { label = "right" }], # options for the free end before them
 ]
 taps = ["IC6.15"]                   # a wired net's label at this pin, along its wire
+note = [{ at = [4, 70], text = "VDDA is VREF+" }]  # free text in the block, top-left anchored
 stubs."IC6.12" = { point = "out" }  # per pin: len (stub, grid steps), label = "right"|"left"|"up"|"down",
                                     # point = "out" (power symbol along the pin, not up/down)
 ```

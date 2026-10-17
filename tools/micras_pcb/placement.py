@@ -258,6 +258,7 @@ class Placer:
 
     def place(self) -> str:
         parts = {s.ref: s for s in self.sheet.parts()}
+        self.parts_by_ref = parts
         for ref, s in parts.items():
             ps = self.spec.parts.get(ref)
             if ps is None:
@@ -404,9 +405,18 @@ class Placer:
                 self.problems.append(f"a wire joins pins of different nets: {pins}")
         return set(touched)
 
+    def _partners(self, pid: str) -> list[str]:
+        """The pin and those joined to it inside its part (a jumper pin group)."""
+        ref, num = pid.rsplit(".", 1)
+        lib = self.parts_by_ref[ref].lib
+        for group in lib.jumpers:
+            if num in group:
+                return [f"{ref}.{n}" for n in sorted(group)]
+        return [pid]
+
     def _drivers_of_group(self, g: str) -> list[Driver]:
         seen, out = set(), []
-        for p in self.groups[g]:
+        for p in [q for pin in self.groups[g] for q in self._partners(pin)]:
             for d in self.pin_drivers.get(p, []):
                 if (d.kind, d.text, d.extra) not in seen:
                     seen.add((d.kind, d.text, d.extra))
@@ -854,7 +864,7 @@ def _effects(size: str, justify: str, depth: int, bold: bool = False) -> str:
 
 def _text(text: str, x: float, y: float, size: float, uid: str, bold=False, justify="left bottom") -> str:
     return (
-        f"\t(text {sexpr.quote(text)}\n\t\t(exclude_from_sim no)\n\t\t(at {_f(x)} {_f(y)} 0)\n\t\t"
+        f"\t(text {sexpr.quote(text).replace(chr(10), '\\n')}\n\t\t(exclude_from_sim no)\n\t\t(at {_f(x)} {_f(y)} 0)\n\t\t"
         + _effects(f"{_f(size)} {_f(size)}", justify, 2, bold=bold)
         + f'\n\t\t(uuid "{uid}")\n\t)\n'
     )
