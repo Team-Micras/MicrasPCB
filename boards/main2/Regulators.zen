@@ -40,10 +40,11 @@ A0 = A1 = GND: address 0x40 (Table 7-2). SDA, SCL and ALERT have R68-R70 10 kOhm
 3V3_D (Figure 8-2); the ESP reads it and relays the readings over UART4. No input filter: the
 shunt sense pads go straight to IN+/IN- (section 8.1.4 makes the filter optional).
 
-Battery measurement: R44 100 kOhm / R45 20 kOhm from VBAT into Battery_Voltage (PA5, ADC12_INP19,
-DS13311 Table 8) with C59 100 nF: 17.4 V x 20 / 120 = 2.90 V at the HV pack's top, below VDDA
-(the main board's 27 kOhm gives 3.70 V, above it); Thevenin 16.7 kOhm with 100 nF (1.7 ms)
-holds the pin for the ADC sample and filters the PWM ripple. The firmware divides by 120 / 20 =
+Battery measurement: R44 100 kOhm / R45 20 kOhm from VBAT into Battery_Voltage (PC5, ADC12_INP8,
+DS13311 Table 8; a slow channel, Table 85 notes 4-5) with C59 100 nF: 17.4 V x 20 / 120 =
+2.90 V at the HV pack's top, below VDDA (the main board's 27 kOhm gives 3.70 V, above it);
+Thevenin 16.7 kOhm with 100 nF (1.7 ms) holds the pin for the ADC sample and filters the PWM
+ripple. The firmware divides by 120 / 20 =
 6.0 (boards/main2/firmware_changes.toml).
 
 Power path (research A.4; power-tree study section 8):

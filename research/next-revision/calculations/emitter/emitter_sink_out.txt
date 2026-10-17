@@ -1,0 +1,42 @@
+== 1. Worst case, sample window: AC-coupled selector against a DC-coupled one
+   3V3_D 3.229 V, VF 1.80 V, pin VDD - 0.4 V; Q9 needs its drain >= 0.22 V
+  Vth 1.05 V, 220n/22k: I 175.08/175.08 mA at 75/141 us (DC-coupled 175.08/175.08); gate 2.54/2.50 V; sink node 0.83 V (drain 0.84), margin +0.61 V
+  Vth 1.05 V, 220n/10k: I 175.08/175.08 mA at 75/141 us (DC-coupled 175.08/175.08); gate 2.40/2.33 V; sink node 0.83 V (drain 0.84), margin +0.61 V
+  Vth 1.05 V, 470n/10k: I 175.08/175.08 mA at 75/141 us (DC-coupled 175.08/175.08); gate 2.50/2.47 V; sink node 0.83 V (drain 0.84), margin +0.61 V
+  Vth 1.45 V, 220n/22k: I 175.08/175.08 mA at 75/141 us (DC-coupled 175.08/175.08); gate 2.54/2.50 V; sink node 0.82 V (drain 0.84), margin +0.61 V
+  Vth 1.45 V, 220n/10k: I 175.08/175.08 mA at 75/141 us (DC-coupled 175.08/175.08); gate 2.40/2.33 V; sink node 0.81 V (drain 0.84), margin +0.59 V
+  Vth 1.45 V, 470n/10k: I 175.08/175.08 mA at 75/141 us (DC-coupled 175.08/175.08); gate 2.50/2.47 V; sink node 0.82 V (drain 0.84), margin +0.60 V
+  Vth 1.65 V, 220n/22k: I 175.08/175.08 mA at 75/141 us (DC-coupled 175.08/175.08); gate 2.54/2.50 V; sink node 0.81 V (drain 0.84), margin +0.59 V
+  Vth 1.65 V, 220n/10k: I 175.07/175.07 mA at 75/141 us (DC-coupled 175.08/175.08); gate 2.40/2.33 V; sink node 0.69 V (drain 0.84), margin +0.48 V
+  Vth 1.65 V, 470n/10k: I 175.08/175.08 mA at 75/141 us (DC-coupled 175.08/175.08); gate 2.50/2.47 V; sink node 0.80 V (drain 0.84), margin +0.58 V
+  Vth 1.85 V, 220n/22k: I 175.07/175.07 mA at 75/141 us (DC-coupled 175.08/175.08); gate 2.54/2.50 V; sink node 0.67 V (drain 0.84), margin +0.45 V
+  Vth 1.85 V, 220n/10k: I 175.07/175.07 mA at 75/141 us (DC-coupled 175.08/175.08); gate 2.40/2.33 V; sink node 0.49 V (drain 0.84), margin +0.28 V
+  Vth 1.85 V, 470n/10k: I 175.07/175.07 mA at 75/141 us (DC-coupled 175.08/175.08); gate 2.50/2.47 V; sink node 0.64 V (drain 0.84), margin +0.42 V
+  Vth 2.05 V, 220n/22k: I 175.07/175.07 mA at 75/141 us (DC-coupled 175.08/175.08); gate 2.54/2.50 V; sink node 0.47 V (drain 0.84), margin +0.25 V
+  Vth 2.05 V, 220n/10k: I 175.07/175.07 mA at 75/141 us (DC-coupled 175.08/175.08); gate 2.39/2.33 V; sink node 0.29 V (drain 0.84), margin +0.07 V
+  Vth 2.05 V, 470n/10k: I 175.07/175.07 mA at 75/141 us (DC-coupled 175.08/175.08); gate 2.50/2.47 V; sink node 0.44 V (drain 0.84), margin +0.22 V
+
+== 2. A pin held high: time from the edge until the emitter current falls below a level
+   worst case for turn-off: Vth 0.65 V, pin at 3.346 V, VF typ, DAC at the 175 mA code
+  220n/22k: < 100 mA at 7.5 ms, < 10 mA at 9.5 ms, < 1 mA at 11.1 ms
+  220n/10k: < 100 mA at 3.4 ms, < 10 mA at 4.3 ms, < 1 mA at 5.1 ms
+
+== 3. Pulse start: the DAC window against the selector's (four emitters back to back)
+  Q9 Vth 0.65 V, VOS -2 mV, DAC up +2 us / down -2 us: Q9 gate before 0.01 V, peak  173 mA, at 75 us 173.40 mA, within 1 % after 11.7 us
+  Q9 Vth 0.65 V, VOS -2 mV, DAC up +0 us / down +0 us: Q9 gate before 0.22 V, peak  173 mA, at 75 us 173.40 mA, within 1 % after  8.6 us
+  Q9 Vth 0.65 V, VOS -2 mV, DAC up -5 us / down +5 us: Q9 gate before 2.05 V, peak  284 mA, at 75 us 173.40 mA, within 1 % after 16.7 us
+  Q9 Vth 0.65 V, VOS +2 mV, DAC up +2 us / down -2 us: Q9 gate before 0.02 V, peak  177 mA, at 75 us 176.75 mA, within 1 % after 11.5 us
+  Q9 Vth 0.65 V, VOS +2 mV, DAC up +0 us / down +0 us: Q9 gate before 0.39 V, peak  177 mA, at 75 us 176.75 mA, within 1 % after  7.4 us
+  Q9 Vth 0.65 V, VOS +2 mV, DAC up -5 us / down +5 us: Q9 gate before 2.23 V, peak  284 mA, at 75 us 176.75 mA, within 1 % after 18.7 us
+  Q9 Vth 1.45 V, VOS -2 mV, DAC up +2 us / down -2 us: Q9 gate before 0.63 V, peak  173 mA, at 75 us 173.40 mA, within 1 % after 12.9 us
+  Q9 Vth 1.45 V, VOS -2 mV, DAC up +0 us / down +0 us: Q9 gate before 1.02 V, peak  173 mA, at 75 us 173.40 mA, within 1 % after  8.6 us
+  Q9 Vth 1.45 V, VOS -2 mV, DAC up -5 us / down +5 us: Q9 gate before 2.85 V, peak  284 mA, at 75 us 173.40 mA, within 1 % after 16.7 us
+  Q9 Vth 1.45 V, VOS +2 mV, DAC up +2 us / down -2 us: Q9 gate before 0.81 V, peak  177 mA, at 75 us 176.75 mA, within 1 % after 11.8 us
+  Q9 Vth 1.45 V, VOS +2 mV, DAC up +0 us / down +0 us: Q9 gate before 1.19 V, peak  177 mA, at 75 us 176.75 mA, within 1 % after  7.4 us
+  Q9 Vth 1.45 V, VOS +2 mV, DAC up -5 us / down +5 us: Q9 gate before 3.00 V, peak  284 mA, at 75 us 176.75 mA, within 1 % after 18.4 us
+
+== 4. DAC output resistance spread and full scale (pin at the 175 mA code, RO 13 kOhm)
+  RO 10.3k: 177.29 mA
+  RO 13k: 175.08 mA
+  RO 16k: 172.67 mA
+  code 4095 (3.3 V):  223.5 mA

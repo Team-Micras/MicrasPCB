@@ -8,7 +8,8 @@ Buttons (GT-TC048B tactile switches, MCU internal pull-ups), as on the main boar
 - SW5 from BOOT0 to 3V3_D, with R42 10 kOhm from BOOT0 to GND (AN5419 Figure 19 p30) and C60
   100 nF from BOOT0 to GND: R42 holds BOOT0 low while 3V3_D ramps and while the ESP32's BOOT0
   line is high impedance, so the MCU boots from flash.
-SW1, a 4-way DIP switch, pulls Switch_0..3 to GND.
+SW1, a 4-way DIP switch, pulls Switch_0..3 to GND (Switch_0 on PH0, Switch_1-3 on PB0, PB2, PB10,
+all with the MCU's internal pull-ups).
 
 Buzzer: BZ1 (FUET-5030, 3 V electromagnetic, externally driven) from 3V3_D through R3 10 Ohm to
 the low-side switch Q1 (AO3400A), driven from Buzzer (PA2, TIM15) through R1 220 Ohm with R2
@@ -29,12 +30,9 @@ LEDs:
   3V3_D through R5 680 Ohm, the power indicator.
 
 USB-C, U2 (GT-USB-7010ASV), a USB 2.0 device port of the ESP32 only (research ESP32 and USB):
-- VBUS on +5V: into the power path Q8 (regulators sheet), the H7's sense divider, the ESP32's
-  sense divider (ESP sheet), and D8 (PESD5V0S1BL, 5 V working voltage) to GND at the receptacle.
-  R6/R7 5.1 kOhm Rd on CC1/CC2 (sink).
-- VBUS sensing for the H7 (AN4879 section 2.6.1), kept: R47 33 kOhm / R48 82 kOhm from VBUS into
-  USB_VBUS_Sense (PH0, FT): 3.14-3.74 V for VBUS 4.4-5.25 V, above VIH (0.7 VDD = 2.31 V, DS13311
-  Table 55) and within the FT input rating (Table 10); the H7 knows it runs from USB alone.
+- VBUS on +5V: into the power path Q8 (regulators sheet), the ESP32's sense divider (ESP sheet),
+  and D8 (PESD5V0S1BL, 5 V working voltage) to GND at the receptacle. R6/R7 5.1 kOhm Rd on
+  CC1/CC2 (sink). The ESP32 tells the H7 over UART4 when it runs from USB alone.
 - D+/D- (USBD_P/USBD_N) from the receptacle through U6 (USBLC6-2SC6, each line in on one I/O pad
   and out on its twin, pins 1/6 and 3/4, so the clamp sits in line) to the ESP32's GPIO20/GPIO19, whose USB PHY needs no
   external termination (ESP sheet). U6's rail pin on 3V3_D, the supply of the circuit it protects
@@ -53,10 +51,8 @@ load(
     "R_10K_0402",
     "R_10_1206",
     "R_220_0402",
-    "R_33K_0402",
     "R_5K1_0402",
     "R_680_0402",
-    "R_82K_0402",
 )
 
 Capacitor = Module("@stdlib/generics/Capacitor.zen")
@@ -93,7 +89,6 @@ Buzzer = io(Net)
 LED_ARGB = io(Net)
 LED_Red = io(Net)
 USB = io(Usb2)
-USB_VBUS_Sense = io(Net)
 
 BUZZER_GATE = Net("BUZZER_GATE")
 BUZZER_DRAIN = Net("BUZZER_DRAIN")
@@ -166,7 +161,5 @@ Tvs(
 )
 Resistor(name="R6", P1=GND, P2=CC1, **R_5K1_0402)
 Resistor(name="R7", P1=GND, P2=CC2, **R_5K1_0402)
-Resistor(name="R47", P1=V5V, P2=USB_VBUS_Sense, **R_33K_0402)
-Resistor(name="R48", P1=GND, P2=USB_VBUS_Sense, **R_82K_0402)
 USBLC6_2SC6(name="U6", IO1=USB.D.P, IO2=USB.D.N, VBUS=V3V3_D, GND=GND)
 Capacitor(name="C79", P1=GND, P2=V3V3_D, **C_100N_0402)

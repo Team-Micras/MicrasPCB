@@ -160,10 +160,10 @@ def analog_ldo_dissipation(module, inputs):
 
 
 def battery_divider(module, inputs):
-    # The pack's top (17.4 V HV) divided onto PA5 must stay below VDDA (3.3 V); the firmware
+    # The pack's top (17.4 V HV) divided onto PC5 must stay below VDDA (3.3 V); the firmware
     # constant is the research's 6.0 (boards/main2/firmware_changes.toml).
     b = index(module)
-    tap = net(b, MCU, "PA5")
+    tap = net(b, MCU, "PC5")
     up = [
         r
         for r in refs_on(b, tap)
@@ -171,14 +171,14 @@ def battery_divider(module, inputs):
     ]
     down = two_terminal(b, "resistor", tap, "GND")
     if len(up) != 1 or len(down) != 1:
-        report(["PA5: expected one resistor from VBAT and one to GND"])
+        report(["PC5: expected one resistor from VBAT and one to GND"])
         return
     ratio = (ohms(b, up[0]) + ohms(b, down[0])) / ohms(b, down[0])
     vmax = b.parts[MCU].pins["VBAT"].voltage.max
     pack = 17.4
     p = []
     if pack / ratio > 3.3:
-        p.append("the 17.4 V pack gives " + eng(pack / ratio, "V") + " on PA5, above VDDA")
+        p.append("the 17.4 V pack gives " + eng(pack / ratio, "V") + " on PC5, above VDDA")
     if abs(ratio - 6.0) > 0.01:
         p.append("divider ratio " + str(ratio) + ", the firmware constant is 6.0")
     report(p)

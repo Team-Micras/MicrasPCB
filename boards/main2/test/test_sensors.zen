@@ -1,0 +1,129 @@
+"""Wall-emitter drive: the AC-coupled selectors Q2-Q5 and the shared sink U12/Q9 with its DAC
+set-point.
+
+Sources: ams-OSRAM SFH 4550 v1.9 (p4: IF 100 mA DC max), AOS AO3400A Rev 3.1 (p2), TI SBOS833R
+(TLV9001, section 7.10), ST DS13311 Rev 5 (Table 90, DAC); the model
+research/next-revision/calculations/emitter/emitter_sink.py (emitter_sink_out.txt).
+"""
+
+load(
+    "./helpers.zen",
+    "farads",
+    "index",
+    "net",
+    "ohms",
+    "refs_on",
+    "report",
+    "two_terminal",
+)
+
+MAIN2 = Module("../main2.zen")
+
+MCU = "IC1"
+SINK_AMP = "U12"
+SINK_FET = "Q9"
+SENSE = "R83"
+# Emitter n's selector is driven from TIM4 channel n+1 (boards/main/firmware.toml).
+CHANNELS = [("W1", "PB6"), ("W2", "PB7"), ("W3", "PB8"), ("W4", "PB9")]
+# A pin held high must let the gate fall below VGS(th) min 0.65 V (AO3400A p2) in milliseconds, so
+# the emitter never carries the sink's current as DC (SFH 4550 p4: 100 mA); and the gate may fall
+# at most 5 % over the firmware's 150 us pulse (the model's margin, emitter_sink_out.txt section 1).
+TAU_MIN = 0.150e-3 / 0.05
+TAU_MAX = 10e-3
+# DAC1_OUT2 with the buffer off: 0 V to VREF+ through RO 10.3-16 kOhm (DS13311 Table 90).
+RO = [10.3e3, 16e3]
+VREF = 3.3
+VOS_MAX = 2e-3  # TLV9001 input offset, -40 to 125 C (SBOS833R 7.10)
+
+
+def _selector(b, sensor):
+    fets = [
+        r
+        for r in refs_on(b, net(b, sensor, "LED_K"))
+        if r.startswith("Q") and net(b, r, "D") == net(b, sensor, "LED_K")
+    ]
+    return fets[0] if len(fets) == 1 else None
+
+
+def wall_selector_gates_are_ac_coupled(module, inputs):
+    # Each selector's gate reaches its PWM pin only through a series capacitor, with a pull-down
+    # and a clamp from GND to the gate: a pin held high cannot keep an emitter on.
+    b = index(module)
+    p = []
+    for sensor, pin in CHANNELS:
+        q = _selector(b, sensor)
+        if q == None:
+            p.append(sensor + ": no selector FET on LED_K")
+            continue
+        gate, pwm = net(b, q, "G"), net(b, MCU, pin)
+        if net(b, q, "S") != net(b, SINK_FET, "D"):
+            p.append(q + " source is not on the sink " + net(b, SINK_FET, "D"))
+        if two_terminal(b, "resistor", pwm, gate) or gate == pwm:
+            p.append(q + " gate is DC-coupled to " + pin + ": a pin held high keeps " + sensor + " on")
+        downs = two_terminal(b, "resistor", gate, "GND")
+        caps = [c for c in refs_on(b, gate) if b.parts[c].type == "capacitor"]
+        coupled = []
+        for c in caps:
+            ns = [n.name for n in b.parts[c].pins.values()]
+            drive = ns[1] if ns[0] == gate else ns[0]
+            if drive != "GND" and two_terminal(b, "resistor", pwm, drive):
+                coupled.append(c)
+        clamps = [
+            d for d in refs_on(b, gate) if d.startswith("D") and net(b, d, "K") == gate and net(b, d, "A") == "GND"
+        ]
+        if len(coupled) != 1:
+            p.append(q + " gate needs one series capacitor from " + pin + "'s gate resistor, found " + str(coupled))
+        if len(downs) != 1:
+            p.append(q + " gate needs one pull-down to GND, found " + str(downs))
+        if len(clamps) != 1:
+            p.append(q + " gate needs a clamp diode from GND, found " + str(clamps))
+        if len(coupled) == 1 and len(downs) == 1:
+            tau = ohms(b, downs[0]) * farads(b, coupled[0])
+            if tau < TAU_MIN or tau > TAU_MAX:
+                p.append(q + ": " + downs[0] + " x " + coupled[0] + " = " + str(tau * 1e3) + " ms, outside 3-10 ms")
+    report(p)
+
+
+def emitter_sink_set_point_from_the_dac(module, inputs):
+    # IN+ divides PA5 (DAC1_OUT2) down, with a resistor to GND that holds it at 0 V while the DAC
+    # is off; IN- sits behind a resistor from the sense node, with a capacitor from OUT and a bias
+    # from 3V3_A beyond twice the op-amp's offset, so a zero set-point turns Q9 off. Full scale
+    # reaches the 175 mA design point at the highest RO.
+    b = index(module)
+    p = []
+    inp, inn, out = net(b, SINK_AMP, "+"), net(b, SINK_AMP, "-"), net(b, SINK_AMP, "OUT")
+    dac, sense, va = net(b, MCU, "PA5"), net(b, SINK_FET, "S"), net(b, SINK_AMP, "V+")
+    top, bottom = two_terminal(b, "resistor", dac, inp), two_terminal(b, "resistor", inp, "GND")
+    fb, cc, bias = (
+        two_terminal(b, "resistor", sense, inn),
+        two_terminal(b, "capacitor", out, inn),
+        two_terminal(b, "resistor", va, inn),
+    )
+    if len(top) != 1 or len(bottom) != 1:
+        p.append(SINK_AMP + " IN+ needs one resistor from PA5 and one to GND, found " + str(top) + " " + str(bottom))
+    if len(fb) != 1 or len(cc) != 1 or len(bias) != 1:
+        p.append(SINK_AMP + " IN- needs a resistor from " + sense + ", a capacitor from OUT and a bias from " + va)
+    if va != net(b, MCU, "VDDA") and va != net(b, "R67", "1") and va != net(b, "R67", "2"):
+        p.append(SINK_AMP + " is not on the ADC reference's rail")
+    if not p:
+        rf = ohms(b, fb[0])
+        offset = VREF * rf / (ohms(b, bias[0]) + rf)
+        if offset < 2 * VOS_MAX:
+            p.append(bias[0] + " biases IN- by " + str(offset * 1e3) + " mV, below twice the 2 mV offset")
+        k = ohms(b, bottom[0]) / (ohms(b, top[0]) + ohms(b, bottom[0]) + RO[1])
+        rb = ohms(b, bias[0])
+        full = (VREF * k * (1 + rf / rb) - VREF * rf / rb) / ohms(b, SENSE)
+        if full < 0.175 or full > 0.3:
+            p.append("full-scale emitter current " + str(full * 1e3) + " mA at RO 16 kOhm, outside 175-300 mA")
+    report(p)
+
+
+TestBench(
+    name="main2_sensors",
+    module=MAIN2,
+    test_cases={"board": {}},
+    checks=[
+        wall_selector_gates_are_ac_coupled,
+        emitter_sink_set_point_from_the_dac,
+    ],
+)

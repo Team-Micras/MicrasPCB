@@ -165,7 +165,7 @@ def test_analog_rail_feeds_only_analog_loads(d):
 
 def test_no_5v_rail(d):
     # Research Power tree: no 5 V rail. The USB VBUS (+5V) feeds only the power path Q8, its ESD
-    # clamp and the two sense dividers; no other net carries 5 V.
+    # clamp and the ESP32's sense divider; no other net carries 5 V.
     vbus = d.net("U2", "VBUS")
     active = sorted({r for r, _, _ in d.on(vbus) if d.kind(r) not in ("capacitor", "resistor")})
     assert active == ["D8", "Q8", "U2"], f"{vbus} feeds {active}"
@@ -235,8 +235,8 @@ def test_net_names_follow_the_firmware_labels(d):
 
 
 def test_battery_divider_matches_the_firmware(d):
-    # PA5 reads VBAT through the divider; the firmware's constant must be its ratio.
-    tap = d.net(MCU, "PA5")
+    # PC5 reads VBAT through the divider; the firmware's constant must be its ratio.
+    tap = d.net(MCU, "PC5")
     vbat = d.net("IC8", "VM")
     up = d.two_terminal("resistor", vbat, tap)
     down = d.two_terminal("resistor", tap, "GND")

@@ -50,8 +50,8 @@ Battery monitor (U9 INA228, regulators sheet): GPIO8 BAT_SDA, GPIO9 BAT_SCL, GPI
 (pull-ups at U9). The MCU has no free I2C pins; the ESP relays the readings over UART4.
 VBUS detect: R91 22 kOhm / R92 33 kOhm from +5V into ESP_VBUS_Sense (GPIO7, ADC1_CH6):
 5.25 V x 33 / 55 = 3.15 V at most (below VDD + 0.3 V) and 4.4 V x 0.6 = 2.64 V at least (above
-VIH 0.75 x VDD = 2.48 V; Table 6-3). The MCU's PH0 divider reaches 3.74 V, above the ESP's
-input limit, so the ESP has its own.
+VIH 0.75 x VDD = 2.48 V; Table 6-3). The ESP reports USB power to the MCU over UART4, which
+has no VBUS sense of its own (boards/main2/firmware_changes.toml, esp).
 """
 
 load("@stdlib/interfaces.zen", "DiffPair", "I2c", "Usb2")

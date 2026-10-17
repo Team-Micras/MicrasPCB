@@ -55,14 +55,14 @@ assumed 90 %). The TPS61178 could not stay anyway: recommended VOUT tops out at 
          ├─ DRV8874 (right) ─ WSK2512 10 mΩ ─ choke footprint (47 µH or 0 Ω) ─ DCX 10 L 4.5 V   INA241A2 on the shunt
          ├─ DRV8874 (left)  ─ WSK2512 10 mΩ ─ choke footprint (47 µH or 0 Ω) ─ DCX 10 L 4.5 V   INA241A2 on the shunt
          ├─ STSPIN958, 400 kHz, REF limit ─ choke footprint (4.7-10 µH or 0 Ω) ─ fan motor
-         ├─ R44/R45 100k/20k ─ PA5 (battery voltage)
+         ├─ R44/R45 100k/20k ─ PC5 (battery voltage)
          └─ Schottky 40 V ─┐
 USB VBUS ─ P-FET (gate follows VBAT) ─┴─ VSYS (4.3-17.4 V)
                                           ├─ L6981C33 ─ 3V3_D: H7 VDD/VDDSMPS, ESP32-S3-MINI-1, encoders, IMU,
-                                          │              WS2812C-2020-V6 ×2, IR emitters (3.3 Ω each) → selectors → CC sink
+                                          │              WS2812C-2020-V6 ×2, IR emitters (3.3 Ω each) → AC-coupled selectors → CC sink
                                           └─ 22 Ω + 10 µF ─ ADP7142ACPZN3.3 or TPS7A4901 (EN = 3V3_D) ─ 3V3_A:
                                                  VDDA (1 µF + 100 nF), INA241A2 VS + REF1, phototransistor collectors,
-                                                 emitter-sink op-amp and set-point divider
+                                                 emitter-sink op-amp (set-point from the DAC on PA5)
 USB-C D± ─ U6 USBLC6 ─ ESP32-S3 GPIO19/20 (CMSIS-DAP + CDC + MSC)
 ESP32 ─ SWDIO/SWCLK/NRST (BOOT0 optional) ─ H7;  ESP UART ─ H7 UART4 PA11/PA12 up to 5 Mbaud;  PH1 flow control
 DRV8874 nFAULT ×2 wire-OR ─ PC15
@@ -94,7 +94,7 @@ DRV8874 nFAULT ×2 wire-OR ─ PC15
   **TPS7A4901** (adjustable 1.194-33 V, 3-36 V, 15.4 µVrms, ≥ 52 dB 10 Hz-400 kHz, dropout 260 mV
   at 100 mA, ≥ 2.2 µF ceramic output; [TPS7A49] p1, §6.4, §6.5).
   - **Loads**: VDDA (the ADCs and, on VFQFPN68, VREF+), both INA241A2 VS and REF1, the four
-    phototransistor collectors, the emitter-sink op-amp and set-point divider: **9.7 mA typical,
+    phototransistor collectors, the emitter-sink op-amp and its bias: **9.7 mA typical,
     22.5 mA worst case** (all receivers saturated), +0.65 mA if the IMU moves here
     (power_tree/calc_power_tree.py §1, from DS13311 Tables 84/87, SBOSA30D §6.5, SBOS833R §7.10).
   - **Heat**: about 113 mW at 10 mA from 14.8 V and 328 mW at 23 mA from 17.4 V; +7 K and +19 K in
@@ -110,8 +110,8 @@ DRV8874 nFAULT ×2 wire-OR ─ PC15
     ≤ 50 mΩ bead: its DCR times the ADC current step is about 0.24 mV = 5 LSB at each scan start
     (inference; the bead is not in the model).
   - **Ratiometry**: INA241 REF1 and VS sit on the same 3V3_A node as VDDA, and the emitter-sink
-    set-point divides down from 3V3_A, so wall and current readings are ratiometric to the ADC
-    reference (power-tree study §1).
+    set-point comes from the DAC, whose reference is VREF+ = VDDA, so wall and current readings are
+    ratiometric to the ADC reference (power-tree study §1).
 - **Documented alternative for 3V3_A**: a forced-PWM **TPS560430X3FDBVR** (fixed 3.3 V, 1.1 MHz,
   4-36 V, SOT-23-6) with the datasheet 12 µH / 22 µF network, then a damped LC (2.2 µH ≤ 50 mΩ,
   22 µF, and a 0.33 Ω + 47 µF damping leg), EN on 3V3_D ([TPS560430] Table 1, §7.5). It must stay a
@@ -144,7 +144,7 @@ DRV8874 nFAULT ×2 wire-OR ─ PC15
 - **4S ratings**: C36 (16 V) becomes ≥ 25 V; SW4 (MK-12D18-G040, DC 12 V) becomes the G-Switch SK-12D29-G060
   (DC 24 V 1 A, 1.38× the 17.4 V HV pack; the same 8.6 × 3.6 mm body with a 6.0 mm black lever; three
   pins at 2.0 mm pitch and two frame legs, so a new footprint; `components/g-switch/SK-12D29-G060`);
-  R44/R45 (100k/27k gives 3.57-3.70 V on PA5, above VDDA) becomes 100k/20k, 2.90 V at 17.4 V
+  R44/R45 (100k/27k gives 3.57-3.70 V, above VDDA) becomes 100k/20k on PC5, 2.90 V at 17.4 V
   (firmware constant 6.0); 25 V capacitors sit at 67 % of rating on 4S (drivetrain study §4).
 - **Battery switch**: Q6 HSBB3072 stays: VDS 30 V (1.79× margin at 16.8 V), VGS = VBAT/2 = 6-8.4 V,
   0.61-0.97 W at 16 A. It gives **no reverse-polarity protection**: its body diode conducts with
@@ -300,7 +300,7 @@ DRV8874 nFAULT ×2 wire-OR ─ PC15
 - **Battery current**: an **INA228** with a 2 mΩ 4-terminal shunt on VBAT after the switch: 20-bit,
   ±1 µV offset, ±0.05 % gain, ±20.48 A (ADCRANGE = 1; [INA228]). It is too slow for the control
   loop (50 µs minimum conversion plus I²C), and the H7 has no free I²C pins, so it sits on the ESP's
-  I²C and the readings travel over UART4 (inference). The PA5 divider stays for fast duty
+  I²C and the readings travel over UART4 (inference). The PC5 divider stays for fast duty
   feed-forward.
 - **Rework test on the current board**: the INA241 pinout matches the TSC2020 MiniSO-8 except pin 4,
   which must go to ground; pin 3 is already ground, so a 3-4 solder bridge swaps IC3/IC4 for INA241A2
@@ -334,15 +334,24 @@ DRV8874 nFAULT ×2 wire-OR ─ PC15
 
 ### IR emitters and status LEDs
 
-- **Emitters** from 3V3_D through one shared op-amp + N-FET + 1.2 Ω sink (170 mA at 0.2 V), with
-  3.3 Ω per emitter and the set-point divided down from 3V3_A. At VF max and the 3V3_D minimum
-  (3.23 V) this leaves ≈ 0.6 V on the FET; ≈ 0.09 W average in the FET, 14 mW per resistor, 0.33 W
-  from 3V3_D (power-tree study §6; SFH 4550 VF 1.5 V typ / 1.7 V max at 100 mA, datasheet p5). The
-  existing AO3400A stay as per-emitter selectors and need DC gate drive; the 220 nF AC coupling can
-  go. Kelvin-connect the 1.2 Ω and keep the emitter loop compact and away from VDDA/VSSA. Op-amp:
-  TLV9001 (IQ 60 µA typ, 1 MHz, 2 V/µs; `components/ti/TLV9001`); its step response driving the
-  AO3400A's 630 pF gate is **TODO**. The emitter
-  brightness falls −0.5 %/K (SFH 4550), so firmware temperature compensation is worth considering.
+- **Emitters** from 3V3_D through one shared op-amp + N-FET + 1.2 Ω sink (175 mA at 0.21 V), with
+  3.3 Ω per emitter. The set-point is the DAC on PA5 (DAC1_OUT2, output buffer off) through a
+  200 kΩ / 20 kΩ divider: ratiometric to VDDA, adjustable per emitter (58 µA per code, 223 mA full
+  scale), 0 V at reset; a 1 kΩ / 1 nF integrator compensates the loop into the AO3400A's 630 pF,
+  and 200 kΩ from 3V3_A to IN- turns the sink off at a zero set-point. At VF max (1.79 V at
+  175 mA) and the 3V3_D minimum less droop (3.229 V) the selector and the sink FET keep 0.65 V;
+  ≈ 0.1 W average in the sink FET, 15 mW per resistor at the firmware's 15 % per emitter
+  (power-tree study §6; SFH 4550 VF 1.5 V typ / 1.7 V max at 100 mA, datasheet p5). The AO3400A
+  selectors keep the main board's AC-coupled gates (220 Ω, 220 nF, 22 kΩ, 1N4148WS clamp): the
+  selector works as a source follower in series with the sink, so the gate's droop over a pulse
+  does not reach the current, and a pin held high turns its emitter off within 7.5-11 ms. The DAC
+  must step with each selector (up at or after its rising edge, to 0 at or before its falling
+  edge); then the pulse settles to 1 % in 7-13 µs without overshoot
+  ([emitter/emitter_sink.py](calculations/emitter/emitter_sink.py); `boards/main2/Sensors.zen`).
+  Kelvin-connect the 1.2 Ω and keep the emitter loop compact and away from VDDA/VSSA. Op-amp:
+  TLV9001 (IQ 60 µA typ, 1 MHz, 2 V/µs; `components/ti/TLV9001`); a bench step across the 1.2 Ω
+  confirms the modelled response. The emitter brightness falls −0.5 %/K (SFH 4550), so firmware
+  temperature compensation is worth considering.
 - **Status LEDs**: **WS2812C-2020-V6** (C55109522; WS2812B-2020-V6 C52917434 second) on 3V3_D with
   100 nF each. VDD 3.3-5.3 V, DIN VIH 0.55·VDD, so PC6 drives it directly; same GRB protocol and
   firmware ([WS2812C-2020-V6] p.1-3). Both datasheets put the 3.3 V minimum only in the feature
@@ -458,7 +467,8 @@ pin: it takes SWD (PA13/PA14), NRST, optionally BOOT0, and UART4 (PA11/PA12).
 | Current inputs on fast ADC channels | 2, by swapping | No direct channel is free. Move two wall sensors onto PC0/PC1 and the currents onto two of PA6/PB1/PC4: ADC1 for one current, ADC2 for the other. Pin-neutral; **TODO**: check in CubeMX. If it fails, slow channels still work with one conversion per centre |
 | IPROPI | 0 | ITRIP only; the DNP 0 Ω prototype option shares the INA241's ADC net |
 | INA228 SDA, SCL, ALERT | 0 on the H7 | ESP GPIOs |
-| ESP VBUS detect | 0 on the H7 | its own divider on an ESP GPIO: the PH0 divider (R47/R48, kept for the H7) reaches 3.74 V, above the ESP's input limit |
+| ESP VBUS detect | 0 on the H7 | its own divider on an ESP GPIO; the ESP reports USB power over UART4, so the H7 has no VBUS divider |
+| Emitter set-point DAC | 1 | PA5 (DAC1_OUT2; PA4, DAC1_OUT1, carries Wall_Sensor_3). The battery divider moves to PC5 (ADC12_INP8, slow channel, DS13311 Table 85) and Switch_0 to PH0 (a plain FT input with the internal pull-up; no HSE crystal) |
 
 An LQFP100 package (STM32H725VG) would relieve this budget and bring out VREF+, but its I/O and
 footprint are not analysed.
@@ -486,7 +496,7 @@ New or changed parts; JLC numbers and prices as queried on 2026-10-15 (stock is 
 | Bridge decoupling | 4 × 10 µF X7R 50 V 1206 + 2 × CL32B106KBJNNNE 10 µF X7R 50 V 1210 per bridge, no electrolytic | new | 285 mV pp worst case at 100 kHz; C138687 $0.33 | calculations/power_tree/vbat_bulk.py |
 | Fan driver | STSPIN958 (keep); R31 20-25 mΩ 1206; RSR 1-2.2 kΩ; C36 ≥ 25 V; C34/C35 50 V; choke footprint 4.7-10 µH | modify | 5.05-58 V, 500 kHz, 280 ns min pulse; C20033901, 0 stock, $4.23 | [STSPIN958], fan study §5 |
 | Fan fallback | TPS28225DR + 2 × CSD17578Q3A + TLV3201/TLV7031 + shunt | only above ~3 A | TPS28225DR C52897 $0.85; CSD17578Q3A $0.42 | fan study §3 |
-| Emitter drive | TLV9001 + AO3400A + 1.2 Ω 0.1 % sense; 3.3 Ω per emitter | new | 170 mA, set-point from 3V3_A | power-tree study §6 |
+| Emitter drive | TLV9001 + AO3400A + 1.2 Ω 0.1 % sense; 3.3 Ω per emitter; AC-coupled selector gates (220 nF, 22 kΩ, 1N4148WS) | new | 175 mA (DAC set-point on PA5, 223 mA full scale) | power-tree study §6; emitter/emitter_sink.py |
 | Status LEDs | WS2812C-2020-V6 × 2 | replaces WS2815C-2020 (needs 9.5-13.5 V) | 3.3-5.3 V, 5 mA per colour; C55109522 | [WS2812C-2020-V6] |
 | Radio / probe | ESP32-S3-MINI-1-N8, rear-left corner, antenna beyond the rear edge (MINI-1U-N8 fallback) | replaces HM-19 and P1 | 355 mA TX peak, ≥ 0.5 A supply; C2913206, 3754 stock, $4.72 (-1U C2980299, $4.89) | [ESP32-S3-MINI-1], [ESP32 form factor](#esp32-form-factor) |
 | Switches, divider | SW4 → SK-12D29-G060 (DC 24 V 1 A, 6.0 mm lever, new footprint); R44/R45 100k/20k | modify | C2848877, 531 stock, $0.13; firmware constant 6.0 | drivetrain study §4; `components/g-switch/SK-12D29-G060` |
@@ -868,9 +878,11 @@ path on the same board.
   FCC/IC status and the Anatel status of the MINI-1 modules; whether
   the S3 bootloader restores the PHY routing after a core reset; contest radio rules; an RDP Level 2
   mistake locks out SWD for any probe.
-- **Emitter sink**: the TLV9001's step response driving the AO3400A gate (its 630 pF is above the
-  op-amp's 500 pF rating); the set-point is always on in `main2`, so each pulse starts with a
-  current set by the 3.3 Ω until the op-amp recovers.
+- **Emitter sink**: the modelled step response (behavioural TLV9001 and AO3400A models) needs a
+  bench confirmation across the 1.2 Ω; the AO3400A's VGS at 175 mA and its VGS(th) when cold are not
+  in its datasheet, so the AC-coupled selectors' margin (0.25 V at -40 °C with an assumed
+  VGS(th) + 0.3 V and -4 mV/K) needs Figure 2 or a measurement and a cold check; the DAC output
+  resistance's drift is unknown (a gain the calibration takes in).
 - **Pins**: the fast-ADC swap and the TIM3-on-ITR interleave are unverified in CubeMX; the PC7/PC9
   TIM8 alternate functions were not checked.
 
@@ -900,6 +912,7 @@ MB, git-ignored) into their `out/` folder; the netlists (`.cir`), logs and summa
 | [supply3v3/sim3v3.py](calculations/supply3v3/sim3v3.py), [analyze.py](calculations/supply3v3/analyze.py) | `out/summary_meas.txt`, `out/summary_slots.txt` | Averaged 3V3/VDDA droop model during the emitter pulses (ngspice, seconds) |
 | [power_tree/sim_power_tree.py](calculations/power_tree/sim_power_tree.py), [analyze.py](calculations/power_tree/analyze.py) | `out/summary.txt` | Switching-level analog-rail model, cases A-F (ngspice, about 5 min per case, 6 in parallel) |
 | [power_tree/calc_power_tree.py](calculations/power_tree/calc_power_tree.py) | `out/calc_power_tree.txt` | Analog-rail load, LDO heat, emitter sink, USB budget, ADC noise, LC filter |
+| [emitter/emitter_sink.py](calculations/emitter/emitter_sink.py) | `emitter_sink_out.txt` | main2's emitter sink with the DAC set-point and AC-coupled selectors: worst-case current and margin, turn-off with a pin held high, pulse start against the DAC timing (ngspice, about 1 min) |
 | [power_tree/vbat_bulk.py](calculations/power_tree/vbat_bulk.py) | `vbat_bulk_out.txt` | VBAT capacitor options (MLCC DC bias, 100 kHz ripple, source impedance), hot plug and Q6 switching, regeneration with the pack pulled, TVS clamp (ngspice, about 5 min) |
 
 The power-tree netlists of the cases A_none, A_bead, A_lc, A_lcd, A6981_lc, F and Frc lack the 1 MΩ
@@ -1069,9 +1082,11 @@ Source: [INA241] §6.5, §7.3.1.1, pin functions; [INA228]; current-sensing stud
   CFF, ≥ 2.2 µF ceramic out); EN from 3V3_D. Place it away from the IMU and near the VDDA pin; run
   3V3_A as its own trace to VDDA, the INA241s and the sensor connectors.
 - **VDDA pin**: 1 µF + 100 nF; FB1 → 0 Ω or a ≤ 50 mΩ bead.
-- **Emitter sink**: op-amp (from 3V3_A) + N-FET (e.g. AO3400A) + 1.2 Ω 0.1 % ≤ 50 ppm/K sense
-  (170 mA at 0.2 V); set-point divider from 3V3_A (e.g. 0.2/3.3), off when no emitter is selected;
-  emitters from 3V3_D through 3.3 Ω each, the existing AO3400A as DC-driven selectors.
+- **Emitter sink**: op-amp (from 3V3_A) + N-FET (AO3400A) + 1.2 Ω 0.1 % ≤ 50 ppm/K sense
+  (175 mA at 0.21 V); set-point from the DAC on PA5 (buffer off) through 200 kΩ / 20 kΩ, 0 when no
+  emitter is selected; 1 kΩ sense → IN- with 1 nF C0G OUT → IN-, 200 kΩ 3V3_A → IN-; emitters from
+  3V3_D through 3.3 Ω each, the AO3400A selectors with the main board's AC-coupled gates (220 Ω,
+  220 nF, 22 kΩ to GND, 1N4148WS clamp).
 - **LEDs**: WS2812C-2020-V6 × 2 on 3V3_D, 100 nF each, DIN from PC6.
 - **Alternative 3V3_A**: TPS560430X3FDBVR, 12 µH, 22 µF / 10 V, CIN ≥ 4.7 µF / 50 V, CBOOT 100 nF,
   then 2.2 µH (≤ 50 mΩ, ≥ 100 mA, shielded) → 22 µF X7R/X5R 0805 ‖ (0.33 Ω + 47 µF); feedback at the
@@ -1119,10 +1134,10 @@ No capacitor across the fan motor. Pin numbers from the repo symbol
 | UART TX | PA11 (UART4_RX) | H7 | Up to 5 Mbaud |
 | UART RX | PA12 (UART4_TX) | H7 | – |
 | GPIO | flow control | H7 PH1 | Data-ready or credit line |
-| GPIO + divider | ESP_VBUS_DET | VBUS via its own divider | PH0's divider reaches 3.74 V |
+| GPIO + divider | ESP_VBUS_DET | VBUS via its own divider | USB power reported to the H7 over UART4 |
 | 2 GPIO + 1 GPIO | I2C_SDA, I2C_SCL, BAT_ALERT | INA228 | – |
 
 Avoid the strapping pins GPIO0, GPIO3, GPIO45, GPIO46 for the H7 control lines. Keep U6, SW3, the
-R47/R48 VBUS divider on PH0 (the H7 uses it to know it runs from USB alone), and optional SWD pads on
+ESP's VBUS divider (the H7 learns over UART4 that it runs from USB alone), and optional SWD pads on
 PA13/PA14/NRST/GND as a backstop. Source: [ESP32-S3-MINI-1] Table 1-1, §3-4, Tables 6-2 to 6-5;
 [ESP32-S3]; ESP study Q8.

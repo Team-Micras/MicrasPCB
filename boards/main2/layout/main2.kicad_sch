@@ -5993,16 +5993,6 @@
 				(justify left)
 			)
 		)
-		(pin "USB_VBUS_Sense" bidirectional
-			(at 83.82 144.78 0)
-			(uuid "fd203285-0b59-5e5a-94dc-94092e2b65ab")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
 		(instances
 			(project "main2"
 				(path "/513d9cc1-d27a-514d-a37c-2f1ca04dddfa"
@@ -6099,7 +6089,7 @@
 	)
 	(sheet
 		(at 339.09 83.82)
-		(size 45.72 58.42)
+		(size 45.72 60.96)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
@@ -6125,7 +6115,7 @@
 			)
 		)
 		(property "Sheetfile" "SENSORS.kicad_sch"
-			(at 339.09 142.8338 0)
+			(at 339.09 145.3738 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6136,7 +6126,7 @@
 			)
 		)
 		(pin "Current_Sensor_Left" bidirectional
-			(at 339.09 137.16 180)
+			(at 339.09 139.7 180)
 			(uuid "1cb08502-5b5f-5a74-9d3e-7da46c5f84a0")
 			(effects
 				(font
@@ -6146,7 +6136,7 @@
 			)
 		)
 		(pin "Current_Sensor_Right" bidirectional
-			(at 339.09 139.7 180)
+			(at 339.09 142.24 180)
 			(uuid "84a4a697-8470-565d-be37-caa913b462fb")
 			(effects
 				(font
@@ -6315,8 +6305,18 @@
 				(justify left)
 			)
 		)
-		(pin "Wall_Sensor_0" bidirectional
+		(pin "Wall_Emitter_Set" bidirectional
 			(at 339.09 127 180)
+			(uuid "ff72b944-15c1-5e39-b978-25bdaea92be0")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "Wall_Sensor_0" bidirectional
+			(at 339.09 129.54 180)
 			(uuid "d88b4ad7-9e60-5a69-9a3b-81c4b23f0ece")
 			(effects
 				(font
@@ -6326,7 +6326,7 @@
 			)
 		)
 		(pin "Wall_Sensor_1" bidirectional
-			(at 339.09 129.54 180)
+			(at 339.09 132.08 180)
 			(uuid "a60973f3-3582-5765-ad5e-e6c28692c2e2")
 			(effects
 				(font
@@ -6336,7 +6336,7 @@
 			)
 		)
 		(pin "Wall_Sensor_2" bidirectional
-			(at 339.09 132.08 180)
+			(at 339.09 134.62 180)
 			(uuid "38e1ece8-a87c-57ac-93d4-9d0c1915de70")
 			(effects
 				(font
@@ -6346,7 +6346,7 @@
 			)
 		)
 		(pin "Wall_Sensor_3" bidirectional
-			(at 339.09 134.62 180)
+			(at 339.09 137.16 180)
 			(uuid "72ef3551-5b68-51cb-9b09-81c943818bb5")
 			(effects
 				(font
@@ -8273,7 +8273,7 @@
 	)
 	(wire
 		(pts
-			(xy 83.82 144.78) (xy 86.36 144.78)
+			(xy 45.72 53.34) (xy 43.18 53.34)
 		)
 		(stroke
 			(width 0)
@@ -8283,7 +8283,7 @@
 	)
 	(wire
 		(pts
-			(xy 45.72 53.34) (xy 43.18 53.34)
+			(xy 45.72 50.8) (xy 43.18 50.8)
 		)
 		(stroke
 			(width 0)
@@ -8293,7 +8293,7 @@
 	)
 	(wire
 		(pts
-			(xy 45.72 50.8) (xy 43.18 50.8)
+			(xy 45.72 48.26) (xy 43.18 48.26)
 		)
 		(stroke
 			(width 0)
@@ -8303,7 +8303,7 @@
 	)
 	(wire
 		(pts
-			(xy 45.72 48.26) (xy 43.18 48.26)
+			(xy 83.82 48.26) (xy 86.36 48.26)
 		)
 		(stroke
 			(width 0)
@@ -8313,7 +8313,7 @@
 	)
 	(wire
 		(pts
-			(xy 83.82 48.26) (xy 86.36 48.26)
+			(xy 339.09 139.7) (xy 336.55 139.7)
 		)
 		(stroke
 			(width 0)
@@ -8323,7 +8323,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 137.16) (xy 336.55 137.16)
+			(xy 339.09 142.24) (xy 336.55 142.24)
 		)
 		(stroke
 			(width 0)
@@ -8333,7 +8333,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 139.7) (xy 336.55 139.7)
+			(xy 339.09 104.14) (xy 336.55 104.14)
 		)
 		(stroke
 			(width 0)
@@ -8343,7 +8343,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 104.14) (xy 336.55 104.14)
+			(xy 339.09 106.68) (xy 336.55 106.68)
 		)
 		(stroke
 			(width 0)
@@ -8353,7 +8353,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 106.68) (xy 336.55 106.68)
+			(xy 339.09 101.6) (xy 336.55 101.6)
 		)
 		(stroke
 			(width 0)
@@ -8363,7 +8363,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 101.6) (xy 336.55 101.6)
+			(xy 339.09 111.76) (xy 336.55 111.76)
 		)
 		(stroke
 			(width 0)
@@ -8373,7 +8373,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 111.76) (xy 336.55 111.76)
+			(xy 339.09 114.3) (xy 336.55 114.3)
 		)
 		(stroke
 			(width 0)
@@ -8383,7 +8383,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 114.3) (xy 336.55 114.3)
+			(xy 339.09 109.22) (xy 336.55 109.22)
 		)
 		(stroke
 			(width 0)
@@ -8393,7 +8393,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 109.22) (xy 336.55 109.22)
+			(xy 339.09 96.52) (xy 336.55 96.52)
 		)
 		(stroke
 			(width 0)
@@ -8403,7 +8403,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 96.52) (xy 336.55 96.52)
+			(xy 339.09 99.06) (xy 336.55 99.06)
 		)
 		(stroke
 			(width 0)
@@ -8413,7 +8413,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 99.06) (xy 336.55 99.06)
+			(xy 339.09 93.98) (xy 336.55 93.98)
 		)
 		(stroke
 			(width 0)
@@ -8423,7 +8423,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 93.98) (xy 336.55 93.98)
+			(xy 384.81 88.9) (xy 387.35 88.9)
 		)
 		(stroke
 			(width 0)
@@ -8433,7 +8433,7 @@
 	)
 	(wire
 		(pts
-			(xy 384.81 88.9) (xy 387.35 88.9)
+			(xy 384.81 86.36) (xy 387.35 86.36)
 		)
 		(stroke
 			(width 0)
@@ -8443,7 +8443,7 @@
 	)
 	(wire
 		(pts
-			(xy 384.81 86.36) (xy 387.35 86.36)
+			(xy 384.81 93.98) (xy 387.35 93.98)
 		)
 		(stroke
 			(width 0)
@@ -8453,7 +8453,7 @@
 	)
 	(wire
 		(pts
-			(xy 384.81 93.98) (xy 387.35 93.98)
+			(xy 384.81 91.44) (xy 387.35 91.44)
 		)
 		(stroke
 			(width 0)
@@ -8463,7 +8463,7 @@
 	)
 	(wire
 		(pts
-			(xy 384.81 91.44) (xy 387.35 91.44)
+			(xy 339.09 88.9) (xy 336.55 88.9)
 		)
 		(stroke
 			(width 0)
@@ -8473,7 +8473,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 88.9) (xy 336.55 88.9)
+			(xy 339.09 91.44) (xy 336.55 91.44)
 		)
 		(stroke
 			(width 0)
@@ -8483,7 +8483,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 91.44) (xy 336.55 91.44)
+			(xy 339.09 86.36) (xy 336.55 86.36)
 		)
 		(stroke
 			(width 0)
@@ -8493,7 +8493,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 86.36) (xy 336.55 86.36)
+			(xy 339.09 127) (xy 336.55 127)
 		)
 		(stroke
 			(width 0)
@@ -8503,7 +8503,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 127) (xy 336.55 127)
+			(xy 339.09 129.54) (xy 336.55 129.54)
 		)
 		(stroke
 			(width 0)
@@ -8513,7 +8513,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 129.54) (xy 336.55 129.54)
+			(xy 339.09 132.08) (xy 336.55 132.08)
 		)
 		(stroke
 			(width 0)
@@ -8523,7 +8523,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 132.08) (xy 336.55 132.08)
+			(xy 339.09 134.62) (xy 336.55 134.62)
 		)
 		(stroke
 			(width 0)
@@ -8533,7 +8533,7 @@
 	)
 	(wire
 		(pts
-			(xy 339.09 134.62) (xy 336.55 134.62)
+			(xy 339.09 137.16) (xy 336.55 137.16)
 		)
 		(stroke
 			(width 0)
@@ -8647,7 +8647,7 @@
 			)
 		)
 	)
-	(global_label "USB_VBUS_Sense"
+	(global_label "Switch_0"
 		(shape bidirectional)
 		(at 152.4 177.8 180)
 		(effects
@@ -8889,7 +8889,7 @@
 			)
 		)
 	)
-	(global_label "Battery_Voltage"
+	(global_label "Wall_Emitter_Set"
 		(shape bidirectional)
 		(at 203.2 106.68 0)
 		(effects
@@ -8977,7 +8977,7 @@
 			)
 		)
 	)
-	(global_label "Switch_0"
+	(global_label "Battery_Voltage"
 		(shape bidirectional)
 		(at 152.4 147.32 180)
 		(effects
@@ -10203,16 +10203,6 @@
 		)
 		(uuid "36fb756c-e9cf-5d73-adf3-dbc19bb45d6c")
 	)
-	(label "USB_VBUS_Sense"
-		(at 86.36 144.78 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "69ace22e-a5b1-5ad1-80bb-1485c8e847d4")
-	)
 	(label "BAT_ALERT"
 		(at 43.18 53.34 180)
 		(effects
@@ -10221,7 +10211,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "9f701831-149c-58ff-9b44-e203f189fc89")
+		(uuid "69ace22e-a5b1-5ad1-80bb-1485c8e847d4")
 	)
 	(label "BAT_SCL"
 		(at 43.18 50.8 180)
@@ -10231,7 +10221,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "b71438e0-ee6c-500f-9c8f-aae83529fb5d")
+		(uuid "9f701831-149c-58ff-9b44-e203f189fc89")
 	)
 	(label "BAT_SDA"
 		(at 43.18 48.26 180)
@@ -10241,7 +10231,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "43c97dcf-3b25-5a0a-ab92-7bfc76c297b4")
+		(uuid "b71438e0-ee6c-500f-9c8f-aae83529fb5d")
 	)
 	(label "Battery_Voltage"
 		(at 86.36 48.26 0)
@@ -10251,19 +10241,9 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "5efae8b6-2dc4-57c7-adcc-14a355d6f445")
+		(uuid "43c97dcf-3b25-5a0a-ab92-7bfc76c297b4")
 	)
 	(label "Current_Sensor_Left"
-		(at 336.55 137.16 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "3a173327-ae6b-57c5-a845-91b12a7990b3")
-	)
-	(label "Current_Sensor_Right"
 		(at 336.55 139.7 180)
 		(effects
 			(font
@@ -10271,7 +10251,17 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "a0923ad8-922a-5463-bf58-803229bab503")
+		(uuid "5efae8b6-2dc4-57c7-adcc-14a355d6f445")
+	)
+	(label "Current_Sensor_Right"
+		(at 336.55 142.24 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "3a173327-ae6b-57c5-a845-91b12a7990b3")
 	)
 	(label "Encoder_Left_ABI_A"
 		(at 336.55 104.14 180)
@@ -10281,7 +10271,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "c33cccc0-5f98-5ba3-90ac-d3e47c0a55dc")
+		(uuid "a0923ad8-922a-5463-bf58-803229bab503")
 	)
 	(label "Encoder_Left_ABI_B"
 		(at 336.55 106.68 180)
@@ -10291,7 +10281,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "188ff76b-8975-5b24-9310-0a8a49f924aa")
+		(uuid "c33cccc0-5f98-5ba3-90ac-d3e47c0a55dc")
 	)
 	(label "Encoder_Left_CSn"
 		(at 336.55 101.6 180)
@@ -10301,7 +10291,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "faa2f168-96f3-5df7-8e79-21510fc4361b")
+		(uuid "188ff76b-8975-5b24-9310-0a8a49f924aa")
 	)
 	(label "Encoder_Right_ABI_A"
 		(at 336.55 111.76 180)
@@ -10311,7 +10301,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "b377be1e-66f9-5126-907e-de48db78818c")
+		(uuid "faa2f168-96f3-5df7-8e79-21510fc4361b")
 	)
 	(label "Encoder_Right_ABI_B"
 		(at 336.55 114.3 180)
@@ -10321,7 +10311,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "faca75fd-6fe3-56b2-bf40-928c6a5e0e0a")
+		(uuid "b377be1e-66f9-5126-907e-de48db78818c")
 	)
 	(label "Encoder_Right_CSn"
 		(at 336.55 109.22 180)
@@ -10331,7 +10321,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "5947979b-0547-5bd1-bd3b-63784b2512de")
+		(uuid "faca75fd-6fe3-56b2-bf40-928c6a5e0e0a")
 	)
 	(label "IMU_INT1"
 		(at 336.55 96.52 180)
@@ -10341,7 +10331,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "05b0c1c3-c803-5590-8814-cae58d7cacfe")
+		(uuid "5947979b-0547-5bd1-bd3b-63784b2512de")
 	)
 	(label "IMU_INT2"
 		(at 336.55 99.06 180)
@@ -10351,7 +10341,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "19fc7389-b528-5dd1-beb7-986c75bfc646")
+		(uuid "05b0c1c3-c803-5590-8814-cae58d7cacfe")
 	)
 	(label "IMU_SPI_CSn"
 		(at 336.55 93.98 180)
@@ -10361,7 +10351,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "877acd3d-53a3-53d9-94dc-70b94c0b5886")
+		(uuid "19fc7389-b528-5dd1-beb7-986c75bfc646")
 	)
 	(label "Motor_L_Sense-"
 		(at 387.35 88.9 0)
@@ -10371,7 +10361,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "463de61f-854f-585c-b5d8-80e8ae480c63")
+		(uuid "877acd3d-53a3-53d9-94dc-70b94c0b5886")
 	)
 	(label "Motor_L_Sense+"
 		(at 387.35 86.36 0)
@@ -10381,7 +10371,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "35d0d536-6ee7-5008-9aa6-4d7981cb6642")
+		(uuid "463de61f-854f-585c-b5d8-80e8ae480c63")
 	)
 	(label "Motor_R_Sense-"
 		(at 387.35 93.98 0)
@@ -10391,7 +10381,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "54d9c9d5-aad4-5dfb-8584-ee5b00655f88")
+		(uuid "35d0d536-6ee7-5008-9aa6-4d7981cb6642")
 	)
 	(label "Motor_R_Sense+"
 		(at 387.35 91.44 0)
@@ -10401,7 +10391,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "fc553b39-2dfb-54b6-a2a1-7fb89e8cd178")
+		(uuid "54d9c9d5-aad4-5dfb-8584-ee5b00655f88")
 	)
 	(label "SPI_MISO"
 		(at 336.55 88.9 180)
@@ -10411,7 +10401,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "3ff42c17-1c5a-5cb9-81e0-a5096d2f58d5")
+		(uuid "fc553b39-2dfb-54b6-a2a1-7fb89e8cd178")
 	)
 	(label "SPI_MOSI"
 		(at 336.55 91.44 180)
@@ -10421,7 +10411,7 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "b8f6d206-373f-5748-8007-9586e70942de")
+		(uuid "3ff42c17-1c5a-5cb9-81e0-a5096d2f58d5")
 	)
 	(label "SPI_SCK"
 		(at 336.55 86.36 180)
@@ -10431,10 +10421,20 @@
 			)
 			(justify right bottom)
 		)
+		(uuid "b8f6d206-373f-5748-8007-9586e70942de")
+	)
+	(label "Wall_Emitter_Set"
+		(at 336.55 127 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
 		(uuid "6d37a4bf-1ca4-5b9c-8c21-597b53288043")
 	)
 	(label "Wall_Sensor_0"
-		(at 336.55 127 180)
+		(at 336.55 129.54 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -10444,7 +10444,7 @@
 		(uuid "dcb2f96f-ec99-5293-b371-3da7db4752c3")
 	)
 	(label "Wall_Sensor_1"
-		(at 336.55 129.54 180)
+		(at 336.55 132.08 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -10454,7 +10454,7 @@
 		(uuid "cb14af49-a723-57d0-a64e-450b50cc8b8d")
 	)
 	(label "Wall_Sensor_2"
-		(at 336.55 132.08 180)
+		(at 336.55 134.62 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -10464,7 +10464,7 @@
 		(uuid "fe51336d-e8d2-50b1-8e05-f91816e9f1d1")
 	)
 	(label "Wall_Sensor_3"
-		(at 336.55 134.62 180)
+		(at 336.55 137.16 180)
 		(effects
 			(font
 				(size 1.27 1.27)

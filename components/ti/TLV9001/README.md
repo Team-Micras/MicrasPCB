@@ -8,7 +8,7 @@ to the board. Evidence is in the docstring of [`TLV9001.zen`](TLV9001.zen).
 TLV9001 = Module("github.com/Team-Micras/MicrasPCB/components/ti/TLV9001/TLV9001.zen")
 
 # IR emitter constant-current sink: set-point on IN+, sense resistor on IN-, OUT to the FET gate.
-TLV9001(name="U10", VCC=V3V3_A, GND=GND, IN_P=EMITTER_SETPOINT, IN_N=EMITTER_SENSE, OUT=EMITTER_GATE)
+TLV9001(name="U12", VCC=V3V3_A, GND=GND, IN_P=SINK_SET, IN_N=SINK_FB, OUT=SINK_OUT)
 ```
 
 Reference prefix `U`. Only the TLV9001**I**DBVR pinout is modelled: the TLV9001U in the same
@@ -16,10 +16,10 @@ DBV package has another pinout (SBOS833R Figure 6-2).
 
 ## Why this op amp
 
-The next main board's emitter sink (research/next-revision, "IR emitters", A.4): op amp + AO3400A
-+ 1.2 Ohm 0.1 % sense, 170 mA (0.204 V), set-point from 3V3_A, supplied from 3V3_A on a ~100 uA
-budget, settling within a few us of a 150 us pulse, driving the AO3400A gate (Ciss 630 pF) to
-about 2.5 V through a small resistor.
+The next main board's emitter sink (research/next-revision, "IR emitters", A.4;
+`boards/main2/Sensors.zen`): op amp + AO3400A + 1.2 Ohm 0.1 % sense, 175 mA (0.21 V), set-point
+from the MCU's DAC, supplied from 3V3_A on a ~100 uA budget, settling within a few us of a 150 us
+pulse, driving the AO3400A gate (Ciss 630 pF) through a small resistor.
 
 | Part | GBW | Slew | IQ typ / max | VOS max (25 C) | Input range | Cap. load | LCSC (JLC, 2026-10-15) |
 |---|---|---|---|---|---|---|---|
@@ -37,10 +37,11 @@ TLV9061 and OPA376 are faster or more precise but draw 5-10 times the budget; th
 LMV321 meet the bandwidth but their offsets (2-3 % of the set-point) and slower or similar slew
 gain nothing; the OPA313 slews four times slower and drives only 150 pF.
 
-TODO before the layout is frozen: the AO3400A's 630 pF Ciss is above the 500 pF rated drive and
-Figure 7-26 gives about 30 deg phase margin at 600 pF (G = 1). The source follower bootstraps
-most of Cgs, but the loop's step response with the chosen gate resistor must be checked (vendor
-models in `pcb sim`, or a bench step measured across the sense resistor).
+The AO3400A's 630 pF Ciss is above the 500 pF rated drive, and Figure 7-26 gives about 30 deg
+phase margin at 600 pF (G = 1). main2 closes the loop through an integrator (1 kOhm from the sense
+resistor to IN-, 1 nF from OUT to IN-), which a behavioural model settles without overshoot
+(research/next-revision/calculations/emitter/emitter_sink.py). TODO: confirm the step on the bench,
+across the sense resistor.
 
 ## Pinout (SBOS833R Figure 6-1, Table 6-1, TLV9001 DBV)
 

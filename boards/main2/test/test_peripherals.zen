@@ -71,7 +71,7 @@ def usb_esd_protection(module, inputs):
 def usb_goes_to_the_esp_only(module, inputs):
     # Research Design basis: USB-C connects only to the ESP32 (GPIO20 D+, GPIO19 D-), through the
     # 22-33 Ohm series resistors the checklist reserves close to the module; VBUS feeds only the
-    # power path, the clamp and the two sense dividers (there is no 5 V rail).
+    # power path, the clamp and the ESP32's sense divider (there is no 5 V rail).
     b = index(module)
     p = []
     for pin, esp_pin in [("D+", "USB_D+"), ("D-", "USB_D-")]:

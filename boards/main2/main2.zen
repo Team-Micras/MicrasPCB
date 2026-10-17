@@ -44,8 +44,18 @@ open-drain input) and ESP_Flow (PH1, the ESP32's flow-control line). The ESP32 t
 (PA13/PA14), NRST, BOOT0 (optional, held low by R42) and UART4 (PA11 = UART4_RX, PA12 = UART4_TX),
 so it costs no new pin. The motor pins keep their timers: right motor EN/PH on PA8/PA9 (TIM1),
 left on PC7/PC9 (TIM3). TODO: the research's fast-ADC swap (wall sensors to PC0/PC1, currents to
-two of PA6/PB1/PC4) needs a CubeMX check; until then the currents stay on PC0/PC1. PA5 reads the
-battery voltage and PH0 the USB VBUS, from dividers. There is no HSE or LSE crystal.
+two of PA6/PB1/PC4) needs a CubeMX check; until then the currents stay on PC0/PC1.
+- PA5 is DAC1_OUT2, Wall_Emitter_Set, the wall emitters' current set-point (SENSORS sheet). PA4
+  (DAC1_OUT1) and PA5 are the package's only DAC outputs (STM32CubeMX MCU database,
+  STM32H725RGVx; DS13311 Table 8), and PA4 carries Wall_Sensor_3.
+- PC5 reads the battery voltage from its divider (REGULATORS sheet): ADC12_INP8, a slow channel
+  (DS13311 Table 85 notes 4-5: on PC5 only the INN input is fast), on a TT_ha pin (Table 8) that
+  the divider keeps below VDDA.
+- PH0 is Switch_0, a plain input with the internal pull-up for the DIP switch: an FT I/O (Table 8)
+  that takes no negative injection (Table 54), which a switch to GND does not cause. The firmware
+  leaves the HSE off: there is no HSE or LSE crystal.
+- The H7 learns of USB power from the ESP32 over UART4; the ESP32 senses VBUS on its own divider
+  (ESP sheet).
 
 Test pads (bare pads, not assembled): the IMU interrupts and the fan signals, as on the main
 board, and the SWD backstop (SWDIO, SWCLK, NRST and GND; research Open decisions), to reach the
@@ -131,6 +141,7 @@ WALL_SENSOR_0 = Net("Wall_Sensor_0")
 WALL_SENSOR_1 = Net("Wall_Sensor_1")
 WALL_SENSOR_2 = Net("Wall_Sensor_2")
 WALL_SENSOR_3 = Net("Wall_Sensor_3")
+WALL_EMITTER_SET = Net("Wall_Emitter_Set")
 
 MOTOR_LEFT_EN = Net("Motor_Left_EN")
 MOTOR_LEFT_PH = Net("Motor_Left_PH")
@@ -150,7 +161,6 @@ FAN_ENABLE = Net("Fan_Enable")
 FAN_TOFF = Net("Fan_TOFF")
 
 BATTERY_VOLTAGE = Net("Battery_Voltage")
-USB_VBUS_SENSE = Net("USB_VBUS_Sense")
 
 # MCU.
 STM32H725RGV6(
@@ -172,7 +182,7 @@ STM32H725RGV6(
     PA2=BUZZER,
     PA3=ENCODER_LEFT_SPI.CS,
     PA4=WALL_SENSOR_3,
-    PA5=BATTERY_VOLTAGE,
+    PA5=WALL_EMITTER_SET,
     PA6=WALL_SENSOR_2,
     PA7=BUTTON,
     PA8=MOTOR_RIGHT_EN,
@@ -201,7 +211,7 @@ STM32H725RGV6(
     PC0=CURRENT_SENSOR_LEFT,
     PC1=CURRENT_SENSOR_RIGHT,
     PC4=WALL_SENSOR_1,
-    PC5=SWITCH_0,
+    PC5=BATTERY_VOLTAGE,
     PC6=LED_ARGB,
     PC7=MOTOR_LEFT_EN,
     PC9=MOTOR_LEFT_PH,
@@ -211,7 +221,7 @@ STM32H725RGV6(
     PC14=ENCODER_RIGHT_SPI.CS,
     PC15=MOTORS_NFAULT,
     PD2=IMU_SPI.CS,
-    PH0=USB_VBUS_SENSE,
+    PH0=SWITCH_0,
     PH1=ESP_FLOW,
 )
 
@@ -312,6 +322,7 @@ Sensors(
     Wall_Sensor_PWM_1=WALL_SENSOR_PWM_1,
     Wall_Sensor_PWM_2=WALL_SENSOR_PWM_2,
     Wall_Sensor_PWM_3=WALL_SENSOR_PWM_3,
+    Wall_Emitter_Set=WALL_EMITTER_SET,
     Wall_Sensor_0=WALL_SENSOR_0,
     Wall_Sensor_1=WALL_SENSOR_1,
     Wall_Sensor_2=WALL_SENSOR_2,
@@ -338,7 +349,6 @@ Peripherals(
     LED_ARGB=LED_ARGB,
     LED_Red=LED_RED,
     USB=USB,
-    USB_VBUS_Sense=USB_VBUS_SENSE,
 )
 
 Esp(

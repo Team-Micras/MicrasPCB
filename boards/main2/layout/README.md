@@ -26,8 +26,8 @@ The board files are in `boards/main2/` (this README sits in its `layout/` folder
 | [`main2.zen`](../main2.zen) | root | IC1 (STM32H725RGV6) and its supply network (C1-C17, L1, R67), test pads (IMU, fan, the SWD backstop), M2 screw holes H1-H4 |
 | [`Regulators.zen`](../Regulators.zen) | `REGULATORS` | J1 battery connector, battery switch SW4/Q6, battery monitor U9 (INA228) with its 2 mOhm shunt R59, battery measurement R44/R45, power path D14/Q8, 3V3_D buck IC7, 3V3_A LDO U8 |
 | [`Drivers.zen`](../Drivers.zen) | `DRIVERS` | IC8/IC9 (DRV8874) bridges for M2/M1 with their 10 mOhm shunts R65/R75 and 47 uH chokes L4/L5, IC6 (STSPIN958) fan driver for M3 with its shunt R31 and 4.7 uH choke L6 |
-| [`Sensors.zen`](../Sensors.zen) | `SENSORS` | IC2 (LSM6DSV) IMU, U10/U11 (INA241A2) current amplifiers, wall sensors W1-W4 with their selectors Q2-Q5 and the emitter current sink U12/Q9/R83, encoder slots EC1/EC2 |
-| [`Peripherals.zen`](../Peripherals.zen) | `PERIPHERALS` | SW1 DIP switch, SW2/SW3/SW5 buttons, BZ1 buzzer, D1/D2 (WS2812C-2020-V6) status LEDs, D4/D5 LEDs, U2 USB-C with its ESD protection U6/D8 and the MCU's VBUS sensing |
+| [`Sensors.zen`](../Sensors.zen) | `SENSORS` | IC2 (LSM6DSV) IMU, U10/U11 (INA241A2) current amplifiers, wall sensors W1-W4 with their AC-coupled selectors Q2-Q5 and the emitter current sink U12/Q9/R83 with its DAC set-point, encoder slots EC1/EC2 |
+| [`Peripherals.zen`](../Peripherals.zen) | `PERIPHERALS` | SW1 DIP switch, SW2/SW3/SW5 buttons, BZ1 buzzer, D1/D2 (WS2812C-2020-V6) status LEDs, D4/D5 LEDs, U2 USB-C with its ESD protection U6/D8 |
 | [`Esp.zen`](../Esp.zen) | `ESP` | U13 (ESP32-S3-MINI-1-N8) with its decoupling, EN RC, GPIO0 pull-up and recovery pads, USB series resistors, links to the MCU, VBUS sensing |
 | [`passives.zen`](../passives.zen) | | value, package, rating and part number of every resistor, ceramic capacitor and LED line |
 | [`schematic/`](../schematic) | | how each sheet is drawn (`micras-pcb sch`): the root with IC1, its supply domains, test pads and the module sheets, and one file per module sheet, each block in a titled frame |
@@ -53,12 +53,12 @@ rail, the decoupling and the firmware contract on the generated netlist.
 4S LiPo 12.0-16.8 V (17.4 V HV) ─ J1 ─ BAT_P ─ R59 2 mΩ (U9 INA228, I²C to the ESP32) ─ VBAT
    pack - ─ GND_BAT ─ Q6 HSBB3072 (SW4, slew-limited) ─ GND
 VBAT ─┬─ IC8/IC9 DRV8874 VM, IC6 STSPIN958 VS
-      ├─ R44/R45 100k/20k ─ PA5 (Battery_Voltage, ratio 6.0)
+      ├─ R44/R45 100k/20k ─ PC5 (Battery_Voltage, ratio 6.0)
       └─ D14 B5819W ─┐
 USB VBUS (+5V) ─ Q8 AO3401A (gate follows VBAT) ─┴─ VSYS 4.3-17.4 V
       VSYS ─┬─ IC7 L6981C33 ─ 3V3_D: MCU VDD, ESP32, IMU, encoders, LEDs, emitters, INA228
             └─ R58 22 Ω + C80 10 µF ─ U8 ADP7142 3.3 V (EN = 3V3_D) ─ 3V3_A: VDDA (R67 0 Ω),
-                  INA241 VS/REF1, phototransistor collectors, emitter-sink op-amp and set-point
+                  INA241 VS/REF1, phototransistor collectors, emitter-sink op-amp and its bias
 ```
 
 - **VSYS** is `OR(VBAT, VBUS)`, so the ESP32, the MCU (for SWD flashing) and VDDA run from USB
@@ -69,7 +69,7 @@ USB VBUS (+5V) ─ Q8 AO3401A (gate follows VBAT) ─┴─ VSYS 4.3-17.4 V
   the ESP32's optional 22 uF included, stays inside its 30.5-145 uF compensation window.
 - **3V3_A**: the ADP7142ACPZN3.3 LDO from VSYS through 22 Ohm + 10 uF, its EN on 3V3_D so VDDA
   never leads VDD; about 10 mA typical, 23 mA worst case, 0.32 W at the HV pack's top.
-- **No 5 V rail**: VBUS feeds only Q8, its clamp D8 and the two VBUS-sense dividers.
+- **No 5 V rail**: VBUS feeds only Q8, its clamp D8 and the ESP32's VBUS-sense divider.
 - **Battery switch**: Q6 as on the main board; SW4 is the SK-12D29-G060 (DC 24 V, the main board's
   switch body with a 6.0 mm lever, its own footprint). No reverse-polarity protection: the connector
   keys the polarity.
@@ -104,9 +104,12 @@ alternative (DNP). Fan_PWM PB15, Fan_Enable PB14, Fan_TOFF PB13 as on the main b
 ## Sensors
 
 - **Wall sensors**: the four SFH 4550 emitters run from 3V3_D through 3.3 Ohm each into their
-  AO3400A selectors (DC gate drive from Wall_Sensor_PWM_n through 220 Ohm, 10 kOhm pull-down),
-  whose sources share one constant-current sink: TLV9001 + AO3400A + 1.2 Ohm 0.1 %, set to
-  175 mA by a 10k/680 divider of 3V3_A. The phototransistor collectors are on 3V3_A.
+  AO3400A selectors, AC-coupled as on the main board (220 Ohm, 220 nF, 22 kOhm pull-down,
+  1N4148WS clamp: a pin held high turns its emitter off within 7.5-11 ms), whose sources share
+  one constant-current sink: TLV9001 + AO3400A + 1.2 Ohm 0.1 %, its set-point the DAC on PA5
+  through 200k/20k (175 mA near code 3258, 223 mA full scale, 0 V at reset), compensated by
+  1 kOhm / 1 nF and biased off at a zero set-point by 200 kOhm from 3V3_A. The phototransistor
+  collectors are on 3V3_A.
 - **IMU** and **encoder slots**: as on the main board, on 3V3_D.
 
 ## ESP32 and USB
@@ -120,15 +123,16 @@ alternative (DNP). Fan_PWM PB15, Fan_Enable PB14, Fan_TOFF PB13 as on the main b
   (open drain), BOOT0 GPIO14 through 1 kOhm (R42 keeps it low), UART1 GPIO17/18 <-> UART4
   PA11/PA12 at up to 5 Mbaud (100 Ohm on the ESP's TX), flow control GPIO21 -> PH1.
 - **The ESP's own lines**: INA228 I²C on GPIO8/9 with ALERT on GPIO10; VBUS sense on GPIO7
-  through 22k/33k (3.15 V at 5.25 V).
+  through 22k/33k (3.15 V at 5.25 V), reported to the MCU over UART4.
 - **SWD backstop**: test pads SWDIO, SWCLK, NRST and GND on the MCU side.
 
 ## Pins
 
 The MCU keeps the main board's pin map except: PA8/PA9 and PC7/PC9 carry EN/PH of the right and
 left bridges; PA11/PA12 carry UART4 to the ESP32 (no USB); PC15 reads Motors_nFault; PH1 reads
-ESP_Flow; PA13/PA14 and NRST go to the ESP32 instead of the SWD connector. Every GPIO of the
-VFQFPN68 is now used.
+ESP_Flow; PA13/PA14 and NRST go to the ESP32 instead of the SWD connector; PA5 is the emitter
+DAC (DAC1_OUT2), PC5 reads the battery divider (ADC12_INP8) and PH0 reads Switch_0, the MCU having
+no VBUS input. Every GPIO of the VFQFPN68 is now used.
 
 ## Firmware changes
 
@@ -136,8 +140,9 @@ VFQFPN68 is now used.
 the v1 firmware (`boards/main/firmware.toml`), on top of the main board's own pending changes:
 PH/EN drive at 100 kHz with TIM3 slaved to TIM1; Motors_Enable as nSLEEP (1 ms wake);
 Motors_nFault on PC15; INA241 sampling on TIM1 TRGO2 with dual injected ADC1/ADC2; the battery
-divider constant 6.0; the fan at 400 kHz; UART4 to the ESP32 at up to 5 Mbaud with ESP_Flow on
-PH1; one wall emitter at a time; the WS2812C timing (T0L/T1L at most 1 us); flashing through the
+divider constant 6.0 on PC5; Switch_0 on PH0; the fan at 400 kHz; UART4 to the ESP32 at up to
+5 Mbaud with ESP_Flow on PH1, USB power reported by the ESP32; one wall emitter at a time, with
+the emitter DAC on PA5 stepping with each selector and a code per emitter; the WS2812C timing (T0L/T1L at most 1 us); flashing through the
 ESP32's CMSIS-DAP with OpenOCD or probe-rs.
 
 ## Layout
@@ -167,9 +172,9 @@ Each is a visible TODO in the sheet that owns it.
   the pack pulled; the owner's decision); the B02B-PASK rating at about 5 A; which SW4 lever
   position is ON (the SK-12D29 drawing does not say).
 - Choke 0 Ohm alternatives: the 2512 jumper's current rating.
-- Emitter sink: the set-point is always on (the research asks it off between pulses); a
-  selector held on puts 175 mA DC through an emitter; the TLV9001 loop's step response with
-  Q9's gate.
+- Emitter sink: a bench step across R83 to confirm the modelled response; the AO3400A's VGS at
+  175 mA (Figure 2 or a measurement) and a cold check of the AC-coupled selectors' margin; the
+  firmware's DAC timing against the selectors.
 - Fan: the REF setting for the chosen motor.
 - Current inputs: the CubeMX check of the fast-ADC-channel swap; R_iso + C_f stability.
 - 3V3_A: the LDO's board-level thermal limit at about 0.33 W.
