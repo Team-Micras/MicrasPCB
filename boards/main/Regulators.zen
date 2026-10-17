@@ -69,12 +69,15 @@ TPS61178 = Module("github.com/Team-Micras/MicrasPCB/components/ti/TPS61178/TPS61
 XAL6030_102 = Module("github.com/Team-Micras/MicrasPCB/components/coilcraft/XAL6030-102/XAL6030-102.zen")
 YSPIA0645_220M = Module("github.com/Team-Micras/MicrasPCB/components/yjycoin/YSPIA0645-220M/YSPIA0645-220M.zen")
 
+# Its own sheet in the board schematic (layout/main.kicad_sch); the layout stays the board's.
+Project(name="Regulators", path="layout", layout=False)
+
 VBAT = io(Power)
 V3V3 = io(Power)
 V5V = io(Power)
 V20V = io(Power)
 GND = io(Ground)
-GND_BAT = io(Net)
+GND_BAT = io(Ground)
 
 BAT_SW_GATE = Net("BAT_SW_GATE")
 BUCK_SW = Net("BUCK_SW")

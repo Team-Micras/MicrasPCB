@@ -57,20 +57,26 @@ GT_USB_7010ASV = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/GT
 KASML010 = Module("github.com/Team-Micras/MicrasPCB/components/kuu/KASML010/KASML010.zen")
 WS2815C = Module("github.com/Team-Micras/MicrasPCB/components/worldsemi/WS2815C-2020/WS2815C-2020.zen")
 
+# Its own sheet in the board schematic (layout/main.kicad_sch); the layout stays the board's.
+Project(name="Peripherals", path="layout", layout=False)
+
+# A signal port takes the name of the board net it carries (the firmware's pin label) wherever
+# that name is an identifier, so its sheet pin and hierarchical label match the root's label:
+# KiCad's ERC flags labels whose names differ only in case (similar_labels).
 V3V3 = io(Power)
 V5V = io(Power)
 GND = io(Ground)
 
-BUTTON = io(Net)
-RESET = io(Net)
-BOOT = io(Net)
-SWITCH_0 = io(Net)
-SWITCH_1 = io(Net)
-SWITCH_2 = io(Net)
-SWITCH_3 = io(Net)
-BUZZER = io(Net)
+Button = io(Net)
+Reset = io(Net)
+Boot = io(Net)
+Switch_0 = io(Net)
+Switch_1 = io(Net)
+Switch_2 = io(Net)
+Switch_3 = io(Net)
+Buzzer = io(Net)
 LED_ARGB = io(Net)
-LED_BLUE = io(Net)
+LED_Blue = io(Net)
 USBD_P = io(Net)
 USBD_N = io(Net)
 
@@ -86,19 +92,19 @@ CC2 = Net("USB_CC2")
 SBU_PWR = Net("SBU_PWR")
 
 # Buttons and switches.
-GT_TC048B(name="SW2", A=GND, B=BUTTON)
-Capacitor(name="C20", P1=GND, P2=BUTTON, **C_100N_0402)
-GT_TC048B(name="SW3", A=GND, B=RESET)
-Capacitor(name="C21", P1=GND, P2=RESET, **C_100N_0402)
-GT_TC048B(name="SW5", A=BOOT, B=V3V3)
-Resistor(name="R42", P1=GND, P2=BOOT, **R_10K_0402)
-Capacitor(name="C60", P1=BOOT, P2=V3V3, **C_100N_0402)
+GT_TC048B(name="SW2", A=GND, B=Button)
+Capacitor(name="C20", P1=GND, P2=Button, **C_100N_0402)
+GT_TC048B(name="SW3", A=GND, B=Reset)
+Capacitor(name="C21", P1=GND, P2=Reset, **C_100N_0402)
+GT_TC048B(name="SW5", A=Boot, B=V3V3)
+Resistor(name="R42", P1=GND, P2=Boot, **R_10K_0402)
+Capacitor(name="C60", P1=Boot, P2=V3V3, **C_100N_0402)
 DSHP04TJGER(
     name="SW1",
-    S1_A=SWITCH_0,
-    S2_A=SWITCH_1,
-    S3_A=SWITCH_2,
-    S4_A=SWITCH_3,
+    S1_A=Switch_0,
+    S2_A=Switch_1,
+    S3_A=Switch_2,
+    S4_A=Switch_3,
     S1_B=GND,
     S2_B=GND,
     S3_B=GND,
@@ -109,7 +115,7 @@ DSHP04TJGER(
 FUET_5030(name="BZ1", POS=V3V3, NEG=BUZZER_COIL)
 Resistor(name="R3", P1=BUZZER_DRAIN, P2=BUZZER_COIL, **R_10_0603)
 AO3400A(name="Q1", G=BUZZER_GATE, S=GND, D=BUZZER_DRAIN)
-Resistor(name="R1", P1=BUZZER_GATE, P2=BUZZER, **R_220_0402)
+Resistor(name="R1", P1=BUZZER_GATE, P2=Buzzer, **R_220_0402)
 Resistor(name="R2", P1=GND, P2=BUZZER_GATE, **R_10K_0402)
 D1N4148W(name="D3", A=BUZZER_COIL, K=V3V3)
 
@@ -118,7 +124,7 @@ WS2815C(name="D1", VDD=V3V3, GND=GND, DI=LED_ARGB, DO=LED_CHAIN)
 WS2815C(name="D2", VDD=V3V3, GND=GND, DI=LED_CHAIN, DO=NotConnected())
 Capacitor(name="C19", P1=GND, P2=V3V3, **C_100N_0402)
 Capacitor(name="C18", P1=GND, P2=V3V3, **C_100N_0402)
-Resistor(name="R4", P1=LED_YELLOW_A, P2=LED_BLUE, **R_680_0402)
+Resistor(name="R4", P1=LED_YELLOW_A, P2=LED_Blue, **R_680_0402)
 Led(name="D4", A=LED_YELLOW_A, K=GND, **LED_YELLOW_0603)
 Resistor(name="R5", P1=LED_RED_A, P2=V3V3, **R_680_0402)
 Led(name="D5", A=LED_RED_A, K=GND, **LED_RED_0603)
