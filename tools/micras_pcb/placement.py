@@ -420,15 +420,21 @@ class Placer:
                     self._attach(p, out, drivers, {"len": 0, **self.spec.end_opts.get(key(p), {})})
             elif taps:
                 for t in taps:
-                    self._attach(t.at, t.out, drivers, {"len": 0, **self.spec.stubs.get(t.id, {})})
+                    self._attach(self._on_wire(t), t.out, drivers, {"len": 0, **self.spec.stubs.get(t.id, {})})
             elif drivers[0].kind == "label":
                 first = self.pins[self.groups[g][0]]
-                self._attach(first.at, first.out, drivers, {"len": 0})
+                self._attach(self._on_wire(first), first.out, drivers, {"len": 0})
             else:
                 pins = ", ".join(self.groups[g])
                 self.problems.append(
                     f"the wire joining {pins} needs a free end or a tap for its {drivers[0].kind} {drivers[0].text}"
                 )
+
+    def _on_wire(self, p: Pin) -> tuple[float, float]:
+        """Where a wired pin's label goes: one grid step out along its wire, clear of the pin
+        number, else at the pin's end."""
+        q = _add(p.at, p.out, GRID)
+        return q if any(on_segment(q, a, b) for a, b in self.d.wires) else p.at
 
     def _attach(self, at, out, drivers: list[Driver], opts: dict) -> None:
         """A stub from a pin (or a wire's free end) and its drivers at the stub's end."""
@@ -473,7 +479,7 @@ class Placer:
         left = _snap_up(max(text_width(e[0].text) for e in entries) + 2.54 + GRID)
         right = _snap_up(max(text_width(e[1].text) for e in entries) + 2.54 + GRID)
         column = left + PORT_WIRE * GRID + right + 2 * GRID
-        top = y0 + (3 * GRID if title else GRID)
+        top = y0 + (4 * GRID if title else GRID)
         for i, (first, other) in enumerate(entries):
             c, r = divmod(i, rows)
             a = (x + c * column + left, top + r * PORT_PITCH * GRID)
@@ -521,7 +527,9 @@ class Placer:
         for a, b in out:
             for e in (a, b):
                 ends[key(e)] = ends.get(key(e), 0) + 1
-        anchors = {key(p) for p in self._anchors()}
+        # a dot where three wires, or two and a pin, meet; a label on a wire takes none
+        anchors = {key(p.at) for p in self.pins.values()} | {key(at) for at, _ in self.sheet_pin_at.values()}
+        anchors |= {key(at) for _, at, _ in self.d.power}
         junctions = []
         for k, n in sorted(ends.items()):
             if n + (1 if k in anchors else 0) >= 3:
@@ -545,6 +553,8 @@ class Placer:
         if body is None:
             xs, ys = [p.at[0] for p in pins], [p.at[1] for p in pins]
             body = (min(xs), min(ys), max(xs), max(ys))
+        for nb in schlint.pin_names(s):  # names drawn past a small body
+            body = (min(body[0], nb.x0), min(body[1], nb.y0), max(body[2], nb.x1), max(body[3], nb.y1))
         x0, y0, x1, y1 = body
         # a pin on the body's top or bottom edge draws its name across that edge
         side_pins = [p.at[1] for p in pins if p.out in (LEFT, RIGHT)]
