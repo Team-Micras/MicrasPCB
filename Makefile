@@ -23,9 +23,10 @@ gen: ## regenerate every generated file from the sources (Zener, spec, rules)
 	$(PCB) sync
 	$(PCB) fmt .
 	@# The schematic, root and module sheets, is written afresh each time, then placed from
-	@# boards/<board>/schematic/*.toml: `pcb apply` on an existing schematic only repairs netlist
-	@# differences, leaving the power symbols, labels and wires a pin has left (ERC reports them
-	@# dangling) and drawing new connections in its own style. Generation is deterministic.
+	@# boards/<board>/schematic/*.toml, parts without an entry drafted: `pcb apply` on an existing
+	@# schematic only repairs netlist differences, leaving the power symbols, labels and wires a
+	@# pin has left (ERC reports them dangling) and drawing new connections in its own style.
+	@# Generation is deterministic.
 	@for b in $(BOARDS); do rm -f boards/$$b/layout/*.kicad_sch; $(PCB) apply --no-open boards/$$b/$$b.zen || exit 1; done
 	$(TOOL) sch
 	$(TOOL) rules
@@ -46,7 +47,7 @@ layout-check: ## layouts in sync with the netlist and the spec
 	@status=0; for b in $(BOARDS); do $(PCB) layout --check boards/$$b/$$b.zen || status=1; done; \
 	$(TOOL) rules --check || status=1; $(TOOL) mech --check || status=1; exit $$status
 
-sch: ## every part of every schematic sheet has a placement (boards/<board>/schematic/)
+sch: ## placed sheets clean and current; entries name what their sheets have; drafted parts counted
 	$(TOOL) sch --check
 
 erc: ## KiCad ERC on the generated schematics
