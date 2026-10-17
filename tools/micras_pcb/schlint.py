@@ -142,7 +142,7 @@ def label_box(kind: str, text: str, at, angle: int, size: float = FONT) -> Box:
     if kind == "label":
         start, length, lo, hi = 0.25, w, -0.45 - 1.05 * size, -0.2  # above the wire (left of a vertical one)
     elif kind == "global_label":
-        start, length, lo, hi = 0.0, w + 2.4, -1.05, 1.05
+        start, length, lo, hi = 0.0, w + 3.0, -1.05, 1.05
     else:
         start, length, lo, hi = 0.0, w + 1.9, -0.85, 0.85
     d = {0: (1, 0), 90: (0, -1), 180: (-1, 0), 270: (0, 1)}[angle % 360]
@@ -195,7 +195,7 @@ def collect(sheet: Sheet) -> tuple[list[Box], list[Box], list[Line]]:
             w_ = text_width(p.atoms()[0])
             # the pin's name, inside the sheet box
             x0 = px + 0.6 if ang == 180 else px - 0.6 - w_
-            texts.append(Box(x0, py - 0.75, x0 + w_, py + 0.75, f"sheet {name} pin {p.atoms()[0]}", f"sheet:{name}"))
+            texts.append(Box(x0, py - 0.75, x0 + w_, py + 0.75, f"sheet {name} pin name {p.atoms()[0]}", f"sheet:{name}"))
     for n in sheet.root.children("rectangle"):
         (x0, y0), (x1, y1) = xy(n.child("start")), xy(n.child("end"))
         for a, b in (((x0, y0), (x1, y0)), ((x1, y0), (x1, y1)), ((x1, y1), (x0, y1)), ((x0, y1), (x0, y0))):

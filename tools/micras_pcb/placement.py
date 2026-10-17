@@ -273,6 +273,10 @@ class Placer:
         for p in self.pins.values():
             names.setdefault((p.ref, p.name), []).append(p)
         self.by_name = {f"{r}.{n}": ps[0] for (r, n), ps in names.items() if len(ps) == 1}
+        # taps and stubs may name a pin by its name, as wires do
+        self.spec.stubs = {
+            (self.pin(k).id if ":" not in k and self._has_pin(k) else k): v for k, v in self.spec.stubs.items()
+        }
         self._sheet_symbols()
         for t in [*self.spec.taps, *(s for s in self.spec.stubs if ":" not in s)]:
             if not self._has_pin(t):
@@ -494,8 +498,8 @@ class Placer:
                 seen.add(k)
                 entries.append((first, other))
         entries.sort(key=lambda e: (e[1].text.lower(), e[0].text.lower()))
-        left = _snap_up(max(text_width(e[0].text) for e in entries) + 2.54 + GRID)
-        right = _snap_up(max(text_width(e[1].text) for e in entries) + 2.54 + GRID)
+        left = _snap_up(max(text_width(e[0].text) for e in entries) + 3.3 + 2 * GRID)
+        right = _snap_up(max(text_width(e[1].text) for e in entries) + 3.3 + GRID)
         column = left + PORT_WIRE * GRID + right + 2 * GRID
         top = y0 + (4 * GRID if title else GRID)
         for i, (first, other) in enumerate(entries):
