@@ -207,7 +207,9 @@ def collect(sheet: Sheet) -> tuple[list[Box], list[Box], list[Line]]:
         eff = n.child("effects")
         size = float(eff.child("font").child("size").atoms()[1]) if eff and eff.child("font") else FONT
         hj, vj = _justify(eff)
-        texts.append(_text_box(x, y, n.atoms()[0], 0, hj, vj, size, f"text '{n.atoms()[0]}'", "text"))
+        lines = n.atoms()[0].split("\n")
+        for i, line in enumerate(lines):  # top-justified notes run down, one line each
+            texts.append(_text_box(x, y + i * size * 1.6, line, 0, hj, vj, size, f"text '{line}'", "text"))
     return texts, bodies, lines
 
 

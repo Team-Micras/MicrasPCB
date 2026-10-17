@@ -854,7 +854,7 @@ def _effects(size: str, justify: str, depth: int, bold: bool = False) -> str:
 
 def _text(text: str, x: float, y: float, size: float, uid: str, bold=False, justify="left bottom") -> str:
     return (
-        f"\t(text {sexpr.quote(text)}\n\t\t(exclude_from_sim no)\n\t\t(at {_f(x)} {_f(y)} 0)\n\t\t"
+        f"\t(text {sexpr.quote(text).replace(chr(10), '\\n')}\n\t\t(exclude_from_sim no)\n\t\t(at {_f(x)} {_f(y)} 0)\n\t\t"
         + _effects(f"{_f(size)} {_f(size)}", justify, 2, bold=bold)
         + f'\n\t\t(uuid "{uid}")\n\t)\n'
     )
