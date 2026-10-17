@@ -227,7 +227,10 @@ encoder slots, places the new parts, removes the copper the changed nets contrad
 parts whose updated courtyards overlap, and routes what remains unconnected with
 [`layout/router.py`](router.py), a small grid router (0.05 mm grid, F.Cu/B.Cu, 0.12 mm
 from other copper, deterministic) that draws as the hand-routed board: tracks at 0, 45 and 90
-degrees, few corners, 45 degree chamfers where there is room, pads entered along their axes. [`layout/refine.py`](refine.py) runs once after it with
+degrees, few corners, 45 degree chamfers where there is room, pads entered along their axes (on
+their centres where the calling script checks the result). It finds the cheapest such route (an A*
+search whose heuristic never overestimates) and gives up at once where no free path exists;
+`tests/test_router.py` checks it on small synthetic boards. [`layout/refine.py`](refine.py) runs once after it with
 the owner's layout decisions: it clears the connector courtyard overlaps, places the JST SH
 connector P1, brings C15 to IC1 pad 51 and puts the reference designators on the silkscreen.
 [`layout/usb_wall.py`](usb_wall.py) then puts U6 in line with D+/D-, lays out the SBU
