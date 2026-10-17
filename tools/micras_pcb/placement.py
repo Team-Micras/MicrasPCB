@@ -28,6 +28,7 @@ to the block's `at`.
 
 from __future__ import annotations
 
+import contextlib
 import itertools
 import math
 import subprocess
@@ -940,7 +941,9 @@ def unplaced(board: str, missing_ok: bool = False) -> list[str]:
     """What the board's placement files get wrong: an entry for a part not on its sheet, a pin
     the sheet does not have, a sheet symbol too small for its pins, a sheet not placed; and
     (unless missing_ok: they are drafted) a sheet without a file, a part or sheet symbol
-    without an entry."""
+    without an entry; and the sheet module's SCHEMATIC_HINTS naming parts it does not have."""
+    from . import autoplace
+
     out = []
     for path in schematic_sheets(board_sch(board)):
         spec_path = spec_dir(board) / f"{path.stem}.toml"
@@ -985,6 +988,11 @@ def unplaced(board: str, missing_ok: bool = False) -> list[str]:
             out.append(f"{path.name}: sheet symbols without a placement: {', '.join(missing)}")
         if not _placed_marker(path):
             out.append(f"{path.name} is not placed: run `make gen`")
+        try:
+            hints = autoplace.read_hints(autoplace.sheet_module(board, path.stem))
+            out += [f"{path.name}: {p}" for p in autoplace.hint_problems(hints, refs)]
+        except ValueError as e:
+            out.append(f"{path.name}: {e}")
     return out
 
 
@@ -1119,6 +1127,23 @@ def run(board: str, check: bool = False) -> int:
     return place_board(board)[0]
 
 
+@contextlib.contextmanager
+def preserved_layout(board: str):
+    """The board's layout folder as it was, after the block (placing regenerates pcb's
+    schematic in it); yields {path: bytes} of its files."""
+    layout = board_sch(board).parent
+    saved = {p: p.read_bytes() for p in layout.iterdir() if p.is_file()}
+    try:
+        yield saved
+    finally:
+        for p in layout.iterdir():
+            if p.is_file() and p not in saved:
+                p.unlink()
+        for p, b in saved.items():
+            if not p.exists() or p.read_bytes() != b:
+                p.write_bytes(b)
+
+
 def check_board(board: str) -> int:
     """`micras-pcb sch --check`: the placement files name only parts and pins their sheets have,
     the sheet symbols hold their pins, every placed sheet reads cleanly (no overlaps, nothing off
@@ -1129,9 +1154,7 @@ def check_board(board: str) -> int:
     for f in found:
         print(f"{board}: {f}")
     status |= bool(found)
-    layout = board_sch(board).parent
-    saved = {p: p.read_bytes() for p in layout.iterdir() if p.is_file()}
-    try:
+    with preserved_layout(board) as saved:
         st, stats = place_board(board)
         status |= st
         for p, b in saved.items():
@@ -1142,15 +1165,8 @@ def check_board(board: str) -> int:
             for f in schlint.problems(path):
                 print(f"{board}: {path.name}: {f}")
                 status = 1
-    finally:
-        for p in layout.iterdir():
-            if p.is_file() and p not in saved:
-                p.unlink()
-        for p, b in saved.items():
-            if not p.exists() or p.read_bytes() != b:
-                p.write_bytes(b)
     for s, (a, n) in stats.items():
-        print(f"{board}: {s}: {n} parts, {a} drafted (no hand entry)")
+        print(f"{board}: sheet {s}: {n} parts, {a} drafted (no hand entry)")
     if not status:
         print(f"{board}: every sheet placed cleanly")
     return status
@@ -1165,8 +1181,8 @@ def draft(board: str, sheet: str | None = None, everything: bool = False) -> int
 
     if everything:
         out = build_dir(board) / "sch-draft"
-        status, _ = place_board(board, out, everything=True)
-        status |= run(board)  # the board's own schematic, placed again
+        with preserved_layout(board):
+            status, _ = place_board(board, out, everything=True)
         print(
             f"{board}: drafts in {out.relative_to(ROOT)} (kicad-cli sch export svg -o <dir> {out.relative_to(ROOT)}/{board}.kicad_sch)"
         )
@@ -1292,7 +1308,7 @@ def with_draft(text: str, draft: dict, board: str, sheet: str) -> str:
                 head = re.sub(rf"(?m)^{k}\s*=.*\n", line, head)
         else:
             head = head.rstrip("\n") + "\n" + line
-    body = "".join(kept).rstrip("\n")
+    body = "".join(kept).replace(DRAFT_NOTE, "").rstrip("\n")
     if body:
         body = "\n" + body + "\n"
     add = [_block_text(b) for b in draft.get("block", [])]

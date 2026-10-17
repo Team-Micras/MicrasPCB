@@ -46,6 +46,7 @@ HINT_KEYS = {"title", "paper", "blocks", "titles", "flow", "order"}
 GAP = 0.0  # grid units kept between two items' boxes
 BODY_GAP = 1.0  # between two parts' bodies
 TEXT_CLEAR = 0.3  # from a wire to another net's text
+CROSSING = 40  # what a wire crossing costs a candidate position, in grid steps of wire
 PAD = 2  # frame padding, grid units
 TITLE_H = 3  # room for a frame's title, grid units
 BLOCK_GAP = 2  # between frames
@@ -69,8 +70,8 @@ def sheet_module(board: str, sheet: str) -> Path | None:
     """The Zener file of a sheet: the board's root for the root sheet, else the module the root
     instantiates with `name = "<sheet>"`."""
     root = board_zen(board)
-    if sheet == board:
-        return root
+    if sheet == board or not root.exists():
+        return root if root.exists() else None
     text = root.read_text()
     m = re.search(rf'(\w+)\(\s*name\s*=\s*"{re.escape(sheet)}"', text)
     if not m:
@@ -122,6 +123,29 @@ def read_hints(zen: Path | None) -> dict:
     if not isinstance(hints, dict) or set(hints) - HINT_KEYS:
         raise ValueError(f"{zen.name}: {HINTS} keys are {sorted(HINT_KEYS)}")
     return hints
+
+
+def hint_refs(hints: dict) -> set[str]:
+    """Every part a sheet's hints name."""
+    refs = set(hints.get("titles", {})) | set(hints.get("flow", {})) | set(hints.get("order", []))
+    for b in hints.get("blocks", []):
+        refs |= set(b.get("parts", []))
+        if b.get("anchor"):
+            refs.add(b["anchor"])
+    return refs
+
+
+def hint_problems(hints: dict, refs: set[str]) -> list[str]:
+    """What is wrong with a sheet's hints: parts the sheet does not have, unknown values."""
+    out = []
+    if stale := sorted(hint_refs(hints) - refs):
+        out.append(f"{HINTS} names parts the sheet does not have: {', '.join(stale)}")
+    for ref, side in hints.get("flow", {}).items():
+        if side not in ("left", "right", "above", "below"):
+            out.append(f"{HINTS} flow of {ref}: {side!r} is not left, right, above or below")
+    if hints.get("paper") and hints["paper"] not in PAPERS:
+        out.append(f"{HINTS} paper {hints['paper']!r} is not one of {', '.join(PAPERS)}")
+    return out
 
 
 def module_title(zen: Path | None) -> str:
@@ -235,6 +259,20 @@ class Model:
 
     def drivers(self, pid: str) -> list[Driver]:
         return self.placer.pin_drivers.get(pid, [])
+
+    def wired_drivers(self, pids: list[str]) -> list[Driver]:
+        """The labels and power symbols of pins wired together, with those of the pins tied to
+        them inside their parts (jumper pin groups), as placement._drivers_of_group finds them."""
+        seen, out = set(), []
+        for pid in pids:
+            ref, num = pid.rsplit(".", 1)
+            group = next((g for g in self.parts[ref].lib.jumpers if num in g), {num})
+            for q in sorted(group):
+                for d in self.drivers(f"{ref}.{q}"):
+                    if (d.kind, d.text, d.extra) not in seen:
+                        seen.add((d.kind, d.text, d.extra))
+                        out.append(d)
+        return sorted(out, key=lambda d: (d.rank, d.kind, d.text))
 
     def shape(self, ref: str, rot: int, mirror: str | None) -> Shape:
         k = (ref, rot, mirror)
@@ -454,10 +492,10 @@ class Canvas:
                         return None
                 for c, d, h in lay.segs:
                     r = _seg_seg(a, b, c, d)
-                    if r and self.find(h) not in mine:
-                        if r == "touch":
-                            return None
+                    if r == "cross":  # unconnected where they cross, whatever their nets
                         crossings += 1
+                    elif r and self.find(h) not in mine:
+                        return None
                 for p, h in lay.pts:
                     if self.find(h) not in mine and _on(p, a, b):
                         return None
@@ -546,15 +584,10 @@ class Block:
     def net(self, sk: str) -> str | None:
         return self.m.net.get(self.sites[sk].pids[0])
 
-    def group_drivers(self, sks: list[str]) -> list[Driver]:
-        seen, out = set(), []
-        for sk in sks:
-            for pid in self.sites[sk].pids:
-                for d in self.m.drivers(pid):
-                    if (d.kind, d.text, d.extra) not in seen:
-                        seen.add((d.kind, d.text, d.extra))
-                        out.append(d)
-        return sorted(out, key=lambda d: (d.rank, d.kind, d.text))
+    def group_drivers(self, sks: list[str], sitemap: dict | None = None) -> list[Driver]:
+        """A wired net's labels and power symbols, as placement._drivers_of_group gathers them."""
+        sitemap = sitemap or self.sites
+        return self.m.wired_drivers([pid for sk in sks for pid in sitemap[sk].pids])
 
     def _site_term(self, site: Site, opts: dict, gid) -> Items | None:
         """A lone site's own terminal: pcb's label or power symbol on a stub; None draws nothing
@@ -589,7 +622,7 @@ class Block:
                     break
                 extra = pending + [x for x in items[:i] if x is not None]
                 c = self.cv.conflicts(ti, allowed=[("site", sk)], ignore=ignore, extra=extra)
-                if c is not None:
+                if c == 0:
                     items[i], cross[i], placed = ti, c, True
                     break
                 choice[i] += 1
@@ -721,8 +754,11 @@ class Block:
         anchor... as placed, path corners) wires that site to the placed host. Returns
         (crossings, plan) or None when anything collides."""
         it, sites = self.part_items(ref, at, rot, mirror)
-        # the host pin's own label gives way to the wire
+        # the host pin's own label gives way to the wire; so do the labels of placed pins this
+        # part's pins face in line on their net (a bus to a connector), wired straight
+        links = self._links(ref, sites, conn)
         ignore: set = {("pterm", conn[0]), ("dterm", conn[0])} if conn else set()
+        ignore |= {(t, hk) for hk, _ in links for t in ("pterm", "dterm")}
         if self.cv.conflicts(it, ignore=ignore) is None:
             self.fail = "body"
             return None
@@ -744,6 +780,13 @@ class Block:
             cross += c
             pending.append(wi)
             plan["conn"] = (hk, qk, path)
+        for hk, sk in links:
+            wl = Items(segs=[(self.sites[hk].loc, next(s.loc for s in sites if _key(s) == sk), ("site", hk))])
+            if self.cv.conflicts(wl, allowed=[("site", hk), ("site", sk)], ignore=ignore, extra=pending) != 0:
+                self.fail = "bus"
+                return None
+            pending.append(wl)
+        plan["links"] = links
         for side in self.field_sides(ref, rot, mirror):
             fb = Items(boxes=[_shift(b, at) for b in self.m.field_boxes(ref, rot, mirror, side)])
             if self.cv.conflicts(fb, ignore=ignore, extra=pending[1:]) is not None:
@@ -782,12 +825,11 @@ class Block:
             joins.append((keys, chains, wi, gt))
             joined |= set(keys)
         plan["joins"] = joins
+        linked = {sk for _, sk in links}
         todo = [
-            (f"{ref}@{s.loc[0]},{s.loc[1]}", s)
+            (_key(s), s)
             for s in sites
-            if not (
-                (conn and f"{ref}@{s.loc[0]},{s.loc[1]}" == plan["conn"][1]) or f"{ref}@{s.loc[0]},{s.loc[1]}" in joined
-            )
+            if not ((conn and _key(s) == plan["conn"][1]) or _key(s) in joined or _key(s) in linked)
         ]
         res = self._assign_terms(todo, ignore, pending, defer)
         if res is None:
@@ -815,20 +857,27 @@ class Block:
                 self.fail = "net label"
                 return None
             plan["gterm"] = gt
+            pending.append(gt[1])
+        plan["link_terms"] = {}
+        for hk, sk in links:
+            if self.wired(hk):
+                continue
+            s = next(s for s in sites if _key(s) == sk)
+            gt = self.group_term(
+                [hk, sk], {hk: self.sites[hk], sk: s}, [self.sites[hk].loc, s.loc], ("site", hk), ignore, pending
+            )
+            if gt is None:
+                self.fail = "bus label"
+                return None
+            plan["link_terms"][hk] = gt
+            pending.append(gt[1])
         return cross, plan
 
     def group_term(self, sks, sitemap, path, gid, ignore, pending, allowed=None, outward=None):
         """Where a newly wired net's label or power symbol goes: on the wire at a pin (a local
         label), else at a short free end branching off the new wire. Returns (term, items),
         (None, empty) when pcb attached nothing, or None when nothing fits."""
-        seen, drivers = set(), []
-        for sk in sks:
-            for pid in sitemap[sk].pids:
-                for d in self.m.drivers(pid):
-                    if (d.kind, d.text, d.extra) not in seen:
-                        seen.add((d.kind, d.text, d.extra))
-                        drivers.append(d)
-        drivers.sort(key=lambda d: (d.rank, d.kind, d.text))
+        drivers = self.group_drivers(sks, sitemap)
         if not drivers:
             return (None, Items())
         first = drivers[0]
@@ -842,7 +891,7 @@ class Block:
                 at = q if any(_on(q, a, b) for a, b in segs) else s.loc
                 it = self.m.term_items(at, s.out, first, {"len": 0}, gid)
                 it.pts = [(at, gid)]  # on the net's own wire: no other net may touch it
-                if self.cv.conflicts(it, allowed=allowed or [gid], ignore=ignore, extra=pending) is not None:
+                if self.cv.conflicts(it, allowed=allowed or [gid], ignore=ignore, extra=pending) == 0:
                     return (("onwire", sk), it)
         if first.kind == "power":
             natural = DOWN if first.extra == "GND" else UP
@@ -874,7 +923,7 @@ class Block:
                         continue
                     it = self.m.term_items(e, d, first, {"len": 0, **opts}, gid)
                     it.segs.append((p, e, gid))
-                    if self.cv.conflicts(it, allowed=allowed or [gid], ignore=ignore, extra=pending) is not None:
+                    if self.cv.conflicts(it, allowed=allowed or [gid], ignore=ignore, extra=pending) == 0:
                         return (("branch", p, e, opts), it)
         return None
 
@@ -915,6 +964,8 @@ class Block:
         if "conn" in plan:
             hk, qk, path = plan["conn"]
             self._join(hk, qk, path, plan.get("gterm"))
+        for hk, sk in plan.get("links", []):
+            self._join(hk, sk, [], plan["link_terms"].get(hk))
 
     def _join(self, hk, qk, path, gterm, replace=False):
         """Record a wire from site hk to site qk (through path points) and merge their groups
@@ -965,6 +1016,12 @@ class Block:
         source with a pin on its supply, else the nearest after."""
         sup = {n for n in self.m.nets_of(ref) if self.m.rail.get(n) == "supply"}
         cands = [r for r in self.refs if self.m.kind(r) == "multi" and sup & set(self.m.nets_of(r))]
+        if not cands:  # no IC on that supply here: the parts that use it (an emitter resistor)
+            cands = [
+                r
+                for r in self.refs
+                if self.m.kind(r) == "two" and self.m.role(r) != "decap" and sup & set(self.m.nets_of(r))
+            ]
         rank = self.ranks.get(ref, 0)
         before = [r for r in cands if self.ranks.get(r, 0) <= rank]
         after = [r for r in cands if self.ranks.get(r, 0) > rank]
@@ -1012,14 +1069,34 @@ class Block:
                     cx = at[0] + (sh.box[0] + sh.box[2]) / 2
                     cy = at[1] + (sh.box[1] + sh.box[3]) / 2
                     c = cost + 0.05 * (abs(cx - ax) + abs(cy - ay))
-                    if flow:
-                        bad = {"left": cx > ax, "right": cx < ax, "above": cy > ay, "below": cy < ay}[flow]
-                        c += 60 if bad else 0
+                    if flow and not self._on_side(flow, cx, cy):
+                        continue
                     if len(sh.sites) > 2:
                         c -= 8 * self._aligned(sh, at, pid)
                     cands.append((c, rot, mirror, at, (hk, Q, path)))
         cands.sort(key=lambda c: (c[0], c[1], str(c[2]), c[3]))
         return cands
+
+    def _links(self, ref: str, sites: list[Site], conn) -> list[tuple[str, str]]:
+        """(placed site, part site) pairs a straight wire would join: one net (not a rail),
+        facing each other in line, two steps apart or more."""
+        if self.m.kind(ref) != "multi":
+            return []
+        out, used = [], set()
+        for s in sites:
+            sk = _key(s)
+            net = self.m.net.get(s.rep)
+            if (conn and sk == f"{ref}@{conn[1][0]},{conn[1][1]}") or not net or net in self.m.rail:
+                continue
+            for hk, h in sorted(self.sites.items()):
+                if hk in used or h.out != _neg(s.out) or self.net(hk) != net or (conn and hk == conn[0]):
+                    continue
+                d = (s.loc[0] - h.loc[0], s.loc[1] - h.loc[1])
+                if (d[0] * h.out[0] + d[1] * h.out[1]) >= 2 and (d[0] * h.out[1] - d[1] * h.out[0]) == 0:
+                    out.append((hk, sk))
+                    used.add(hk)
+                    break
+        return out
 
     def _aligned(self, sh: Shape, at, skip: str) -> int:
         """How many more of the part's pins would face a placed pin of their net in line."""
@@ -1038,6 +1115,11 @@ class Block:
                         n += 1
                         break
         return n
+
+    def _on_side(self, flow: str, x: float, y: float) -> bool:
+        """The point lies on that side of the anchor (a `flow` hint)."""
+        ax, ay = self.center()
+        return {"left": x < ax, "right": x > ax, "above": y < ay, "below": y > ay}[flow]
 
     def center(self):
         p = self.placed.get(self.anchor)
@@ -1065,7 +1147,7 @@ class Block:
                 if tried > 4000:
                     break
                 continue
-            cost = c + 12 * r[0]
+            cost = c + CROSSING * r[0]
             if best is None or cost < best[0]:
                 best = (cost, r[1])
             if r[0] == 0:
@@ -1093,6 +1175,17 @@ class Block:
         else:
             x0, y0, x1, y1 = self.cv.bbox()
             cx, cy = round((x0 + x1) / 2), round((y0 + y1) / 2)
+        flow = self.hints.get("flow", {}).get(ref)
+        if flow:  # start beyond the anchor on that side
+            x0, y0, x1, y1 = self.placed[self.anchor].shape.box if self.anchor in self.placed else (0, 0, 0, 0)
+            ax, ay = self.placed[self.anchor].at if self.anchor in self.placed else (0, 0)
+            cx, cy = {
+                "left": (round(ax + x0) - 6, cy),
+                "right": (round(ax + x1) + 6, cy),
+                "above": (cx, round(ay + y0) - 6),
+                "below": (cx, round(ay + y1) + 6),
+            }[flow]
+        sh = self.m.shape(ref, rot, mirror)
         for r in range(0, 200, 2):
             ring = sorted(
                 {(cx + dx, cy + dy) for dx in range(-r, r + 1, 2) for dy in (-r, r)}
@@ -1100,6 +1193,9 @@ class Block:
                 key=lambda p: (abs(p[1] - cy) + abs(p[0] - cx), p[1], p[0]),
             )
             for at in ring:
+                mid = (at[0] + (sh.box[0] + sh.box[2]) / 2, at[1] + (sh.box[1] + sh.box[3]) / 2)
+                if flow and not self._on_side(flow, *mid):
+                    continue
                 res = self.try_place(ref, at, rot, mirror)
                 if res:
                     self.commit(res[1])
@@ -1215,7 +1311,7 @@ class Block:
             self.cv.remove(("dterm", sk))
             for opts in self._term_variants(s):
                 ti = self._site_term(s, opts, ("site", sk))
-                if ti is None or self.cv.conflicts(ti, allowed=[("site", sk)]) is not None:
+                if ti is None or self.cv.conflicts(ti, allowed=[("site", sk)]) == 0:
                     break
             else:
                 if self.extra_wires(only=sk, crossings=False) or self._dogleg(sk):
@@ -1249,7 +1345,7 @@ class Block:
                     pts = [s.loc, p1, p2, e]
                     it = self.m.term_items(e, s.out, drivers[0], {"len": 0}, g)
                     it.segs += [(a, b, g) for a, b in itertools.pairwise(pts)]
-                    if self.cv.conflicts(it, allowed=[g]) is not None:
+                    if self.cv.conflicts(it, allowed=[g]) == 0:
                         self.cv.add(("gterm", g), it)
                         self.groups[self.gid(sk)] = Group([sk], [[sk, p1, p2, e]], ("free",))
                         return True
@@ -1384,6 +1480,10 @@ def _route_grid(cv: Canvas, A, ao, B, bo, allowed, ignore, crossings: bool, pad:
     return corners
 
 
+def _key(s: Site) -> str:
+    return f"{s.ref}@{s.loc[0]},{s.loc[1]}"
+
+
 def _shift(b, d):
     return (b[0] + d[0], b[1] + d[1], b[2] + d[0], b[3] + d[1], *b[4:])
 
@@ -1496,6 +1596,8 @@ def assign_blocks(m: Model, refs: list[str], hints: dict, ranks: dict) -> list[B
             r = parent[r]
         return r
 
+    multi = {r: m.kind(r) == "multi" for r in refs}
+
     def union(a, b):
         ra, rb = find(a), find(b)
         if ra == rb:
@@ -1503,7 +1605,11 @@ def assign_blocks(m: Model, refs: list[str], hints: dict, ranks: dict) -> list[B
         la, lb = locked.get(ra), locked.get(rb)
         if la is not None and lb is not None and la != lb:
             return
+        # a hinted block takes in passives by connectivity, never a multi-pin part it does not list
+        if (la is None) != (lb is None) and multi[ra if la is None else rb]:
+            return
         parent[rb] = ra
+        multi[ra] = multi[ra] or multi[rb]
         if lb is not None:
             locked[ra] = lb
 
@@ -1562,9 +1668,9 @@ def assign_blocks(m: Model, refs: list[str], hints: dict, ranks: dict) -> list[B
         if sig and touched:
             target = next(b for b in blocks if id(b) in touched)
         else:
-            cands = [
-                (ranks.get(r, 0), b) for b in blocks for r in b.refs if kind[r] == "multi" and sup & set(m.nets_of(r))
-            ]
+            # the nearest part before it in the source that has its supply (one function's
+            # parts are written together), else the nearest after
+            cands = [(ranks.get(r, 0), b) for b in blocks for r in b.refs if sup & set(m.nets_of(r))]
             before = [c for c in cands if c[0] <= rank]
             after = [c for c in cands if c[0] > rank]
             target = (
@@ -1602,7 +1708,9 @@ def assign_blocks(m: Model, refs: list[str], hints: dict, ranks: dict) -> list[B
                 (r for r in b.refs if kind[r] == "multi"), key=lambda r: (-len(m.pins_of[r]), ranks.get(r, 0))
             )
             others = [r for r in b.refs if not re.match(r"[RC]\d", r)] or b.refs
-            main = multis[:3] or others[:1]
+            # the main part, and the next active one (an IC, a transistor, a sensor)
+            active = [r for r in multis[1:] if not re.match(r"(R|C|L|J|M|P|F|SW|H)\d", r)]
+            main = (multis[:1] + active[:1]) or others[:1]
             b.title = ", ".join(f"{r} {m.parts[r].value}" for r in main)
     order = hints.get("order", [])
 
@@ -1786,10 +1894,14 @@ def sheet_symbols(m: Model, board: str, names: list[str]) -> list[dict]:
     return out
 
 
-def ports_entries(m: Model) -> list[tuple[Driver, Driver]]:
-    """The ports column's rows: each further label of a pin pcb gave several (placement._ports)."""
+def ports_entries(m: Model, blocks: list[Block] = ()) -> list[tuple[Driver, Driver]]:
+    """The ports column's rows: each further label of a pin, or of a wired net, that pcb gave
+    several (placement._ports)."""
     seen, out = set(), []
-    for ds in [*m.placer.pin_drivers.values(), *m.placer.sheet_pin_drivers.values()]:
+    wired = {pid for b in blocks for g in b.groups.values() for sk in g.sites for pid in b.sites[sk].pids}
+    lists = [ds for pid, ds in m.placer.pin_drivers.items() if pid not in wired]
+    lists += [b.group_drivers(g.sites) for b in blocks for g in b.groups.values()]
+    for ds in [*lists, *m.placer.sheet_pin_drivers.values()]:
         for other in ds[1:]:
             k = (ds[0].kind, ds[0].text, other.kind, other.text)
             if k not in seen:
@@ -1906,11 +2018,15 @@ def draft_sheet(board: str, path: Path, text: str, pin_net: dict, hand: dict, ev
         return None
     zen = sheet_module(board, path.stem)
     hints = read_hints(zen)
+    notes = hint_problems(hints, set(m.parts))
+    if notes:
+        raise ValueError("; ".join(notes))
     ranks = source_ranks(zen, list(m.parts))
     plans = assign_blocks(m, missing, hints, ranks)
     blocks: list[dict] = []
     seen: dict = {}
     groups: list[int] = []
+    laid: list[Block] = []
     for plan in plans:
         sig = _signature(m, plan)
         like = None
@@ -1918,6 +2034,7 @@ def draft_sheet(board: str, path: Path, text: str, pin_net: dict, hand: dict, ev
             first_plan, first_blk, _ = seen[sig]
             like = (first_blk, dict(zip(first_plan.refs, plan.refs, strict=True)))
         blk = layout_block(m, plan, hints, ranks, like)
+        laid.append(blk)
         seen.setdefault(sig, (plan, blk, len(seen)))
         groups.append(seen[sig][2])
         blocks.append(block_data(blk))
@@ -1934,7 +2051,7 @@ def draft_sheet(board: str, path: Path, text: str, pin_net: dict, hand: dict, ev
         sym_block = {"title": "Module sheets", "at": [0, 0], "size": [w, h], "auto": True}
         sizes.append((w, h))
     ports = None
-    entries = ports_entries(m)
+    entries = ports_entries(m, laid)
     if entries and "ports" not in hand:
         pw, ph, rows = ports_size(entries)
         ports = {"rows": rows, "title": "Sheet ports"}
