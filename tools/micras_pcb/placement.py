@@ -217,7 +217,8 @@ class Placer:
     def __init__(self, board: str, sheet_path: Path, text: str, spec: Spec, pin_net: dict[str, str]):
         self.board, self.path, self.spec, self.pin_net = board, sheet_path, spec, pin_net
         self.sheet = Sheet.load(sheet_path, text)
-        self.problems: list[str] = []
+        self.problems: list[str] = []  # the sheet cannot be drawn as asked
+        self.warnings: list[str] = []  # entries for what the sheet no longer has: skipped
         self.unplaced: list[str] = []
         self.counter = 0
         self.d = Drawing()
@@ -265,7 +266,7 @@ class Placer:
             s.at, s.rot, s.mirror = ps.at, ps.rot, ps.mirror
         for ref in self.spec.parts:
             if ref not in parts:
-                self.problems.append(f"{ref} is placed but not on this sheet")
+                self.warnings.append(f"{ref} is placed but not on this sheet")
         self.pins = {p.id: p for s in parts.values() for p in s.pins()}
         self.by_name: dict[str, Pin] = {}
         names: dict[tuple[str, str], list[Pin]] = {}
@@ -273,10 +274,16 @@ class Placer:
             names.setdefault((p.ref, p.name), []).append(p)
         self.by_name = {f"{r}.{n}": ps[0] for (r, n), ps in names.items() if len(ps) == 1}
         self._sheet_symbols()
+        for t in [*self.spec.taps, *(s for s in self.spec.stubs if ":" not in s)]:
+            if not self._has_pin(t):
+                self.warnings.append(f"taps or stubs name a pin the sheet does not have: {t}")
         wired = self._chains()
         self._terminals(wired)
         self._ports()
         return self._write(parts)
+
+    def _has_pin(self, token: str) -> bool:
+        return token in self.pins or token in self.by_name
 
     def pin(self, token: str) -> Pin:
         p = self.pins.get(token) or self.by_name.get(token)
@@ -318,6 +325,10 @@ class Placer:
         named: list[str] = []
         for chain in self.spec.chains:
             pts, dirs = [], []
+            missing = [t for t in chain if isinstance(t, str) and not self._has_pin(t)]
+            if missing:
+                self.warnings.append(f"a wire names pins the sheet does not have: {', '.join(missing)}")
+                continue
             for t in chain:
                 if isinstance(t, str):
                     p = self.pin(t)
@@ -330,7 +341,6 @@ class Placer:
             for a, b, da, db in zip(pts, pts[1:], dirs, dirs[1:], strict=False):
                 path = _route(a, b, da, db)
                 segs += [s for s in itertools.pairwise(path) if key(s[0]) != key(s[1])]
-        self.d.wires += segs
         parent: dict = {}
 
         def find(k):
@@ -339,7 +349,9 @@ class Placer:
                 k = parent[k]
             return k
 
-        pin_at = {key(p.at): p.id for p in self.pins.values()}
+        pin_at: dict = {}  # pins stacked on one point (a part's many GND pads) share it
+        for p in sorted(self.pins.values(), key=lambda p: p.id):
+            pin_at.setdefault(key(p.at), []).append(p.id)
         ends: dict = {}
         for i, (a, b) in enumerate(segs):
             for e in (a, b):
@@ -349,8 +361,8 @@ class Placer:
             for k in [*ends, *pin_at]:
                 if on_segment((k[0] / 10000, k[1] / 10000), a, b):
                     parent[find(("s", i))] = find(("p", k))
-                    if k in pin_at:
-                        touched[pin_at[k]] = i
+                    for pid in pin_at.get(k, []):
+                        touched[pid] = i
         self.groups: dict = {}
         for pid, i in touched.items():
             self.groups.setdefault(find(("s", i)), []).append(pid)
@@ -373,9 +385,13 @@ class Placer:
             out = (int((dx > 0) - (dx < 0)), int((dy > 0) - (dy < 0)))
             g = find(("s", idx[0]))
             if g not in self.groups:
-                self.problems.append(f"a wire ending at ({p[0] / GRID:g}, {p[1] / GRID:g}) reaches no pin")
                 continue
             self.free_ends.append((p, out, g))
+        # wires that reach no pin (their chain's pins left the sheet) are not drawn
+        kept = [s for i, s in enumerate(segs) if find(("s", i)) in self.groups]
+        if len(kept) < len(segs):
+            self.warnings.append(f"{len(segs) - len(kept)} wire segment(s) reach no pin and are left out")
+        self.d.wires += kept
         for ps in self.groups.values():
             nets = {self.pin_net.get(p) for p in ps}
             if len(nets) > 1:
@@ -393,9 +409,11 @@ class Placer:
         return sorted(out, key=lambda d: (d.rank, d.kind, d.text))
 
     def _terminals(self, wired: set[str]) -> None:
+        done = {key(self.pins[pid].at) for pid in wired}  # stacked pins share one connection
         for pid, p in sorted(self.pins.items()):
-            if pid in wired:
+            if pid in wired or key(p.at) in done:
                 continue
+            done.add(key(p.at))
             if pid in self.pin_nc:
                 self.d.no_connects.append(p.at)
                 continue
@@ -413,22 +431,28 @@ class Placer:
             if not drivers:
                 continue
             ends = [(p, out) for p, out, gg in self.free_ends if gg == g]
-            taps = [self.pin(t) for t in self.spec.taps]
+            taps = [self.pin(t) for t in self.spec.taps if self._has_pin(t)]
             taps = [t for t in taps if self.group_of.get(t.id) == g]
             if ends:
                 for p, out in ends:
                     self._attach(p, out, drivers, {"len": 0, **self.spec.end_opts.get(key(p), {})})
             elif taps:
                 for t in taps:
-                    self._attach(t.at, t.out, drivers, {"len": 0, **self.spec.stubs.get(t.id, {})})
+                    self._attach(self._on_wire(t), t.out, drivers, {"len": 0, **self.spec.stubs.get(t.id, {})})
             elif drivers[0].kind == "label":
                 first = self.pins[self.groups[g][0]]
-                self._attach(first.at, first.out, drivers, {"len": 0})
+                self._attach(self._on_wire(first), first.out, drivers, {"len": 0})
             else:
                 pins = ", ".join(self.groups[g])
                 self.problems.append(
                     f"the wire joining {pins} needs a free end or a tap for its {drivers[0].kind} {drivers[0].text}"
                 )
+
+    def _on_wire(self, p: Pin) -> tuple[float, float]:
+        """Where a wired pin's label goes: one grid step out along its wire, clear of the pin
+        number, else at the pin's end."""
+        q = _add(p.at, p.out, GRID)
+        return q if any(on_segment(q, a, b) for a, b in self.d.wires) else p.at
 
     def _attach(self, at, out, drivers: list[Driver], opts: dict) -> None:
         """A stub from a pin (or a wire's free end) and its drivers at the stub's end."""
@@ -473,7 +497,7 @@ class Placer:
         left = _snap_up(max(text_width(e[0].text) for e in entries) + 2.54 + GRID)
         right = _snap_up(max(text_width(e[1].text) for e in entries) + 2.54 + GRID)
         column = left + PORT_WIRE * GRID + right + 2 * GRID
-        top = y0 + (3 * GRID if title else GRID)
+        top = y0 + (4 * GRID if title else GRID)
         for i, (first, other) in enumerate(entries):
             c, r = divmod(i, rows)
             a = (x + c * column + left, top + r * PORT_PITCH * GRID)
@@ -521,7 +545,9 @@ class Placer:
         for a, b in out:
             for e in (a, b):
                 ends[key(e)] = ends.get(key(e), 0) + 1
-        anchors = {key(p) for p in self._anchors()}
+        # a dot where three wires, or two and a pin, meet; a label on a wire takes none
+        anchors = {key(p.at) for p in self.pins.values()} | {key(at) for at, _ in self.sheet_pin_at.values()}
+        anchors |= {key(at) for _, at, _ in self.d.power}
         junctions = []
         for k, n in sorted(ends.items()):
             if n + (1 if k in anchors else 0) >= 3:
@@ -545,6 +571,8 @@ class Placer:
         if body is None:
             xs, ys = [p.at[0] for p in pins], [p.at[1] for p in pins]
             body = (min(xs), min(ys), max(xs), max(ys))
+        for nb in schlint.pin_names(s):  # names drawn past a small body
+            body = (min(body[0], nb.x0), min(body[1], nb.y0), max(body[2], nb.x1), max(body[3], nb.y1))
         x0, y0, x1, y1 = body
         # a pin on the body's top or bottom edge draws its name across that edge
         side_pins = [p.at[1] for p in pins if p.out in (LEFT, RIGHT)]
@@ -886,6 +914,15 @@ def unplaced(board: str) -> list[str]:
             out.append(f"{path.name}: parts without a placement: {', '.join(missing)}")
         if stale := sorted(set(spec.parts) - refs, key=_refkey):
             out.append(f"{path.name}: placements of parts not on the sheet: {', '.join(stale)}")
+        pins = [p for s in sh.parts() for p in s.pins()]
+        counts: dict = {}
+        for p in pins:
+            counts[(p.ref, p.name)] = counts.get((p.ref, p.name), 0) + 1
+        known = {p.id for p in pins} | {f"{r}.{n}" for (r, n), c in counts.items() if c == 1}
+        tokens = [t for c in spec.chains for t in c if isinstance(t, str)]
+        tokens += spec.taps + [s for s in spec.stubs if ":" not in s]
+        if bad := sorted(set(tokens) - known):
+            out.append(f"{path.name}: wires, taps or stubs name pins the sheet does not have: {', '.join(bad)}")
         names = {n.prop("Sheetname") for n in sh.root.children("sheet")}
         if missing := sorted(names - set(spec.sheets)):
             out.append(f"{path.name}: sheet symbols without a placement: {', '.join(missing)}")
@@ -924,6 +961,7 @@ def run(board: str, check: bool = False) -> int:
         texts[path] = placer.place()
         problems += [f"{path.name}: {p}" for p in placer.problems]
         left_out += [f"{path.name}: {r}" for r in placer.unplaced]
+        left_out += [f"{path.name}: {w}" for w in placer.warnings]
     if problems:
         for p in problems:
             print(f"  {p}")

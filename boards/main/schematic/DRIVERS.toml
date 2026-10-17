@@ -1,7 +1,7 @@
 # Placement of the main board's DRIVERS sheet (micras-pcb sch; units of 1.27 mm, y down).
 paper = "A3"
 title = "Motor and fan drivers"
-ports = { at = [12, 150], rows = 12, title = "Sheet ports" }
+ports = { at = [12, 104], rows = 12, title = "Sheet ports" }
 
 [[block]]
 title = "Fan driver: STSPIN958, current limit through R31"
@@ -11,12 +11,12 @@ parts.IC6 = [64, 46]
 parts.C31 = { at = [52, 20], rot = 180, fields = "left" }
 parts.C34 = [80, 18]
 parts.C35 = [99, 18]
-parts.C36 = [118, 20, 270]
+parts.C36 = [120, 20, 270]
 parts.R27 = { at = [32, 30], fields = "left" }
-parts.C30 = { at = [26, 36], rot = 180, fields = "left" }
+parts.C30 = { at = [26, 38], rot = 180, fields = "left" }
 parts.R28 = { at = [18, 46], fields = "left" }
 parts.R29 = { at = [18, 54], rot = 180, fields = "left" }
-parts.R30 = { at = [36, 56], rot = 180, fields = "left" }
+parts.R30 = { at = [44, 60], rot = 180, fields = "left" }
 parts.R31 = [92, 42]
 parts.M3 = [120, 38]
 parts.C32 = [110, 52]
@@ -28,14 +28,14 @@ wires = [
     ["IC6.28", [66, 16]],
     ["IC6.29", [68, 16]],
     ["IC6.30", [70, 16]],
-    ["C36.1", [118, 12]],
-    ["IC6.14", "C30.2"],
+    ["C36.1", [120, 12]],
+    ["IC6.14", [26, 34], "C30.2"],
     ["R27.2", [32, 34]],
     [[26, 34], [22, 34]],
     ["IC6.15", [18, 50]],
     ["R28.2", "R29.2"],
-    ["IC6.21", "R30.2"],
-    [[36, 54], [34, 54]],
+    ["IC6.21", [44, 54], "R30.2"],
+    [[44, 56], [40, 56], { label = "left" }],
     ["IC6.31", [84, 30], [84, 38], "M3.1"],
     ["IC6.32", [84, 32]],
     ["IC6.25", [84, 34]],
@@ -71,18 +71,18 @@ parts.C37 = [14, 30, 270]
 parts.C38 = [30, 28, 180]
 parts.C65 = [49, 28, 180]
 parts.C66 = [68, 28, 180]
-parts.D6 = [20, 44]
-parts.D7 = [40, 44]
-parts.R34 = [30, 48]
-parts.C40 = [30, 54]
-parts.C39 = [52, 42, 180]
+parts.D6 = { at = [20, 44], fields = "top" }
+parts.D7 = { at = [40, 44], fields = "bottom" }
+parts.R34 = { at = [30, 48], fields = "left" }
+parts.C40 = [30, 56]
+parts.C39 = [54, 42, 180]
 parts.R32 = [114, 60, 270]
-parts.M1 = { at = [130, 62], mirror = "x" }
-parts.R33 = [114, 68, 270]
-parts.M2 = { at = [130, 70], mirror = "x" }
-parts.R35 = [36, 96, 270]
-parts.R49 = { at = [30, 98], rot = 180, fields = "left" }
-parts.C41 = [44, 98]
+parts.M1 = { at = [130, 62], mirror = "x", fields = "right" }
+parts.R33 = [118, 84, 270]
+parts.M2 = { at = [134, 86], mirror = "x", fields = "right" }
+parts.R35 = { at = [50, 68], rot = 270, fields = "bottom" }
+parts.R49 = { at = [44, 70], rot = 180, fields = "left" }
+parts.C41 = { at = [56, 76], fields = "left" }
 wires = [
     ["IC5.17", [86, 26], "C37.1"],
     ["IC5.14", [88, 54], [86, 54]],
@@ -91,9 +91,9 @@ wires = [
     ["R34.1", [30, 44]],
     ["R34.2", "C40.1"],
     ["D7.2", "C39.1"],
-    [[52, 44], [56, 44]],
+    [[54, 44], [54, 48], { label = "right" }],
     [[30, 44], [30, 40], { label = "right" }],
-    [[30, 51], [26, 51], { label = "left" }],
+    [[30, 53], [26, 53], { label = "left" }],
     ["IC5.5", [86, 86], [92, 86], "IC5.16"],
     ["IC5.6", [88, 86]],
     ["IC5.15", [90, 86]],
@@ -101,19 +101,22 @@ wires = [
     ["IC5.4", "R32.2"],
     ["R32.1", "M1.2"],
     ["IC5.18", "M1.1"],
-    [[108, 60], [108, 56], { label = "left" }],
-    [[120, 60], [120, 52], { label = "right" }],
-    ["IC5.7", "R33.2"],
+    [[108, 60], [108, 54], { label = "left" }],
+    [[120, 60], [120, 54], { label = "right" }],
+    ["IC5.7", [112, 68], [112, 84], "R33.2"],
     ["R33.1", "M2.2"],
-    ["IC5.13", "M2.1"],
-    [[108, 68], [108, 66], { label = "left" }],
-    [[120, 68], [120, 66], { label = "right" }],
+    ["IC5.13", [110, 70], [110, 86], "M2.1"],
+    [[112, 76], [116, 76], { label = "right" }],
+    [[124, 84], [124, 80], { label = "right" }],
+    ["IC5.20", [56, 64], [56, 72], "IC5.11"],
+    ["R35.1", [56, 68]],
+    ["C41.1", [56, 72]],
+    [[56, 64], [52, 64]],
     ["R35.2", "R49.2"],
-    [[30, 96], [26, 96]],
-    ["R35.1", "C41.1"],
-    [[44, 96], [48, 96]],
+    [[44, 68], [40, 68]],
 ]
-taps = ["IC5.18", "IC5.13"]
+taps = ["IC5.18", "M2.1"]
 stubs."D6.1" = { point = "out" }
 stubs."C40.2" = { label = "right" }
-stubs."IC5.12" = { label = "right" }
+stubs."IC5.12" = { len = 8, label = "right" }
+stubs."IC5.3" = { point = "out" }

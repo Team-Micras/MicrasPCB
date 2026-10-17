@@ -16,10 +16,11 @@ CI.
 ```text
 spec/<board>.toml ──────────────┐ outline, tab, spec-placed parts      ┌─> build/<board>/<board>_mech.json
                                  v                                      │   (MicrasHardware, micras-simulation)
-boards/<board>/<board>.zen ──> pcb apply ──> layout/<board>.kicad_sch   │
-components/**/*.zen             (Zener)      layout/<board>.kicad_pcb <─┘ placement + routing in KiCad
+boards/<board>/<board>.zen ──> pcb apply ──> micras-pcb sch ──> layout/<board>.kicad_sch
+components/**/*.zen             (Zener)          ^                layout/<board>.kicad_pcb <─┘ placement + routing in KiCad
+boards/<board>/schematic/*.toml ─────────────────┘ schematic placement
                                                      │
-          make check: build · warnings · tests · sync · spec · ERC · LVS · previous · DRC · DFM · pytest · parts
+          make check: build · warnings · tests · sync · spec · sch · ERC · LVS · previous · DRC · DFM · pytest · parts
                                                      │
           make review: renders · schematic · layers · 3D · BOM · fab zip ──>  CI artifact
 ```
@@ -29,6 +30,12 @@ components/**/*.zen             (Zener)      layout/<board>.kicad_pcb <─┘ pl
   `pcb apply` writes the KiCad schematic and syncs the netlist into the layout, keeping hand
   placement and routing (sync is idempotent: a regeneration of an unchanged design is
   byte-identical).
+- **`boards/<board>/schematic/` owns how the schematic is drawn.** `pcb apply` writes each sheet
+  afresh; `micras-pcb sch` then places it from one file per sheet: where each part goes and how it
+  turns, which pins are wired together, the titled frame of each function block, the paper size
+  and the order of each module's sheet pins. It redraws every connection with the labels and
+  power symbols pcb chose and fails unless KiCad's netlist of the placed schematic equals pcb's,
+  so the drawing can never change the circuit. The `micras-pcb` skill has the file format.
 - **`spec/` owns the mechanics.** `micras-pcb mech` writes the origin and the locked position of
   mechanically critical parts (the encoder's sensor and tab, the main board's screw holes) into
   the `.kicad_pcb`, and exports the board for the other repos. The Edge.Cuts outlines are layout
@@ -64,8 +71,9 @@ components/**/*.zen             (Zener)      layout/<board>.kicad_pcb <─┘ pl
   `main2`) have one sheet per Zener module (`Project(..., layout = False)`), and pcb 0.4.81 puts
   a global label beside each sheet pin and hierarchical label
   ([diodeinc/pcb#1520](https://github.com/diodeinc/pcb/issues/1520)), so KiCad's ERC warns
-  `same_local_global_label` and `multiple_net_names` on those nets, and the sheet symbols on the
-  root sit close enough for their pin labels to overlap the next sheet's box. Each board's
+  `same_local_global_label` and `multiple_net_names` on those nets. The placement keeps the global
+  label at the pin and draws the hierarchical one in the sheet's ports column, wired to a copy of
+  the global one (`micras-pcb sch`). Each board's
   `erc.toml` accepts these two warnings with that reason, and only them; they go away with a pcb
   release that includes [diodeinc/pcb#1522](https://github.com/diodeinc/pcb/pull/1522)
   ([known faults](boards/main/layout/README.md#known-faults)).
@@ -111,12 +119,13 @@ and fails if any gate failed.
 | warnings | `pcb build -D warnings` | a build warning: a net outside a part's declared operating range, a capacitor rated below its net |
 | test | `pcb test` | datasheet requirements: per component (`components/**/test/`) and per board (`boards/<board>/test/`: application circuits, values computed with the datasheet equations) |
 | layout-check | `pcb layout --check`, `micras-pcb rules/mech --check` | layout no longer matches the netlist, rules or spec drift |
+| sch | `micras-pcb sch --check` | a schematic part or module sheet without a placement in `boards/<board>/schematic/` |
 | ERC | `kicad-cli sch erc` | schematic electrical rules; `boards/<board>/erc.toml` names the nets supplied from off the board (the PWR_FLAG role) and the warnings a board accepts, rule by rule with the reason |
 | LVS | `micras-pcb lvs` | schematic and PCB connect different pads |
 | previous | `micras-pcb previous compare <board>` | a replicated board (main, encoder, bluetooth) connects or names anything differently from its previous revision, except the changes in `boards/<board>/changes.toml` |
 | DRC | `kicad-cli pcb drc` + `rules/jlcpcb.kicad_dru` | JLCPCB clearances (copper, SMD pad to pad, hole to track), widths, drills, edge distances |
 | DFM | `pcb dfm` + `rules/jlcpcb-pdk.toml` | geometry-level manufacturability (Diode's sourced JLCPCB PDK) |
-| pytest | `pytest` | board contracts (encoder joint, firmware pin map), power tree, every schematic item on its sheet's page, decoupling at the pin, encoder slot fit, routing style (every track straight at a multiple of 45 degrees, no arcs, no acute corners), courtyards, paste, 3D models, part data |
+| pytest | `pytest` | board contracts (encoder joint, firmware pin map), power tree, every schematic item on its sheet's page, no overlapping texts, bodies or wires on a sheet, decoupling at the pin, encoder slot fit, routing style (every track straight at a multiple of 45 degrees, no arcs, no acute corners), courtyards, paste, 3D models, part data |
 | lint | `ruff` | Python lint and format |
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 
@@ -158,6 +167,7 @@ pin-1 checks, placement and routing, and the fab order.
 ```text
 boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb is KiCad-owned, README.md is
                        the board's description, the rest generated)
+boards/<board>/schematic/  one placement file per schematic sheet (micras-pcb sch): parts, wires, frames, paper
 boards/<board>/previous/  snapshot of the board's previous revision (board.json) for the connectivity comparison,
                        and the scripts that build its layout from that revision (transfer_layout.py; main: rework.py)
 boards/main/layout/*.py  the one-off scripts that place and route the review fixes and the owner's layout
