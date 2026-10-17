@@ -1,0 +1,152 @@
+# Placement of the main board's PERIPHERALS sheet (micras-pcb sch; units of 1.27 mm, y down).
+paper = "A3"
+title = "User interface and USB-C"
+ports = { at = [256, 86], rows = 13, title = "Sheet ports" }
+
+[[block]]
+title = "USB-C receptacle: CC sink, D+/D- series resistors, SBU supply fuse"
+at = [10, 10]
+size = [170, 68]
+parts.U2 = [84, 40]
+parts.R6 = [40, 36, 180]
+parts.R7 = [56, 48, 180]
+parts.R9 = [136, 20, 90]
+parts.R10 = [146, 16, 180]
+parts.C23 = [152, 24, 180]
+parts.R8 = [136, 34, 90]
+parts.C22 = [152, 38, 180]
+parts.F1 = { at = [140, 54], mirror = "y" }
+wires = [
+    # VBUS on +5V
+    ["U2.A4B9", [66, 28], [66, 22]],
+    ["U2.B4A9", [66, 30], [66, 28]],
+    # CC1/CC2 sink pull-downs
+    ["U2.A5", "R6.2"],
+    [[40, 34], [36, 34]],
+    ["U2.B5", [66, 36], [66, 46], "R7.2"],
+    [[56, 46], [52, 46]],
+    # D+: series R9, R10 pull-up and C23 on the MCU side
+    ["U2.A6", [102, 28], [102, 20], "R9.1"],
+    ["U2.B6", [100, 30], [100, 28]],
+    [[104, 20], [104, 16], { label = "right" }],
+    ["R9.2", [158, 20]],
+    ["R10.1", [146, 20]],
+    ["C23.2", [152, 20]],
+    # D-: series R8 and C22 on the MCU side
+    ["U2.B7", "R8.1"],
+    ["U2.A7", [104, 32], [104, 34]],
+    [[108, 34], [108, 38], { label = "right" }],
+    ["R8.2", [158, 34]],
+    ["C22.2", [152, 34]],
+    # SBU1/SBU2 from 3V3 through the PTC fuse
+    ["U2.A8", [100, 38], [100, 40], "U2.B8"],
+    [[100, 40], [100, 52], "F1.2"],
+    [[104, 52], [104, 48], { label = "right" }],
+    # ground and shell
+    ["U2.A1B12", [78, 60], [92, 60], "U2.4"],
+    ["U2.B1A12", [82, 60]],
+    ["U2.1", [86, 60]],
+    ["U2.2", [88, 60]],
+    ["U2.3", [90, 60]],
+    [[84, 60], [84, 62]],
+]
+
+[[block]]
+title = "Buzzer: low-side switch Q1, flyback D3"
+at = [184, 10]
+size = [66, 58]
+parts.D3 = { at = [34, 24], rot = 90, fields = "left" }
+parts.BZ1 = [48, 20]
+parts.R3 = [40, 34, 180]
+parts.Q1 = { at = [38, 44], fields = [5, 1] }
+parts.R1 = { at = [22, 44], rot = 270, fields = "top" }
+parts.R2 = { at = [28, 48], rot = 180, fields = "left" }
+wires = [
+    ["D3.2", "BZ1.1"],
+    [[38, 18], [38, 14]],
+    ["BZ1.2", [40, 20], "R3.2"],
+    ["D3.1", [40, 30]],
+    [[40, 26], [44, 26], { label = "right" }],
+    ["R3.1", "Q1.3"],
+    [[40, 38], [42, 38], { label = "right" }],
+    ["Q1.1", "R1.1"],
+    ["R2.2", [28, 44]],
+    [[31, 44], [31, 37], { label = "left" }],
+]
+
+[[block]]
+title = "Indicator LEDs"
+at = [254, 10]
+size = [66, 32]
+parts.R4 = { at = [20, 12], rot = 270, fields = "bottom" }
+parts.D4 = { at = [40, 12], rot = 180, fields = "bottom" }
+parts.R5 = { at = [20, 26], rot = 270, fields = "bottom" }
+parts.D5 = { at = [40, 26], rot = 180, fields = "bottom" }
+wires = [
+    ["R4.1", "D4.2"],
+    [[24, 12], [24, 9], { label = "right" }],
+    ["R5.1", "D5.2"],
+    [[24, 26], [24, 23], { label = "right" }],
+]
+
+[[block]]
+title = "DIP switch"
+at = [254, 46]
+size = [66, 26]
+parts.SW1 = [30, 12]
+wires = [
+    ["SW1.8", [40, 8], [40, 14], "SW1.5"],
+    ["SW1.7", [40, 10]],
+    ["SW1.6", [40, 12]],
+    [[40, 14], [40, 16]],
+]
+
+[[block]]
+title = "Buttons: user, reset, boot"
+at = [10, 86]
+size = [146, 30]
+parts.SW2 = [14, 12]
+parts.C20 = [26, 16, 180]
+parts.SW3 = [60, 12]
+parts.C21 = [72, 16, 180]
+parts.SW5 = { at = [106, 12], mirror = "y" }
+parts.C60 = { at = [106, 18], rot = 270, fields = "bottom" }
+parts.R42 = [122, 16, 180]
+wires = [
+    ["SW2.1", [6, 10], [6, 12], "SW2.2"],
+    [[6, 12], [6, 14]],
+    ["SW2.3", [22, 10], [22, 12], "SW2.4"],
+    ["SW2.4", [26, 12], "C20.2"],
+    [[26, 12], [30, 12]],
+    ["SW3.1", [52, 10], [52, 12], "SW3.2"],
+    [[52, 12], [52, 14]],
+    ["SW3.3", [68, 10], [68, 12], "SW3.4"],
+    ["SW3.4", [72, 12], "C21.2"],
+    [[72, 12], [76, 12]],
+    # BOOT0: SW5 and C60 to 3V3, R42 to GND
+    ["SW5.3", [98, 10], [98, 12], "SW5.4"],
+    [[98, 10], [98, 6]],
+    [[98, 12], [98, 18], "C60.2"],
+    ["SW5.1", [114, 10], [114, 12], "SW5.2"],
+    [[114, 12], [114, 18], "C60.1"],
+    ["SW5.2", [132, 12]],
+    ["R42.2", [122, 12]],
+]
+
+[[block]]
+title = "Addressable LEDs: WS2815C chain on 3V3"
+at = [160, 86]
+size = [90, 36]
+parts.D1 = { at = [24, 22], mirror = "x", fields = "bottom" }
+parts.D2 = { at = [64, 22], mirror = "x", fields = "bottom" }
+parts.C19 = [20, 12, 180]
+parts.C18 = [60, 12, 180]
+wires = [
+    ["D1.4", [12, 22], [12, 10], "C18.2"],
+    [[12, 10], [12, 6]],
+    ["D2.4", [52, 22], [52, 10]],
+    ["D1.1", "D2.3"],
+    [[36, 24], [36, 28], { label = "right" }],
+]
+stubs."D1.2" = { point = "out" }
+stubs."D2.2" = { point = "out" }

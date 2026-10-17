@@ -1,0 +1,150 @@
+# Placement of the main board's root sheet (micras-pcb sch; units of 1.27 mm, y down).
+# IC1 sits at the centre of the MCU block, its supply pins (top left)
+# feed one bus per domain up to a rail of decoupling capacitors; module sheets on the right.
+paper = "A3"
+title = "MCU, debug and module sheets"
+
+[[block]]
+title = "MCU: STM32H725RGV6, Direct SMPS supply and decoupling"
+at = [10, 12]
+size = [228, 146]
+parts.IC1 = { at = [138, 92], fields = [12, 44] }
+parts.C3 = { at = [86, 50], rot = 180 }
+parts.C4 = { at = [66, 50], rot = 180 }
+parts.C7 = { at = [46, 50], rot = 180 }
+parts.C6 = { at = [26, 50], rot = 180 }
+parts.C5 = { at = [6, 50], rot = 180 }
+parts.L1 = [94, 44]
+parts.C1 = { at = [86, 30], rot = 180 }
+parts.C2 = { at = [66, 30], rot = 180 }
+parts.C10 = { at = [86, 16], rot = 180 }
+parts.C11 = { at = [66, 16], rot = 180 }
+parts.C12 = { at = [126, 42], rot = 180 }
+parts.C13 = { at = [146, 42], rot = 180 }
+parts.C14 = { at = [166, 42], rot = 180 }
+parts.C15 = { at = [186, 42], rot = 180 }
+parts.C16 = { at = [206, 42], rot = 180 }
+parts.C17 = { at = [126, 30], rot = 180 }
+parts.C8 = { at = [146, 30], rot = 180 }
+parts.C9 = { at = [166, 30], rot = 180 }
+wires = [
+    ["IC1.66", [108, 80], [108, 48], "C3.2", "C4.2", "C7.2", "C6.2", "C5.2", [4, 48]],
+    ["IC1.7", [108, 74]],
+    ["IC1.33", [108, 76]],
+    ["IC1.49", [108, 78]],
+    ["IC1.5", [110, 72], [110, 44], "L1.2"],
+    [[106, 44], [106, 40]],
+    ["L1.1", [86, 44], "C3.2"],
+    ["IC1.6", [112, 68], [112, 28], "C1.2", "C2.2", [60, 28]],
+    ["IC1.16", [114, 66], [114, 14], "C10.2", "C11.2", [60, 14]],
+    ["IC1.68", [116, 64], [116, 28], "C17.2", "C8.2", "C9.2", [172, 28]],
+    [[116, 40], "C12.2", "C13.2", "C14.2", "C15.2", "C16.2"],
+    ["IC1.1", [116, 54]],
+    ["IC1.9", [116, 56]],
+    ["IC1.22", [116, 58]],
+    ["IC1.35", [116, 60]],
+    ["IC1.51", [116, 62]],
+    ["IC1.8", [132, 136], [146, 136], "IC1.4"],
+    ["IC1.21", [134, 136]],
+    ["IC1.34", [136, 136]],
+    ["IC1.50", [138, 136]],
+    ["IC1.67", [140, 136]],
+    ["IC1.69", [142, 136]],
+    ["IC1.15", [144, 136]],
+    [[138, 136], [138, 138]],
+]
+stubs."IC1.48" = { len = 14 }
+stubs."IC1.52" = { len = 14 }
+[[block.note]]
+text = "VDDA (= VREF+): 1 uF + 100 nF at the pin"
+at = [4, 12]
+[[block.note]]
+text = "VDDSMPS: 10 uF + 4.7 uF"
+at = [4, 26]
+[[block.note]]
+text = "VCORE from the SMPS: 2 x 10 uF at L1, 100 nF per VCAP"
+at = [18, 40]
+[[block.note]]
+text = "C8, C9 at VBAT; C17 bulk"
+at = [178, 26]
+[[block.note]]
+text = "100 nF per VDD pin"
+at = [210, 36]
+[[block.note]]
+text = "Direct SMPS supply (DS13311; AN5419 Table 2, Figure 5):"
+at = [6, 68]
+[[block.note]]
+text = "- VDD, VDDSMPS and VBAT on 3V3 (no backup battery)."
+at = [6, 70]
+[[block.note]]
+text = "- VLXSMPS drives L1; VFBSMPS and VCAP1-3 all on VCORE."
+at = [6, 72]
+[[block.note]]
+text = "  The firmware selects PWR_DIRECT_SMPS_SUPPLY."
+at = [6, 74]
+[[block.note]]
+text = "- VDDA is also VREF+ on this package: on 3V3, with"
+at = [6, 76]
+[[block.note]]
+text = "  C10 and C11 at the pin."
+at = [6, 78]
+[[block.note]]
+text = "- No HSE or LSE crystal: PC15 and PH1 are unused."
+at = [6, 80]
+
+[[block]]
+title = "Module sheets"
+at = [240, 12]
+size = [80, 150]
+
+[sheet.REGULATORS]
+at = [262, 18]
+size = [36, 6]
+left = []
+
+[sheet.DRIVERS]
+at = [262, 34]
+size = [36, 18]
+left = ["Motor_Left_PWM_FW", "Motor_Left_PWM_BW", "Motor_Right_PWM_FW", "Motor_Right_PWM_BW", "Motor_Enable", "Fan_PWM", "Fan_Enable", "Fan_Overcurrent"]
+right = ["MOTOR_L_SENSE_P", "MOTOR_L_SENSE_N", "MOTOR_R_SENSE_P", "MOTOR_R_SENSE_N"]
+
+[sheet.SENSORS]
+at = [262, 62]
+size = [36, 58]
+left = ["IMU_SPI.CS", "IMU_SPI.CLK", "IMU_SPI.MOSI", "IMU_SPI.MISO", "IMU_INT1", "IMU_INT2", "ENCODER_LEFT_SPI.CS", "ENCODER_LEFT_SPI.CLK", "ENCODER_LEFT_SPI.MOSI", "ENCODER_LEFT_SPI.MISO", "Encoder_Left_ABI_A", "Encoder_Left_ABI_B", "ENCODER_RIGHT_SPI.CS", "ENCODER_RIGHT_SPI.CLK", "ENCODER_RIGHT_SPI.MOSI", "ENCODER_RIGHT_SPI.MISO", "Encoder_Right_ABI_A", "Encoder_Right_ABI_B", "Current_Sensor_Left", "Current_Sensor_Right", "Wall_Sensor_PWM_0", "Wall_Sensor_PWM_1", "Wall_Sensor_PWM_2", "Wall_Sensor_PWM_3", "Wall_Sensor_0", "Wall_Sensor_1", "Wall_Sensor_2", "Wall_Sensor_3"]
+right = ["MOTOR_L_SENSE_P", "MOTOR_L_SENSE_N", "MOTOR_R_SENSE_P", "MOTOR_R_SENSE_N"]
+
+[sheet.PERIPHERALS]
+at = [262, 130]
+size = [36, 26]
+left = ["Reset", "Boot", "Button", "Switch_0", "Switch_1", "Switch_2", "Switch_3", "Buzzer", "LED_Blue", "LED_ARGB", "USBD_P", "USBD_N"]
+
+[[block]]
+title = "SWD debug connector"
+at = [10, 162]
+size = [50, 30]
+parts.P1 = [26, 16]
+stubs."P1.3" = { len = 10 }
+stubs."P1.4" = { len = 10 }
+stubs."P1.1" = { point = "out" }
+stubs."P1.2" = { point = "out" }
+
+[[block]]
+title = "Test points (bare pads)"
+at = [64, 162]
+size = [132, 36]
+parts.IMU_INT1 = [24, 12]
+parts.IMU_INT2 = [66, 12]
+parts.20V1 = [108, 12]
+parts.FAN_PWM1 = [24, 26]
+parts.FAN_ENABLE1 = [66, 26]
+parts.FAN_OVERCURRENT1 = [108, 26]
+
+[[block]]
+title = "Mounting holes (M2)"
+at = [200, 162]
+size = [34, 26]
+parts.H1 = [5, 10]
+parts.H2 = [21, 10]
+parts.H3 = [5, 19]
+parts.H4 = [21, 19]

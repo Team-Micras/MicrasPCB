@@ -9,7 +9,7 @@
 		(in_pos_files yes)
 		(duplicate_pin_numbers_are_jumpers no)
 		(property "Reference" "U"
-			(at -7.62 5.08 0)
+			(at -7.62 7.62 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -19,7 +19,7 @@
 			)
 		)
 		(property "Value" "CJA1117B-3.3"
-			(at 2.54 5.08 0)
+			(at 2.54 7.62 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -85,8 +85,8 @@
 		)
 		(symbol "CJA1117B-3.3_0_1"
 			(rectangle
-				(start -7.62 2.54)
-				(end 7.62 -5.08)
+				(start -7.62 5.08)
+				(end 7.62 -7.62)
 				(stroke
 					(width 0.254)
 					(type default)
@@ -98,7 +98,7 @@
 		)
 		(symbol "CJA1117B-3.3_1_1"
 			(pin power_in line
-				(at -10.16 0 0)
+				(at -10.16 2.54 0)
 				(length 2.54)
 				(name "IN"
 					(effects
@@ -116,7 +116,7 @@
 				)
 			)
 			(pin power_out line
-				(at 10.16 0 180)
+				(at 10.16 2.54 180)
 				(length 2.54)
 				(name "OUTPUT"
 					(effects
@@ -134,7 +134,7 @@
 				)
 			)
 			(pin power_in line
-				(at 0 -7.62 90)
+				(at 0 -10.16 90)
 				(length 2.54)
 				(name "ADJ/GND"
 					(effects

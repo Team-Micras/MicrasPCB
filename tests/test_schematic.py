@@ -13,36 +13,9 @@ import pytest
 from micras_pcb import sexpr
 from micras_pcb.checks import schematic_sheets
 from micras_pcb.paths import board_sch, boards
+from micras_pcb.schematic import paper_size
 
-# KiCad's named paper sizes in mm, landscape (common/page_info.cpp).
-PAPER = {
-    "A5": (210, 148),
-    "A4": (297, 210),
-    "A3": (420, 297),
-    "A2": (594, 420),
-    "A1": (841, 594),
-    "A0": (1189, 841),
-    "A": (279.4, 215.9),
-    "B": (431.8, 279.4),
-    "C": (558.8, 431.8),
-    "D": (863.6, 558.8),
-    "E": (1117.6, 863.6),
-    "USLetter": (279.4, 215.9),
-    "USLegal": (355.6, 215.9),
-    "USLedger": (431.8, 279.4),
-    "GERBER": (812.8, 812.8),
-}
 EPS = 1e-6
-
-
-def paper_size(sch: sexpr.Node) -> tuple[float, float]:
-    paper = sch.child("paper")
-    atoms = paper.atoms() if paper else ["A4"]
-    if atoms[0] == "User":
-        w, h = float(atoms[1]), float(atoms[2])
-    else:
-        w, h = PAPER[atoms[0]]
-    return (h, w) if "portrait" in atoms else (w, h)
 
 
 def _xy(node: sexpr.Node | None) -> tuple[float, float]:
