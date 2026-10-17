@@ -243,8 +243,9 @@ reference designator to 0.5 mm / 0.125 mm, and [`layout/octilinear.py`](octiline
 every track the earlier scripts left at another angle: each such connection is ripped up back to
 its pads, vias and junctions and routed again between the same copper (or, where the router finds
 no clean path, given a two- or three-segment octilinear path), and [`layout/swd_top.py`](swd_top.py)
-puts the top-entry SWD connector P1 where the side-entry one was and routes its nets. Each runs
-once.
+puts the top-entry SWD connector P1 where the side-entry one was and routes its nets, and
+[`layout/wall_inside.py`](wall_inside.py) puts the bare wall sensors fully on the board (below).
+Each runs once.
 
 Routing rule: every track is a straight segment at a multiple of 45 degrees, with no arcs and no
 corner under 90 degrees outside a pad or via, as on the Altium board
@@ -259,7 +260,8 @@ corner under 90 degrees outside a pad or via, as on the Altium board
 
 Where things are, in the robot frame (x forward, y left, from the axle midpoint; `spec/main.toml`):
 
-- **Front** (x 30-54 mm): IC1 at x = 37, the wall sensors W1-W4 at the front corners, the LEDs
+- **Front** (x 30-54 mm): IC1 at x = 37, the wall sensors W1-W4 at the front corners (fully on
+  the board), the LEDs
   D1/D2/D4/D5 on the front edge, the buttons SW2/SW3/SW5.
 - **Middle** (x -10 to 30 mm): the IMU IC2 on the axle midpoint, the encoder slots EC1/EC2 at
   y = -/+6.9, the wheel notches on both sides, the fan hole at x = 17.5 with the fan connector M3
@@ -337,10 +339,25 @@ The review fixes in the layout (KiCad coordinates):
 - **SWD connector P1** (top entry) at (125.85, 90.5), rotated 90 degrees: the reinforcement
   pads 0.25 mm inside the left board edge, the contacts at x = 127.175 facing inwards (pin 1 at
   y = 92.5). The fan connector M3 sits 1.95 mm inwards of the Altium position (its old spot would
-  overlap P1's courtyard); U5/C64 sit below P1, R13 above it, D3 next to R1/R2. SWDIO runs to P1
+  overlap P1's courtyard); U5/C64 sit below P1, D3 next to R1/R2. SWDIO runs to P1
   on B.Cu from a via under IC1 pad 48. `layout/swd_top.py` places it and routes its nets.
-- **Wall sensor drive** C73-C76/D9-D12 between each R11/R15/R19/R23 and its Q2-Q5; the 1206
-  resistors R3/R13/R17/R21/R25 on their previous centres.
+- **Wall sensors**: W1-W4 are the bare SFH 4550 over the TPS601A, without the casing
+  ([`components/micras/WallSensor`](../../../components/micras/WallSensor)), and sit fully on the
+  board: each courtyard (both bodies at their largest and the pads, plus 0.25 mm) keeps the
+  0.20 mm board-edge clearance. W2 and W3, looking diagonally over the front corners, are 0.23 and
+  0.21 mm inside (W2 0.03 mm sideways for its courtyard against R17). W1 and W4, looking forward
+  over the side chamfers, are 3.3 mm further inwards and 0.45 mm further back, mirrored (the
+  owner's choice of the moves the chamfer allows; 3.3 mm keeps W4's pads above the DIP switch
+  SW1): robot (36.270, +/-18.200), lens tips at x = 42.550 (emitter, 9.75 mm above the board top)
+  and 42.325 (receiver, 3.25 mm). The board takes none of the emitter's +-3 degree or the
+  receiver's +-10 degree cone: the axes leave it 4.6 and 4.8 mm ahead of the lens tips (W1/W4),
+  1.0 and 1.2 mm (W2/W3). Each channel's parts sit around its sensor: Q2, D9, R12 and C26 in the
+  corner left of W1, R13 below its pads, R14 and C73 right of them; Q5, R24 and R26 in the corner
+  right of W4, R23 left of its pads, R25 under SW2 (0.35 mm up, D12 with it) with C29 at its 3V3
+  end, C76 above SW2 by D12; C73-C76/D9-D12 between each R11/R15/R19/R23 and its Q2-Q5. The
+  switch bus Switch_0-3 runs on B.Cu left of W4's pads, and VBAT, Wall_Sensor_2, WALL1_LED_K and
+  WALL2_GATE step round the moved parts. `layout/wall_inside.py` places them and routes their
+  nets.
 - **Motors_Enable** to U1 pad 11 crosses the rear half on B.Cu (R49 by R35); C65/C66 at IC5,
   C67/C68 at IC3/IC4 pin 6, C69/C70 at EC1 (3V3 from EC1 pin 5's via, clear of H2's In2.Cu
   void), C71/C72 at EC2, Q7 for SBU, R43/C58 by Q6, FB1 in IC1's VDDA feed. C33 (IC6's charge
@@ -372,6 +389,22 @@ The review fixes in the layout (KiCad coordinates):
   | C59 battery divider | 145.750, 65.520 | 147.510, 65.450 | 48.054, 0.991 |
   | R21 W3 emitter resistor | 151.777, 66.061 | 151.883, 65.955 | 47.549, -3.382 |
   | D5 power LED | 152.810, 62.243 | 152.810, 62.093 | 51.411, -4.309 |
+  | W1 wall sensor (left, looks forward) | 127.001, 76.784 | 130.301, 77.234 | 36.270, 18.200 |
+  | W4 wall sensor (right, looks forward) | 170.001, 76.784 | 166.701, 77.234 | 36.270, -18.200 |
+  | W2 wall sensor (left diagonal) | 138.315, 65.934 | 138.294, 65.955 | 47.549, 10.207 |
+  | Q2 W1 emitter switch | 131.457, 84.222 | 125.850, 82.250 | 31.254, 22.651 |
+  | D9 / R12 / C26 W1 clamp, pull-down, 1 uF | 131.700, 77.700 / 131.532, 80.793 / 130.100, 81.600 | 125.700, 85.100 / 128.000, 85.060 / 126.050, 79.800 | 28.404, 22.801 / 28.444, 20.501 / 33.704, 22.451 |
+  | R13 W1 emitter resistor | 126.500, 84.530 | 130.950, 85.050 | 28.454, 17.551 |
+  | R14 / C73 W1 load, gate capacitor | 131.532, 79.777 / 131.532, 81.809 | 133.350, 80.750 / 133.350, 82.650 | 32.754, 15.151 / 30.854, 15.151 |
+  | C21 Reset capacitor | 133.642, 77.614 | 133.642, 78.860 | 34.644, 14.859 |
+  | D10 W2 clamp | 131.500, 72.900 | 135.750, 74.600 | 38.904, 12.751 |
+  | R17 / C74 W2 emitter resistor, gate capacitor | 144.030, 66.950 / 137.758, 70.685 | 144.158, 66.992 / 137.798, 70.725 | 46.511, 4.343 / 42.779, 10.703 |
+  | R19 W3 gate resistor | 166.000, 71.800 | 163.150, 73.850 | 39.654, -14.649 |
+  | SW2 button / D12 W4 clamp | 160.439, 80.662 / 159.600, 77.000 | 160.439, 80.312 / 159.600, 76.800 | 33.192, -11.938 / 36.704, -11.099 |
+  | Q5 W4 emitter switch | 164.376, 77.087 | 171.200, 81.900 | 31.604, -22.699 |
+  | R24 / R26 W4 pull-down, load | 166.400, 80.815 / 164.400, 80.815 | 171.400, 79.400 / 171.400, 78.350 | 34.104, -22.899 / 35.154, -22.899 |
+  | R23 / C76 W4 gate resistor, capacitor | 164.400, 79.765 / 166.400, 79.765 | 163.900, 80.750 / 161.600, 77.300 | 32.754, -15.399 / 36.204, -13.099 |
+  | R25 / C29 W4 emitter resistor, 1 uF | 165.600, 82.550 / 164.376, 74.801 | 161.100, 83.420 / 157.900, 83.450 | 30.084, -12.599 / 30.054, -9.399 |
 
   R6 and R7 moved 0.12 mm sideways; the SBU detector's parts are new (see above). J1, U2 and
   IC5 keep their positions; IC5's pad 10
@@ -417,7 +450,7 @@ generic parts set them otherwise:
 | Paste of the generic passives | aperture = pad (R0402: 0.54 x 0.64 mm, area ratio 1.2 for a 0.12 mm stencil) | custom stencil regions inside the pads (R0402: 0.58 mm square) | KiCad's library defaults, above IPC-7525's 0.66 area ratio for release; about 10 % more paste on the 0402 resistors |
 | Mask of the generic passives | the board's 0.02 mm expansion | 0.0508 mm on the passive pads | KiCad's library footprints carry no local margin |
 | Silkscreen of the generic passives | KiCad's outlines (fewer lines, no box around 0402s) | Altium's pad boxes | KiCad's library footprints |
-| Wall sensor silkscreen | the lead area outline and the C/E labels; the body forward of it on User.13 only | a hatched body clipped at the board edge per instance | one package for W1-W4, which overhang the edge at different angles ([`components/micras/WallSensor`](../../../components/micras/WallSensor)) |
+| Wall sensors | the bare SFH 4550 and TPS601A, fully on the board; silkscreen: their outline, the lead area and the C/E labels | a casing over both, overhanging the board edge at W1/W4, its silkscreen a hatched body clipped at the edge | the owner's choice: no casing, every sensor on the board ([`components/micras/WallSensor`](../../../components/micras/WallSensor)) |
 | Texts | KiCad stroke font | Altium fonts | same strings, sizes and positions |
 | Passive 3D models | KiCad library models: C0402 0.50, C0805 1.25, C1206 1.60, R0603 0.45 mm tall | 0.55, 1.45, 1.80, 0.56 mm | KiCad's generic models (D4 and D5 are scaled to their datasheets, above) |
 | Solder mask thickness | 10 um a side (1.0412 mm board) | 15.24 um (1.0517 mm) | Zener's stackup has no mask thickness setting; JLCPCB applies its own |
@@ -428,7 +461,7 @@ The board passes every gate. These ERC and DRC warnings stay:
 
 | Check (gate) | Fault | Why it stays |
 |---|---|---|
-| `silk_overlap`, `silk_over_copper` (drc, warnings) | package artwork on its own outline (the W1-W4 "C"/"E" and SW1 "ON" marks), outlines of neighbouring parts touching (D9/R14, D11/D12, D4/R4, D5/R5, R13/W1, R17/W2, R44/R45/C59), and the board artwork (the slogans, the frame lines, the arcs and circles) under parts (C58, C63, C65/C66, C69/C70, D3, M3, Q7, R48, R49, the test points, and the SBU detector U7, C77, C78, D13, R51, R52, R55 with F1, which sit on the "SUCUMBINDO SINCE 2024" frame) | cosmetic: JLCPCB clips silkscreen at pads, and no reference designator is among them |
+| `silk_overlap`, `silk_over_copper` (drc, warnings) | package artwork on its own outline (the W1-W4 "C"/"E" and SW1 "ON" marks), outlines of neighbouring parts touching (D11/D12, C74/R16, D4/R4, D5/R5, R44/R45/C59, and the wall sensors' body outlines with the parts beside them: W1 with R13/R14/C21/C73, W2 with R17, W4 with Q5/R23/SW1), the wall sensors' body outlines over the copper that runs under the raised bodies, and the board artwork (the slogans, the frame lines, the arcs and circles) under parts (C58, C63, C65/C66, C69/C70, D3, M3, Q7, R48, R49, the test points, and the SBU detector U7, C77, C78, D13, R51, R52, R55 with F1, which sit on the "SUCUMBINDO SINCE 2024" frame) | cosmetic: JLCPCB clips silkscreen at pads, and no reference designator is among them |
 | `same_local_global_label`, `multiple_net_names` (erc, warnings) | pcb 0.4.81 labels a net that crosses a module sheet with a global label on the root and on the sheet, beside the sheet pin and the hierarchical label ([diodeinc/pcb#1520](https://github.com/diodeinc/pcb/issues/1520)): 48 `same_local_global_label`, and 14 `multiple_net_names` where the port name is not the net's (the SPI bus members, `MOTOR_L_SENSE_P` for `Motor_L_Sense+`). On the root, the sheet symbols sit close enough for their pin labels to overlap the next sheet's box | the netlist is right (LVS and previous pass); `erc.toml` accepts these two rules at warning severity, with this reason, and nothing else. They go away with a pcb release that includes [diodeinc/pcb#1522](https://github.com/diodeinc/pcb/pull/1522), which generates the sheet pins and hierarchical labels alone; then the `[accepted_warning]` table goes too |
 | `silk_edge_clearance` (drc, warning) | SW4's outline crosses the rear notch's edge | the battery switch overhangs the board edge by design, its lever outwards |
 
@@ -460,6 +493,12 @@ Requirements without a check, and why:
       re-run `tools/check_layout.py` (the parts in the table under [Layout](#layout) moved, and
       the SBU detector's are new); keep the space above P1 (robot x = 23 mm, y = 22.7 mm) clear
       for the top-entry SWD plug, 6.3 mm above the board when mated.
+- [ ] Wall sensors (W1, W2, W4 moved, no casing; see [Layout](#layout)): MicrasHardware
+      `micras/front.py` SENSORS (W1/W4 at (36.270, +/-18.200), W2 at (47.549, 10.207)) and OUTLINE
+      (the casing outline its sensor caps stand on), and the caps themselves; MicrasFirmware
+      `sim/robot.toml` (emitter and receiver points, the cap collision boxes and cylinders),
+      `config/targets/v1/robot.hpp` `wall_sensors` (W1/W4 at (0.04244, +/-0.0182)), then the
+      wall-sensor gains and `reference_readings` calibrated again on the bench.
 - [ ] Bench: in the SWD probe mode, VSYS at 3V3 less a diode drop and no switching on IC7's SW
       node (DS13554 does not cover VIN below 3.5 V with the output held up; see
       [Power](#power)); SBU switching on with the module either way up, and staying off with a
