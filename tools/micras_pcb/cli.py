@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import checks, firmware, jlc, lvs, mech, outputs, previous
+from . import checks, firmware, jlc, lvs, mech, outputs, placement, previous
 from .paths import SCHEMATIC_ONLY, boards, has_layout
 
 # Commands that read the layout: a schematic-only board skips them with the reason.
@@ -28,6 +28,12 @@ def main(argv: list[str] | None = None) -> int:
     board_cmd(
         "rules", "copy rules/jlcpcb.kicad_dru and set rules/kicad-severities.toml in each board's project", check=True
     )
+    p = board_cmd(
+        "sch",
+        "place the generated schematic from boards/<board>/schematic/*.toml (check: every part placed)",
+        check=True,
+    )
+    p.add_argument("--info", metavar="SHEET", help="print a sheet's parts and pins (board, then refs to show)")
     board_cmd("erc", "KiCad ERC on the generated schematic")
     board_cmd("drc", "KiCad DRC with the JLCPCB rules and zone refill")
     board_cmd("lvs", "connectivity of the generated schematic vs the PCB")
@@ -64,6 +70,8 @@ def main(argv: list[str] | None = None) -> int:
         if a.action == "snapshot":
             return previous.snapshot(a.source, a.board, check=a.check)
         return previous.compare(a.board)
+    if a.cmd == "sch" and a.info:
+        return placement.info(a.boards[0], a.info, a.boards[1:])
     status = 0
     for b in a.boards or boards():
         print(f"== {a.cmd} {b}")
@@ -74,6 +82,8 @@ def main(argv: list[str] | None = None) -> int:
             status |= mech.run(b, a.check)
         elif a.cmd == "rules":
             status |= checks.rules(b, a.check)
+        elif a.cmd == "sch":
+            status |= placement.run(b, a.check)
         elif a.cmd == "erc":
             status |= checks.erc(b)
         elif a.cmd == "lvs":
