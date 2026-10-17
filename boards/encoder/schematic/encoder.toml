@@ -1,0 +1,33 @@
+# Placement of the encoder board's schematic (micras-pcb sch; units of 1.27 mm, y down).
+paper = "A5"
+title = "Wheel encoder"
+
+[[block]]
+title = "Tab to the main board, AS5047U magnetic angle sensor"
+at = [12, 12]
+size = [110, 40]
+parts.J1 = [30, 23, 180]
+parts.IC1 = [70, 26]
+parts.C1 = { at = [62, 10], fields = "left" }
+wires = [
+    ["J1.4", "IC1.4"],
+    ["J1.3", "IC1.3"],
+    ["J1.2", "IC1.2"],
+    ["J1.1", "IC1.1"],
+    ["C1.1", [62, 6], [70, 6], "IC1.11"],
+    [[70, 6], [70, 4]],
+]
+stubs."J1.5" = { point = "out" }
+stubs."J1.6" = { point = "out" }
+stubs."IC1.12" = { point = "out" }
+
+[[block]]
+title = "SPI idle levels"
+at = [12, 56]
+size = [56, 22]
+parts.R1 = [8, 11]
+parts.R2 = [26, 11]
+parts.R3 = [44, 11]
+stubs."R1.2" = { label = "right" }
+stubs."R2.1" = { label = "right" }
+stubs."R3.1" = { label = "right" }

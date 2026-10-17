@@ -81,6 +81,70 @@ complete. The user checks each part once in JLCPCB's placement preview, then set
 `rotation_verified = true` (fixing `rotation` first if needed). `make fab` lists the parts still
 unverified. Ordering is a manual upload: JLCPCB has no ordering API open to small teams.
 
+## Schematic placement
+
+`make gen` writes each board's schematic afresh with `pcb apply`, then `micras-pcb sch` places it
+from `boards/<board>/schematic/<sheet>.toml` (one file per sheet: `<board>.toml` for the root,
+`<MODULE>.toml` for a module sheet). The tool moves pcb's parts, redraws every connection and
+fails unless KiCad's netlist of the placed schematic equals pcb's (nets, names, pins), so a
+placement file can only change how the circuit is drawn. Never edit the `.kicad_sch`; change the
+placement file and run `uv run micras-pcb sch <board>` (it regenerates pcb's output itself and
+takes a few seconds), or `make gen`.
+
+Units are grid steps of 1.27 mm, x right and y down from the page's top-left corner; part anchors
+and wire points are integers, so every pin lands on KiCad's grid.
+
+```toml
+paper = "A3"                        # smallest standard size that holds the sheet comfortably
+title = "Motor and fan drivers"     # the title block's title
+ports = { at = [12, 150], rows = 12, title = "Sheet ports" }  # module sheets, see below
+
+[[block]]                           # one function block: a titled frame, its parts and wires
+title = "Fan driver: STSPIN958"
+at = [10, 12]                       # frame's top-left corner, and the origin of what follows
+size = [136, 86]                    # frame size (or frame = [[x, y, w, h, "title"], ...])
+parts.IC6 = [64, 46]                # [x, y] or [x, y, rotation]
+parts.C31 = { at = [52, 20], rot = 180, mirror = "x", fields = "left" }
+wires = [
+    ["IC6.13", [60, 18], [52, 18], "C31.2"],   # pins (REF.number, or REF.name if unique) and points
+    [[60, 18], [60, 16]],                      # a free end: the net's power symbol or label goes here
+    [[92, 38], [92, 34], { label = "right" }], # options for the free end before them
+]
+taps = ["IC6.15"]                   # a wired net's label at this pin, along its wire
+stubs."IC6.12" = { point = "out" }  # per pin: len (stub, grid steps), label = "right"|"left"|"up"|"down",
+                                    # point = "out" (power symbol along the pin, not up/down)
+```
+
+- A pin not in any wire keeps what pcb attached: a stub (2 steps, none for a power symbol already
+  pointing its way) and its label or power symbol; supplies point up, grounds down. No-connect
+  flags stay at the pin.
+- A wire chain joins pins of one net (the tool refuses two nets), routing each step straight or
+  with one bend that leaves and enters pins along their axis; give corner points for anything
+  else. A wired net's labels or power symbols go at the chain's free ends, else at its `taps`,
+  else (a local label) along the wire at its first pin; a power or global label needs a free end.
+- `fields`: `right`, `left` (two-pin parts standing up: default right), `top`, `bottom` (lying
+  down: default top), `top-left`, `top-right`, `bottom-left`, `bottom-right`, or `[dx, dy]` from
+  the anchor; ICs default to a free corner above or below the body.
+- A pin pcb gave several labels (on a module sheet, a hierarchical and a global label of one net,
+  diodeinc/pcb#1520) keeps one at the pin; each further label goes to the sheet's `ports` column,
+  wired to a copy of the first.
+- The root sheet places each module's sheet symbol: `[sheet.DRIVERS] at = [x, y]`,
+  `size = [w, h]`, `left = [pin names in order]`, `right = [...]` (unlisted pins go left).
+
+Conventions: one titled block per function (power input, each regulator, each bridge with its
+shunt, the MCU with its decoupling and clock, each sensor channel, connectors); signal flow left
+to right, supplies up, ground down; decoupling capacitors beside the pins they serve, wired to
+them; pulls at their pins; blocks talk through labels, wires stay inside a block; no wire
+crossings. Two-pin parts need about 17 steps of width for their value text.
+
+To write or fix a sheet: `uv run micras-pcb sch --info <SHEET> <board> [REF...]` prints each
+part's body box and pins (grid steps from the anchor, unrotated) with what pcb attached; after
+placing, `micras-pcb sch` lists every overlap on the placed sheets (texts, bodies, wires, page
+border, title block; `tests/test_placement.py` fails on any), and
+`kicad-cli sch export svg -o <dir> boards/<board>/layout/<board>.kicad_sch` renders each sheet to
+look at. `make check` fails while a part has no placement (`micras-pcb sch --check`): a new part
+appears where pcb put it until its sheet's file places it.
+
 ## Mechanics
 
 Origin, mechanically critical parts and the board outline come from `spec/<board>.toml`, every
