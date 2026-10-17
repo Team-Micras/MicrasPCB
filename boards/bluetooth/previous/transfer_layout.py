@@ -20,13 +20,15 @@ layout boards/bluetooth/layout/bluetooth.kicad_pcb:
    for each candidate rotation (old rotation + k x 90, k x 90), the one with the smallest residual
    wins. The reference designator text takes the old one's position, size, layer and orientation.
    D1 gets its 3D model scaled to the fitted LED's height (`LED_HEIGHT`). The aux and grid
-   origins and the solder mask expansion (0.02 mm) are the previous board's. Placement runs
+   origins and the solder mask expansion (0.02 mm) are the previous board's. Parts the previous
+   board does not have (R4, boards/bluetooth/changes.toml) stay where they are. Placement runs
    before the copy (step 1), on a board without copper, and the zones are filled after it.
 3. `pcb layout` syncs the result, which normalises the file the way `make gen` writes it.
 
 The board keeps the previous revision's KiCad coordinates; spec/bluetooth.toml names the plug
 centre (148.501075, 115.343615) as its frame origin. The script is a fixed point: running it on
-its own output changes nothing. Run `make gen` and `make check` afterwards.
+its own output changes nothing. Its output is the previous layout; boards/bluetooth/layout/fixes.py
+then turns it into the board's layout. Run `make gen` and `make check` afterwards.
 """
 
 from __future__ import annotations
@@ -291,7 +293,12 @@ def place(path: Path, old_path: Path) -> list[str]:
     report = []
     for fp in new.GetFootprints():
         ref = fp.GetReference()
-        src = by_ref[ref]
+        src = by_ref.get(ref)
+        if src is None:
+            # a part the previous board does not have (boards/bluetooth/changes.toml):
+            # boards/bluetooth/layout/fixes.py places it
+            report.append(f"{ref}: not on the previous board, left where the netlist sync put it")
+            continue
         if fp.IsFlipped() != src.IsFlipped():
             fp.Flip(fp.GetPosition(), pcbnew.FLIP_DIRECTION_LEFT_RIGHT)
         target = _centres(src)

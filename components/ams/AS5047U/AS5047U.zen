@@ -14,9 +14,9 @@ Pins (Figure 4):
 - U, V, W/PWM and I/PWM are push-pull outputs, left open (note 5).
 - VDD3V3 is typed power_in in the symbol: in 3.3 V mode it is a supply input,
   not the LDO output.
-- CSn, CLK and MOSI must not float (note 1). The SPI host drives them; a host
-  that can release them must add the pull-up on CSn and pull-downs on CLK and
-  MOSI (notes 2 and 3).
+- CSn, CLK and MOSI must not float (note 1). Where the SPI host can release
+  them (an MCU in reset), the board adds the pull-up on CSn and pull-downs on
+  CLK and MOSI of notes 2 and 3.
 
 Mechanical: the Hall array centre is the package centre, 0.306 mm below the
 package top, radius 1.25 mm (Figure 63). Package A2 1.00 mm nominal, A 1.20 mm

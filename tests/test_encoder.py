@@ -3,7 +3,7 @@
 import shutil
 
 import pytest
-from micras_pcb import jlc, netlist, previous
+from micras_pcb import jlc, netlist, paths, previous, sexpr
 
 from .conftest import needs_kicad
 
@@ -65,25 +65,73 @@ def test_no_single_pin_nets_except_declared_no_connects(nl):
 # --- the previous revision (boards/encoder/previous/board.json) ------------------------------
 
 
-def test_no_declared_changes():
-    # the board replicates its previous revision: no connectivity change
-    assert previous.load_changes("encoder") == []
+def test_declared_changes_are_the_spi_pulls():
+    # the board keeps its previous revision's connectivity, plus the pulls the AS5047U asks for on
+    # the SPI inputs the MCU releases in reset (DS v1-00 Figure 4 notes 1-3)
+    assert [c.id for c in previous.load_changes("encoder")] == ["SPI-PULLS"]
+
+
+def _expected(snap):
+    return previous.apply_changes(previous.from_snapshot(snap), previous.load_changes("encoder"))
 
 
 @needs_kicad
-def test_connectivity_is_the_previous_board(snap, nl):
-    report = previous.diff(previous.from_snapshot(snap), previous.from_netlist(nl))
+def test_connectivity_is_the_previous_board_with_its_declared_changes(snap, nl):
+    report = previous.diff(_expected(snap), previous.from_netlist(nl))
     assert report.ok, str(report)
 
 
 @needs_kicad
 def test_nets_keep_their_previous_names(snap, nl):
-    expected = previous.from_snapshot(snap)
+    expected = _expected(snap)
     actual = {name.lstrip("/"): {(p.ref, p.pin) for p in pins} for name, pins in nl.nets.items()}
     named = [n for n in expected.nets if not n.startswith("unconnected-")]
     assert len(named) == 8
     for name in named:
         assert actual.get(name) == set(expected.nets[name]), name
+
+
+# --- the layout -----------------------------------------------------------------------------------
+
+# The board's minimum silkscreen text: 0.5 mm high, 0.125 mm stroke (the owner's choice).
+# encoder.zen sets the height as KiCad's board minimum (min_text_height) and `micras-pcb rules`
+# the stroke (rules/kicad-severities.toml [design.encoder]); this checks every text against both.
+SILK_TEXT_MIN_HEIGHT_MM = 0.5
+SILK_TEXT_MIN_STROKE_MM = 0.125
+SILK = {"F.SilkS", "B.SilkS"}
+
+
+def _silk_texts(root: sexpr.Node):
+    """(text, height, stroke) of every visible silkscreen text: board texts, footprint texts and
+    footprint fields."""
+    nodes = root.children("gr_text")
+    for fp in root.children("footprint"):
+        nodes += fp.children("fp_text") + fp.children("property")
+    for n in nodes:
+        layer = n.child("layer")
+        if layer is None or layer.atoms()[0] not in SILK:
+            continue
+        hide = n.child("hide")
+        effects = n.child("effects")
+        if (hide is not None and hide.atoms() == ["yes"]) or effects is None or effects.child("hide") is not None:
+            continue
+        text = n.atoms()[-1]
+        if not text:
+            continue
+        font = effects.child("font")
+        height = float(font.child("size").atoms()[1])
+        stroke = float(font.child("thickness").atoms()[0]) if font.child("thickness") else height / 8
+        yield text, height, stroke
+
+
+def test_silkscreen_text_meets_the_project_minimum():
+    root = sexpr.parse(paths.board_pcb("encoder").read_text())
+    small = [
+        f"{text!r} {h:.3f} mm high, {s:.3f} mm stroke"
+        for text, h, s in _silk_texts(root)
+        if h < SILK_TEXT_MIN_HEIGHT_MM - 1e-6 or s < SILK_TEXT_MIN_STROKE_MM - 1e-6
+    ]
+    assert not small, "\n".join(small)
 
 
 @pytest.mark.skipif(shutil.which("pcb") is None, reason="pcb not installed")

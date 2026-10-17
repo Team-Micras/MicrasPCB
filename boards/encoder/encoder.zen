@@ -6,7 +6,8 @@ quadrature outputs leave through the edge tab soldered to the main board.
 
 The circuit, designators, net names and layout are those of the Altium
 MicrasEncoder project (hw_debug/modules/encoder, snapshot in
-previous/board.json; `micras-pcb previous compare encoder` checks them).
+previous/board.json), plus the pulls R1-R3 on the sensor's SPI inputs
+(changes.toml; `micras-pcb previous compare encoder` checks both).
 Mechanical checks: spec/encoder.toml (outline, tab, sensor position).
 """
 
@@ -21,6 +22,7 @@ load(
     "DielectricLayer",
     "Material",
     "NetClass",
+    "Silkscreen",
     "SolderMask",
     "Stackup",
 )
@@ -28,6 +30,7 @@ load(
 AS5047U = Module("github.com/Team-Micras/MicrasPCB/components/ams/AS5047U/AS5047U.zen")
 EncoderTab = Module("github.com/Team-Micras/MicrasPCB/components/micras/EncoderTab/EncoderTab.zen")
 Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
 
 V3V3 = Power("3V3", voltage="3.3V")
 GND = Ground("GND")
@@ -52,6 +55,44 @@ Capacitor(
     P2=GND,
 )
 
+# AS5047U DS v1-00 Figure 4 note 1: a floating digital input is not allowed. CSn, CLK and MOSI are
+# driven only by the main board's MCU, whose pins are in analog mode (released) during and just
+# after reset (RM0468 Rev 3 section 11.3.1 p511), so each gets the pull of notes 2 and 3 here, on
+# the board of the part that needs it: a pull-up on CSn keeps the sensor deselected, pull-downs on
+# CLK and MOSI hold them at the mode 1 idle level (DS Figure 18: CLK low at the CSn edges).
+# R1 10 kOhm: 0.33 mA into the MCU's chip-select pin while it is driven low. R2, R3 100 kOhm:
+# SPI_SCK and SPI_MOSI are shared by both encoder boards and the IMU, whose SCL and SDA inputs have
+# no pull-up by default (LSM6DSV DS13476 Rev 5 Table 22), so the two boards' pull-downs act in
+# parallel, 50 kOhm and 66 uA while the MCU drives a line high.
+# Uni-Royal 0402 1 % thick film, JLCPCB basic parts (parts/jlc.toml), as on the main board.
+Resistor(
+    name="R1",
+    value="10kOhm 1%",
+    package="0402",
+    mpn="0402WGF1002TCE",
+    manufacturer="UNI-ROYAL",
+    P1=V3V3,
+    P2=SPI.CS,
+)
+Resistor(
+    name="R2",
+    value="100kOhm 1%",
+    package="0402",
+    mpn="0402WGF1003TCE",
+    manufacturer="UNI-ROYAL",
+    P1=SPI.CLK,
+    P2=GND,
+)
+Resistor(
+    name="R3",
+    value="100kOhm 1%",
+    package="0402",
+    mpn="0402WGF1003TCE",
+    manufacturer="UNI-ROYAL",
+    P1=SPI.MOSI,
+    P2=GND,
+)
+
 EncoderTab(name="J1", VDD=V3V3, GND=GND, SPI=SPI, A=ENCODER_ABI_A, B=ENCODER_ABI_B)
 
 # Stackup of MicrasEncoder.PcbDoc: 0.70 mm FR-4 core (Dk 4.5), 35 um copper. Zener writes a 10 um
@@ -59,6 +100,10 @@ EncoderTab(name="J1", VDD=V3V3, GND=GND, SPI=SPI, A=ENCODER_ABI_A, B=ENCODER_ABI
 # 0.5 mil (12.7 um) resist makes it 0.7954 mm. Ordered as JLCPCB's 0.8 mm 2-layer board.
 # Solder mask expansion 0.02 mm (rule SolderMaskExpansion, 0.7874 mil).
 # Vias 0.3 mm drill / 0.6 mm pad, the previous layout's (JLCPCB's no-surcharge drill).
+# Silkscreen text: 0.5 mm high with a 0.125 mm stroke at least, the owner's choice (JLCPCB
+# recommends 1.0 mm, a trade-off the 9.6 mm wide board accepts). Zener does not set KiCad's
+# minimum text thickness: `micras-pcb rules` writes it (rules/kicad-severities.toml
+# [design.encoder]), and tests/test_encoder.py checks the stroke.
 Board(
     name="encoder",
     path="layout",
@@ -68,6 +113,7 @@ Board(
         design_rules=DesignRules(
             constraints=Constraints(
                 copper=Copper(copper_to_edge_clearance=0.2),
+                silkscreen=Silkscreen(minimum_text_height=0.5),
                 solder_mask=SolderMask(clearance=0.02),
             ),
             netclasses=[

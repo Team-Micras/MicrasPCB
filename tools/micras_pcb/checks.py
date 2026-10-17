@@ -4,7 +4,8 @@ Each check writes its JSON report to build/<board>/ and prints one line per viol
 violation fails the check unless it is excluded in KiCad (exclusions live in the .kicad_pro, so
 every exclusion is a reviewed, committed decision), or, for ERC, it is an undriven power input on
 a net the board declares as supplied from off the board (boards/<board>/erc.toml, see
-`external_supplies`).
+`external_supplies`), or a warning of a rule the board accepts with a reason (erc.toml
+[accepted_warning], see `accepted_warnings`).
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ import shutil
 import sqlite3
 import subprocess
 import tomllib
+from pathlib import Path
 
 from . import sexpr
 from .paths import BOARDS, ROOT, board_pcb, board_sch, board_zen, build_dir, layout_dir
@@ -91,14 +93,43 @@ def external_supplies(board: str) -> dict[str, str]:
 
     Only power_pin_not_driven on a listed net is accepted; every other violation still fails.
     """
+    raw = _erc_toml(board)
+    return {**raw.get("external_supply", {}), **raw.get("passive_supply", {})}
+
+
+def accepted_warnings(board: str) -> dict[str, str]:
+    """KiCad ERC rules whose warnings a board accepts: {rule: why}, from boards/<board>/erc.toml:
+
+        [accepted_warning]
+        multiple_net_names = "why, and when it goes away"
+
+    Only violations of a listed rule at warning severity are accepted; the same rule at error
+    severity, and every other rule, still fails.
+    """
+    return dict(_erc_toml(board).get("accepted_warning", {}))
+
+
+def _erc_toml(board: str) -> dict:
     path = BOARDS / board / "erc.toml"
     if not path.is_file():
         return {}
     raw = tomllib.loads(path.read_text())
-    unknown = set(raw) - {"external_supply", "passive_supply"}
+    unknown = set(raw) - {"external_supply", "passive_supply", "accepted_warning"}
     if unknown:
         raise ValueError(f"{path.relative_to(ROOT)}: unknown tables {sorted(unknown)}")
-    return {**raw.get("external_supply", {}), **raw.get("passive_supply", {})}
+    return raw
+
+
+def _accept_warnings(items: list[dict], rules: dict[str, str]) -> tuple[list[dict], list[str]]:
+    """(kept items, accepted lines): a warning of an accepted rule is accepted, one line per rule."""
+    kept, counts = [], {}
+    for v in items:
+        rule = v.get("type")
+        if rule in rules and v.get("severity") == "warning":
+            counts[rule] = counts.get(rule, 0) + 1
+        else:
+            kept.append(v)
+    return kept, [f"  accepted {n} {rule} warning(s): {rules[rule]}" for rule, n in sorted(counts.items())]
 
 
 def _item_net(item: dict, power_symbols: dict[str, str], nl) -> str | None:
@@ -113,6 +144,36 @@ def _item_net(item: dict, power_symbols: dict[str, str], nl) -> str | None:
     return net.lstrip("/") if net else None
 
 
+def schematic_sheets(root: Path) -> list[Path]:
+    """The root schematic and every sheet file of its hierarchy, following each sheet symbol's
+    Sheetfile (relative to the sheet that places it); a file placed more than once is listed once."""
+    sheets, todo = [], [root]
+    while todo:
+        path = todo.pop(0)
+        if path in sheets:
+            continue
+        sheets.append(path)
+        sch = sexpr.parse(path.read_text())
+        todo += [path.parent / f for s in sch.children("sheet") if (f := s.prop("Sheetfile"))]
+    return sheets
+
+
+def power_symbols(root: Path) -> dict[str, str]:
+    """{reference: net} of the power symbols on every sheet of a schematic. ERC names a symbol by
+    its instance reference, so a sheet placed more than once contributes each instance's."""
+    found = {}
+    for path in schematic_sheets(root):
+        for s in sexpr.parse(path.read_text()).children("symbol"):
+            refs = {s.prop("Reference") or ""}
+            for inst in s.children("instances"):
+                for project in inst.children("project"):
+                    for p in project.children("path"):
+                        if (r := p.child("reference")) and r.atoms():
+                            refs.add(r.atoms()[0])
+            found.update({r: s.prop("Value") for r in refs if r.startswith("#")})
+    return found
+
+
 def _accept_external_supplies(board: str, items: list[dict]) -> tuple[list[dict], list[str]]:
     supplies = external_supplies(board)
     if not supplies:
@@ -124,15 +185,16 @@ def _accept_external_supplies(board: str, items: list[dict]) -> tuple[list[dict]
     missing = sorted(set(supplies) - names)
     if missing:
         raise ValueError(f"boards/{board}/erc.toml: external_supply names nets the board does not have: {missing}")
-    sch = sexpr.parse(board_sch(board).read_text())
-    power_symbols = {
-        s.prop("Reference"): s.prop("Value")
-        for s in sch.children("symbol")
-        if (s.prop("Reference") or "").startswith("#")
-    }
+    return _accept_supplied(items, supplies, power_symbols(board_sch(board)), nl)
+
+
+def _accept_supplied(
+    items: list[dict], supplies: dict[str, str], power_syms: dict[str, str], nl
+) -> tuple[list[dict], list[str]]:
+    """(kept items, accepted lines): a power_pin_not_driven whose items are all on one supplied net is accepted."""
     kept, accepted = [], []
     for v in items:
-        nets = {_item_net(i, power_symbols, nl) for i in v.get("items", [])}
+        nets = {_item_net(i, power_syms, nl) for i in v.get("items", [])}
         if v.get("type") == "power_pin_not_driven" and len(nets) == 1 and (net := nets.pop()) in supplies:
             accepted.append(f"  accepted power_pin_not_driven on {net}: supplied by {supplies[net]}")
         else:
@@ -159,7 +221,8 @@ def erc(board: str) -> int:
         capture_output=True,
     )
     items, accepted = _accept_external_supplies(board, _violations(json.loads(out.read_text())))
-    for line in accepted:
+    items, warnings = _accept_warnings(items, accepted_warnings(board))
+    for line in accepted + warnings:
         print(line)
     _print("ERC", board, items)
     return 1 if items else 0

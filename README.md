@@ -6,9 +6,9 @@ CI.
 
 | Board | Status |
 |---|---|
-| `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.79 mm | placed and routed as the previous revision, same connectivity; fails the layout checks where that revision has faults ([known faults](boards/encoder/layout/README.md#known-faults)) |
+| `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.79 mm | the previous revision's placement and routing, plus pull resistors on the sensor's SPI inputs; passes every check ([open items](boards/encoder/layout/README.md#open-items)) |
 | `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | circuit with the design review's findings fixed, placed and routed; passes every gate ([known faults](boards/main/layout/README.md#known-faults)) |
-| `bluetooth`: HM-19 BLE module on a vertical USB-C plug that mates the main board's U2, 2 layers, 0.79 mm | placed and routed as the previous revision, same connectivity; fails the design checks where that revision has faults ([known faults](boards/bluetooth/layout/README.md#known-faults)) |
+| `bluetooth`: HM-19 BLE module on a vertical USB-C plug that mates the main board's U2, 2 layers, 0.79 mm | placed and routed as the previous revision with its design review fixes (a CC signature for the main board's switched SBU supply, a RESETB pull-up); passes every gate ([known faults](boards/bluetooth/layout/README.md#known-faults)) |
 
 ## How it fits together
 
@@ -59,9 +59,15 @@ components/**/*.zen             (Zener)      layout/<board>.kicad_pcb <─┘ pl
   `parts/jlc.toml` carries the LCSC number and a per-part rotation offset, and `make fab` builds
   the JLCPCB BOM and CPL from it. JLCPCB's placement preview is the final word on each part's
   rotation (`rotation_verified`).
-- **The main board's schematic is one flat sheet whose symbols do not fit the largest page**: its
-  Zener modules become separate sheets only once Zener's module sheets are ERC-clean
-  ([diodeinc/pcb#1520](https://github.com/diodeinc/pcb/issues/1520)).
+- **Zener labels the nets between module sheets twice**: the main board's schematic has one
+  sheet per Zener module (`Project(..., layout = False)`), and pcb 0.4.81 puts a global label
+  beside each sheet pin and hierarchical label
+  ([diodeinc/pcb#1520](https://github.com/diodeinc/pcb/issues/1520)), so KiCad's ERC warns
+  `same_local_global_label` and `multiple_net_names` on those nets, and the sheet symbols on the
+  root sit close enough for their pin labels to overlap the next sheet's box. The board's
+  `erc.toml` accepts these two warnings with that reason, and only them; they go away with a pcb
+  release that includes [diodeinc/pcb#1522](https://github.com/diodeinc/pcb/pull/1522)
+  ([known faults](boards/main/layout/README.md#known-faults)).
 - **KiCad 10 has no headless layout API**: the IPC API needs a running KiCad, and the SWIG
   `pcbnew` module is deprecated and goes away in KiCad 11. The tools use `kicad-cli` and edit the
   `.kicad_pcb` s-expressions directly (`tools/micras_pcb/sexpr.py`).
@@ -104,21 +110,19 @@ and fails if any gate failed.
 | warnings | `pcb build -D warnings` | a build warning: a net outside a part's declared operating range, a capacitor rated below its net |
 | test | `pcb test` | datasheet requirements: per component (`components/**/test/`) and per board (`boards/<board>/test/`: application circuits, values computed with the datasheet equations) |
 | layout-check | `pcb layout --check`, `micras-pcb rules/mech --check` | layout no longer matches the netlist, rules or spec drift |
-| ERC | `kicad-cli sch erc` | schematic electrical rules; `boards/<board>/erc.toml` names the nets supplied from off the board (the PWR_FLAG role) |
+| ERC | `kicad-cli sch erc` | schematic electrical rules; `boards/<board>/erc.toml` names the nets supplied from off the board (the PWR_FLAG role) and the warnings a board accepts, rule by rule with the reason |
 | LVS | `micras-pcb lvs` | schematic and PCB connect different pads |
 | previous | `micras-pcb previous compare <board>` | a replicated board (main, encoder, bluetooth) connects or names anything differently from its previous revision, except the changes in `boards/<board>/changes.toml` |
 | DRC | `kicad-cli pcb drc` + `rules/jlcpcb.kicad_dru` | JLCPCB clearances (copper, SMD pad to pad, hole to track), widths, drills, edge distances |
 | DFM | `pcb dfm` + `rules/jlcpcb-pdk.toml` | geometry-level manufacturability (Diode's sourced JLCPCB PDK) |
-| pytest | `pytest` | board contracts (encoder joint, firmware pin map), power tree, decoupling at the pin, encoder slot fit, routing style (every track straight at a multiple of 45 degrees, no arcs, no acute corners), courtyards, paste, 3D models, part data |
+| pytest | `pytest` | board contracts (encoder joint, firmware pin map), power tree, every schematic item on its sheet's page, decoupling at the pin, encoder slot fit, routing style (every track straight at a multiple of 45 degrees, no arcs, no acute corners), courtyards, paste, 3D models, part data |
 | lint | `ruff` | Python lint and format |
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 
-The encoder and Bluetooth boards fail several of these by design: they replicate their previous
-revisions, faults included. Their READMEs
+Every board passes every gate. The main board's and the Bluetooth module's READMEs
 ([main](boards/main/layout/README.md#known-faults),
-[encoder](boards/encoder/layout/README.md#known-faults),
-[bluetooth](boards/bluetooth/layout/README.md#known-faults)) give the root cause of every
-failure.
+[bluetooth](boards/bluetooth/layout/README.md#known-faults)) give the root cause of each warning
+that remains.
 
 ## CI
 
