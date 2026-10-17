@@ -65,9 +65,9 @@ components/**/*.zen             (Zener)      layout/<board>.kicad_pcb <─┘ pl
   a global label beside each sheet pin and hierarchical label
   ([diodeinc/pcb#1520](https://github.com/diodeinc/pcb/issues/1520)), so KiCad's ERC warns
   `same_local_global_label` and `multiple_net_names` on those nets, and the sheet symbols on the
-  root sit close enough for their pin labels to overlap the next sheet's box (on `main2`, to run
-  past the page's left edge). Each board's `erc.toml` accepts these two warnings with that
-  reason, and only them; they go away with a pcb release that includes [diodeinc/pcb#1522](https://github.com/diodeinc/pcb/pull/1522)
+  root sit close enough for their pin labels to overlap the next sheet's box. Each board's
+  `erc.toml` accepts these two warnings with that reason, and only them; they go away with a pcb
+  release that includes [diodeinc/pcb#1522](https://github.com/diodeinc/pcb/pull/1522)
   ([known faults](boards/main/layout/README.md#known-faults)).
 - **KiCad 10 has no headless layout API**: the IPC API needs a running KiCad, and the SWIG
   `pcbnew` module is deprecated and goes away in KiCad 11. The tools use `kicad-cli` and edit the

@@ -26,4 +26,4 @@ VDDA = "3V3_A through the 0 Ohm link R67"
 # includes it.
 [accepted_warning]
 same_local_global_label = "pcb 0.4.81 labels a net that crosses a module sheet with a global label on both sheets beside the local label and sheet pin (diodeinc/pcb#1520); goes away with a pcb release that includes diodeinc/pcb#1522"
-multiple_net_names = "the global label (the net's name) and the hierarchical label (the module's port name) that pcb 0.4.81 puts on one net disagree where the port is an interface member (IMU_SPI.CS, BAT_I2C.SDA, USB.D.P) (diodeinc/pcb#1520); goes away with a pcb release that includes diodeinc/pcb#1522"
+multiple_net_names = "the global label (the net's name) and the hierarchical label (the module's port name) that pcb 0.4.81 puts on one net disagree where the port is an interface member (BAT_I2C.SDA, USB.D.P) (diodeinc/pcb#1520); goes away with a pcb release that includes diodeinc/pcb#1522"

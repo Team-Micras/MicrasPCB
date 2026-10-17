@@ -4523,17 +4523,6 @@
 		)
 		(uuid "01479571-c992-55e8-906b-2ceb0962d0ed")
 	)
-	(hierarchical_label "ENCODER_LEFT_SPI.CLK"
-		(shape bidirectional)
-		(at 96.52 162.56 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "02f8decb-12b6-5b24-840f-617c03376fbe")
-	)
 	(hierarchical_label "Encoder_Left_ABI_A"
 		(shape bidirectional)
 		(at 179.07 165.1 0)
@@ -4545,29 +4534,7 @@
 		)
 		(uuid "0aed70a3-6ab3-57ae-9b55-1c8e97a7c659")
 	)
-	(hierarchical_label "IMU_SPI.MOSI"
-		(shape bidirectional)
-		(at 96.52 167.64 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "17047293-b084-57e6-84f7-d41562dd4507")
-	)
-	(hierarchical_label "IMU_SPI.CS"
-		(shape bidirectional)
-		(at 735.33 96.52 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "26c3bb05-76f3-5844-a898-f2a62136f042")
-	)
-	(hierarchical_label "ENCODER_LEFT_SPI.CLK"
+	(hierarchical_label "SPI_SCK"
 		(shape bidirectional)
 		(at 96.52 162.56 180)
 		(effects
@@ -4576,7 +4543,7 @@
 			)
 			(justify right)
 		)
-		(uuid "298fea47-a78c-5262-894a-37f8ef890b43")
+		(uuid "20558b13-3819-5c1b-a875-da09cf2d3f89")
 	)
 	(hierarchical_label "Wall_Sensor_3"
 		(shape bidirectional)
@@ -4611,7 +4578,7 @@
 		)
 		(uuid "2f1ca639-5f8c-5095-97b6-ac3eba91243e")
 	)
-	(hierarchical_label "IMU_SPI.MISO"
+	(hierarchical_label "SPI_MISO"
 		(shape bidirectional)
 		(at 96.52 165.1 180)
 		(effects
@@ -4620,29 +4587,18 @@
 			)
 			(justify right)
 		)
-		(uuid "31807d47-60b2-5a31-a38b-8c30b69189f5")
+		(uuid "329ec6f8-41d7-5f96-8d90-92018e45b173")
 	)
-	(hierarchical_label "ENCODER_RIGHT_SPI.CLK"
+	(hierarchical_label "SPI_MOSI"
 		(shape bidirectional)
-		(at 96.52 162.56 180)
+		(at 96.52 167.64 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right)
 		)
-		(uuid "48a1b136-d47f-5eb1-90e8-04b84381d16f")
-	)
-	(hierarchical_label "ENCODER_LEFT_SPI.CLK"
-		(shape bidirectional)
-		(at 96.52 162.56 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "56b9b0f4-7673-5d50-949b-761489a91d35")
+		(uuid "5375fade-a0ea-5c61-8782-b2637563722c")
 	)
 	(hierarchical_label "Encoder_Right_ABI_A"
 		(shape bidirectional)
@@ -4655,27 +4611,16 @@
 		)
 		(uuid "5b1aa7c4-4fcf-5e6a-8c1e-69e971e8d6f3")
 	)
-	(hierarchical_label "ENCODER_LEFT_SPI.MOSI"
+	(hierarchical_label "IMU_SPI_CSn"
 		(shape bidirectional)
-		(at 96.52 167.64 180)
+		(at 735.33 96.52 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right)
 		)
-		(uuid "6e6611bb-fd0a-55bb-a412-e860688350b8")
-	)
-	(hierarchical_label "ENCODER_LEFT_SPI.MOSI"
-		(shape bidirectional)
-		(at 96.52 167.64 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "76db1ee9-355b-5b51-a339-a5d11ca70310")
+		(uuid "71b5a378-c951-5b65-9ef5-6736d861775b")
 	)
 	(hierarchical_label "Wall_Sensor_PWM_2"
 		(shape bidirectional)
@@ -4732,16 +4677,16 @@
 		)
 		(uuid "8eaf0239-a33a-5f1d-ad7a-6ab2b1e86fb4")
 	)
-	(hierarchical_label "ENCODER_RIGHT_SPI.CS"
+	(hierarchical_label "Encoder_Left_CSn"
 		(shape bidirectional)
-		(at 96.52 160.02 180)
+		(at 158.75 160.02 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right)
 		)
-		(uuid "8f5ba8f4-e6e9-5200-902e-accff5e2655d")
+		(uuid "8fa2f35d-95b2-5f5b-a6dc-d17873debf8d")
 	)
 	(hierarchical_label "Wall_Sensor_1"
 		(shape bidirectional)
@@ -4754,16 +4699,16 @@
 		)
 		(uuid "9a884a95-9f54-5939-9a40-d36c440875d0")
 	)
-	(hierarchical_label "IMU_SPI.CLK"
+	(hierarchical_label "Encoder_Right_CSn"
 		(shape bidirectional)
-		(at 96.52 162.56 180)
+		(at 96.52 160.02 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right)
 		)
-		(uuid "aa4a07d3-c535-5f0a-be35-2a0a2db76c55")
+		(uuid "b12893b8-e64d-5737-874b-c6dc6e89a60e")
 	)
 	(hierarchical_label "MOTOR_R_SENSE_P"
 		(shape bidirectional)
@@ -4787,39 +4732,6 @@
 		)
 		(uuid "b9447c11-987e-5ce6-b4b8-720f83fff64e")
 	)
-	(hierarchical_label "ENCODER_LEFT_SPI.MISO"
-		(shape bidirectional)
-		(at 96.52 165.1 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "b9d4bb3c-e836-5669-ba3d-be53bb14a804")
-	)
-	(hierarchical_label "ENCODER_LEFT_SPI.MISO"
-		(shape bidirectional)
-		(at 96.52 165.1 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "ba761c62-dbbe-5d44-a48b-d60cf9814a58")
-	)
-	(hierarchical_label "ENCODER_LEFT_SPI.CS"
-		(shape bidirectional)
-		(at 158.75 160.02 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "c0d657f6-5a61-56a6-afb3-85daee84efd9")
-	)
 	(hierarchical_label "MOTOR_R_SENSE_N"
 		(shape bidirectional)
 		(at 603.25 99.06 180)
@@ -4830,17 +4742,6 @@
 			(justify right)
 		)
 		(uuid "c68eee7f-c30a-5e5e-a6e7-d7ca4d1f5037")
-	)
-	(hierarchical_label "ENCODER_RIGHT_SPI.MOSI"
-		(shape bidirectional)
-		(at 96.52 167.64 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "ca968c92-483d-5b32-8495-649380872f1d")
 	)
 	(hierarchical_label "Wall_Sensor_2"
 		(shape bidirectional)
@@ -4875,17 +4776,6 @@
 		)
 		(uuid "d44a1422-00b1-5a79-b565-e35fa4004e56")
 	)
-	(hierarchical_label "ENCODER_RIGHT_SPI.MISO"
-		(shape bidirectional)
-		(at 96.52 165.1 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "d64c54a1-4fb8-5426-8aaf-17465c76080b")
-	)
 	(hierarchical_label "Current_Sensor_Right"
 		(shape bidirectional)
 		(at 226.06 274.32 90)
@@ -4907,28 +4797,6 @@
 			(justify left)
 		)
 		(uuid "de5ba4a1-7759-50f6-ab07-3fbebc2b9311")
-	)
-	(hierarchical_label "ENCODER_LEFT_SPI.MOSI"
-		(shape bidirectional)
-		(at 96.52 167.64 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "e2face3b-cfec-588d-8d9f-8a90776b671a")
-	)
-	(hierarchical_label "ENCODER_LEFT_SPI.MISO"
-		(shape bidirectional)
-		(at 96.52 165.1 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "ecee33bb-1049-5125-9301-5b872c9fea26")
 	)
 	(symbol
 		(lib_id "AO3400A")
