@@ -30,10 +30,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     p = board_cmd(
         "sch",
-        "place the generated schematic from boards/<board>/schematic/*.toml (check: every part placed)",
+        "place the generated schematic from boards/<board>/schematic/*.toml, drafting what they leave out"
+        " (check: placed cleanly and up to date)",
         check=True,
     )
     p.add_argument("--info", metavar="SHEET", help="print a sheet's parts and pins (board, then refs to show)")
+    p.add_argument(
+        "--draft",
+        action="store_true",
+        help="write drafted entries for parts without one into the placement files (marked auto = true)",
+    )
+    p.add_argument("--sheet", help="with --draft: only this sheet")
+    p.add_argument("--all", action="store_true", help="with --draft: draft whole sheets into build/<board>/sch-draft/")
     board_cmd("erc", "KiCad ERC on the generated schematic")
     board_cmd("drc", "KiCad DRC with the JLCPCB rules and zone refill")
     board_cmd("lvs", "connectivity of the generated schematic vs the PCB")
@@ -82,6 +90,8 @@ def main(argv: list[str] | None = None) -> int:
             status |= mech.run(b, a.check)
         elif a.cmd == "rules":
             status |= checks.rules(b, a.check)
+        elif a.cmd == "sch" and a.draft:
+            status |= placement.draft(b, a.sheet, a.all)
         elif a.cmd == "sch":
             status |= placement.run(b, a.check)
         elif a.cmd == "erc":

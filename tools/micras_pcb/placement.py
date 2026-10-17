@@ -18,8 +18,9 @@ symbol. `micras-pcb sch` then redraws each sheet from its placement file:
 
 Nothing is renamed or reconnected: the tool reads which labels and power symbols pcb attached to
 each pin and draws exactly those, and it fails unless KiCad's netlist of the placed schematic
-equals the one of pcb's (same nets, same names, same pins). A part without a placement entry
-stays where pcb put it and `micras-pcb sch --check` (in `make check`) names it.
+equals the one of pcb's (same nets, same names, same pins). Parts and sheet symbols without an
+entry are drafted (micras_pcb.autoplace) and placed with the rest; `micras-pcb sch --draft`
+writes those drafts into the placement file to adopt and edit.
 
 Coordinates in the placement files are in grid units of 1.27 mm (KiCad's 50 mil schematic grid),
 x right and y down from the page's top-left corner; a block's parts and wire points are relative
@@ -28,6 +29,7 @@ to the block's `at`.
 
 from __future__ import annotations
 
+import contextlib
 import itertools
 import math
 import subprocess
@@ -104,6 +106,7 @@ class Spec:
     ports: tuple[float, float, int, str] | None = None
     sheets: dict[str, SheetSymbolSpec] = field(default_factory=dict)
     end_opts: dict = field(default_factory=dict)
+    auto: set[str] = field(default_factory=set)  # parts and sheet symbols placed by a draft (auto = true)
 
 
 def _mm(v) -> float:
@@ -115,7 +118,12 @@ def _pt(v, origin=(0.0, 0.0)) -> tuple[float, float]:
 
 
 def load_spec(path: Path) -> Spec:
-    data = tomllib.loads(path.read_text()) if path.exists() else {}
+    return spec_from_data(tomllib.loads(path.read_text()) if path.exists() else {}, path.name)
+
+
+def spec_from_data(data: dict, name: str) -> Spec:
+    """A placement file's data as a Spec; a block or sheet symbol with `auto = true` is a draft
+    (`micras-pcb sch --draft`), placed like any other entry."""
     spec = Spec(paper=data.get("paper", "A4"), portrait=data.get("portrait", False), title=data.get("title", ""))
     blocks = [{"at": [0, 0], **{k: data[k] for k in ("parts", "wires", "taps", "stubs") if k in data}}]
     blocks += data.get("block", [])
@@ -129,7 +137,7 @@ def load_spec(path: Path) -> Spec:
             spec.frames.append((f[4] if len(f) > 4 else b.get("title", ""), x, y, x + _mm(f[2]), y + _mm(f[3])))
         for ref, v in b.get("parts", {}).items():
             if ref in spec.parts:
-                raise ValueError(f"{path.name}: {ref} placed twice")
+                raise ValueError(f"{name}: {ref} placed twice")
             if isinstance(v, list):
                 v = {"at": v[:2], "rot": v[2] if len(v) > 2 else 0}
             spec.parts[ref] = PartSpec(
@@ -138,6 +146,8 @@ def load_spec(path: Path) -> Spec:
                 mirror=v.get("mirror"),
                 fields=v.get("fields"),
             )
+            if b.get("auto"):
+                spec.auto.add(ref)
         for chain in b.get("wires", []):
             # a table after a point holds the options of the label or power symbol drawn at that
             # point when it is a free end: label = "right"..., point = "out"
@@ -157,10 +167,12 @@ def load_spec(path: Path) -> Spec:
         p = data["ports"]
         x, y = _pt(p["at"])
         spec.ports = (x, y, int(p.get("rows", 1000)), p.get("title", ""))
-    for name, s in data.get("sheet", {}).items():
-        spec.sheets[name] = SheetSymbolSpec(
+    for sheet, s in data.get("sheet", {}).items():
+        spec.sheets[sheet] = SheetSymbolSpec(
             _pt(s["at"]), (_mm(s["size"][0]), _mm(s["size"][1])), s.get("left", []), s.get("right", [])
         )
+        if s.get("auto"):
+            spec.auto.add(f"sheet {sheet}")
     return spec
 
 
@@ -211,6 +223,23 @@ def _route(a, b, da=None, db=None) -> list[tuple[float, float]]:
     else:
         corner = (b[0], a[1])
     return [a, corner, b]
+
+
+def terminal(at, out, first: Driver, opts: dict):
+    """What `_attach` draws for a pin's (or a free end's) first driver: the stub wire (or None)
+    and (kind, point, angle): a label's angle, or a power symbol's rotation."""
+    if first.kind == "power":
+        natural = DOWN if first.extra == "GND" else UP
+        length = opts.get("len", 0 if out == natural else STUB)
+        end = _add(at, out, length * GRID)
+        rot = 0
+        if opts.get("point") == "out" or (out == (-natural[0], -natural[1]) and not length):
+            rot = next(r for r in (0, 90, 180, 270) if transform(natural, r, None) == out)
+        return ((at, end) if length else None), ("power", end, rot)
+    length = opts.get("len", STUB)
+    end = _add(at, out, length * GRID)
+    facing = {"right": RIGHT, "left": LEFT, "up": UP, "down": DOWN}.get(opts.get("label", ""), out)
+    return ((at, end) if length else None), ("label", end, ANGLE_OF[facing])
 
 
 class Placer:
@@ -473,23 +502,10 @@ class Placer:
         """A stub from a pin (or a wire's free end) and its drivers at the stub's end."""
         first, rest = drivers[0], drivers[1:]
         self.d.ports += [(first, r) for r in rest]
-        if first.kind == "power":
-            natural = DOWN if first.extra == "GND" else UP
-            length = opts.get("len", 0 if out == natural else STUB)
-            end = _add(at, out, length * GRID)
-            if length:
-                self.d.wires.append((at, end))
-            rot = 0
-            if opts.get("point") == "out" or (out == (-natural[0], -natural[1]) and not length):
-                rot = next(r for r in (0, 90, 180, 270) if transform(natural, r, None) == out)
-            self.d.power.append((first, end, rot))
-            return
-        length = opts.get("len", STUB)
-        end = _add(at, out, length * GRID)
-        if length:
-            self.d.wires.append((at, end))
-        facing = {"right": RIGHT, "left": LEFT, "up": UP, "down": DOWN}.get(opts.get("label", ""), out)
-        self.d.labels.append((first, end, ANGLE_OF[facing]))
+        wire, (kind, end, angle) = terminal(at, out, first, opts)
+        if wire:
+            self.d.wires.append(wire)
+        (self.d.power if kind == "power" else self.d.labels).append((first, end, angle))
 
     def _ports(self) -> None:
         """The sheet's ports column: each further label of a pin, tied by a short wire to a copy of
@@ -569,79 +585,6 @@ class Placer:
                 junctions.append((k[0] / 10000, k[1] / 10000))
         return out, junctions
 
-    # --- fields
-
-    def _fields(self, s: Symbol, ps: PartSpec | None) -> dict[str, tuple[tuple[float, float], str]]:
-        """Visible fields' positions and horizontal justification."""
-        names = [
-            p.atoms()[0]
-            for p in s.node.children("property")
-            if not (p.child("hide") and p.child("hide").atoms() == ["yes"])
-            and (p.atoms()[1] if len(p.atoms()) > 1 else "").strip()
-        ]
-        if not names:
-            return {}
-        body = s.body()
-        pins = s.pins()
-        if body is None:
-            xs, ys = [p.at[0] for p in pins], [p.at[1] for p in pins]
-            body = (min(xs), min(ys), max(xs), max(ys))
-        for nb in schlint.pin_names(s):  # names drawn past a small body
-            body = (min(body[0], nb.x0), min(body[1], nb.y0), max(body[2], nb.x1), max(body[3], nb.y1))
-        x0, y0, x1, y1 = body
-        # a pin on the body's top or bottom edge draws its name across that edge
-        side_pins = [p.at[1] for p in pins if p.out in (LEFT, RIGHT)]
-        if side_pins and s.lib.name_offset is not None:
-            y0, y1 = min(y0, min(side_pins) - 0.9), max(y1, max(side_pins) + 0.9)
-        sides = {p.out for p in pins}
-        side = ps.fields if ps and ps.fields else None
-        if side is None:
-            side = ("right" if sides <= {UP, DOWN} else "top") if len(pins) == 2 else "around"
-        texts = {n: s.node.prop(n) or "" for n in names}
-        w = max(text_width(v) for v in texts.values())
-        pitch = 2.54
-        n_lines = len(names)
-        if isinstance(side, list):  # the first field's left end, grid units from the anchor
-            x, y = s.at[0] + _mm(side[0]), s.at[1] + _mm(side[1])
-            return {n: ((x, y + i * pitch), "left") for i, n in enumerate(names)}
-        if side == "around":
-            side = self._free_side(s, pins, body, w, n_lines)
-        out = {}
-        if side in ("right", "left"):
-            cy = (y0 + y1) / 2
-            for i, n in enumerate(names):
-                y = _snap2(cy + (i - (n_lines - 1) / 2) * pitch)
-                out[n] = ((x1 + 1.27, y), "left") if side == "right" else ((x0 - 1.27, y), "right")
-        elif side in ("top", "bottom"):
-            cx = (x0 + x1) / 2
-            for i, n in enumerate(names):
-                y = y0 - 1.905 - (n_lines - 1 - i) * pitch if side == "top" else y1 + 1.905 + i * pitch
-                out[n] = ((cx, y), "center")
-        else:  # top-left, top-right, bottom-left, bottom-right; or right of the top pins
-            vert, _, horiz = side.partition("-")
-            for i, n in enumerate(names):
-                y = y0 - 1.905 - (n_lines - 1 - i) * pitch if vert == "top" else y1 + 1.905 + i * pitch
-                if horiz == "left":
-                    out[n] = ((x0, y), "left")
-                elif horiz == "right":
-                    out[n] = ((x1, y), "right")
-                else:  # "top-pins": just right of the rightmost top pin
-                    xp = max(p.at[0] for p in pins if p.out == UP) + 1.27
-                    out[n] = ((xp, y), "left")
-        return out
-
-    @staticmethod
-    def _free_side(s: Symbol, pins: list[Pin], body, w: float, n: int) -> str:
-        """Above or below the body, at its left or right end, where no pin leaves that edge."""
-        x0, _, x1, _ = body
-        for side, out in (("top", UP), ("bottom", DOWN)):
-            xs = [p.at[0] for p in pins if p.out == out]
-            if not any(x0 - 1.27 <= x <= x0 + w + 1.27 for x in xs):
-                return f"{side}-left"
-            if not any(x1 - w - 1.27 <= x <= x1 + 1.27 for x in xs):
-                return f"{side}-right"
-        return "top-pins"
-
     # --- output
 
     def _write(self, parts: dict[str, Symbol]) -> str:
@@ -665,7 +608,9 @@ class Placer:
         title = self.spec.title or self.path.stem
         tb = (
             f"\n\t(title_block\n\t\t(title {sexpr.quote(title)})\n"
-            f"\t\t(comment 1 {sexpr.quote(f'Placed from boards/{self.board}/schematic/{self.path.stem}.toml')})\n\t)"
+            f"\t\t(comment 1 {sexpr.quote(f'Placed from boards/{self.board}/schematic/{self.path.stem}.toml')})\n"
+            + (f"\t\t(comment 2 {sexpr.quote(self._drafted_note())})\n" if self.spec.auto else "")
+            + "\t)"
         )
         edits.append((paper.start, paper.end, new_paper + tb))
         items = self._items()
@@ -673,6 +618,10 @@ class Placer:
         at = sexpr.line_span(text, end)[0] if end else text.rstrip().rfind(")")
         edits.append((at, at, items))
         return sexpr.splice(text, edits)
+
+    def _drafted_note(self) -> str:
+        parts = [a for a in self.spec.auto if not a.startswith("sheet ")]
+        return f"{len(parts)} of {len(self.parts_by_ref)} parts drafted by micras-pcb sch (no hand entry)"
 
     def _items(self) -> str:
         out = []
@@ -742,19 +691,8 @@ class Placer:
                 edits.append((p.start, head_end, f'(property "Reference" "{ref}"\n\t\t\t'))
                 edits.append((pa.start, pa.end, f"(at {_f(at[0])} {_f(at[1])} 0)"))
             elif name == "Value":
-                fr = 90 if rot in (90, 270) else 0
-                justify = ""
-                if rot == 0:
-                    vx, vy = sym.page(_lib_field_at(lib, "Value"))
-                else:
-                    tip = (0.0, 2.54) if d.extra != "GND" else (0.0, -2.54)
-                    tx, ty = sym.page(tip)
-                    dx, dy = (tx - at[0]) / 2.54, (ty - at[1]) / 2.54
-                    if abs(dy) < 0.5:  # pointing sideways: the text beyond the tip, reading away
-                        vx, vy = tx + dx * 0.762, ty
-                        justify = _stored_justify("left" if dx > 0 else "right", sym, fr)
-                    else:
-                        vx, vy = tx, ty + dy * 1.27
+                (vx, vy), fr, page_justify = power_value_at(sym, d.extra)
+                justify = _stored_justify(page_justify, sym, fr)
                 edits.append((pa.start, pa.end, f"(at {_f(round(vx, 4))} {_f(round(vy, 4))} {fr})"))
                 eff = p.child("effects")
                 edits.append((eff.start, eff.end, _effects(_font_size(eff), justify, 3)))
@@ -782,7 +720,7 @@ class Placer:
         fa = n.child("fields_autoplaced")
         if fa and ps is not None:
             edits.append((*_line(src, fa), ""))
-        fields = self._fields(s, ps) if ps is not None else {}
+        fields = field_layout(s, ps) if ps is not None else {}
         field_rot = 90 if s.rot in (90, 270) else 0
         for p in n.children("property"):
             name = p.atoms()[0]
@@ -826,8 +764,95 @@ class Placer:
         return _splice_node(src, n, edits)
 
 
+def field_layout(s: Symbol, ps: PartSpec | None) -> dict[str, tuple[tuple[float, float], str]]:
+    """Visible fields' positions and horizontal justification."""
+    names = [
+        p.atoms()[0]
+        for p in s.node.children("property")
+        if not (p.child("hide") and p.child("hide").atoms() == ["yes"])
+        and (p.atoms()[1] if len(p.atoms()) > 1 else "").strip()
+    ]
+    if not names:
+        return {}
+    body = s.body()
+    pins = s.pins()
+    if body is None:
+        xs, ys = [p.at[0] for p in pins], [p.at[1] for p in pins]
+        body = (min(xs), min(ys), max(xs), max(ys))
+    for nb in schlint.pin_names(s):  # names drawn past a small body
+        body = (min(body[0], nb.x0), min(body[1], nb.y0), max(body[2], nb.x1), max(body[3], nb.y1))
+    x0, y0, x1, y1 = body
+    # a pin on the body's top or bottom edge draws its name across that edge
+    side_pins = [p.at[1] for p in pins if p.out in (LEFT, RIGHT)]
+    if side_pins and s.lib.name_offset is not None:
+        y0, y1 = min(y0, min(side_pins) - 0.9), max(y1, max(side_pins) + 0.9)
+    sides = {p.out for p in pins}
+    side = ps.fields if ps and ps.fields else None
+    if side is None:
+        side = ("right" if sides <= {UP, DOWN} else "top") if len(pins) == 2 else "around"
+    texts = {n: s.node.prop(n) or "" for n in names}
+    w = max(text_width(v) for v in texts.values())
+    pitch = 2.54
+    n_lines = len(names)
+    if isinstance(side, list):  # the first field's left end, grid units from the anchor
+        x, y = s.at[0] + _mm(side[0]), s.at[1] + _mm(side[1])
+        return {n: ((x, y + i * pitch), "left") for i, n in enumerate(names)}
+    if side == "around":
+        side = _free_side(pins, body, w)
+    out = {}
+    if side in ("right", "left"):
+        cy = (y0 + y1) / 2
+        for i, n in enumerate(names):
+            y = _snap2(cy + (i - (n_lines - 1) / 2) * pitch)
+            out[n] = ((x1 + 1.27, y), "left") if side == "right" else ((x0 - 1.27, y), "right")
+    elif side in ("top", "bottom"):
+        cx = (x0 + x1) / 2
+        for i, n in enumerate(names):
+            y = y0 - 1.905 - (n_lines - 1 - i) * pitch if side == "top" else y1 + 1.905 + i * pitch
+            out[n] = ((cx, y), "center")
+    else:  # top-left, top-right, bottom-left, bottom-right; or right of the top pins
+        vert, _, horiz = side.partition("-")
+        for i, n in enumerate(names):
+            y = y0 - 1.905 - (n_lines - 1 - i) * pitch if vert == "top" else y1 + 1.905 + i * pitch
+            if horiz == "left":
+                out[n] = ((x0, y), "left")
+            elif horiz == "right":
+                out[n] = ((x1, y), "right")
+            else:  # "top-pins": just right of the rightmost top pin
+                xp = max(p.at[0] for p in pins if p.out == UP) + 1.27
+                out[n] = ((xp, y), "left")
+    return out
+
+
+def _free_side(pins: list[Pin], body, w: float) -> str:
+    """Above or below the body, at its left or right end, where no pin leaves that edge."""
+    x0, _, x1, _ = body
+    for side, out in (("top", UP), ("bottom", DOWN)):
+        xs = [p.at[0] for p in pins if p.out == out]
+        if not any(x0 - 1.27 <= x <= x0 + w + 1.27 for x in xs):
+            return f"{side}-left"
+        if not any(x1 - w - 1.27 <= x <= x1 + 1.27 for x in xs):
+            return f"{side}-right"
+    return "top-pins"
+
+
 def Sheet_is_power(sheet: Sheet, n: sexpr.Node) -> bool:
     return sheet.libs[n.child("lib_id").atoms()[0]].power
+
+
+def power_value_at(sym: Symbol, lib_name: str | None) -> tuple[tuple[float, float], int, str]:
+    """Where a placed power symbol's value goes: (point, field angle, justification on the
+    page): the library's position upright, else beyond the symbol's tip."""
+    rot, at = sym.rot, sym.at
+    fr = 90 if rot in (90, 270) else 0
+    if rot == 0:
+        return sym.page(_lib_field_at(sym.lib, "Value")), fr, "center"
+    tip = (0.0, 2.54) if lib_name != "GND" else (0.0, -2.54)
+    tx, ty = sym.page(tip)
+    dx, dy = (tx - at[0]) / 2.54, (ty - at[1]) / 2.54
+    if abs(dy) < 0.5:  # pointing sideways: the text beyond the tip, reading away
+        return (tx + dx * 0.762, ty), fr, "left" if dx > 0 else "right"
+    return (tx, ty + dy * 1.27), fr, "center"
 
 
 def _lib_field_at(lib, name: str) -> tuple[float, float]:
@@ -913,19 +938,26 @@ def _netlist(sch: Path) -> dict[str, frozenset[str]]:
     return nets
 
 
-def unplaced(board: str) -> list[str]:
-    """What the board's placement files leave out: a sheet without a file, a part or sheet
-    symbol without an entry, an entry for a part not on its sheet, a sheet not placed."""
+def unplaced(board: str, missing_ok: bool = False) -> list[str]:
+    """What the board's placement files get wrong: an entry for a part not on its sheet, a pin
+    the sheet does not have, a sheet symbol too small for its pins, a sheet not placed; and
+    (unless missing_ok: they are drafted) a sheet without a file, a part or sheet symbol
+    without an entry; and the sheet module's SCHEMATIC_HINTS naming parts it does not have."""
+    from . import autoplace
+
     out = []
     for path in schematic_sheets(board_sch(board)):
         spec_path = spec_dir(board) / f"{path.stem}.toml"
         if not spec_path.exists():
-            out.append(f"{path.name} has no placement file boards/{board}/schematic/{path.stem}.toml")
+            if not missing_ok:
+                out.append(f"{path.name} has no placement file boards/{board}/schematic/{path.stem}.toml")
+            if not _placed_marker(path):
+                out.append(f"{path.name} is not placed: run `make gen`")
             continue
         spec = load_spec(spec_path)
         sh = Sheet.load(path)
         refs = {s.ref for s in sh.parts()}
-        if missing := sorted(refs - set(spec.parts), key=_refkey):
+        if (missing := sorted(refs - set(spec.parts), key=_refkey)) and not missing_ok:
             out.append(f"{path.name}: parts without a placement: {', '.join(missing)}")
         if stale := sorted(set(spec.parts) - refs, key=_refkey):
             out.append(f"{path.name}: placements of parts not on the sheet: {', '.join(stale)}")
@@ -953,55 +985,113 @@ def unplaced(board: str) -> list[str]:
             if stale := sorted(set(listed) - set(pins)):
                 out.append(f"{path.name}: sheet {n.prop('Sheetname')} has no pins {', '.join(stale)}")
         names = {n.prop("Sheetname") for n in sh.root.children("sheet")}
-        if missing := sorted(names - set(spec.sheets)):
+        if (missing := sorted(names - set(spec.sheets))) and not missing_ok:
             out.append(f"{path.name}: sheet symbols without a placement: {', '.join(missing)}")
         if not _placed_marker(path):
             out.append(f"{path.name} is not placed: run `make gen`")
+        try:
+            hints = autoplace.read_hints(autoplace.sheet_module(board, path.stem))
+            out += [f"{path.name}: {p}" for p in autoplace.hint_problems(hints, refs)]
+        except ValueError as e:
+            out.append(f"{path.name}: {e}")
     return out
 
 
-def run(board: str, check: bool = False) -> int:
-    """Place the board's generated schematic from its placement files (check: only report
-    what they leave out)."""
+def _regenerate(board: str) -> list[Path]:
+    """The board's schematic as pcb writes it (placing works from that): written afresh when
+    the one on disk is placed, as `make gen` does."""
     root = board_sch(board)
     sheets = schematic_sheets(root)
-    if check:
-        found = unplaced(board)
-        for f in found:
-            print(f"{board}: {f}")
-        if not found:
-            print(f"{board}: every part of {len(sheets)} sheet(s) placed")
-        return 1 if found else 0
     if any(_placed_marker(p) for p in sheets):
-        # placing works from what pcb writes: regenerate it, as `make gen` does
         for p in root.parent.glob("*.kicad_sch"):
             p.unlink()
-        subprocess.run([*pcb(), "apply", "--no-open", str(board_zen(board))], cwd=ROOT, check=True, capture_output=True)
+        subprocess.run(
+            [*pcb(), "apply", "schematic", "--no-open", str(board_zen(board))],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        )
         sheets = schematic_sheets(root)
+    return sheets
+
+
+def _entries(spec_path: Path, drop_auto: bool = False) -> dict:
+    """A placement file's data; drop_auto leaves out its drafted blocks and sheet symbols."""
+    data = tomllib.loads(spec_path.read_text()) if spec_path.exists() else {}
+    if drop_auto:
+        data["block"] = [b for b in data.get("block", []) if not b.get("auto")]
+        data["sheet"] = {k: v for k, v in data.get("sheet", {}).items() if not v.get("auto")}
+    return data
+
+
+def _merge(data: dict, draft: dict) -> dict:
+    """Hand entries with a draft of what they leave out: the hand's keys win."""
+    out = dict(data)
+    for k in ("title", "ports"):
+        if k in draft and k not in out:
+            out[k] = draft[k]
+    if "paper" in draft:
+        out["paper"] = draft["paper"]
+    out["block"] = list(data.get("block", [])) + draft.get("block", [])
+    out["sheet"] = dict(data.get("sheet", {})) | draft.get("sheet", {})
+    return out
+
+
+def place_board(board: str, out_dir: Path | None = None, everything: bool = False) -> tuple[int, dict]:
+    """Place the board's schematic: each sheet from its placement file, parts and sheet symbols
+    without an entry drafted (micras_pcb.autoplace). out_dir: write the placed sheets there
+    instead (with each sheet's placement data as <sheet>.toml), everything: draft every sheet
+    whole, ignoring the files. Returns (status, {sheet: (drafted, parts)})."""
+    from . import autoplace
+
+    root = board_sch(board)
+    sheets = _regenerate(board)
     before = _netlist(root)
     pin_net = {p: n for n, ps in before.items() for p in ps}
-    texts, problems, left_out = {}, [], []
+    texts, problems, left_out, stats, datas = {}, [], [], {}, {}
     for path in sheets:
         spec_path = spec_dir(board) / f"{path.stem}.toml"
-        if not spec_path.exists():
-            left_out.append(f"{path.name} (no {spec_path.relative_to(ROOT)})")
+        text = path.read_text()
+        data = {} if everything else _entries(spec_path)
+        try:
+            d = autoplace.draft_sheet(board, path, text, pin_net, data, everything)
+        except (RuntimeError, ValueError) as e:
+            problems.append(f"{path.name}: drafting failed: {e}")
             continue
-        placer = Placer(board, path, path.read_text(), load_spec(spec_path), pin_net)
+        if d:
+            data = _merge(data, d.data)
+        datas[path] = data
+        spec = spec_from_data(data, spec_path.name)
+        placer = Placer(board, path, text, spec, pin_net)
         texts[path] = placer.place()
+        stats[path.stem] = (len([a for a in spec.auto if not a.startswith("sheet ")]), len(placer.parts_by_ref))
         problems += [f"{path.name}: {p}" for p in placer.problems]
         left_out += [f"{path.name}: {r}" for r in placer.unplaced]
         left_out += [f"{path.name}: {w}" for w in placer.warnings]
+    if out_dir is not None:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for p in [*out_dir.glob("*.kicad_sch"), *out_dir.glob("*.toml")]:
+            p.unlink()
+        for path, data in datas.items():
+            (out_dir / f"{path.stem}.toml").write_text(toml_text(data, f"Draft of {board}/{path.stem}"))
     if problems:
         for p in problems:
             print(f"  {p}")
         print(
             f"{board}: schematic placement failed ({len(problems)} problem(s)); the schematic is left as pcb wrote it"
         )
-        return 1
-    originals = {p: p.read_text() for p in texts}
-    for path, t in texts.items():
-        path.write_text(t)
-    after = _netlist(root)
+        return 1, stats
+    if out_dir is not None:
+        for path in sheets:
+            (out_dir / path.name).write_text(texts.get(path, path.read_text()))
+        targets = {out_dir / p.name: t for p, t in texts.items()}
+        after = _netlist(out_dir / root.name)
+    else:
+        originals = {p: p.read_text() for p in texts}
+        for path, t in texts.items():
+            path.write_text(t)
+        targets = texts
+        after = _netlist(root)
     if after != before:
         lost = sorted(set(before.items()) - set(after.items()))
         new = sorted(set(after.items()) - set(before.items()))
@@ -1009,11 +1099,12 @@ def run(board: str, check: bool = False) -> int:
             print(f"  pcb's net {name}: {sorted(pins)}")
         for name, pins in new[:10]:
             print(f"  placed net {name}: {sorted(pins)}")
-        for path, t in originals.items():
-            path.write_text(t)
+        if out_dir is None:
+            for path, t in originals.items():
+                path.write_text(t)
         print(f"{board}: the placed schematic's netlist differs from pcb's; the schematic is left as pcb wrote it")
-        return 1
-    for path in texts:
+        return 1, stats
+    for path in targets:
         found = schlint.problems(path)
         for f in found[:40]:
             print(f"  {path.name}: {f}")
@@ -1021,11 +1112,211 @@ def run(board: str, check: bool = False) -> int:
             print(f"  {path.name}: and {len(found) - 40} more overlaps")
     for u in left_out:
         print(f"  unplaced: {u}")
+    drafted = ", ".join(f"{s} {a}/{n}" for s, (a, n) in stats.items() if a)
     print(
         f"{board}: placed {len(texts)} sheet(s), netlist unchanged"
+        + (f"; parts drafted: {drafted}" if drafted else "")
         + (f", {len(left_out)} unplaced" if left_out else "")
     )
-    return 0
+    return 0, stats
+
+
+def run(board: str, check: bool = False) -> int:
+    """Place the board's generated schematic from its placement files (check: verify it)."""
+    if check:
+        return check_board(board)
+    return place_board(board)[0]
+
+
+@contextlib.contextmanager
+def preserved_layout(board: str):
+    """The board's layout folder as it was, after the block (placing regenerates pcb's
+    schematic in it); yields {path: bytes} of its files."""
+    layout = board_sch(board).parent
+    saved = {p: p.read_bytes() for p in layout.iterdir() if p.is_file()}
+    try:
+        yield saved
+    finally:
+        for p in layout.iterdir():
+            if p.is_file() and p not in saved:
+                p.unlink()
+        for p, b in saved.items():
+            if not p.exists() or p.read_bytes() != b:
+                p.write_bytes(b)
+
+
+def check_board(board: str) -> int:
+    """`micras-pcb sch --check`: the placement files name only parts and pins their sheets have,
+    the sheet symbols hold their pins, every placed sheet reads cleanly (no overlaps, nothing off
+    the page) and is what `micras-pcb sch` makes of the sources now, with pcb's netlist. Prints
+    how many parts each sheet drafts (no hand entry)."""
+    status = 0
+    found = unplaced(board, missing_ok=True)
+    for f in found:
+        print(f"{board}: {f}")
+    status |= bool(found)
+    with preserved_layout(board) as saved:
+        st, stats = place_board(board)
+        status |= st
+        for p, b in saved.items():
+            if p.suffix == ".kicad_sch" and p.exists() and p.read_bytes() != b:
+                print(f"{board}: {p.name} is not what the sources place: run `make gen`")
+                status = 1
+        for path in schematic_sheets(board_sch(board)):
+            for f in schlint.problems(path):
+                print(f"{board}: {path.name}: {f}")
+                status = 1
+    for s, (a, n) in stats.items():
+        print(f"{board}: sheet {s}: {n} parts, {a} drafted (no hand entry)")
+    if not status:
+        print(f"{board}: every sheet placed cleanly")
+    return status
+
+
+def draft(board: str, sheet: str | None = None, everything: bool = False) -> int:
+    """`micras-pcb sch --draft`: write drafted entries for the parts and sheet symbols without
+    a hand entry into each sheet's placement file (replacing earlier drafts), then place the
+    board; everything: draft whole sheets into build/<board>/sch-draft/ instead, for comparison."""
+    from . import autoplace
+    from .paths import build_dir
+
+    if everything:
+        out = build_dir(board) / "sch-draft"
+        with preserved_layout(board):
+            status, _ = place_board(board, out, everything=True)
+        print(
+            f"{board}: drafts in {out.relative_to(ROOT)} (kicad-cli sch export svg -o <dir> {out.relative_to(ROOT)}/{board}.kicad_sch)"
+        )
+        return status
+    root = board_sch(board)
+    sheets = _regenerate(board)
+    pin_net = {p: n for n, ps in _netlist(root).items() for p in ps}
+    for path in sheets:
+        if sheet and path.stem != sheet:
+            continue
+        spec_path = spec_dir(board) / f"{path.stem}.toml"
+        hand = _entries(spec_path, drop_auto=True)
+        d = autoplace.draft_sheet(board, path, path.read_text(), pin_net, hand)
+        text = spec_path.read_text() if spec_path.exists() else ""
+        new = with_draft(text, d.data if d else {}, board, path.stem)
+        if new != text:
+            spec_path.parent.mkdir(parents=True, exist_ok=True)
+            spec_path.write_text(new)
+            print(f"{board}: {spec_path.relative_to(ROOT)}: drafted {len(d.auto) if d else 0} entries")
+    return run(board)
+
+
+# ---------------------------------------------------------------------------------------------
+# Placement-file text
+
+
+DRAFT_NOTE = (
+    "# Drafted by `micras-pcb sch --draft` (auto = true): `--draft` redrafts it; delete its\n"
+    "# `auto = true` line to keep it and edit it by hand.\n"
+)
+
+
+def _toml_value(v) -> str:
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, str):
+        return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    if isinstance(v, list | tuple):
+        return "[" + ", ".join(_toml_value(x) for x in v) + "]"
+    if isinstance(v, dict):
+        return "{ " + ", ".join(f"{_toml_key(k)} = {_toml_value(x)}" for k, x in v.items()) + " }"
+    return str(v)
+
+
+def _toml_key(k: str) -> str:
+    import re
+
+    return k if re.fullmatch(r"[A-Za-z0-9_-]+", k) else _toml_value(k)
+
+
+def _block_text(b: dict) -> str:
+    lines = ["[[block]]"]
+    for k in ("title", "auto", "at", "size"):
+        if k in b:
+            lines.append(f"{k} = {_toml_value(b[k])}")
+    for ref, e in b.get("parts", {}).items():
+        if set(e) == {"at"}:
+            lines.append(f"parts.{_toml_key(ref)} = {_toml_value(e['at'])}")
+        else:
+            lines.append(f"parts.{_toml_key(ref)} = {_toml_value(e)}")
+    if b.get("wires"):
+        lines.append("wires = [")
+        lines += [f"    {_toml_value(c)}," for c in b["wires"]]
+        lines.append("]")
+    if b.get("taps"):
+        lines.append(f"taps = {_toml_value(b['taps'])}")
+    for pin, o in b.get("stubs", {}).items():
+        lines.append(f"stubs.{_toml_value(pin)} = {_toml_value(o)}")
+    for n in b.get("note", []):
+        lines += ["[[block.note]]", f"text = {_toml_value(n['text'])}", f"at = {_toml_value(n['at'])}"]
+    return "\n".join(lines) + "\n"
+
+
+def _sheet_text_toml(name: str, s: dict) -> str:
+    lines = [f"[sheet.{_toml_key(name)}]"]
+    for k in ("auto", "at", "size", "left", "right"):
+        if k in s:
+            lines.append(f"{k} = {_toml_value(s[k])}")
+    return "\n".join(lines) + "\n"
+
+
+def toml_text(data: dict, header: str) -> str:
+    """A whole placement file from its data."""
+    out = [f"# {header} (micras-pcb sch; units of 1.27 mm, y down).\n"]
+    for k in ("paper", "portrait", "title", "ports"):
+        if k in data:
+            out.append(f"{k} = {_toml_value(data[k])}\n")
+    for b in data.get("block", []):
+        out.append("\n" + _block_text(b))
+    for name, s in data.get("sheet", {}).items():
+        out.append("\n" + _sheet_text_toml(name, s))
+    return "".join(out)
+
+
+def with_draft(text: str, draft: dict, board: str, sheet: str) -> str:
+    """A placement file's text with its earlier drafts removed and a new draft added: top-level
+    keys it lacks, the drafted blocks and sheet symbols at the end."""
+    import re
+
+    sections = re.split(r"(?m)^(?=\[)", text) if text else [""]
+    head, tables = sections[0], sections[1:]
+    kept, dropping = [], False
+    for sec in tables:
+        header = sec.split("\n", 1)[0].strip()
+        auto = re.search(r"(?m)^auto\s*=\s*true\s*$", sec) is not None
+        if header == "[[block]]" or header.startswith("[sheet."):
+            dropping = auto
+        elif not header.startswith("[[block."):
+            dropping = False
+        if not dropping:
+            kept.append(sec)
+    head = head.replace(DRAFT_NOTE, "")
+    if not head.strip():
+        head = f"# Placement of the {board} board's {sheet} sheet (micras-pcb sch; units of 1.27 mm, y down).\n"
+    for k in ("paper", "title", "ports"):
+        if k not in draft:
+            continue
+        line = f"{k} = {_toml_value(draft[k])}\n"
+        if re.search(rf"(?m)^{k}\s*=", head):
+            if k == "paper":
+                head = re.sub(rf"(?m)^{k}\s*=.*\n", line, head)
+        else:
+            head = head.rstrip("\n") + "\n" + line
+    body = "".join(kept).replace(DRAFT_NOTE, "").rstrip("\n")
+    if body:
+        body = "\n" + body + "\n"
+    add = [_block_text(b) for b in draft.get("block", [])]
+    add += [_sheet_text_toml(n, s) for n, s in draft.get("sheet", {}).items()]
+    if add:
+        return head.rstrip("\n") + "\n" + body + "\n" + DRAFT_NOTE + "\n".join(add)
+    return head.rstrip("\n") + "\n" + body
 
 
 def _placed_marker(path: Path) -> bool:

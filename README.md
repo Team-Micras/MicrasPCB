@@ -35,7 +35,12 @@ boards/<board>/schematic/*.toml ────────────────
   turns, which pins are wired together, the titled frame of each function block, the paper size
   and the order of each module's sheet pins. It redraws every connection with the labels and
   power symbols pcb chose and fails unless KiCad's netlist of the placed schematic equals pcb's,
-  so the drawing can never change the circuit. The `micras-pcb` skill has the file format.
+  so the drawing can never change the circuit. A part without an entry is drafted from the
+  netlist by the same rules a person follows (blocks by connectivity, decoupling at the supply
+  pin, pulls at their pins, repeated blocks alike, the smallest paper), steered by an optional
+  `SCHEMATIC_HINTS` dict in the Zener module that pcb ignores; `micras-pcb sch --draft` writes the
+  drafts into the file to adopt and adjust. The `micras-pcb` skill has the file format, the rules
+  and the hints.
 - **`spec/` owns the mechanics.** `micras-pcb mech` writes the origin and the locked position of
   mechanically critical parts (the encoder's sensor and tab, the main board's screw holes) into
   the `.kicad_pcb`, and exports the board for the other repos. The Edge.Cuts outlines are layout
@@ -119,13 +124,13 @@ and fails if any gate failed.
 | warnings | `pcb build -D warnings` | a build warning: a net outside a part's declared operating range, a capacitor rated below its net |
 | test | `pcb test` | datasheet requirements: per component (`components/**/test/`) and per board (`boards/<board>/test/`: application circuits, values computed with the datasheet equations) |
 | layout-check | `pcb layout --check`, `micras-pcb rules/mech --check` | layout no longer matches the netlist, rules or spec drift |
-| sch | `micras-pcb sch --check` | a schematic part or module sheet without a placement in `boards/<board>/schematic/` |
+| sch | `micras-pcb sch --check` | a placement entry, wire or hint naming what its sheet does not have, a sheet symbol too small for its pins, overlaps or items off the page, a placed sheet out of date with the sources; prints how many parts each sheet drafts |
 | ERC | `kicad-cli sch erc` | schematic electrical rules; `boards/<board>/erc.toml` names the nets supplied from off the board (the PWR_FLAG role) and the warnings a board accepts, rule by rule with the reason |
 | LVS | `micras-pcb lvs` | schematic and PCB connect different pads |
 | previous | `micras-pcb previous compare <board>` | a replicated board (main, encoder, bluetooth) connects or names anything differently from its previous revision, except the changes in `boards/<board>/changes.toml` |
 | DRC | `kicad-cli pcb drc` + `rules/jlcpcb.kicad_dru` | JLCPCB clearances (copper, SMD pad to pad, hole to track), widths, drills, edge distances |
 | DFM | `pcb dfm` + `rules/jlcpcb-pdk.toml` | geometry-level manufacturability (Diode's sourced JLCPCB PDK) |
-| pytest | `pytest` | board contracts (encoder joint, firmware pin map), power tree, every schematic item on its sheet's page, no overlapping texts, bodies or wires on a sheet, decoupling at the pin, encoder slot fit, routing style (every track straight at a multiple of 45 degrees, no arcs, no acute corners), courtyards, paste, 3D models, part data |
+| pytest | `pytest` | board contracts (encoder joint, firmware pin map), power tree, every schematic item on its sheet's page, no overlapping texts, bodies or wires on a sheet, every board's schematic drafted whole from its Zener source (pcb's netlist, nothing overlapping), decoupling at the pin, encoder slot fit, routing style (every track straight at a multiple of 45 degrees, no arcs, no acute corners), courtyards, paste, 3D models, part data |
 | lint | `ruff` | Python lint and format |
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 
@@ -169,7 +174,8 @@ pin-1 checks, placement and routing, and the fab order.
 ```text
 boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb is KiCad-owned, README.md is
                        the board's description, .prism.json the root files for KiCad Prism, the rest generated)
-boards/<board>/schematic/  one placement file per schematic sheet (micras-pcb sch): parts, wires, frames, paper
+boards/<board>/schematic/  one placement file per schematic sheet (micras-pcb sch): parts, wires, frames, paper;
+                       drafted entries marked auto = true
 boards/<board>/previous/  snapshot of the board's previous revision (board.json) for the connectivity comparison,
                        and the scripts that build its layout from that revision (transfer_layout.py; main: rework.py)
 boards/main/layout/*.py  the one-off scripts that place and route the review fixes and the owner's layout
@@ -184,7 +190,8 @@ components/<mfr>/<P>/  reusable Zener packages: symbol, footprint (STEP embedded
 spec/                  mechanical single source of truth per board
 parts/jlc.toml         MPN -> LCSC mapping
 rules/                 JLCPCB KiCad DRC rules, DFM PDK, KiCad rule severities
-tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, outputs, previous, firmware, layout (`uv run micras-pcb --help`)
+tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, outputs, previous, firmware, layout, schematic placement
+                       and drafts (`uv run micras-pcb --help`)
 tests/                 pytest design tests
 research/next-revision/ the main board's second revision's design (entered as boards/main2) and its calculation
                        scripts
