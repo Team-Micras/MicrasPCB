@@ -131,7 +131,10 @@ stubs."IC6.12" = { point = "out" }  # per pin: len (stub, grid steps), label = "
   diodeinc/pcb#1520) keeps one at the pin; each further label goes to the sheet's `ports` column,
   wired to a copy of the first.
 - The root sheet places each module's sheet symbol: `[sheet.DRIVERS] at = [x, y]`,
-  `size = [w, h]`, `left = [pin names in order]`, `right = [...]` (unlisted pins go left).
+  `size = [w, h]`, `left = [pin names in order]`, `right = [...]` (unlisted pins go left; `""`
+  leaves a blank slot between groups).
+- `rot` turns counterclockwise as KiCad does: at 90 a part standing up lies down with its pin 1
+  on the left, at 270 on the right; `mirror = "x"` flips top and bottom, `"y"` left and right.
 
 Conventions: one titled block per function (power input, each regulator, each bridge with its
 shunt, the MCU with its decoupling and clock, each sensor channel, connectors); signal flow left

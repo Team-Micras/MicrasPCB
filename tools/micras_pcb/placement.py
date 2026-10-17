@@ -308,15 +308,16 @@ class Placer:
                     self.sheet_pin_at[(name, p.atoms()[0])] = ((float(at[0]), float(at[1])), out)
                 self.unplaced.append(f"sheet {name}")
                 continue
-            listed = ss.left + ss.right
+            listed = [p for p in ss.left + ss.right if p]  # "" leaves a blank slot between groups
             for p in listed:
                 if p not in pins:
-                    self.problems.append(f"sheet {name}: no pin {p}")
-            left = ss.left + [p for p in pins if p not in listed and p not in ss.right]
+                    self.warnings.append(f"sheet {name}: no pin {p}")
+            left = ss.left + [p for p in pins if p not in listed]
             x0, y0 = ss.at
             for side, names, x, out in ((0, left, x0, LEFT), (1, ss.right, x0 + ss.size[0], RIGHT)):
                 for i, p in enumerate(names):
-                    self.sheet_pin_at[(name, p)] = ((x, y0 + GRID * 2 * (i + 1)), out)
+                    if p in pins:
+                        self.sheet_pin_at[(name, p)] = ((x, y0 + GRID * 2 * (i + 1)), out)
                 if GRID * 2 * (len(names) + 1) > ss.size[1] + 1e-6:
                     self.problems.append(
                         f"sheet {name}: {len(names)} pins do not fit its {(side and 'right') or 'left'} side"
