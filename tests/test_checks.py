@@ -1,4 +1,4 @@
-"""ERC acceptance of boards/<board>/erc.toml supplies on a hierarchical schematic."""
+"""ERC acceptance from boards/<board>/erc.toml: supplies on a hierarchical schematic, accepted warnings."""
 
 from micras_pcb import checks
 from micras_pcb.netlist import Netlist, Pin
@@ -61,3 +61,14 @@ def test_a_supplied_net_is_accepted_on_a_sub_sheet_power_symbol(tmp_path):
 
     assert kept == [not_supplied, other]
     assert accepted == ["  accepted power_pin_not_driven on VBAT: supplied by the battery"] * 2
+
+
+def test_only_warnings_of_an_accepted_rule_are_accepted():
+    warning = {"type": "multiple_net_names", "severity": "warning", "items": []}
+    as_error = {"type": "multiple_net_names", "severity": "error", "items": []}
+    other = {"type": "similar_labels", "severity": "warning", "items": []}
+
+    kept, accepted = checks._accept_warnings([warning, as_error, other, warning], {"multiple_net_names": "why"})
+
+    assert kept == [as_error, other]
+    assert accepted == ["  accepted 2 multiple_net_names warning(s): why"]

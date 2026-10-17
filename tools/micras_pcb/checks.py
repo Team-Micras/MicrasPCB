@@ -4,7 +4,8 @@ Each check writes its JSON report to build/<board>/ and prints one line per viol
 violation fails the check unless it is excluded in KiCad (exclusions live in the .kicad_pro, so
 every exclusion is a reviewed, committed decision), or, for ERC, it is an undriven power input on
 a net the board declares as supplied from off the board (boards/<board>/erc.toml, see
-`external_supplies`).
+`external_supplies`), or a warning of a rule the board accepts with a reason (erc.toml
+[accepted_warning], see `accepted_warnings`).
 """
 
 from __future__ import annotations
@@ -86,14 +87,42 @@ def external_supplies(board: str) -> dict[str, str]:
 
     Only power_pin_not_driven on a listed net is accepted; every other violation still fails.
     """
+    return dict(_erc_toml(board).get("external_supply", {}))
+
+
+def accepted_warnings(board: str) -> dict[str, str]:
+    """KiCad ERC rules whose warnings a board accepts: {rule: why}, from boards/<board>/erc.toml:
+
+        [accepted_warning]
+        multiple_net_names = "why, and when it goes away"
+
+    Only violations of a listed rule at warning severity are accepted; the same rule at error
+    severity, and every other rule, still fails.
+    """
+    return dict(_erc_toml(board).get("accepted_warning", {}))
+
+
+def _erc_toml(board: str) -> dict:
     path = BOARDS / board / "erc.toml"
     if not path.is_file():
         return {}
     raw = tomllib.loads(path.read_text())
-    unknown = set(raw) - {"external_supply"}
+    unknown = set(raw) - {"external_supply", "accepted_warning"}
     if unknown:
         raise ValueError(f"{path.relative_to(ROOT)}: unknown tables {sorted(unknown)}")
-    return dict(raw.get("external_supply", {}))
+    return raw
+
+
+def _accept_warnings(items: list[dict], rules: dict[str, str]) -> tuple[list[dict], list[str]]:
+    """(kept items, accepted lines): a warning of an accepted rule is accepted, one line per rule."""
+    kept, counts = [], {}
+    for v in items:
+        rule = v.get("type")
+        if rule in rules and v.get("severity") == "warning":
+            counts[rule] = counts.get(rule, 0) + 1
+        else:
+            kept.append(v)
+    return kept, [f"  accepted {n} {rule} warning(s): {rules[rule]}" for rule, n in sorted(counts.items())]
 
 
 def _item_net(item: dict, power_symbols: dict[str, str], nl) -> str | None:
@@ -185,7 +214,8 @@ def erc(board: str) -> int:
         capture_output=True,
     )
     items, accepted = _accept_external_supplies(board, _violations(json.loads(out.read_text())))
-    for line in accepted:
+    items, warnings = _accept_warnings(items, accepted_warnings(board))
+    for line in accepted + warnings:
         print(line)
     _print("ERC", board, items)
     return 1 if items else 0
