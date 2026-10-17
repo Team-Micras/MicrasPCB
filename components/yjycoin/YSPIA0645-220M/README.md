@@ -22,3 +22,6 @@ datasheet land (F 3.5, G 7.5, H 3.2 mm, page 2); from the Micras Altium library
 (MicrasMainBoard). The embedded STEP is the Vishay IHLP-2525CZ model (about 3 mm tall), not this
 4.5 mm part: mechanical clearance checks must use the 4.5 mm datasheet height.
 `pcb rectify check` passes.
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.15) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).

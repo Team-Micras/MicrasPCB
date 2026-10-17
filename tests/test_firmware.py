@@ -2,7 +2,9 @@
 
 The firmware names every MCU pin it uses, the supply configuration it selects, how it reads the
 battery and how hard it drives the loads whose ratings depend on it. A board that disagrees runs
-the firmware into the wrong part, or burns a part the firmware drives as designed.
+the firmware into the wrong part, or burns a part the firmware drives as designed. The board is
+checked against the firmware plus the firmware changes it declares (boards/main/firmware_changes.toml),
+the ones MicrasFirmware has not made yet.
 """
 
 import os
@@ -18,13 +20,21 @@ from .design import design, function
 pytestmark = [needs_kicad, pytest.mark.skipif(shutil.which("pcb") is None, reason="pcb not installed")]
 
 MCU = "IC1"
-FW = firmware.load("main")
+FIRMWARE = firmware.load("main")
+CHANGES = firmware.load_changes("main")
+FW = firmware.apply_changes(FIRMWARE, CHANGES)
 SOURCE = Path(os.environ.get("MICRAS_FIRMWARE", firmware.default_source()))
 
 
 @pytest.mark.skipif(not (SOURCE / firmware.IOC).is_file(), reason="MicrasFirmware checkout not available")
 def test_contract_matches_the_firmware():
     assert firmware.dumps(firmware.build(SOURCE.resolve())) == firmware.contract_path("main").read_text()
+
+
+def test_declared_firmware_changes_are_still_pending():
+    # A declared change the firmware already has is stale: drop it from firmware_changes.toml.
+    stale = firmware.stale_changes(FIRMWARE, CHANGES)
+    assert not stale, "\n".join(stale)
 
 
 @pytest.fixture(scope="module")
@@ -46,6 +56,18 @@ def _reach(d, net: str) -> set[str]:
     for r in d.refs_on(net):
         if d.kind(r) == "resistor":
             out |= set(d.nets_of(r).values())
+    return out
+
+
+def _through_series_capacitors(d, nets: set[str]) -> set[str]:
+    """The nets, plus those one series capacitor away (an AC-coupled signal path; a capacitor to GND
+    is decoupling, not a path)."""
+    out = set(nets)
+    for net in nets:
+        for c in d.refs_on(net):
+            other = set(d.nets_of(c).values()) - {net}
+            if d.kind(c) == "capacitor" and "GND" not in other:
+                out |= other
     return out
 
 
@@ -123,7 +145,7 @@ def test_firmware_signals_reach_their_parts(d):
     expect("Motors_Enable", "IC5", "ENA", "the firmware enables the bridges on this pin")
     for n in range(4):
         # emitter n's switch and receiver n in the same wall sensor
-        gate_nets = _reach(d, _net(d, f"Wall_Sensor_PWM_{n}"))
+        gate_nets = _through_series_capacitors(d, _reach(d, _net(d, f"Wall_Sensor_PWM_{n}")))
         fet = [r for r in d.refs("AO3400A") if d.net(r, "G") in gate_nets]
         sensor = [w for w in d.refs_on(d.net(fet[0], "D")) if w.startswith("W")] if fet else []
         if not sensor or d.net(sensor[0], "PT_E") != _net(d, f"Wall_Sensor_{n}"):
@@ -164,7 +186,8 @@ def test_battery_voltage_is_measurable(d):
     # The firmware reports the battery voltage (proxy::Battery). The pack must reach an ADC pin
     # through a divider that keeps the pin within VDDA (3.3 V) at the full 12.6 V pack. The VBAT
     # pin is on 3V3 (AN5419 Table 2; absolute maximum 4.0 V, DS13311 Table 10), so the internal
-    # VBAT/4 channel the firmware reads (firmware.toml [battery]) no longer sees the pack.
+    # VBAT/4 channel cannot see the pack; the firmware must read the divider's pin and scale by
+    # the divider's ratio ([battery] channel "pin", divider).
     vbat = d.net("J1", "1")
     found = []
     for r in d.refs_on(vbat):
@@ -175,12 +198,22 @@ def test_battery_voltage_is_measurable(d):
         down = d.two_terminal("resistor", tap, "GND")
         if pins and pins[0] in ADC_PINS and down:
             rt, rb = d.value(r, "resistance"), d.value(down[0], "resistance")
-            found.append((pins[0], 12.6 * rb / (rt + rb)))
+            found.append((pins[0], 12.6 * rb / (rt + rb), (rt + rb) / rb))
     assert found, (
         f"the battery ({vbat}) reaches no ADC pin through a divider; the firmware reads it on the "
         f"{FW['battery']['channel']} channel / {FW['battery']['divider']:g}, and IC1 VBAT is on {d.net(MCU, 'VBAT')}"
     )
-    assert all(v <= 3.3 for _, v in found), f"divided battery voltage above VDDA: {found}"
+    assert all(v <= 3.3 for _, v, _ in found), f"divided battery voltage above VDDA: {found}"
+    assert FW["battery"]["channel"] == "pin", f"the firmware reads the {FW['battery']['channel']} channel, not a pin"
+    pin, _, ratio = found[0]
+    assert pin in FW["pins"], f"the battery divider is on {pin}, which the firmware does not configure"
+    # The divider's tap is a high-impedance node (100 kOhm || 27 kOhm): a GPIO pull on the pin
+    # (RPU/RPD 30-50 kOhm, DS13311 Table 55 p160) loads it and shifts the reading.
+    pull = FW["pins"][pin].get("pull", "none")
+    assert pull == "none", f"{pin} carries the battery divider, but the firmware sets a pull-{pull} on it"
+    assert abs(FW["battery"]["divider"] / ratio - 1) < 0.01, (
+        f"the firmware divides by {FW['battery']['divider']:g}, the divider on {pin} by {ratio:.4f}"
+    )
 
 
 # SFH 4550 Version 1.9 (2022-08-09): VF 1.5 V typ at 100 mA (p5), IF 100 mA DC max (p4).

@@ -1,30 +1,61 @@
 # Placement of the main board's REGULATORS sheet (micras-pcb sch; units of 1.27 mm, y down).
-# Row 1: the battery input and switch. Row 2: the 20 V boost for the motor bridges.
-# Row 3: the two 3V3 sources, the buck from VBAT and the LDO from the USB +5V.
+# Row 1: the sources (battery input and switch, battery measurement, SWD probe supply).
+# Row 2: the 20 V boost for the motor bridges. Row 3: the supply mux and the 3V3 buck it feeds.
 paper = "A3"
-title = "Battery, regulators"
+title = "Battery, supply selection and regulators"
+ports = { at = [252, 58], rows = 2, title = "Sheet ports" }
 
 [[block]]
 title = "Battery input and switch: J1, SW4, low-side Q6"
 at = [10, 10]
-size = [100, 40]
+size = [120, 40]
 parts.J1 = { at = [14, 16], mirror = "y" }
 parts.SW4 = [30, 16]
-parts.R41 = [66, 22, 180]
-parts.Q6 = { at = [82, 18], fields = "right" }
+parts.R43 = [62, 18, 90]
+parts.C58 = { at = [78, 22], rot = 180, fields = "left" }
+parts.R41 = [86, 22, 180]
+parts.Q6 = { at = [102, 18], fields = "right" }
 wires = [
     ["J1.1", "SW4.2"],
     [[22, 16], [22, 12]],
-    ["SW4.3", "Q6.1"],
-    ["R41.2", [66, 18]],
-    ["Q6.3", [84, 10], [74, 10], [74, 12]],
-    ["J1.2", [20, 18], [20, 32], [84, 32], "Q6.2"],
-    ["R41.1", [66, 32]],
+    ["SW4.3", "R43.1"],
+    ["R43.2", "Q6.1"],
+    ["C58.2", [78, 18]],
+    ["R41.2", [86, 18]],
+    ["Q6.3", [104, 10], [94, 10], [94, 12]],
+    ["J1.2", [20, 18], [20, 32], [104, 32], "Q6.2"],
+    ["R41.1", [86, 32]],
     [[20, 32], [20, 34]],
 ]
 
 [[block]]
-title = "20 V boost: TPS611781 from VBAT for the L6205 bridges"
+title = "Battery measurement: to PA5"
+at = [134, 10]
+size = [52, 30]
+parts.R44 = [10, 12]
+parts.R45 = [10, 20, 180]
+parts.C59 = [26, 20, 180]
+wires = [
+    ["R44.2", "R45.2"],
+    ["C59.2", [26, 16], [10, 16]],
+    [[26, 16], [30, 16], { label = "right" }],
+]
+
+[[block]]
+title = "SWD probe supply: LM66100 ideal diode"
+at = [190, 10]
+size = [58, 34]
+parts.U5 = { at = [40, 22], fields = "bottom-right" }
+parts.C64 = { at = [20, 21], rot = 180, fields = "left" }
+wires = [
+    ["U5.1", "C64.2"],
+    [[26, 19], [26, 15]],
+]
+stubs."U5.3" = { point = "out" }
+stubs."U5.5" = { point = "out" }
+
+[[block]]
+title = "20 V boost: TPS61178 for the L6205 bridges, on while Motors_Enable is high"
 at = [10, 48]
 frame = [[0, 6, 236, 72]]
 parts.C49 = [10, 22, 180]
@@ -47,7 +78,6 @@ parts.C47 = [215, 44, 180]
 wires = [
     ["L2.2", [6, 20], [6, 16]],
     ["U1.12", [70, 38], [70, 20]],
-    ["U1.11", [70, 40], [70, 38]],
     ["L2.1", [104, 20], [104, 38], "U1.7"],
     [[104, 20], [110, 20], { label = "right" }],
     ["U1.13", [114, 40], "C43.2"],
@@ -69,8 +99,34 @@ wires = [
 ]
 
 [[block]]
-title = "3V3 buck: L6981N33 from VBAT"
+title = "Supply selection: TPS2121, the higher of VBAT and +5V on VSYS"
 at = [10, 132]
+size = [120, 48]
+parts.U4 = [50, 30]
+parts.C62 = [14, 16, 180]
+parts.C63 = [14, 28, 180]
+parts.R46 = [96, 40, 180]
+parts.C61 = { at = [80, 40], rot = 180, fields = "left" }
+wires = [
+    ["U4.7", [36, 24], [36, 14], [8, 14], [8, 10]],
+    ["U4.2", "C63.2"],
+    [[22, 26], [22, 22]],
+    ["U4.6", [40, 30], [40, 36], "U4.4"],
+    ["U4.3", [40, 32]],
+    ["U4.5", [40, 34]],
+    [[40, 36], [40, 38]],
+    ["U4.1", [62, 24], [62, 20]],
+    ["U4.8", [62, 26], [62, 24]],
+    ["U4.10", [96, 32], "R46.2"],
+    [[96, 32], [100, 32], { label = "right" }],
+    ["U4.11", [80, 34], "C61.2"],
+]
+stubs."U4.9" = { point = "out" }
+stubs."U4.12" = { point = "out" }
+
+[[block]]
+title = "3V3 buck: L6981C33 from VSYS"
+at = [134, 132]
 size = [158, 48]
 parts.IC7 = [66, 30]
 parts.C52 = [16, 28, 180]
@@ -95,14 +151,4 @@ wires = [
     [[82, 34], [86, 34], { point = "out" }],
     ["IC7.6", [64, 42], [68, 42], "IC7.8"],
     [[66, 42], [66, 44]],
-]
-
-[[block]]
-title = "USB LDO: CJA1117B-3.3, +5V to 3V3"
-at = [172, 132]
-size = [62, 34]
-parts.U3 = [30, 20]
-wires = [
-    ["U3.3", [18, 20], [18, 16]],
-    ["U3.2", [44, 20], [44, 16]],
 ]

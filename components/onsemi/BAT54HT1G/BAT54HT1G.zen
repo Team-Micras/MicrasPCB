@@ -1,0 +1,30 @@
+"""BAT54HT1G - Schottky barrier diode, 30 V, 200 mA, SOD-323.
+
+Datasheet: onsemi BAT54H, BAT54HT1/D Rev. 9 (November 2024), 5 pages.
+
+Maximum ratings (p1): VR 30 V; IF 200 mA DC; IFRM 300 mA; IFSM 600 mA (tp < 10 ms); PD 200 mW
+(FR-5 board, 25 C); RthJA 635 C/W; TJ, Tstg -55 to 150 C.
+Electrical characteristics (p2, TA 25 C): V(BR)R 30 V min at 10 uA; IR 0.2 / 2.0 uA at 25 V;
+CT 7.6 / 10 pF at 1 V; VF typ / max 0.22 / 0.24 V at 0.1 mA, 0.29 / 0.32 V at 1 mA, 0.35 / 0.40 V
+at 10 mA, 0.41 / 0.50 V at 30 mA, 0.52 / 0.80 V at 100 mA; trr 5 ns max. Marking JV.
+
+Pins (p1, SOD-323 case 477 style 1): pin 1 cathode, pin 2 anode; KiCad's D_SOD-323 numbers the
+cathode pad 1 and marks it with its silkscreen bar.
+
+This is the stdlib Rectifier generic's part, packaged because the generic cannot carry an MPN.
+"""
+
+A = io(Net)
+K = io(Net)
+
+Component(
+    name="D",
+    prefix="D",
+    symbol=Symbol(library="BAT54HT1G.kicad_sym"),
+    footprint=File("D_SOD-323.kicad_mod"),
+    part=Part(mpn="BAT54HT1G", manufacturer="onsemi"),
+    pins={
+        "A": A,
+        "K": K,
+    },
+)

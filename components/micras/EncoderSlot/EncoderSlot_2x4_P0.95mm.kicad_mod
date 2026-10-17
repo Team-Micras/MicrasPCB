@@ -2,7 +2,7 @@
 	(version 20260206)
 	(generator "micras")
 	(generator_version "10.0")
-	(descr "Micras main board side of the encoder board joint: 2 rows of 4 pads (1.0 x 0.6 mm, 0.95 mm pitch, row centres 2.32 mm apart) either side of a 0.90 x 5.10 mm slot centred on the origin. The slot is board Edge.Cuts, not part of this footprint; its outline is drawn on F.Fab. Pad geometry from the Altium MicrasLib ENCODER_CONNECTOR.")
+	(descr "Micras main board side of the encoder board joint: 2 rows of 4 pads (1.0 x 0.6 mm, 0.95 mm pitch, row centres 2.42 mm apart) either side of a 1.0 x 5.8 mm slot with fully rounded ends, centred on the origin. The slot is board Edge.Cuts, not part of this footprint; its outline is drawn on F.Fab. Pad size and pitch from the Altium MicrasLib ENCODER_CONNECTOR.")
 	(tags "edge connector slot micras encoder")
 	(fp_text reference "REF**"
 		(at 0 0)
@@ -37,53 +37,81 @@
 	(layer "F.Cu")
 	(attr smd exclude_from_pos_files exclude_from_bom)
 	(duplicate_pad_numbers_are_jumpers no)
-	(fp_rect
-		(start -0.45 -2.55)
-		(end 0.45 2.55)
+	(fp_line
+		(start -0.5 -2.4)
+		(end -0.5 2.4)
 		(stroke
 			(width 0.05)
 			(type solid)
 		)
-		(fill no)
+		(layer "F.Fab")
+	)
+	(fp_line
+		(start 0.5 -2.4)
+		(end 0.5 2.4)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.Fab")
+	)
+	(fp_arc
+		(start -0.5 -2.4)
+		(mid 0 -2.9)
+		(end 0.5 -2.4)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(layer "F.Fab")
+	)
+	(fp_arc
+		(start 0.5 2.4)
+		(mid 0 2.9)
+		(end -0.5 2.4)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
 		(layer "F.Fab")
 	)
 	(pad "1" smd rect
-		(at -1.16001 -1.425)
+		(at -1.21 -1.425)
 		(size 1 0.6)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 	)
 	(pad "2" smd rect
-		(at -1.16001 -0.475)
+		(at -1.21 -0.475)
 		(size 1 0.6)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 	)
 	(pad "3" smd rect
-		(at -1.16001 0.475)
+		(at -1.21 0.475)
 		(size 1 0.6)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 	)
 	(pad "4" smd rect
-		(at -1.16001 1.425)
+		(at -1.21 1.425)
 		(size 1 0.6)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 	)
 	(pad "5" smd rect
-		(at 1.16 -1.425)
+		(at 1.21 -1.425)
 		(size 1 0.6)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 	)
 	(pad "6" smd rect
-		(at 1.16 -0.475)
+		(at 1.21 -0.475)
 		(size 1 0.6)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 	)
 	(pad "7" smd rect
-		(at 1.16 0.475)
+		(at 1.21 0.475)
 		(size 1 0.6)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 	)
 	(pad "8" smd rect
-		(at 1.16 1.425)
+		(at 1.21 1.425)
 		(size 1 0.6)
 		(layers "F.Cu" "F.Mask" "F.Paste")
 	)

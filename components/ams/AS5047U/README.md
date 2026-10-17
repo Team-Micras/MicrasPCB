@@ -18,7 +18,8 @@ Reference prefix `IC`. MPN `AS5047U-HTSM`, ams OSRAM, LCSC C2153630.
 Integration notes:
 
 - 100 nF from the tied VDD/VDD3V3 node to GND (Figure 11, 3.3 V operation).
-- The SPI host must keep CSn, CLK and MOSI driven (datasheet note 1).
+- CSn, CLK and MOSI must never float (datasheet note 1): where the SPI host can release them
+  (an MCU in reset), pull CSn up and CLK and MOSI down (notes 2 and 3), as the encoder board does.
 - Place the package centred on the magnet axis: the Hall array is at the package centre,
   0.306 mm below the package top.
 
@@ -28,6 +29,7 @@ Integration notes:
 1.475 x 0.45 mm on 5.876 mm row centres, from the Micras Altium EncoderLib (the footprint of IC1
 on the MicrasEncoder board). Its STEP (`AS5047P-ATSM.step`, the library's TSSOP-14 model) is
 embedded: 6.4 x 5.0 mm over the leads, 1.2 mm high, the E, D and A max of DS Figure 60;
-`pcb rectify check`: OK. The footprint draws
-its silkscreen on F.SilkS, its body outline on User.13 and its courtyard on User.15 (Altium
-mechanical layers), so KiCad's courtyard checks do not see it.
+`pcb rectify check`: OK. Silkscreen on F.SilkS; the
+4.4 x 5.0 mm body outline with its pin 1 chamfer on F.Fab; the courtyard on F.CrtYd, a
+7.85 x 5.6 mm rectangle (the library's, 0.25 mm beyond the pads and 0.3 mm beyond the body:
+at least the IPC-7351B nominal courtyard excess).

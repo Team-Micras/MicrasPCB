@@ -1,0 +1,9 @@
+# Connectivity changes of this board against the previous revision (boards/encoder/previous/board.json).
+# `micras-pcb previous compare encoder` applies them in order and requires the result to equal this
+# board's netlist. Format: tools/micras_pcb/previous.py.
+
+[[change]]
+id = "SPI-PULLS"
+review = "AS5047U DS v1-00 Figure 4 notes 1-3 (boards/encoder/layout/README.md, Circuit)"
+summary = "Pulls on the AS5047U's SPI inputs, which the MCU releases during reset: R1 10 kOhm CSn to 3V3, R2 100 kOhm SPI_SCK to GND, R3 100 kOhm SPI_MOSI to GND (DS notes 1-3; RM0468 section 11.3.1)"
+add_parts = { R1 = { "1" = "net:3V3", "2" = "net:Encoder_CSn" }, R2 = { "1" = "net:SPI_SCK", "2" = "net:GND" }, R3 = { "1" = "net:SPI_MOSI", "2" = "net:GND" } }

@@ -1,0 +1,28 @@
+"""PZ254V-11-05P - 1x05 male pin header, 2.54 mm pitch, vertical, through hole.
+
+Datasheet: XFCN PZ254V-11-XX drawing rev. A1 (2024-06-11), LCSC C492404: 2.54 +- 0.05 mm
+pitch, 0.64 mm square pins, insulator 2.50 mm high and B = 12.70 mm long for 5 positions,
+pins 6.1 mm above and 3.0 mm below the insulator, recommended PCB hole 1.02 mm; 3 A, 500 V AC
+withstanding, 20 mOhm contact resistance max, -40 to +105 C.
+
+Footprint: 2.54 mm pitch, 1.0 mm drill, 1.8 mm pads (pad 1 rounded square), pads along +X from
+pad 1: the drill and pad of the PZ254V-11-04P package footprint (Altium MicrasLib "HDR MALE
+1x4") extended to five positions. The prefix is a config so the header can carry a P or J
+designator.
+"""
+
+prefix = config(str, default="P", help="Reference designator prefix")
+
+P1 = io(Net)
+P2 = io(Net)
+P3 = io(Net)
+P4 = io(Net)
+P5 = io(Net)
+
+Component(
+    name="HEADER",
+    prefix=prefix,
+    symbol=Symbol(library="PZ254V-11-05P.kicad_sym"),
+    part=Part(mpn="PZ254V-11-05P", manufacturer="XFCN"),
+    pins={"1": P1, "2": P2, "3": P3, "4": P4, "5": P5},
+)

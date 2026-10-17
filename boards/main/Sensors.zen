@@ -6,28 +6,52 @@ SDO_Aux open (Table 2 p10). C24 and C25 100 nF on Vdd and Vdd_IO (Table 2 note 1
 p44).
 
 Motor current, IC3 and IC4 (TSC2020IYST, gain 20 V/V, DS14393 Rev 7): IN+/IN- across the
-40 mOhm in-line shunts R33 (left, IC3) and R32 (right, IC4) on the drivers sheet. VREF1 on
-3V3 and VREF2 on GND centre the output on VCC/2 (section 5.4 Eq. 3, Figure 56):
+40 mOhm in-line shunts R32 (left motor, IC4) and R33 (right motor, IC3) on the drivers sheet.
+VREF1 on 3V3 and VREF2 on GND centre the output on VCC/2 (section 5.4 Eq. 3, Figure 56):
 VOUT = 20 x 0.04 Ohm x I + 1.65 V, linear for VOUT 0.1 V to VCC - 0.1 V (Table 4), i.e.
-+-1.94 A. The outputs go straight to the ADC (Current_Sensor_Left/Right).
++-1.94 A. The outputs go straight to the ADC (Current_Sensor_Left on PC0, Current_Sensor_Right
+on PC1). C67 (IC3) and C68 (IC4) 100 nF at VCC (section 5.11: as close as possible to the
+supply pins).
 
 Wall sensors W1-W4 (SFH 4550 emitter over a TPS601A phototransistor): channel n has
-- an emitter switch Q (AO3400A) driven by Wall_Sensor_PWM_n (TIM4) through a 220 Ohm gate
-  resistor, with 10 kOhm gate pull-down;
-- a 10 Ohm 0603 emitter resistor from 3V3 to the LED anode; the LED cathode on Q's drain;
+- an emitter switch Q (AO3400A) driven by Wall_Sensor_PWM_n (TIM4, 2 kHz) through a 220 Ohm
+  resistor and a 220 nF series capacitor, with a 10 kOhm pull-down and a 1N4148WS clamp from
+  GND to the gate. The capacitor AC-couples the gate: a pin held high lets the gate decay
+  with 10 kOhm x 220 nF = 2.2 ms, below VGS(th) 0.65 V min (AO3400A p2) within about 3 ms,
+  so the emitter never carries DC beyond its 100 mA rating (SFH 4550 p4). The clamp restores
+  the gate to -VF at every low phase, so the high level is 3.3 V - VF (0.715 V max at 1 mA,
+  1N4148WS datasheet), 2.59 V or more, falling by 8 % over the firmware's 187.5 us pulse
+  (37.5 % of 500 us): the gate stays near the 2.5 V point where RDS(on) is 48 mOhm max for
+  3 A (AO3400A p2), far from limiting the 180 mA emitter current;
+- a 10 Ohm 1206 emitter resistor (250 mW) from 3V3 to the LED anode; the LED cathode on Q's
+  drain. The LED takes (3.3 - 1.5) / 10 = 180 mA at VF typ (SFH 4550 p5), 121 mW in the
+  resistor at the firmware's 37.5 % duty;
 - the phototransistor collector on 3V3 and its emitter on Wall_Sensor_n (ADC), loaded by
   1 kOhm to GND;
 - a 1 uF on 3V3 next to the sensor (C26-C29).
 
 Encoder slots EC1 (right wheel) and EC2 (left wheel) take the AS5047U encoder boards on the
-same SPI bus, each with its own CSn, plus the ABI A/B outputs to timer inputs.
+same SPI bus, each with its own CSn, plus the ABI A/B outputs to timer inputs. Each encoder
+board carries 100 nF at its AS5047U (16 mA supply current, AS5047U DS Figure 6) at the end of
+the joint; 1 uF + 100 nF at each slot (C69/C70 at EC1, C71/C72 at EC2) decouple the 3V3 the
+joint carries.
 """
 
 load("@stdlib/interfaces.zen", "Spi")
-load("./passives.zen", "C_100N_0402", "C_1U_0402", "R_10K_0402", "R_10_0603", "R_1K_0402", "R_220_0402")
+load(
+    "./passives.zen",
+    "C_100N_0402",
+    "C_1U_0402",
+    "C_220N_0402",
+    "R_10K_0402",
+    "R_10_1206",
+    "R_1K_0402",
+    "R_220_0402",
+)
 
 Capacitor = Module("@stdlib/generics/Capacitor.zen")
 Resistor = Module("@stdlib/generics/Resistor.zen")
+D1N4148WS = Module("github.com/Team-Micras/MicrasPCB/components/cj/1N4148WS/1N4148WS.zen")
 AO3400A = Module("github.com/Team-Micras/MicrasPCB/components/aos/AO3400A/AO3400A.zen")
 EncoderSlot = Module("github.com/Team-Micras/MicrasPCB/components/micras/EncoderSlot/EncoderSlot.zen")
 LSM6DSV = Module("github.com/Team-Micras/MicrasPCB/components/st/LSM6DSV/LSM6DSV.zen")
@@ -90,46 +114,55 @@ TSC2020(
     name="IC3",
     VCC=V3V3,
     GND=GND,
-    IN_P=MOTOR_L_SENSE_P,
-    IN_N=MOTOR_L_SENSE_N,
-    VREF1=V3V3,
-    VREF2=GND,
-    OUT=Current_Sensor_Left,
-)
-TSC2020(
-    name="IC4",
-    VCC=V3V3,
-    GND=GND,
     IN_P=MOTOR_R_SENSE_P,
     IN_N=MOTOR_R_SENSE_N,
     VREF1=V3V3,
     VREF2=GND,
     OUT=Current_Sensor_Right,
 )
+Capacitor(name="C67", P1=GND, P2=V3V3, **C_100N_0402)
+TSC2020(
+    name="IC4",
+    VCC=V3V3,
+    GND=GND,
+    IN_P=MOTOR_L_SENSE_P,
+    IN_N=MOTOR_L_SENSE_N,
+    VREF1=V3V3,
+    VREF2=GND,
+    OUT=Current_Sensor_Left,
+)
+Capacitor(name="C68", P1=GND, P2=V3V3, **C_100N_0402)
 
 
 # Wall sensors.
-def wall_sensor(n, sensor, switch, r_gate, r_pulldown, r_emitter, r_load, cap, pwm, out):
+def wall_sensor(n, sensor, switch, r_gate, r_pulldown, c_gate, d_clamp, r_emitter, r_load, cap, pwm, out):
+    drive = Net("WALL{}_DRIVE".format(n))
     gate = Net("WALL{}_GATE".format(n))
     anode = Net("WALL{}_LED_A".format(n))
     cathode = Net("WALL{}_LED_K".format(n))
-    Resistor(name=r_gate, P1=gate, P2=pwm, **R_220_0402)
+    Resistor(name=r_gate, P1=drive, P2=pwm, **R_220_0402)
+    Capacitor(name=c_gate, P1=drive, P2=gate, **C_220N_0402)
     Resistor(name=r_pulldown, P1=GND, P2=gate, **R_10K_0402)
+    D1N4148WS(name=d_clamp, A=GND, K=gate)
     AO3400A(name=switch, G=gate, S=GND, D=cathode)
-    Resistor(name=r_emitter, P1=anode, P2=V3V3, **R_10_0603)
+    Resistor(name=r_emitter, P1=anode, P2=V3V3, **R_10_1206)
     WallSensor(name=sensor, LED_A=anode, LED_K=cathode, PT_C=V3V3, PT_E=out)
     Resistor(name=r_load, P1=GND, P2=out, **R_1K_0402)
     Capacitor(name=cap, P1=GND, P2=V3V3, **C_1U_0402)
 
 
-wall_sensor(0, "W1", "Q2", "R11", "R12", "R13", "R14", "C26", Wall_Sensor_PWM_0, Wall_Sensor_0)
-wall_sensor(1, "W2", "Q3", "R15", "R16", "R17", "R18", "C27", Wall_Sensor_PWM_1, Wall_Sensor_1)
-wall_sensor(2, "W3", "Q4", "R19", "R20", "R21", "R22", "C28", Wall_Sensor_PWM_2, Wall_Sensor_2)
-wall_sensor(3, "W4", "Q5", "R23", "R24", "R25", "R26", "C29", Wall_Sensor_PWM_3, Wall_Sensor_3)
+wall_sensor(0, "W1", "Q2", "R11", "R12", "C73", "D9", "R13", "R14", "C26", Wall_Sensor_PWM_0, Wall_Sensor_0)
+wall_sensor(1, "W2", "Q3", "R15", "R16", "C74", "D10", "R17", "R18", "C27", Wall_Sensor_PWM_1, Wall_Sensor_1)
+wall_sensor(2, "W3", "Q4", "R19", "R20", "C75", "D11", "R21", "R22", "C28", Wall_Sensor_PWM_2, Wall_Sensor_2)
+wall_sensor(3, "W4", "Q5", "R23", "R24", "C76", "D12", "R25", "R26", "C29", Wall_Sensor_PWM_3, Wall_Sensor_3)
 
 # Encoder slots.
 EncoderSlot(name="EC1", VDD=V3V3, GND=GND, SPI=ENCODER_RIGHT_SPI, A=Encoder_Right_ABI_A, B=Encoder_Right_ABI_B)
+Capacitor(name="C69", P1=GND, P2=V3V3, **C_1U_0402)
+Capacitor(name="C70", P1=GND, P2=V3V3, **C_100N_0402)
 EncoderSlot(name="EC2", VDD=V3V3, GND=GND, SPI=ENCODER_LEFT_SPI, A=Encoder_Left_ABI_A, B=Encoder_Left_ABI_B)
+Capacitor(name="C71", P1=GND, P2=V3V3, **C_1U_0402)
+Capacitor(name="C72", P1=GND, P2=V3V3, **C_100N_0402)
 
 # Schematic placement hints for `micras-pcb sch --draft` (pcb evaluates and ignores this value):
 # the four channels are one function each, told apart by their number.

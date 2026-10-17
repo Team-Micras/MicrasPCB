@@ -71,6 +71,9 @@ from the Micras Altium library (MicrasLib), with its STEP model (`STSPIN958.stp`
 0.80 x 0.25 mm pads, 4.06 mm inner span): its pads are 0.80 x 0.30 mm centred 2.5 mm from the
 package centre (4.2 mm inner span). The exposed pad matches (3.80 mm).
 
+Courtyard: an F.CrtYd rectangle around the body outline (User.13) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).
+
 ## Design requirements (board side)
 
 - Mode straps (Table 8): MODE1/2/3 tied to GND or VDD (or left open: internal pull-ups), never

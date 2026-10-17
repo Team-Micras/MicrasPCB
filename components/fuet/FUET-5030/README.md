@@ -23,3 +23,6 @@ Integration notes:
   circuitry.
 - The coil is 12 +/- 3 ohm: at DC the current is limited only by the coil and whatever is in series,
   so size the series resistor's power for the longest tone the firmware plays.
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.15) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).

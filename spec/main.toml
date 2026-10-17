@@ -58,10 +58,12 @@ path = { value = "H4.MH", source = "boards/main/main.zen instance path" }
 [encoder_slots]
 # One slot per wheel, long along x, centred on the axle line; the EncoderSlot footprint
 # (components/micras/EncoderSlot) of each sits on its centre. The encoder board's tab
-# (spec/encoder.toml [tab], [pcb]) stands in it.
-y = { value = 6.9, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts slot rectangles (KiCad x = 155.0011 to 155.9011 and 141.1011 to 142.0011); MicrasHardware Board.encoder_slot_y" }
-length = { value = 5.1, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts slot rectangles (KiCad y = 110.9536 to 116.0536)" }
-width = { value = 0.9, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts slot rectangles" }
+# (spec/encoder.toml [tab], [pcb]) stands in it. A milled slot: straight sides, ends rounded by
+# the cutter.
+y = { value = 6.9, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts slot centres (KiCad x = 155.4011 and 141.6011); MicrasHardware Board.encoder_slot_y" }
+length = { value = 5.8, source = "the 5.0 mm tab (spec/encoder.toml [tab] width) with its corners inside the rounded ends at the 0.79 mm encoder board + 0.1 mm thickness tolerance (tests/test_layout.py slot_findings), plus 0.1 mm JLCPCB outline tolerance per end" }
+width = { value = 1.0, source = "JLCPCB PCB capabilities (jlcpcb.com/capabilities/pcb-capabilities, read 2026-10-14): minimum non-plated slot width 1.0 mm" }
+corner_radius = { value = 0.5, source = "a 1.0 mm cutter mills the slot, so its ends are half circles of the slot width (JLCPCB: rectangular slots without rounded corners are not supported)" }
 right_path = { value = "SENSORS.EC1.SLOT", source = "boards/main/Sensors.zen: EC1 takes the right wheel's encoder board (y < 0)" }
 left_path = { value = "SENSORS.EC2.SLOT", source = "boards/main/Sensors.zen: EC2 takes the left wheel's encoder board (y > 0)" }
 

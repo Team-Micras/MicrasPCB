@@ -20,3 +20,14 @@ wires = [
 stubs."J1.5" = { point = "out" }
 stubs."J1.6" = { point = "out" }
 stubs."IC1.12" = { point = "out" }
+
+[[block]]
+title = "SPI idle levels"
+at = [12, 56]
+size = [56, 22]
+parts.R1 = [8, 11]
+parts.R2 = [26, 11]
+parts.R3 = [44, 11]
+stubs."R1.2" = { label = "right" }
+stubs."R2.1" = { label = "right" }
+stubs."R3.1" = { label = "right" }

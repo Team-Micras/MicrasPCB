@@ -21,3 +21,6 @@ The component has `type="inductor"` and these properties, like the stdlib `Induc
 
 Footprint `IND-SMD_L2.0-W1.6-B.kicad_mod`: 1.0 x 1.7 mm pads at 1.7 mm pitch, from the Micras
 Altium library (MicrasMainBoard), with a generic 2.0 x 1.6 mm STEP. `pcb rectify check` passes.
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.15) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).
