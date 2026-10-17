@@ -3542,6 +3542,26 @@
 		)
 		(uuid "0eba0ed0-3045-5af4-ae6c-db8c37c7b967")
 	)
+	(label "Motor_Left_PWM_BW"
+		(at 121.92 109.22 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "101d28ea-9bd8-5a25-b99a-3f16b1893dbb")
+	)
+	(label "Current_Sensor_Right"
+		(at 66.04 33.02 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "13653ca7-0c5b-5c67-a990-16d12eaa9347")
+	)
 	(label "SWDIO"
 		(at 252.73 220.98 0)
 		(effects
@@ -3551,46 +3571,6 @@
 			(justify left bottom)
 		)
 		(uuid "148f9a92-1693-54cf-9161-6efa2ef7d1f8")
-	)
-	(label "Wall_Sensor_1"
-		(at 66.04 154.94 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "1546c5d2-6fac-5d8c-a2bf-f48332e219bf")
-	)
-	(label "Wall_Sensor_0"
-		(at 66.04 149.86 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "181aa824-d0fb-5c96-a8b6-2cf454bbb842")
-	)
-	(label "Encoder_Left_ABI_A"
-		(at 66.04 38.1 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "19b49d01-9455-5633-a350-dc6fa9eddcdc")
-	)
-	(label "Encoder_Left_ABI_B"
-		(at 66.04 43.18 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "1ca936a9-953f-550f-9ae1-a6e9b1fe2e85")
 	)
 	(label "SPI_MOSI"
 		(at 66.04 124.46 180)
@@ -3612,15 +3592,25 @@
 		)
 		(uuid "24832500-210c-5c16-aba6-ae23cefaf0ca")
 	)
-	(label "Wall_Sensor_PWM_1"
-		(at 66.04 175.26 180)
+	(label "Switch_0"
+		(at 177.8 109.22 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "25c04145-f1f9-598c-84c2-8863d4a01051")
+		(uuid "250f77cf-7679-5545-b5f0-41e1c69c9feb")
+	)
+	(label "Encoder_Right_ABI_A"
+		(at 66.04 53.34 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "25fbf38c-4722-5e09-8393-0eb6d7c0d127")
 	)
 	(label "IMU_SPI_CSn"
 		(at 66.04 78.74 180)
@@ -3632,15 +3622,25 @@
 		)
 		(uuid "2738dfcb-753d-52bf-b656-7add83b9812e")
 	)
-	(label "Wall_Sensor_PWM_2"
-		(at 66.04 180.34 180)
+	(label "Switch_3"
+		(at 177.8 124.46 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "28c27bed-f4a1-5fc5-9c23-78499e9daffe")
+		(uuid "28a0811f-4921-52ce-9a11-84b6884868bc")
+	)
+	(label "Motor_Right_PWM_BW"
+		(at 121.92 129.54 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "2cd4b6e3-afb3-5631-ba63-b8b081111207")
 	)
 	(label "Motor_L_Sense-"
 		(at 66.04 88.9 180)
@@ -3652,6 +3652,26 @@
 		)
 		(uuid "2d99daa8-17e1-54f3-9f74-0c3fa5965868")
 	)
+	(label "Encoder_Left_ABI_B"
+		(at 66.04 43.18 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "2e3f560d-0202-56bf-96c9-3fe6983f7281")
+	)
+	(label "Fan_Enable"
+		(at 121.92 78.74 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "326f11ff-bdd2-57ee-9d04-393fd5361b0d")
+	)
 	(label "Motor_R_Sense+"
 		(at 66.04 93.98 180)
 		(effects
@@ -3661,16 +3681,6 @@
 			(justify right bottom)
 		)
 		(uuid "339e6f73-d51e-5917-a76f-52926e7f37c1")
-	)
-	(label "Buzzer"
-		(at 177.8 88.9 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "34af9050-1ad0-5015-8f02-aa05ca783f1d")
 	)
 	(label "SPI_MISO"
 		(at 66.04 104.14 180)
@@ -3682,25 +3692,25 @@
 		)
 		(uuid "385edddc-9817-5479-96c6-cee3425836c7")
 	)
-	(label "Switch_1"
-		(at 177.8 114.3 180)
+	(label "Wall_Sensor_3"
+		(at 66.04 165.1 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "396f1687-b529-5117-8097-869bbbbfc205")
+		(uuid "38a694b7-c1e4-5192-b69f-379440c936c7")
 	)
-	(label "Wall_Sensor_PWM_3"
-		(at 66.04 185.42 180)
+	(label "Encoder_Right_ABI_B"
+		(at 66.04 58.42 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "3a1b7851-abfb-5adf-a917-d93458740532")
+		(uuid "38d08ae8-e18b-528c-8a03-482f877c5af4")
 	)
 	(label "SPI_SCK"
 		(at 66.04 134.62 180)
@@ -3722,35 +3732,35 @@
 		)
 		(uuid "40c3db2e-843c-5ad1-8eae-7e40e97cf453")
 	)
-	(label "Wall_Sensor_2"
-		(at 66.04 160.02 180)
+	(label "Reset"
+		(at 177.8 104.14 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "4103d34f-134b-53cc-9fe9-e9694df553de")
+		(uuid "44b28027-4f90-55bf-871b-9fa7c25fb777")
 	)
-	(label "LED_Blue"
-		(at 177.8 99.06 180)
+	(label "Wall_Sensor_0"
+		(at 66.04 149.86 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "4e902de1-a395-547c-bbfb-fb36711a5a81")
+		(uuid "522a488d-0f0a-5914-b4a3-150b42f9583e")
 	)
-	(label "Fan_Enable"
-		(at 121.92 78.74 180)
+	(label "Motor_Left_PWM_FW"
+		(at 121.92 114.3 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "50332720-5e02-588a-a05c-6156c61a6d48")
+		(uuid "52896196-1164-5f29-823f-b9da9927eb43")
 	)
 	(label "Encoder_Left_CSn"
 		(at 66.04 48.26 180)
@@ -3762,6 +3772,26 @@
 		)
 		(uuid "536b2656-a087-5c48-bb49-abb4240741f1")
 	)
+	(label "Buzzer"
+		(at 177.8 88.9 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "5a955bca-ba99-5a73-92a2-e61e43939840")
+	)
+	(label "LED_Blue"
+		(at 177.8 99.06 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "5c661c74-b72e-586e-8689-e64a4d1a235f")
+	)
 	(label "IMU_INT1"
 		(at 66.04 68.58 180)
 		(effects
@@ -3772,25 +3802,15 @@
 		)
 		(uuid "5fee75be-767b-54f7-b9ff-0cd42ba04ade")
 	)
-	(label "Current_Sensor_Right"
-		(at 66.04 33.02 180)
+	(label "Boot"
+		(at 177.8 78.74 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "61c3816c-f42c-500d-9731-1488f7975dd8")
-	)
-	(label "Motor_Left_PWM_FW"
-		(at 121.92 114.3 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "6996b357-f1e6-5a60-a830-9f5995eddc20")
+		(uuid "6370c532-b31c-56f9-9d6f-724409da70a2")
 	)
 	(label "SPI_MISO"
 		(at 66.04 109.22 180)
@@ -3802,6 +3822,16 @@
 		)
 		(uuid "6aad7d5a-f6cc-54ae-a9fd-7ea29f6b27eb")
 	)
+	(label "Wall_Sensor_2"
+		(at 66.04 160.02 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "6dc91b00-77a9-5d7e-8945-f2172bcd5850")
+	)
 	(label "Motor_L_Sense+"
 		(at 66.04 83.82 180)
 		(effects
@@ -3811,6 +3841,16 @@
 			(justify right bottom)
 		)
 		(uuid "7068c2e2-df18-530e-82ef-b789993b0e03")
+	)
+	(label "Fan_Overcurrent"
+		(at 121.92 83.82 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "72a08802-de1a-55a8-ada9-c835759db4bd")
 	)
 	(label "Encoder_Right_CSn"
 		(at 66.04 63.5 180)
@@ -3822,16 +3862,6 @@
 		)
 		(uuid "758e87e9-ecc5-59be-9d32-16c66cd167da")
 	)
-	(label "Motor_Right_PWM_BW"
-		(at 121.92 129.54 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "774d744b-9377-5a74-974a-6f33f7d00015")
-	)
 	(label "USBD_P"
 		(at 177.8 134.62 180)
 		(effects
@@ -3841,26 +3871,6 @@
 			(justify right bottom)
 		)
 		(uuid "776e2db5-8c91-5366-a672-cfe43554150d")
-	)
-	(label "Switch_2"
-		(at 177.8 119.38 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "78728061-b923-54be-bb71-c3e322d9f603")
-	)
-	(label "Switch_3"
-		(at 177.8 124.46 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "7dce1acd-2b95-59e1-b64a-b8622e34cbba")
 	)
 	(label "Motor_L_Sense-"
 		(at 121.92 104.14 180)
@@ -3872,15 +3882,25 @@
 		)
 		(uuid "80761f39-64d4-5de7-8a34-941b46513662")
 	)
-	(label "Motor_Right_PWM_FW"
-		(at 121.92 134.62 180)
+	(label "Encoder_Left_ABI_A"
+		(at 66.04 38.1 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "80862beb-b13f-54da-8f0c-8e9a9d3ca443")
+		(uuid "856a0787-f22d-54ce-a1dd-87501297b8b6")
+	)
+	(label "Switch_1"
+		(at 177.8 114.3 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "87306b87-542a-5d1f-8903-aa453dc0f7a8")
 	)
 	(label "SPI_MOSI"
 		(at 66.04 119.38 180)
@@ -3892,6 +3912,26 @@
 		)
 		(uuid "8922f766-fce7-5826-9ca5-1d769bfa1691")
 	)
+	(label "Wall_Sensor_PWM_1"
+		(at 66.04 175.26 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "9067eec2-9da0-55ce-b836-c0be4289dd00")
+	)
+	(label "Motor_Right_PWM_FW"
+		(at 121.92 134.62 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "9b68356a-e72e-554c-a01a-5c97b1f2685a")
+	)
 	(label "Wall_Sensor_PWM_0"
 		(at 66.04 170.18 180)
 		(effects
@@ -3900,87 +3940,17 @@
 			)
 			(justify right bottom)
 		)
-		(uuid "8cde3f3a-988d-5da6-8b57-cf2927d5e147")
+		(uuid "af84c27a-86e9-547b-aad5-fa7601f4651b")
 	)
-	(label "GND_BAT"
-		(at 121.92 154.94 180)
+	(label "Switch_2"
+		(at 177.8 119.38 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "8dc37a38-dfbe-50eb-af7c-ae82a0653e4c")
-	)
-	(label "Fan_Overcurrent"
-		(at 121.92 83.82 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "8e049324-c565-59f5-889f-8b5b510f7453")
-	)
-	(label "Current_Sensor_Left"
-		(at 66.04 27.94 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "92e15766-f747-5b60-9ad0-a700b6f432e7")
-	)
-	(label "Fan_PWM"
-		(at 121.92 88.9 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "9f5c032e-32d8-5fd3-b96f-bdcb80dd0133")
-	)
-	(label "Reset"
-		(at 177.8 104.14 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "9fd59533-eba1-5e79-a03b-487b7696dc52")
-	)
-	(label "Encoder_Right_ABI_B"
-		(at 66.04 58.42 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "b110eec1-927b-5693-af04-073d0ab94458")
-	)
-	(label "Motor_Left_PWM_BW"
-		(at 121.92 109.22 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "bcf1ee67-e0bb-578f-8b09-d9e6f01ded72")
-	)
-	(label "Switch_0"
-		(at 177.8 109.22 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "bd3036f3-9223-51fc-931d-50086a590a33")
+		(uuid "bd95561c-8c61-5a18-8f95-cb8eea22fa61")
 	)
 	(label "SWCLK"
 		(at 252.73 223.52 0)
@@ -3992,6 +3962,26 @@
 		)
 		(uuid "be7bbe31-a24c-5c11-9532-0291f766ff4f")
 	)
+	(label "Wall_Sensor_PWM_2"
+		(at 66.04 180.34 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "bfd4345f-2ec2-5fb4-b7af-6982a0080eb5")
+	)
+	(label "Button"
+		(at 177.8 83.82 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "c04ac6eb-0819-524d-be49-d1046b0a9106")
+	)
 	(label "USBD_N"
 		(at 177.8 129.54 180)
 		(effects
@@ -4001,16 +3991,6 @@
 			(justify right bottom)
 		)
 		(uuid "c3c8e96b-1ef4-5126-ad03-b15af979afca")
-	)
-	(label "Motor_Enable"
-		(at 121.92 93.98 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "c952f701-3844-573f-abca-371f61a32c77")
 	)
 	(label "SWCLK"
 		(at 403.86 325.12 180)
@@ -4032,35 +4012,45 @@
 		)
 		(uuid "d53b750e-f5b0-5e5b-882c-caabc790a89c")
 	)
-	(label "Boot"
-		(at 177.8 78.74 180)
+	(label "Wall_Sensor_PWM_3"
+		(at 66.04 185.42 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "d67f5c35-5db2-5bb5-ad41-78919abeb42b")
+		(uuid "e43835ca-acfb-555c-b367-4fc975b85090")
 	)
-	(label "Wall_Sensor_3"
-		(at 66.04 165.1 180)
+	(label "Motor_Enable"
+		(at 121.92 93.98 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "d70a64ec-d170-5fa4-875d-de1ccaa39154")
+		(uuid "e543eed7-aeac-5852-8197-dd61caffe26b")
 	)
-	(label "Encoder_Right_ABI_A"
-		(at 66.04 53.34 180)
+	(label "Wall_Sensor_1"
+		(at 66.04 154.94 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "d974e6f3-32b4-521b-98ee-83eaad6860ad")
+		(uuid "e69d0689-e6fa-518c-8345-a7be7e85a75e")
+	)
+	(label "Fan_PWM"
+		(at 121.92 88.9 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "e8af822f-5a9b-5a60-b31b-b37fae4c305d")
 	)
 	(label "Motor_R_Sense-"
 		(at 66.04 99.06 180)
@@ -4112,15 +4102,15 @@
 		)
 		(uuid "f35d5422-a25f-5a32-9950-b470cc3bfd34")
 	)
-	(label "Button"
-		(at 177.8 83.82 180)
+	(label "Current_Sensor_Left"
+		(at 66.04 27.94 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "f3ae20f8-0a92-5271-9fed-6b80d9e49044")
+		(uuid "fa10fc8b-0cf2-5624-89fb-9796d44e3a37")
 	)
 	(global_label "Wall_Sensor_PWM_2"
 		(shape bidirectional)
@@ -9210,9 +9200,9 @@
 				)
 			)
 		)
-		(pin "FAN_ENABLE" bidirectional
+		(pin "Fan_Enable" bidirectional
 			(at 121.92 78.74 180)
-			(uuid "caa177a4-4a4e-581a-9adc-52b8896702da")
+			(uuid "46f8d0d3-a40d-5408-8f91-120ed54553f3")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9220,9 +9210,9 @@
 				(justify left)
 			)
 		)
-		(pin "FAN_OVERCURRENT" bidirectional
+		(pin "Fan_Overcurrent" bidirectional
 			(at 121.92 83.82 180)
-			(uuid "e929c04f-5a42-5040-bcab-24537cee8f34")
+			(uuid "0673a822-6747-5fc7-bf8a-1cfc2167eb60")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9230,9 +9220,9 @@
 				(justify left)
 			)
 		)
-		(pin "FAN_PWM" bidirectional
+		(pin "Fan_PWM" bidirectional
 			(at 121.92 88.9 180)
-			(uuid "c4ce6899-2fe6-5c4e-85f9-6b566d3861c7")
+			(uuid "d7a4980a-2e66-5708-a424-9cfb6181bdaf")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9240,9 +9230,9 @@
 				(justify left)
 			)
 		)
-		(pin "MOTOR_ENABLE" bidirectional
+		(pin "Motor_Enable" bidirectional
 			(at 121.92 93.98 180)
-			(uuid "6070532c-bd95-5449-bdd8-9c18f826e49e")
+			(uuid "07939476-452a-525f-a0a8-42f1bde4df6d")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9270,9 +9260,9 @@
 				(justify left)
 			)
 		)
-		(pin "MOTOR_LEFT_PWM_BW" bidirectional
+		(pin "Motor_Left_PWM_BW" bidirectional
 			(at 121.92 109.22 180)
-			(uuid "1669475a-3452-535c-b02e-24041e437daf")
+			(uuid "f38f976c-39a0-5c69-bcc5-16edd574f7d6")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9280,9 +9270,9 @@
 				(justify left)
 			)
 		)
-		(pin "MOTOR_LEFT_PWM_FW" bidirectional
+		(pin "Motor_Left_PWM_FW" bidirectional
 			(at 121.92 114.3 180)
-			(uuid "5f5a579f-36e9-5d96-a2f0-ba10c2b9b34e")
+			(uuid "67a80121-014e-5d8b-ab80-4f6fd4346f4b")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9310,9 +9300,9 @@
 				(justify left)
 			)
 		)
-		(pin "MOTOR_RIGHT_PWM_BW" bidirectional
+		(pin "Motor_Right_PWM_BW" bidirectional
 			(at 121.92 129.54 180)
-			(uuid "7f5e944c-2b85-5321-9fd3-8f760938e77e")
+			(uuid "d655e7c7-1132-5c3e-9c67-40fa818d44b9")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9320,9 +9310,9 @@
 				(justify left)
 			)
 		)
-		(pin "MOTOR_RIGHT_PWM_FW" bidirectional
+		(pin "Motor_Right_PWM_FW" bidirectional
 			(at 121.92 134.62 180)
-			(uuid "7cd9dd3c-3236-5ef5-89b0-4c11b9e9a8fa")
+			(uuid "837e0f93-0893-5869-ae99-92df79df86ec")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9373,9 +9363,9 @@
 				)
 			)
 		)
-		(pin "BOOT" bidirectional
+		(pin "Boot" bidirectional
 			(at 177.8 78.74 180)
-			(uuid "0393b165-0cf6-5997-ab03-1ed5e33648e5")
+			(uuid "a73a1e19-849f-53f9-89d6-c2d49e4269b8")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9383,9 +9373,9 @@
 				(justify left)
 			)
 		)
-		(pin "BUTTON" bidirectional
+		(pin "Button" bidirectional
 			(at 177.8 83.82 180)
-			(uuid "43407cfa-3ac8-5019-b9bb-8ebb056cf19a")
+			(uuid "1c2c65ba-0497-5143-b72a-4d41dd03be0c")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9393,9 +9383,9 @@
 				(justify left)
 			)
 		)
-		(pin "BUZZER" bidirectional
+		(pin "Buzzer" bidirectional
 			(at 177.8 88.9 180)
-			(uuid "ad0778b1-1a26-5078-9cae-81ae7ef3211a")
+			(uuid "2f34bc65-7bf7-5450-beae-ab2f3a06e3d2")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9413,9 +9403,9 @@
 				(justify left)
 			)
 		)
-		(pin "LED_BLUE" bidirectional
+		(pin "LED_Blue" bidirectional
 			(at 177.8 99.06 180)
-			(uuid "d061d81c-291c-575c-8cd2-79289c360011")
+			(uuid "9e84bdee-884c-58bf-9c9d-f886ac6cefe2")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9423,9 +9413,9 @@
 				(justify left)
 			)
 		)
-		(pin "RESET" bidirectional
+		(pin "Reset" bidirectional
 			(at 177.8 104.14 180)
-			(uuid "81694cec-0f8b-5f4a-bac3-a527b9b39b35")
+			(uuid "56850628-8b3a-5ded-8483-468ff8cc635b")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9433,9 +9423,9 @@
 				(justify left)
 			)
 		)
-		(pin "SWITCH_0" bidirectional
+		(pin "Switch_0" bidirectional
 			(at 177.8 109.22 180)
-			(uuid "5e5de8c1-f6ca-5671-b1d4-efa0c42925a6")
+			(uuid "a3978c9e-a272-57c4-9591-90a51ac1d785")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9443,9 +9433,9 @@
 				(justify left)
 			)
 		)
-		(pin "SWITCH_1" bidirectional
+		(pin "Switch_1" bidirectional
 			(at 177.8 114.3 180)
-			(uuid "3f70b593-7218-5bdb-9d7b-d15edd3d693d")
+			(uuid "42d72393-be59-5a70-970d-6119eee88a4f")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9453,9 +9443,9 @@
 				(justify left)
 			)
 		)
-		(pin "SWITCH_2" bidirectional
+		(pin "Switch_2" bidirectional
 			(at 177.8 119.38 180)
-			(uuid "3d7241b5-a546-59f4-b23a-4fa851fb3f36")
+			(uuid "873b97aa-ac65-52bd-a375-75887b76ea89")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9463,9 +9453,9 @@
 				(justify left)
 			)
 		)
-		(pin "SWITCH_3" bidirectional
+		(pin "Switch_3" bidirectional
 			(at 177.8 124.46 180)
-			(uuid "f7af1e04-d58e-520a-ae89-1b2a5d200286")
+			(uuid "7855bdaa-902c-549f-8ec8-af0029b8ebd9")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9536,16 +9526,6 @@
 				)
 			)
 		)
-		(pin "GND_BAT" bidirectional
-			(at 121.92 154.94 180)
-			(uuid "9a00e91b-3617-53d1-b976-45730202e9fa")
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
 		(instances
 			(project "main"
 				(path "/513d9cc1-d27a-514d-a37c-2f1ca04dddfa"
@@ -9589,9 +9569,9 @@
 				)
 			)
 		)
-		(pin "CURRENT_SENSOR_LEFT" bidirectional
+		(pin "Current_Sensor_Left" bidirectional
 			(at 66.04 27.94 180)
-			(uuid "462b818a-5648-565b-a455-03aaa28de513")
+			(uuid "1cb08502-5b5f-5a74-9d3e-7da46c5f84a0")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9599,9 +9579,9 @@
 				(justify left)
 			)
 		)
-		(pin "CURRENT_SENSOR_RIGHT" bidirectional
+		(pin "Current_Sensor_Right" bidirectional
 			(at 66.04 33.02 180)
-			(uuid "14727c21-1a8b-5a38-a7d5-c0c4ea89f524")
+			(uuid "84a4a697-8470-565d-be37-caa913b462fb")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9609,9 +9589,9 @@
 				(justify left)
 			)
 		)
-		(pin "ENCODER_LEFT_ABI_A" bidirectional
+		(pin "Encoder_Left_ABI_A" bidirectional
 			(at 66.04 38.1 180)
-			(uuid "e6c8df4e-faa0-55d0-b13e-2a6f0541b9a3")
+			(uuid "734fcc79-200a-513b-a499-b496e8248c8f")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9619,9 +9599,9 @@
 				(justify left)
 			)
 		)
-		(pin "ENCODER_LEFT_ABI_B" bidirectional
+		(pin "Encoder_Left_ABI_B" bidirectional
 			(at 66.04 43.18 180)
-			(uuid "8525feb4-3cf2-552e-aacc-cbdc04b0b106")
+			(uuid "d1749fdc-1053-58e5-acfe-ba4489cb31a2")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9639,9 +9619,9 @@
 				(justify left)
 			)
 		)
-		(pin "ENCODER_RIGHT_ABI_A" bidirectional
+		(pin "Encoder_Right_ABI_A" bidirectional
 			(at 66.04 53.34 180)
-			(uuid "0f404e47-a483-5d24-855b-6b217a2269dc")
+			(uuid "f203773d-9a6d-5ba4-b93f-6151d7ae5d2c")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9649,9 +9629,9 @@
 				(justify left)
 			)
 		)
-		(pin "ENCODER_RIGHT_ABI_B" bidirectional
+		(pin "Encoder_Right_ABI_B" bidirectional
 			(at 66.04 58.42 180)
-			(uuid "017546f0-ee28-5a5d-9f7d-34c8cafba0ca")
+			(uuid "7d78d752-725a-5ca8-a39f-07de3c8ad53c")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9829,9 +9809,9 @@
 				(justify left)
 			)
 		)
-		(pin "WALL_SENSOR_0" bidirectional
+		(pin "Wall_Sensor_0" bidirectional
 			(at 66.04 149.86 180)
-			(uuid "942c39c9-0d26-5885-8a80-84c2309e5abd")
+			(uuid "d88b4ad7-9e60-5a69-9a3b-81c4b23f0ece")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9839,9 +9819,9 @@
 				(justify left)
 			)
 		)
-		(pin "WALL_SENSOR_1" bidirectional
+		(pin "Wall_Sensor_1" bidirectional
 			(at 66.04 154.94 180)
-			(uuid "20c259f1-5a37-5aa5-b8bc-0588d6ebd9ee")
+			(uuid "a60973f3-3582-5765-ad5e-e6c28692c2e2")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9849,9 +9829,9 @@
 				(justify left)
 			)
 		)
-		(pin "WALL_SENSOR_2" bidirectional
+		(pin "Wall_Sensor_2" bidirectional
 			(at 66.04 160.02 180)
-			(uuid "a3355fc5-52d7-54ac-962c-195872c9806c")
+			(uuid "38e1ece8-a87c-57ac-93d4-9d0c1915de70")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9859,9 +9839,9 @@
 				(justify left)
 			)
 		)
-		(pin "WALL_SENSOR_3" bidirectional
+		(pin "Wall_Sensor_3" bidirectional
 			(at 66.04 165.1 180)
-			(uuid "6031487d-e4b4-5f91-88cb-4e411a644e7b")
+			(uuid "72ef3551-5b68-51cb-9b09-81c943818bb5")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9869,9 +9849,9 @@
 				(justify left)
 			)
 		)
-		(pin "WALL_SENSOR_PWM_0" bidirectional
+		(pin "Wall_Sensor_PWM_0" bidirectional
 			(at 66.04 170.18 180)
-			(uuid "e732c4b6-3db1-5487-9c07-b840027d7037")
+			(uuid "f2532ec2-0ca9-5c93-ae63-9d74228cca79")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9879,9 +9859,9 @@
 				(justify left)
 			)
 		)
-		(pin "WALL_SENSOR_PWM_1" bidirectional
+		(pin "Wall_Sensor_PWM_1" bidirectional
 			(at 66.04 175.26 180)
-			(uuid "9d8d60ba-edd3-5e32-b9d4-c1dd7bf5ac57")
+			(uuid "47b1c9d8-ce8a-5be4-bd2a-78fb9ee9ee68")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9889,9 +9869,9 @@
 				(justify left)
 			)
 		)
-		(pin "WALL_SENSOR_PWM_2" bidirectional
+		(pin "Wall_Sensor_PWM_2" bidirectional
 			(at 66.04 180.34 180)
-			(uuid "89106f4c-902e-52d3-94f2-27de5675504a")
+			(uuid "ccefe02e-4f78-59c5-a7bc-14acfb1c75ea")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9899,9 +9879,9 @@
 				(justify left)
 			)
 		)
-		(pin "WALL_SENSOR_PWM_3" bidirectional
+		(pin "Wall_Sensor_PWM_3" bidirectional
 			(at 66.04 185.42 180)
-			(uuid "96e33e21-ad17-5c1e-b5f3-01144c7b587b")
+			(uuid "876198d5-e686-5c14-a6be-80ac0b1b85c7")
 			(effects
 				(font
 					(size 1.27 1.27)

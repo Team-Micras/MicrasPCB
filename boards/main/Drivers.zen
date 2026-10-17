@@ -62,24 +62,27 @@ VT1C221M0605 = Module("github.com/Team-Micras/MicrasPCB/components/acmecon/VT1C2
 # Its own sheet in the board schematic (layout/main.kicad_sch); the layout stays the board's.
 Project(name="Drivers", path="layout", layout=False)
 
+# A signal port takes the name of the board net it carries (the firmware's pin label) wherever
+# that name is an identifier, so its sheet pin and hierarchical label match the root's label:
+# KiCad's ERC flags labels whose names differ only in case (similar_labels).
 VBAT = io(Power)
 V3V3 = io(Power)
 V20V = io(Power)
 GND = io(Ground)
 
-MOTOR_LEFT_PWM_FW = io(Net)
-MOTOR_LEFT_PWM_BW = io(Net)
-MOTOR_RIGHT_PWM_FW = io(Net)
-MOTOR_RIGHT_PWM_BW = io(Net)
-MOTOR_ENABLE = io(Net)
+Motor_Left_PWM_FW = io(Net)
+Motor_Left_PWM_BW = io(Net)
+Motor_Right_PWM_FW = io(Net)
+Motor_Right_PWM_BW = io(Net)
+Motor_Enable = io(Net)
 MOTOR_R_SENSE_P = io(Net)
 MOTOR_R_SENSE_N = io(Net)
 MOTOR_L_SENSE_P = io(Net)
 MOTOR_L_SENSE_N = io(Net)
 
-FAN_PWM = io(Net)
-FAN_ENABLE = io(Net)
-FAN_OVERCURRENT = io(Net)
+Fan_PWM = io(Net)
+Fan_Enable = io(Net)
+Fan_Overcurrent = io(Net)
 
 BRIDGE_EN = Net("BRIDGE_EN")
 BRIDGE_VCP = Net("BRIDGE_VCP")
@@ -105,11 +108,11 @@ L6205D(
     GND=GND,
     VBOOT=BRIDGE_VBOOT,
     VCP=BRIDGE_VCP,
-    IN1A=MOTOR_LEFT_PWM_FW,
-    IN2A=MOTOR_LEFT_PWM_BW,
+    IN1A=Motor_Left_PWM_FW,
+    IN2A=Motor_Left_PWM_BW,
     ENA=BRIDGE_EN,
-    IN1B=MOTOR_RIGHT_PWM_FW,
-    IN2B=MOTOR_RIGHT_PWM_BW,
+    IN1B=Motor_Right_PWM_FW,
+    IN2B=Motor_Right_PWM_BW,
     ENB=BRIDGE_EN,
     OUT1A=MOTOR_R_SENSE_P,
     OUT2A=BRIDGE_OUT2A,
@@ -125,7 +128,7 @@ D1N4148W(name="D7", A=BRIDGE_PUMP, K=BRIDGE_VBOOT)
 Capacitor(name="C39", P1=BRIDGE_VBOOT, P2=V20V, **C_220N_0805)
 Resistor(name="R34", P1=BRIDGE_PUMP, P2=BRIDGE_PUMP_RC, **R_100_0402)
 Capacitor(name="C40", P1=BRIDGE_PUMP_RC, P2=BRIDGE_VCP, **C_10N_0402)
-Resistor(name="R35", P1=BRIDGE_EN, P2=MOTOR_ENABLE, **R_100K_0402)
+Resistor(name="R35", P1=BRIDGE_EN, P2=Motor_Enable, **R_100K_0402)
 Capacitor(name="C41", P1=BRIDGE_EN, P2=GND, **C_10N_0402)
 
 B02B_PASK(name="M1", prefix="M", P1=BRIDGE_OUT2A, P2=MOTOR_R_SENSE_N)
@@ -149,16 +152,16 @@ STSPIN958(
     LSS2=FAN_LSS,
     V1=NotConnected(),
     V2=NotConnected(),
-    PWM1=FAN_PWM,
+    PWM1=Fan_PWM,
     PWM2_PH=V3V3,
-    EN_NFAULT=FAN_ENABLE,
+    EN_NFAULT=Fan_Enable,
     NSTBY=V3V3,
     MODE1=V3V3,
     MODE2=GND,
     MODE3=V3V3,
     OFFSET=GND,
     REF=FAN_REF,
-    TOFF=FAN_OVERCURRENT,
+    TOFF=Fan_Overcurrent,
     SR=FAN_SR,
 )
 Capacitor(name="C34", P1=VBAT, P2=GND, **C_470N_0603)
@@ -167,8 +170,8 @@ VT1C221M0605(name="C36", POS=VBAT, NEG=GND)
 Capacitor(name="C31", P1=GND, P2=V3V3, **C_220N_0402)
 Capacitor(name="C32", P1=FAN_CP1, P2=FAN_CP2, **C_100N_0402)
 Capacitor(name="C33", P1=FAN_VSPUMP, P2=FAN_VBOOT, **C_1U_0402)
-Resistor(name="R27", P1=V3V3, P2=FAN_ENABLE, **R_39K_0402)
-Capacitor(name="C30", P1=GND, P2=FAN_ENABLE, **C_10N_0402)
+Resistor(name="R27", P1=V3V3, P2=Fan_Enable, **R_39K_0402)
+Capacitor(name="C30", P1=GND, P2=Fan_Enable, **C_10N_0402)
 Resistor(name="R28", P1=V3V3, P2=FAN_REF, **R_24K_0402)
 Resistor(name="R29", P1=GND, P2=FAN_REF, **R_75K_0402)
 Resistor(name="R30", P1=GND, P2=FAN_SR, **R_5K6_0402)

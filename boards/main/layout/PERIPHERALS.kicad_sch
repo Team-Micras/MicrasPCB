@@ -4058,17 +4058,6 @@
 			)
 		)
 	)
-	(hierarchical_label "SWITCH_0"
-		(shape bidirectional)
-		(at 358.14 53.34 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "04746aef-8204-5d00-bda6-ea0ec1ecdb5b")
-	)
 	(hierarchical_label "USBD_P"
 		(shape bidirectional)
 		(at 76.2 185.42 90)
@@ -4079,6 +4068,28 @@
 			(justify left)
 		)
 		(uuid "1f438cf5-70fe-50ed-80ef-7d41d4f30674")
+	)
+	(hierarchical_label "Boot"
+		(shape bidirectional)
+		(at 264.16 127 270)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "22ae2cf1-0e3e-58e1-bdad-f273973458dd")
+	)
+	(hierarchical_label "Switch_0"
+		(shape bidirectional)
+		(at 358.14 53.34 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "324013d4-063f-5b7d-83f2-60139e1926d5")
 	)
 	(hierarchical_label "LED_ARGB"
 		(shape bidirectional)
@@ -4091,51 +4102,29 @@
 		)
 		(uuid "5c953023-b2bb-5e1a-b46f-42ea071faff4")
 	)
-	(hierarchical_label "BOOT"
+	(hierarchical_label "LED_Blue"
 		(shape bidirectional)
-		(at 264.16 127 270)
+		(at 46.99 247.65 270)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right)
 		)
-		(uuid "667684bd-ced1-5a82-b96a-5e9e0546076d")
+		(uuid "7349ef1a-bfa6-5498-91f7-ea38d183e657")
 	)
-	(hierarchical_label "BUZZER"
+	(hierarchical_label "Switch_2"
 		(shape bidirectional)
-		(at 63.5 247.65 270)
+		(at 358.14 58.42 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right)
 		)
-		(uuid "6e30aa5a-4067-51ec-af46-03fe87c8f1cf")
+		(uuid "7c31381b-a611-5cf1-acf5-49bc60184a0a")
 	)
-	(hierarchical_label "BUTTON"
-		(shape bidirectional)
-		(at 200.66 121.92 90)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "77b3b50a-ca69-5fd0-9346-1bff641e97a6")
-	)
-	(hierarchical_label "SWITCH_1"
-		(shape bidirectional)
-		(at 358.14 55.88 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "9242e141-d137-5527-b4d0-4b4b151aca13")
-	)
-	(hierarchical_label "SWITCH_3"
+	(hierarchical_label "Switch_3"
 		(shape bidirectional)
 		(at 358.14 60.96 180)
 		(effects
@@ -4144,7 +4133,18 @@
 			)
 			(justify right)
 		)
-		(uuid "9604e25d-def4-5a11-a1aa-ab428418d05a")
+		(uuid "8f326ee3-e2e9-5a84-9211-2b1135eb42a2")
+	)
+	(hierarchical_label "Reset"
+		(shape bidirectional)
+		(at 232.41 121.92 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "9a96dd7f-72b3-57e2-b037-30ac9bacb220")
 	)
 	(hierarchical_label "USBD_N"
 		(shape bidirectional)
@@ -4157,38 +4157,38 @@
 		)
 		(uuid "a12784b3-ba40-58ef-89c8-0ff613409865")
 	)
-	(hierarchical_label "SWITCH_2"
+	(hierarchical_label "Button"
 		(shape bidirectional)
-		(at 358.14 58.42 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "d5a7b533-8d91-5f99-8181-086c1523bcf7")
-	)
-	(hierarchical_label "RESET"
-		(shape bidirectional)
-		(at 232.41 121.92 90)
+		(at 200.66 121.92 90)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify left)
 		)
-		(uuid "e5659c72-9cef-5256-8c10-79c73528de3a")
+		(uuid "a9171465-3738-5cbb-bfc2-61338252bbe9")
 	)
-	(hierarchical_label "LED_BLUE"
+	(hierarchical_label "Buzzer"
 		(shape bidirectional)
-		(at 46.99 247.65 270)
+		(at 63.5 247.65 270)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right)
 		)
-		(uuid "e7784210-8d0d-5fc8-a19d-41ab3827ad44")
+		(uuid "c620774c-da22-57b9-bfb6-d2a8f730c437")
+	)
+	(hierarchical_label "Switch_1"
+		(shape bidirectional)
+		(at 358.14 55.88 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "fde9a4fc-d312-56d8-a49f-b0eeb63bc0fa")
 	)
 	(symbol
 		(lib_id "GT-TC048B-H025-L1")

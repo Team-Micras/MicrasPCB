@@ -3991,16 +3991,16 @@
 			)
 		)
 	)
-	(hierarchical_label "MOTOR_RIGHT_PWM_FW"
+	(hierarchical_label "Motor_Left_PWM_FW"
 		(shape bidirectional)
-		(at 215.9 125.73 180)
+		(at 215.9 115.57 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right)
 		)
-		(uuid "2e38b4fb-e82f-5af3-88cd-46b49060343c")
+		(uuid "19defa50-a0b4-5563-ac35-7762f2b98af6")
 	)
 	(hierarchical_label "MOTOR_R_SENSE_P"
 		(shape bidirectional)
@@ -4035,16 +4035,16 @@
 		)
 		(uuid "40048468-d520-5ea6-ac30-fb5982c2fe8d")
 	)
-	(hierarchical_label "MOTOR_LEFT_PWM_BW"
+	(hierarchical_label "Fan_PWM"
 		(shape bidirectional)
-		(at 215.9 118.11 180)
+		(at 132.08 107.95 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right)
 		)
-		(uuid "4df5c859-f8ae-5915-b1c1-01595e995372")
+		(uuid "537b1441-c8a2-52d2-914b-49b1f96c1df9")
 	)
 	(hierarchical_label "MOTOR_L_SENSE_P"
 		(shape bidirectional)
@@ -4057,6 +4057,17 @@
 		)
 		(uuid "56c1be74-1b3a-5870-bcff-1b50c31129f4")
 	)
+	(hierarchical_label "Fan_Enable"
+		(shape bidirectional)
+		(at 298.45 207.01 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "5c3a3ee8-cb6a-57df-be50-256025e0ec99")
+	)
 	(hierarchical_label "MOTOR_R_SENSE_N"
 		(shape bidirectional)
 		(at 242.57 316.23 180)
@@ -4068,7 +4079,7 @@
 		)
 		(uuid "65774e39-ae83-591d-970c-6831c1dbebcd")
 	)
-	(hierarchical_label "MOTOR_ENABLE"
+	(hierarchical_label "Motor_Enable"
 		(shape bidirectional)
 		(at 292.1 267.97 270)
 		(effects
@@ -4077,40 +4088,7 @@
 			)
 			(justify right)
 		)
-		(uuid "6a0db38c-17f2-5650-94cc-8c92eca636dd")
-	)
-	(hierarchical_label "FAN_PWM"
-		(shape bidirectional)
-		(at 132.08 107.95 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "72976cf5-53e5-51f8-8229-dfb8ea7bf159")
-	)
-	(hierarchical_label "FAN_OVERCURRENT"
-		(shape bidirectional)
-		(at 132.08 135.89 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "84dd2a75-2cbb-5252-8cfc-9a9bf89b7174")
-	)
-	(hierarchical_label "FAN_ENABLE"
-		(shape bidirectional)
-		(at 298.45 207.01 90)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "9b9b9c93-b3bc-57cf-a017-f16d2b14d647")
+		(uuid "88b2c1d0-3ad0-55ab-8fe6-e61610ab13b7")
 	)
 	(hierarchical_label "MOTOR_R_SENSE_N"
 		(shape bidirectional)
@@ -4134,16 +4112,38 @@
 		)
 		(uuid "b86dbd9f-dff5-5892-b10e-d86f3fa44b57")
 	)
-	(hierarchical_label "MOTOR_LEFT_PWM_FW"
+	(hierarchical_label "Motor_Right_PWM_FW"
 		(shape bidirectional)
-		(at 215.9 115.57 180)
+		(at 215.9 125.73 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right)
 		)
-		(uuid "d211a2eb-8747-5dca-8605-e277c1909e23")
+		(uuid "bc3a339a-fa4d-53d8-b5cf-a2859dc5cec8")
+	)
+	(hierarchical_label "Motor_Left_PWM_BW"
+		(shape bidirectional)
+		(at 215.9 118.11 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "c11c3ecf-3074-5288-bc31-88eeef9f604c")
+	)
+	(hierarchical_label "Motor_Right_PWM_BW"
+		(shape bidirectional)
+		(at 215.9 128.27 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "c7675cc6-9e32-50fa-b80f-43c99cfbe431")
 	)
 	(hierarchical_label "MOTOR_R_SENSE_P"
 		(shape bidirectional)
@@ -4156,16 +4156,16 @@
 		)
 		(uuid "d7aeb35f-a91c-5fe8-9ba8-bf136e3c887b")
 	)
-	(hierarchical_label "MOTOR_RIGHT_PWM_BW"
+	(hierarchical_label "Fan_Overcurrent"
 		(shape bidirectional)
-		(at 215.9 128.27 180)
+		(at 132.08 135.89 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right)
 		)
-		(uuid "f9ac154d-7305-51a6-99ce-03d10ae6428a")
+		(uuid "ef929234-2b41-51c9-ba33-b5031434dfcb")
 	)
 	(symbol
 		(lib_id "GND")
