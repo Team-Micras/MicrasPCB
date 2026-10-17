@@ -230,6 +230,16 @@ def battery_switch_slew(module, inputs):
     report([] if slew <= 0.5e6 else ["Q6 turn-on slews VBAT at up to " + eng(slew / 1e6, "V/us") + ", above 0.5 V/us"])
 
 
+def battery_switch_rating(module, inputs):
+    # SW4 carries Q6's gate drive from BAT_P: its DC rating must cover the pack (17.4 V with HV
+    # cells; research Power tree, 4S ratings). SK-12D29-G060: DC 24 V (G-Switch specification).
+    b = index(module)
+    sw = b.parts["SW4"]
+    vmax = sw.pins["COM"].voltage.max
+    rated = sw.properties["voltage"].value
+    report([] if rated >= vmax else ["SW4 is rated " + eng(rated, "V") + " DC, below the " + eng(vmax, "V") + " pack"])
+
+
 def capacitor_voltage_ratings(module, inputs):
     # Every capacitor's rated voltage must cover the largest voltage across it, from the
     # declared ranges of the nets it joins (nets without a declared range are skipped).
@@ -261,6 +271,7 @@ TestBench(
         battery_divider,
         battery_monitor,
         battery_switch_slew,
+        battery_switch_rating,
         capacitor_voltage_ratings,
     ],
 )

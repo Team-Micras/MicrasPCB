@@ -9,18 +9,27 @@ Power tree (research/next-revision, Power tree):
 - VSYS = OR(VBAT, VBUS) feeds only the 3V3_D buck IC7 and, through R58, the 3V3_A LDO U8. So the
   ESP32, the MCU (for SWD flashing) and VDDA all run from USB alone, with the bridges off.
 
-Battery input and switch, kept from the main board. J1 takes the pack: + on BAT_P, - on GND_BAT.
-Q6 (HSBB3072, 30 V N-MOSFET) is a low-side switch from GND_BAT to GND; SW4 drives its gate from
-BAT_P through R43 100 kOhm with R41 100 kOhm to GND_BAT, so VGS settles at VBAT / 2 = 6.0-8.7 V
-(RDS(on) 3.8 mOhm max at 4.5 V, HSBB3072 p2), inside +-20 V; VDS 30 V is 1.72x the 17.4 V pack.
-C58 47 nF slews the turn-on at IG / CGD <= 17.4 V / (100 kOhm x 47.2 nF) = 3.7 V/ms (Crss 229
-pF, HSBB3072 p2), below the STSPIN958's 0.5 V/us VS rating (DS14341 Table 1). The body diode
-gives no reverse-polarity protection: it conducts with the pack reversed (research Power tree,
-Battery switch). TODO: reverse-polarity protection and a TVS on BAT_P (research Gaps: battery
-input); the B02B-PASK rating at about 5 A on J1 is unconfirmed.
-TODO: SW4 (MK-12D18-G040) is rated DC 12 V 0.5 A (G-Switch specification); the 4S pack needs a
-switch rated for at least 16.8 V (17.4 V with HV cells). It carries only the gate drive
-(VBAT / 200 kOhm = 87 uA). Kept until a replacement part is chosen.
+Battery input and switch. J1 takes the pack: + on BAT_P, - on GND_BAT; the connector keys the
+polarity, and the board has no reverse-polarity protection (Q6's body diode conducts with the
+pack reversed; research Power tree, Battery switch). Q6 (HSBB3072, 30 V N-MOSFET) is a low-side
+switch from GND_BAT to GND; SW4 drives its gate from BAT_P through R43 100 kOhm with R41
+100 kOhm to GND_BAT, so VGS settles at VBAT / 2 = 6.0-8.7 V (RDS(on) 3.8 mOhm max at 4.5 V,
+HSBB3072 p2), inside +-20 V; VDS 30 V is 1.72x the 17.4 V pack. C58 47 nF slews the turn-on at
+IG / CGD <= 17.4 V / (100 kOhm x 47.2 nF) = 3.7 V/ms (Crss 229 pF, HSBB3072 p2), below the
+STSPIN958's 0.5 V/us VS rating (DS14341 Table 1); opening SW4 under load lets VBAT fall over
+tens of ms with no inductive kick on Q6. At plug-in C58 also couples the pack's edge onto the
+gate: Q6 conducts at about 3 V VGS and the VBAT ceramics charge in microseconds, limited by the
+pack's resistance (about 100 A peak from 0.1 Ohm, against the HSBB3072's 240 A IDM), without
+overshoot from the pack's own leads (research calculations/power_tree/vbat_bulk.py).
+SW4 is the SK-12D29-G060 (G-Switch drawing SK-12D29-GXXX): DC 24 V 1.0 A, 1.38x the 17.4 V
+pack; it carries only the gate drive (VBAT / 200 kOhm = 87 uA). Its body is the main board's
+MK-12D18 size (8.6 x 3.6 x 3.6 mm) with a 6.0 mm black lever over the rear notch's edge; three
+pins at 2.0 mm pitch and two frame legs (components/g-switch/SK-12D29-G060).
+TODO: a TVS from BAT_P to GND_BAT at J1, the owner's decision (research Power tree, VBAT
+overvoltage: an SMAJ18A clamps braking regeneration with the pack pulled, which the VBAT ceramics
+hold below 30 V for only about 5 ms, and a bench-supply hot plug); the B02B-PASK rating at
+about 5 A on J1 is unconfirmed; which SW4 lever position joins COM to B (ON) is not on the
+drawing: check a sample before the silkscreen marks it.
 
 Battery monitor, U9 (INA228AIDGSR, SLYS021A) on the ESP32's I2C (the MCU has no free I2C pins,
 research Current sensing): the 2 mOhm 4-terminal shunt R59 (WSK25122L000FEA) carries the whole
@@ -101,7 +110,7 @@ B5819W = Module("github.com/Team-Micras/MicrasPCB/components/cj/B5819W/B5819W.ze
 HSBB3072 = Module("github.com/Team-Micras/MicrasPCB/components/huashuo/HSBB3072/HSBB3072.zen")
 INA228 = Module("github.com/Team-Micras/MicrasPCB/components/ti/INA228/INA228.zen")
 L6981 = Module("github.com/Team-Micras/MicrasPCB/components/st/L6981/L6981.zen")
-MK_12D18_G040 = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/MK-12D18-G040/MK-12D18-G040.zen")
+SK_12D29_G060 = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/SK-12D29-G060/SK-12D29-G060.zen")
 WSK2512_MID = Module("github.com/Team-Micras/MicrasPCB/components/vishay/WSK2512-MID/WSK2512-MID.zen")
 YSPIA0645_220M = Module("github.com/Team-Micras/MicrasPCB/components/yjycoin/YSPIA0645-220M/YSPIA0645-220M.zen")
 
@@ -137,7 +146,7 @@ LDO_IN = Power("LDO_IN", voltage="3.8V to 17.4V")
 
 # Battery input and switch.
 B02B_PASK(name="J1", prefix="J", P1=BAT_P, P2=GND_BAT)
-MK_12D18_G040(name="SW4", A=NotConnected(), COM=BAT_P, B=BAT_SW_DRIVE)
+SK_12D29_G060(name="SW4", A=NotConnected(), COM=BAT_P, B=BAT_SW_DRIVE)
 Resistor(name="R43", P1=BAT_SW_DRIVE, P2=BAT_SW_GATE, **R_100K_0402)
 HSBB3072(name="Q6", G=BAT_SW_GATE, S=GND_BAT, D=GND)
 Resistor(name="R41", P1=GND_BAT, P2=BAT_SW_GATE, **R_100K_0402)
