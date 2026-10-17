@@ -25,11 +25,20 @@ SW4 is the SK-12D29-G060 (G-Switch drawing SK-12D29-GXXX): DC 24 V 1.0 A, 1.38x 
 pack; it carries only the gate drive (VBAT / 200 kOhm = 87 uA). Its body is the main board's
 MK-12D18 size (8.6 x 3.6 x 3.6 mm) with a 6.0 mm black lever over the rear notch's edge; three
 pins at 2.0 mm pitch and two frame legs (components/g-switch/SK-12D29-G060).
-TODO: a TVS from BAT_P to GND_BAT at J1, the owner's decision (research Power tree, VBAT
-overvoltage: an SMAJ18A clamps braking regeneration with the pack pulled, which the VBAT ceramics
-hold below 30 V for only about 5 ms, and a bench-supply hot plug); the B02B-PASK rating at
-about 5 A on J1 is unconfirmed; which SW4 lever position joins COM to B (ON) is not on the
-drawing: check a sample before the silkscreen marks it.
+TVS, D15 (SMAJ18A, Littelfuse SMAJ series p2: VR 18 V, VBR 20.0-22.1 V at 1 mA, VC 29.2 V at
+13.7 A, 400 W 10/1000 us), across J1: cathode on BAT_P, anode on GND_BAT. VR is above the 17.4 V
+pack (IR 1 uA max). With the pack pulled while the bridges brake, the motors push up to 3.8 W into
+VBAT (research Power tree, VBAT overvoltage), which the VBAT ceramics alone hold below the
+DRV8874's 40 V for only about 11 ms. D15 takes that current from VBAT through R59 and returns it
+to GND through Q6, in both of Q6's states: with SW4 on, through its channel (VGS = VBAT / 2);
+with SW4 off, through its body diode, whose forward direction is GND_BAT to GND (VSD 1.2 V max at
+1 A, HSBB3072 p2). VBAT then sits at VBR plus D15's slope, plus the body-diode drop with SW4 off:
+21.2-22.4 V with SW4 on and 21.9-23.1 V off for 0.15-2 A of braking current (simulated at a
+21 V knee; up to 1.1 V more at the 22.1 V VBR maximum), below the 25 V MLCCs on VSYS, Q8's 30 V
+and the 40 V parts. It also clamps Q6's VDS and a bench-supply hot plug (24.2 V unclamped, 23.5 V
+clamped from 17.4 V on 1 m leads). Research calculations/power_tree/vbat_bulk.py.
+TODO: the B02B-PASK rating at about 5 A on J1 is unconfirmed; which SW4 lever position joins COM
+to B (ON) is not on the drawing: check a sample before the silkscreen marks it.
 
 Battery monitor, U9 (INA228AIDGSR, SLYS021A) on the ESP32's I2C (the MCU has no free I2C pins,
 research Current sensing): the 2 mOhm 4-terminal shunt R59 (WSK25122L000FEA) carries the whole
@@ -111,6 +120,7 @@ HSBB3072 = Module("github.com/Team-Micras/MicrasPCB/components/huashuo/HSBB3072/
 INA228 = Module("github.com/Team-Micras/MicrasPCB/components/ti/INA228/INA228.zen")
 L6981 = Module("github.com/Team-Micras/MicrasPCB/components/st/L6981/L6981.zen")
 SK_12D29_G060 = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/SK-12D29-G060/SK-12D29-G060.zen")
+SMAJ18A = Module("github.com/Team-Micras/MicrasPCB/components/littelfuse/SMAJ18A/SMAJ18A.zen")
 WSK2512_MID = Module("github.com/Team-Micras/MicrasPCB/components/vishay/WSK2512-MID/WSK2512-MID.zen")
 YSPIA0645_220M = Module("github.com/Team-Micras/MicrasPCB/components/yjycoin/YSPIA0645-220M/YSPIA0645-220M.zen")
 
@@ -146,6 +156,7 @@ LDO_IN = Power("LDO_IN", voltage="3.8V to 17.4V")
 
 # Battery input and switch.
 B02B_PASK(name="J1", prefix="J", P1=BAT_P, P2=GND_BAT)
+SMAJ18A(name="D15", K=BAT_P, A=GND_BAT)
 SK_12D29_G060(name="SW4", A=NotConnected(), COM=BAT_P, B=BAT_SW_DRIVE)
 Resistor(name="R43", P1=BAT_SW_DRIVE, P2=BAT_SW_GATE, **R_100K_0402)
 HSBB3072(name="Q6", G=BAT_SW_GATE, S=GND_BAT, D=GND)

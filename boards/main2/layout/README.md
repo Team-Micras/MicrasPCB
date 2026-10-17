@@ -9,7 +9,7 @@ ESP32-S3 radio and debug probe on the USB-C port, and the user interface.
 The design is [research/next-revision/README.md](../../../research/next-revision/README.md): its
 design basis (maxon DCX 10 L 4.5 V motors on a 4S pack, no boost; USB-C to the ESP32 only; no
 5 V rail), the options it recommends, and its connection lists A.1-A.6. The blocks it keeps are
-`boards/main`'s, with their designators; new parts continue each series (C80-C112, D14, IC8-IC9,
+`boards/main`'s, with their designators; new parts continue each series (C80-C112, D14-D15, IC8-IC9,
 L4-L6, Q8-Q9, R56-R92, U8-U13), and the designators of removed parts are not reused.
 
 The board is **schematic only**: its Zener root declares `Project(layout = False)`, so `make gen`
@@ -24,7 +24,7 @@ The board files are in `boards/main2/` (this README sits in its `layout/` folder
 | File | Sheet instance | Contents |
 |---|---|---|
 | [`main2.zen`](../main2.zen) | root | IC1 (STM32H725RGV6) and its supply network (C1-C17, L1, R67), test pads (IMU, fan, the SWD backstop), M2 screw holes H1-H4 |
-| [`Regulators.zen`](../Regulators.zen) | `REGULATORS` | J1 battery connector, battery switch SW4/Q6, battery monitor U9 (INA228) with its 2 mOhm shunt R59, battery measurement R44/R45, power path D14/Q8, 3V3_D buck IC7, 3V3_A LDO U8 |
+| [`Regulators.zen`](../Regulators.zen) | `REGULATORS` | J1 battery connector with its TVS D15, battery switch SW4/Q6, battery monitor U9 (INA228) with its 2 mOhm shunt R59, battery measurement R44/R45, power path D14/Q8, 3V3_D buck IC7, 3V3_A LDO U8 |
 | [`Drivers.zen`](../Drivers.zen) | `DRIVERS` | IC8/IC9 (DRV8874) bridges for M2/M1 with their 10 mOhm shunts R65/R75 and 47 uH chokes L4/L5, IC6 (STSPIN958) fan driver for M3 with its shunt R31 and 4.7 uH choke L6 |
 | [`Sensors.zen`](../Sensors.zen) | `SENSORS` | IC2 (LSM6DSV) IMU, U10/U11 (INA241A2) current amplifiers, wall sensors W1-W4 with their selectors Q2-Q5 and the emitter current sink U12/Q9/R83, encoder slots EC1/EC2 |
 | [`Peripherals.zen`](../Peripherals.zen) | `PERIPHERALS` | SW1 DIP switch, SW2/SW3/SW5 buttons, BZ1 buzzer, D1/D2 (WS2812C-2020-V6) status LEDs, D4/D5 LEDs, U2 USB-C with its ESD protection U6/D8 and the MCU's VBUS sensing |
@@ -50,7 +50,7 @@ rail, the decoupling and the firmware contract on the generated netlist.
 ## Power
 
 ```text
-4S LiPo 12.0-16.8 V (17.4 V HV) ─ J1 ─ BAT_P ─ R59 2 mΩ (U9 INA228, I²C to the ESP32) ─ VBAT
+4S LiPo 12.0-16.8 V (17.4 V HV) ─ J1 (D15 SMAJ18A across it) ─ BAT_P ─ R59 2 mΩ (U9 INA228, I²C to the ESP32) ─ VBAT
    pack - ─ GND_BAT ─ Q6 HSBB3072 (SW4, slew-limited) ─ GND
 VBAT ─┬─ IC8/IC9 DRV8874 VM, IC6 STSPIN958 VS
       ├─ R44/R45 100k/20k ─ PA5 (Battery_Voltage, ratio 6.0)
@@ -73,6 +73,9 @@ USB VBUS (+5V) ─ Q8 AO3401A (gate follows VBAT) ─┴─ VSYS 4.3-17.4 V
 - **Battery switch**: Q6 as on the main board; SW4 is the SK-12D29-G060 (DC 24 V, the main board's
   switch body with a 6.0 mm lever, its own footprint). No reverse-polarity protection: the connector
   keys the polarity.
+- **TVS**: D15 (SMAJ18A, 18 V standoff, 20-22.1 V breakdown) across J1, BAT_P to GND_BAT. With the
+  pack pulled while the bridges brake, it holds VBAT near 21-23 V through Q6's channel (SW4 on) or
+  its body diode (SW4 off), below the 25 V MLCCs on VSYS and the DRV8874's 40 V.
 - **No electrolytics**: VBAT carries only ceramics (56 uF effective at 16.8 V); the research's
   [VBAT capacitance](../../../research/next-revision/README.md#power-tree) compares the options and
   quantifies the VBAT overvoltage cases.
@@ -163,9 +166,8 @@ decisions for the owner:
 
 Each is a visible TODO in the sheet that owns it.
 
-- Battery input: a TVS at J1 (the research recommends an SMAJ18A against braking regeneration with
-  the pack pulled; the owner's decision); the B02B-PASK rating at about 5 A; which SW4 lever
-  position is ON (the SK-12D29 drawing does not say).
+- Battery input: the B02B-PASK rating at about 5 A; which SW4 lever position is ON (the SK-12D29
+  drawing does not say).
 - Choke 0 Ohm alternatives: the 2512 jumper's current rating.
 - Emitter sink: the set-point is always on (the research asks it off between pulses); a
   selector held on puts 175 mA DC through an emitter; the TLV9001 loop's step response with

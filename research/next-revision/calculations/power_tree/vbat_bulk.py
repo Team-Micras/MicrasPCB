@@ -352,3 +352,32 @@ i_clamp = p_net / 21.0
 print(f"Regen clamp current about {i_clamp:.2f} A at about 21 V: the TVS sits near VBR (20-22.1 V),")
 print(f"far below VC 29.2 V at 13.7 A; {p_net:.1f} W for a few hundred ms ({0.83:.2f} J at most).")
 print("Hot plug: the TVS also holds Q6's VDS (30 V absolute maximum) below 30 V.")
+
+print("\n=== 7. The SMAJ18A at J1 with the pack pulled under braking, Q6 on and off ===")
+# No pack: J1 open. Braking pushes current into VBAT and out of the board's GND (a current source
+# from GND to VBAT, no logic load: conservative). The TVS (cathode BAT_P, anode GND_BAT) closes
+# the loop through Q6: its channel with SW4 on, its body diode (GND_BAT -> GND) with SW4 off.
+
+
+def regen_clamp(option, sw4_on, i_regen, vi=2):
+    sw = "Rsw bp drv 0.1" if sw4_on else "Rsw bp drv 1G"
+    vg = 8.4 if sw4_on else 0.0
+    lines = [f"* regen clamp {option}", "Rsh bp vb 2m", bank(option, vi, node="vb", gnd="0"),
+             f"Ireg 0 vb {i_regen}", sw, "R43 drv g 100k", "R41 g gb 100k", "C58 g 0 47n",
+             "M6 0 g gb gb QHS", Q6_MODEL, TVS,
+             f".ic v(vb)=16.8 v(bp)=16.8 v(gb)=0 v(g)={vg}",
+             ".tran 1u 30m 0 5u uic", ".control", "run",
+             "let vq6 = 0 - v(gb)", "let vgs = v(g) - v(gb)",
+             "meas tran vmax MAX v(vb) from=0 to=30m", "meas tran vend FIND v(vb) AT=29m",
+             "meas tran vq6 FIND vq6 AT=29m", "meas tran vgs FIND vgs AT=29m", ".endc", ".end"]
+    return run("\n".join(lines))
+
+
+print(f"{'SW4 / Q6':22s} {'I regen':>8s} {'VBAT max':>9s} {'VBAT end':>9s} {'Q6 VDS':>8s} {'Q6 VGS':>7s}")
+for sw4 in (True, False):
+    for i_r in (0.15, 0.5, 2.0):
+        r = regen_clamp("ceramic: 2 x 1210 10u 50V X7R per bridge", sw4, i_r)
+        tag = "on (channel)" if sw4 else "off (body diode)"
+        print(f"{tag:22s} {i_r:6.2f} A {r['vmax']:7.2f} V {r['vend']:7.2f} V {r['vq6']:6.2f} V {r['vgs']:5.2f} V")
+print("Both states clamp VBAT: with SW4 off the TVS current returns to GND through Q6's body diode")
+print("(GND_BAT to GND is its forward direction), adding its drop (1.2 V max at 1 A, HSBB3072 p2).")

@@ -5,10 +5,11 @@ title = "Battery input, power path and regulators"
 ports = { at = [160, 88], rows = 4, title = "Sheet ports" }
 
 [[block]]
-title = "Battery input and switch: SW4 drives the low-side MOSFET Q6"
+title = "Battery input, TVS D15 and switch: SW4 drives the low-side MOSFET Q6"
 at = [10, 12]
 size = [142, 36]
 parts.J1 = { at = [14, 20], mirror = "y" }
+parts.D15 = { at = [24, 24], rot = 90, fields = "right" }
 parts.SW4 = [32, 20]
 parts.R43 = [64, 22, 90]
 parts.R41 = { at = [90, 28], rot = 180, fields = "left" }
@@ -17,7 +18,9 @@ parts.Q6 = [120, 22]
 wires = [
     ["J1.1", "SW4.2"],
     [[24, 20], [24, 16]],
-    ["J1.2", [21, 22], [21, 28]],
+    ["J1.2", [21, 22], [21, 29], [24, 29], "D15.2"],
+    [[21, 29], [21, 31]],
+    ["D15.1", [24, 20]],
     ["SW4.3", "R43.1"],
     ["R43.2", "Q6.1"],
     ["R41.2", [90, 22]],
