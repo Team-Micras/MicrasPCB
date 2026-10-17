@@ -544,6 +544,9 @@
 			(embedded_fonts no)
 		)
 		(symbol "B02B-PASK"
+			(pin_names
+				(hide yes)
+			)
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
@@ -4152,7 +4155,7 @@
 		(dnp no)
 		(uuid "596b21ec-b9ae-5956-87cd-e669aa9be081")
 		(property "Reference" "J1"
-			(at 28.8955 34.925 0)
+			(at 30.48 34.925 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -4162,7 +4165,7 @@
 			)
 		)
 		(property "Value" "B02B-PASK(LF)(SN)"
-			(at 28.8955 37.465 0)
+			(at 30.48 37.465 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7246,7 +7249,7 @@
 	)
 	(wire
 		(pts
-			(xy 222.25 116.84) (xy 227.33 116.84)
+			(xy 224.79 116.84) (xy 229.87 116.84)
 		)
 		(stroke
 			(width 0)
@@ -7256,7 +7259,7 @@
 	)
 	(wire
 		(pts
-			(xy 222.25 119.38) (xy 227.33 119.38)
+			(xy 224.79 119.38) (xy 229.87 119.38)
 		)
 		(stroke
 			(width 0)
@@ -7266,7 +7269,7 @@
 	)
 	(wire
 		(pts
-			(xy 222.25 121.92) (xy 227.33 121.92)
+			(xy 224.79 121.92) (xy 229.87 121.92)
 		)
 		(stroke
 			(width 0)
@@ -7276,7 +7279,7 @@
 	)
 	(wire
 		(pts
-			(xy 222.25 124.46) (xy 227.33 124.46)
+			(xy 224.79 124.46) (xy 229.87 124.46)
 		)
 		(stroke
 			(width 0)
@@ -7444,7 +7447,7 @@
 	)
 	(global_label "BAT_ALERT"
 		(shape bidirectional)
-		(at 222.25 116.84 180)
+		(at 224.79 116.84 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -7453,7 +7456,7 @@
 		)
 		(uuid "27bf2f59-5913-5a4b-b452-4f782e716260")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 222.25 116.84 0)
+			(at 224.79 116.84 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7466,7 +7469,7 @@
 	)
 	(hierarchical_label "BAT_ALERT"
 		(shape bidirectional)
-		(at 227.33 116.84 0)
+		(at 229.87 116.84 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -7477,7 +7480,7 @@
 	)
 	(global_label "BAT_SCL"
 		(shape bidirectional)
-		(at 222.25 119.38 180)
+		(at 224.79 119.38 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -7486,7 +7489,7 @@
 		)
 		(uuid "b4f5de26-fa10-54b3-ac5a-704ef886ed4e")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 222.25 119.38 0)
+			(at 224.79 119.38 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7499,7 +7502,7 @@
 	)
 	(hierarchical_label "BAT_I2C.SCL"
 		(shape bidirectional)
-		(at 227.33 119.38 0)
+		(at 229.87 119.38 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -7510,7 +7513,7 @@
 	)
 	(global_label "BAT_SDA"
 		(shape bidirectional)
-		(at 222.25 121.92 180)
+		(at 224.79 121.92 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -7519,7 +7522,7 @@
 		)
 		(uuid "56a87b4d-a27e-54b8-beb6-a8353681b1ed")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 222.25 121.92 0)
+			(at 224.79 121.92 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7532,7 +7535,7 @@
 	)
 	(hierarchical_label "BAT_I2C.SDA"
 		(shape bidirectional)
-		(at 227.33 121.92 0)
+		(at 229.87 121.92 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -7543,7 +7546,7 @@
 	)
 	(global_label "Battery_Voltage"
 		(shape bidirectional)
-		(at 222.25 124.46 180)
+		(at 224.79 124.46 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -7552,7 +7555,7 @@
 		)
 		(uuid "60b4e683-61c1-55ad-8bc3-c32760560935")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 222.25 124.46 0)
+			(at 224.79 124.46 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7565,7 +7568,7 @@
 	)
 	(hierarchical_label "Battery_Voltage"
 		(shape bidirectional)
-		(at 227.33 124.46 0)
+		(at 229.87 124.46 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -11072,7 +11075,7 @@
 	)
 	(rectangle
 		(start 203.2 111.76)
-		(end 248.92 127)
+		(end 252.73 127)
 		(stroke
 			(width 0.254)
 			(type dash)

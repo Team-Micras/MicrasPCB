@@ -1,0 +1,215 @@
+# Placement of the main2 board's SENSORS sheet (micras-pcb sch; units of 1.27 mm, y down).
+paper = "A3"
+title = "Sensors: IMU, encoders, motor current, wall sensors"
+ports = { at = [236, 76], rows = 22, title = "Sheet ports" }
+
+[[block]]
+title = "Emitter current sink: TLV9001 + AO3400A, 0.21 V / 1.2 Ohm = 175 mA"
+at = [10, 10]
+size = [116, 46]
+parts.R80 = { at = [12, 16], fields = "left" }
+parts.R81 = { at = [12, 28], rot = 180, fields = "left" }
+parts.U12 = [36, 24]
+parts.C106 = [50, 16, 180]
+parts.R82 = [66, 24, 90]
+parts.Q9 = [92, 24]
+parts.R83 = [94, 36]
+wires = [
+    ["U12.3", [12, 22]],
+    ["R80.2", "R81.2"],
+    ["U12.5", [34, 10]],
+    ["C106.2", [50, 12], [34, 12]],
+    ["U12.1", "R82.1"],
+    ["R82.2", "Q9.G"],
+    ["Q9.D", [94, 12], { label = "right" }],
+    ["Q9.S", "R83.1"],
+    ["U12.4", [26, 26], [26, 42], [88, 42], [88, 31], [94, 31]],
+]
+taps = ["R83.1"]
+stubs."R83.1" = { label = "right" }
+
+[[block]]
+title = "Wall sensor 0: W1, emitter selector Q2, receiver load R14"
+at = [10, 58]
+size = [116, 36]
+parts.R11 = { at = [24, 26], rot = 270, fields = "top" }
+parts.R12 = [28, 30, 180]
+parts.Q2 = [52, 26]
+parts.R13 = [50, 12, 180]
+parts.C26 = { at = [40, 12], rot = 180, fields = "left" }
+parts.W1 = [80, 18]
+parts.R14 = [94, 22, 180]
+wires = [
+    ["R13.2", [50, 8], [40, 8], "C26.2"],
+    [[40, 8], [36, 8]],
+    ["W1.1", [50, 16], "R13.1"],
+    ["W1.2", [54, 18], "Q2.D"],
+    ["Q2.G", "R11.1"],
+    ["R12.2", [28, 26]],
+    ["W1.3", [90, 16], [90, 12]],
+    ["W1.4", [94, 18], "R14.2"],
+    [[94, 18], [98, 18]],
+]
+stubs."Q2.2" = { label = "right" }
+
+[[block]]
+title = "Wall sensor 1: W2, emitter selector Q3, receiver load R18"
+at = [10, 96]
+size = [116, 36]
+parts.R15 = { at = [24, 26], rot = 270, fields = "top" }
+parts.R16 = [28, 30, 180]
+parts.Q3 = [52, 26]
+parts.R17 = [50, 12, 180]
+parts.C27 = { at = [40, 12], rot = 180, fields = "left" }
+parts.W2 = [80, 18]
+parts.R18 = [94, 22, 180]
+wires = [
+    ["R17.2", [50, 8], [40, 8], "C27.2"],
+    [[40, 8], [36, 8]],
+    ["W2.1", [50, 16], "R17.1"],
+    ["W2.2", [54, 18], "Q3.D"],
+    ["Q3.G", "R15.1"],
+    ["R16.2", [28, 26]],
+    ["W2.3", [90, 16], [90, 12]],
+    ["W2.4", [94, 18], "R18.2"],
+    [[94, 18], [98, 18]],
+]
+stubs."Q3.2" = { label = "right" }
+
+[[block]]
+title = "Wall sensor 2: W3, emitter selector Q4, receiver load R22"
+at = [10, 134]
+size = [116, 36]
+parts.R19 = { at = [24, 26], rot = 270, fields = "top" }
+parts.R20 = [28, 30, 180]
+parts.Q4 = [52, 26]
+parts.R21 = [50, 12, 180]
+parts.C28 = { at = [40, 12], rot = 180, fields = "left" }
+parts.W3 = [80, 18]
+parts.R22 = [94, 22, 180]
+wires = [
+    ["R21.2", [50, 8], [40, 8], "C28.2"],
+    [[40, 8], [36, 8]],
+    ["W3.1", [50, 16], "R21.1"],
+    ["W3.2", [54, 18], "Q4.D"],
+    ["Q4.G", "R19.1"],
+    ["R20.2", [28, 26]],
+    ["W3.3", [90, 16], [90, 12]],
+    ["W3.4", [94, 18], "R22.2"],
+    [[94, 18], [98, 18]],
+]
+stubs."Q4.2" = { label = "right" }
+
+[[block]]
+title = "Wall sensor 3: W4, emitter selector Q5, receiver load R26"
+at = [10, 172]
+size = [116, 36]
+parts.R23 = { at = [24, 26], rot = 270, fields = "top" }
+parts.R24 = [28, 30, 180]
+parts.Q5 = [52, 26]
+parts.R25 = [50, 12, 180]
+parts.C29 = { at = [40, 12], rot = 180, fields = "left" }
+parts.W4 = [80, 18]
+parts.R26 = [94, 22, 180]
+wires = [
+    ["R25.2", [50, 8], [40, 8], "C29.2"],
+    [[40, 8], [36, 8]],
+    ["W4.1", [50, 16], "R25.1"],
+    ["W4.2", [54, 18], "Q5.D"],
+    ["Q5.G", "R23.1"],
+    ["R24.2", [28, 26]],
+    ["W4.3", [90, 16], [90, 12]],
+    ["W4.4", [94, 18], "R26.2"],
+    [[94, 18], [98, 18]],
+]
+stubs."Q5.2" = { label = "right" }
+
+[[block]]
+title = "IMU: LSM6DSV on the SPI bus, mode 1 (SDx, SCx grounded)"
+at = [130, 10]
+size = [86, 52]
+parts.IC2 = [60, 28]
+parts.C24 = { at = [40, 14], rot = 180, fields = "left" }
+parts.C25 = { at = [20, 14], rot = 180, fields = "left" }
+wires = [
+    ["IC2.8", [48, 18], [48, 8]],
+    ["IC2.5", [48, 20], [48, 18]],
+    ["C24.2", [40, 10], [48, 10]],
+    ["C25.2", [20, 10], [40, 10]],
+    ["IC2.7", [62, 44], [60, 44]],
+    ["IC2.6", [60, 46]],
+]
+stubs."IC2.2" = { point = "out" }
+stubs."IC2.3" = { point = "out" }
+
+[[block]]
+title = "Encoder slot EC1: right wheel"
+at = [220, 10]
+size = [94, 30]
+parts.EC1 = [28, 22]
+parts.C69 = [48, 14, 180]
+parts.C70 = [66, 14, 180]
+wires = [
+    ["EC1.5", [40, 18], [40, 8]],
+    ["C69.2", [48, 10], [40, 10]],
+    ["C70.2", [66, 10], [48, 10]],
+]
+stubs."EC1.6" = { point = "out" }
+
+[[block]]
+title = "Encoder slot EC2: left wheel"
+at = [220, 42]
+size = [94, 30]
+parts.EC2 = [28, 22]
+parts.C71 = [48, 14, 180]
+parts.C72 = [66, 14, 180]
+wires = [
+    ["EC2.5", [40, 18], [40, 8]],
+    ["C71.2", [48, 10], [40, 10]],
+    ["C72.2", [66, 10], [48, 10]],
+]
+stubs."EC2.6" = { point = "out" }
+
+[[block]]
+title = "Motor current, right motor: U10 INA241A2, 20 V/V, mid-supply reference"
+at = [130, 74]
+size = [100, 46]
+parts.U10 = [34, 26]
+parts.C100 = [50, 14, 180]
+parts.C101 = { at = [18, 32], rot = 180, fields = "left" }
+parts.R78 = [70, 26, 90]
+parts.C102 = [76, 30, 180]
+wires = [
+    ["U10.6", [34, 8]],
+    ["C100.2", [50, 10], [34, 10]],
+    ["U10.7", [14, 28], { point = "out" }],
+    ["C101.2", [18, 28]],
+    ["U10.3", [22, 30], [22, 34]],
+    ["U10.4", [36, 38], [32, 38]],
+    ["U10.2", [32, 40]],
+    ["U10.5", "R78.1"],
+    ["R78.2", [76, 26], "C102.2"],
+    [[76, 26], [80, 26]],
+]
+
+[[block]]
+title = "Motor current, left motor: U11 INA241A2, 20 V/V, mid-supply reference"
+at = [130, 122]
+size = [100, 46]
+parts.U11 = [34, 26]
+parts.C103 = [50, 14, 180]
+parts.C104 = { at = [18, 32], rot = 180, fields = "left" }
+parts.R79 = [70, 26, 90]
+parts.C105 = [76, 30, 180]
+wires = [
+    ["U11.6", [34, 8]],
+    ["C103.2", [50, 10], [34, 10]],
+    ["U11.7", [14, 28], { point = "out" }],
+    ["C104.2", [18, 28]],
+    ["U11.3", [22, 30], [22, 34]],
+    ["U11.4", [36, 38], [32, 38]],
+    ["U11.2", [32, 40]],
+    ["U11.5", "R79.1"],
+    ["R79.2", [76, 26], "C105.2"],
+    [[76, 26], [80, 26]],
+]
