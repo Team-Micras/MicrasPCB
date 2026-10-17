@@ -914,6 +914,15 @@ def unplaced(board: str) -> list[str]:
             out.append(f"{path.name}: parts without a placement: {', '.join(missing)}")
         if stale := sorted(set(spec.parts) - refs, key=_refkey):
             out.append(f"{path.name}: placements of parts not on the sheet: {', '.join(stale)}")
+        pins = [p for s in sh.parts() for p in s.pins()]
+        counts: dict = {}
+        for p in pins:
+            counts[(p.ref, p.name)] = counts.get((p.ref, p.name), 0) + 1
+        known = {p.id for p in pins} | {f"{r}.{n}" for (r, n), c in counts.items() if c == 1}
+        tokens = [t for c in spec.chains for t in c if isinstance(t, str)]
+        tokens += spec.taps + [s for s in spec.stubs if ":" not in s]
+        if bad := sorted(set(tokens) - known):
+            out.append(f"{path.name}: wires, taps or stubs name pins the sheet does not have: {', '.join(bad)}")
         names = {n.prop("Sheetname") for n in sh.root.children("sheet")}
         if missing := sorted(names - set(spec.sheets)):
             out.append(f"{path.name}: sheet symbols without a placement: {', '.join(missing)}")
