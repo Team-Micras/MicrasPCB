@@ -1,0 +1,182 @@
+# Placement of the main board's PERIPHERALS sheet (micras-pcb sch; units of 1.27 mm, y down).
+paper = "A3"
+title = "User interface and USB-C"
+ports = { at = [172, 156], rows = 13, title = "Sheet ports" }
+
+[[block]]
+title = "USB-C receptacle: VBUS sense, CC sink, ESD"
+at = [10, 10]
+size = [140, 68]
+parts.U2 = [84, 40]
+parts.R47 = [24, 20]
+parts.R48 = [24, 26, 180]
+parts.D8 = [48, 20, 90]
+parts.R6 = [40, 36, 180]
+parts.R7 = [56, 48, 180]
+parts.U6 = { at = [124, 31], fields = "top" }
+parts.C79 = [114, 40, 180]
+wires = [
+    # VBUS: +5V, the TVS and the sense divider
+    ["U2.A4B9", [66, 28], [66, 18], "R47.1"],
+    ["U2.B4A9", [66, 30], [66, 28]],
+    [[66, 18], [66, 14]],
+    ["R47.2", "R48.2"],
+    ["R48.2", [18, 24]],
+    # CC1/CC2 sink pull-downs
+    ["U2.A5", "R6.2"],
+    [[40, 34], [36, 34]],
+    ["U2.B5", [66, 36], [66, 46], "R7.2"],
+    [[56, 46], [52, 46]],
+    # D+/D- through the ESD clamp
+    ["U2.A6", "U6.1"],
+    ["U2.B6", [100, 30], [100, 28]],
+    ["U2.A7", [104, 32], [104, 30], "U6.3"],
+    ["U2.B7", [104, 34], [104, 32]],
+    [[108, 28], [108, 24], { label = "right" }],
+    [[104, 34], [104, 48], { label = "right" }],
+    ["U6.5", [114, 34], "C79.2"],
+    [[114, 36], [110, 36]],
+    # SBU1/SBU2 to the switched supply
+    ["U2.A8", [100, 38], [100, 40], "U2.B8"],
+    [[100, 40], [100, 54], [102, 54], { label = "right" }],
+    # ground and shell
+    ["U2.A1B12", [78, 60], [92, 60], "U2.4"],
+    ["U2.B1A12", [82, 60]],
+    ["U2.1", [86, 60]],
+    ["U2.2", [88, 60]],
+    ["U2.3", [90, 60]],
+    [[84, 60], [84, 62]],
+]
+
+[[block]]
+title = "Bluetooth module supply on SBU: CC signature detector and switch"
+at = [10, 82]
+size = [180, 66]
+parts.R50 = [24, 40, 90]
+parts.D13 = [48, 40]
+parts.C77 = [60, 42, 180]
+parts.R51 = [78, 42, 180]
+parts.R52 = [60, 12]
+parts.R53 = [60, 18, 180]
+parts.R54 = [100, 16, 90]
+parts.U7 = { at = [92, 38], fields = [5, 6] }
+parts.C78 = [102, 30, 180]
+parts.R55 = [126, 36]
+parts.Q7 = { at = [140, 38], mirror = "x", fields = "right" }
+parts.F1 = [140, 52, 270]
+wires = [
+    ["R50.2", "D13.2"],
+    [[28, 40], [28, 44], { label = "right" }],
+    ["D13.1", "U7.4"],
+    [[56, 40], [56, 36], { label = "right" }],
+    ["R52.2", "R53.2"],
+    ["R53.2", "R54.1"],
+    ["U7.3", [82, 36], [82, 16]],
+    [[70, 16], [70, 12], { label = "right" }],
+    ["U7.5", [90, 24]],
+    ["C78.2", [90, 28]],
+    ["U7.1", "Q7.1"],
+    ["R54.2", [120, 16], [120, 38]],
+    [[108, 38], [108, 42], { label = "right" }],
+    ["Q7.3", "F1.1"],
+    [[142, 44], [146, 44], { label = "right" }],
+    ["F1.2", [142, 60], [146, 60]],
+]
+
+[[block]]
+title = "Buzzer: low-side switch Q1, flyback D3"
+at = [154, 10]
+size = [66, 58]
+parts.D3 = { at = [34, 24], rot = 90, fields = "left" }
+parts.BZ1 = [48, 20]
+parts.R3 = [40, 34, 180]
+parts.Q1 = { at = [38, 44], fields = [5, 1] }
+parts.R1 = { at = [22, 44], rot = 270, fields = "top" }
+parts.R2 = { at = [28, 48], rot = 180, fields = "left" }
+wires = [
+    ["D3.2", "BZ1.1"],
+    [[38, 18], [38, 14]],
+    ["BZ1.2", [40, 20], "R3.2"],
+    ["D3.1", [40, 30]],
+    [[40, 26], [44, 26], { label = "right" }],
+    ["R3.1", "Q1.3"],
+    [[40, 38], [42, 38], { label = "right" }],
+    ["Q1.1", "R1.1"],
+    ["R2.2", [28, 44]],
+    [[31, 44], [31, 37], { label = "left" }],
+]
+
+[[block]]
+title = "Indicator LEDs"
+at = [224, 10]
+size = [96, 32]
+parts.R4 = { at = [20, 12], rot = 270, fields = "bottom" }
+parts.D4 = { at = [40, 12], rot = 180, fields = "bottom" }
+parts.R5 = { at = [20, 26], rot = 270, fields = "bottom" }
+parts.D5 = { at = [40, 26], rot = 180, fields = "bottom" }
+wires = [
+    ["R4.1", "D4.2"],
+    [[24, 12], [24, 9], { label = "right" }],
+    ["R5.1", "D5.2"],
+    [[24, 26], [24, 23], { label = "right" }],
+]
+
+[[block]]
+title = "DIP switch"
+at = [224, 46]
+size = [96, 26]
+parts.SW1 = [30, 12]
+wires = [
+    ["SW1.8", [40, 8], [40, 14], "SW1.5"],
+    ["SW1.7", [40, 10]],
+    ["SW1.6", [40, 12]],
+    [[40, 14], [40, 16]],
+]
+
+[[block]]
+title = "Addressable LEDs on VBAT"
+at = [194, 82]
+size = [90, 36]
+parts.D1 = { at = [24, 22], mirror = "x", fields = "bottom" }
+parts.D2 = { at = [64, 22], mirror = "x", fields = "bottom" }
+parts.C19 = [20, 12, 180]
+parts.C18 = [60, 12, 180]
+wires = [
+    ["D1.4", [12, 22], [12, 10], "C18.2"],
+    [[12, 10], [12, 6]],
+    ["D2.4", [52, 22], [52, 10]],
+    ["D1.1", "D2.3"],
+    [[36, 24], [36, 28], { label = "right" }],
+]
+stubs."D1.2" = { point = "out" }
+stubs."D2.2" = { point = "out" }
+
+[[block]]
+title = "Buttons: user, reset, boot"
+at = [10, 152]
+size = [156, 28]
+parts.SW2 = [14, 12]
+parts.C20 = [26, 16, 180]
+parts.SW3 = [60, 12]
+parts.C21 = [72, 16, 180]
+parts.SW5 = { at = [106, 12], mirror = "y" }
+parts.R42 = [118, 16, 180]
+parts.C60 = [134, 16]
+wires = [
+    ["SW2.1", [6, 10], [6, 12], "SW2.2"],
+    [[6, 12], [6, 14]],
+    ["SW2.3", [22, 10], [22, 12], "SW2.4"],
+    ["SW2.4", [26, 12], "C20.2"],
+    [[26, 12], [30, 12]],
+    ["SW3.1", [52, 10], [52, 12], "SW3.2"],
+    [[52, 12], [52, 14]],
+    ["SW3.3", [68, 10], [68, 12], "SW3.4"],
+    ["SW3.4", [72, 12], "C21.2"],
+    [[72, 12], [76, 12]],
+    ["SW5.3", [98, 10], [98, 12], "SW5.4"],
+    [[98, 10], [98, 6]],
+    ["SW5.1", [114, 10], [114, 12], "SW5.2"],
+    ["SW5.2", [134, 12], "C60.1"],
+    ["R42.2", [118, 12]],
+    [[134, 12], [138, 12]],
+]

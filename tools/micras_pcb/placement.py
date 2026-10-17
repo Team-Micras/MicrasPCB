@@ -258,6 +258,7 @@ class Placer:
 
     def place(self) -> str:
         parts = {s.ref: s for s in self.sheet.parts()}
+        self.parts_by_ref = parts
         for ref, s in parts.items():
             ps = self.spec.parts.get(ref)
             if ps is None:
@@ -404,9 +405,18 @@ class Placer:
                 self.problems.append(f"a wire joins pins of different nets: {pins}")
         return set(touched)
 
+    def _partners(self, pid: str) -> list[str]:
+        """The pin and those joined to it inside its part (a jumper pin group)."""
+        ref, num = pid.rsplit(".", 1)
+        lib = self.parts_by_ref[ref].lib
+        for group in lib.jumpers:
+            if num in group:
+                return [f"{ref}.{n}" for n in sorted(group)]
+        return [pid]
+
     def _drivers_of_group(self, g: str) -> list[Driver]:
         seen, out = set(), []
-        for p in self.groups[g]:
+        for p in [q for p in self.groups[g] for q in self._partners(p)]:
             for d in self.pin_drivers.get(p, []):
                 if (d.kind, d.text, d.extra) not in seen:
                     seen.add((d.kind, d.text, d.extra))

@@ -111,6 +111,7 @@ class LibSymbol:
     body: list[tuple[float, float]]  # graphic points, library coordinates
     power: bool
     name_offset: float | None  # pin names drawn inside the body at this offset; None: not drawn
+    jumpers: list[set[str]] = field(default_factory=list)  # pin numbers joined inside the part
 
     @classmethod
     def parse(cls, node: sexpr.Node) -> LibSymbol:
@@ -153,7 +154,9 @@ class LibSymbol:
                 offset = float(names.child("offset").atoms()[0])
         if offset == 0:
             offset = None  # drawn above the pin line, outside the body: short names on small parts
-        return cls(node.atoms()[0], node, pins, body, node.child("power") is not None, offset)
+        groups = node.child("jumper_pin_groups")
+        jumpers = [set(g.items) for g in groups.children()] if groups else []
+        return cls(node.atoms()[0], node, pins, body, node.child("power") is not None, offset, jumpers)
 
 
 @dataclass
