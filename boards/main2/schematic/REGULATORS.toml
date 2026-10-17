@@ -1,0 +1,141 @@
+# Placement of main2's REGULATORS sheet (micras-pcb sch; units of 1.27 mm, y down).
+# Rows follow the power: battery -> VBAT (top), VBAT's loads here (middle), VSYS's regulators (bottom).
+paper = "A3"
+title = "Battery input, power path and regulators"
+ports = { at = [160, 88], rows = 4, title = "Sheet ports" }
+
+[[block]]
+title = "Battery input and switch: SW4 drives the low-side MOSFET Q6"
+at = [10, 12]
+size = [142, 36]
+parts.J1 = { at = [14, 20], mirror = "y" }
+parts.SW4 = [32, 20]
+parts.R43 = [64, 22, 90]
+parts.R41 = { at = [90, 28], rot = 180, fields = "left" }
+parts.C58 = [96, 28, 180]
+parts.Q6 = [120, 22]
+wires = [
+    ["J1.1", "SW4.2"],
+    [[24, 20], [24, 16]],
+    ["J1.2", [21, 22], [21, 28]],
+    ["SW4.3", "R43.1"],
+    ["R43.2", "Q6.1"],
+    ["R41.2", [90, 22]],
+    ["C58.2", [96, 22]],
+    ["Q6.3", [122, 14], [136, 14], [136, 18]],
+]
+
+[[block]]
+title = "Battery current monitor: shunt R59, INA228 on the ESP32's I2C"
+at = [156, 12]
+size = [118, 62]
+parts.R59 = { at = [24, 54], rot = 90, fields = "bottom" }
+parts.U9 = [50, 30]
+parts.C90 = { at = [38, 18], rot = 180, fields = "left" }
+parts.R68 = [66, 20]
+parts.R69 = [82, 20]
+parts.R70 = [98, 20]
+wires = [
+    ["R59.2", [22, 26], "U9.10"],
+    ["R59.3", [26, 28], "U9.9"],
+    ["R59.1", [16, 54], [16, 50]],
+    ["R59.4", [36, 54], [36, 50]],
+    [[32, 54], [32, 32], "U9.8"],
+    ["U9.2", [36, 34], [36, 36], "U9.1"],
+    [[36, 36], [36, 38]],
+    ["C90.2", [38, 14], [98, 14], "R70.1"],
+    ["U9.6", [50, 14]],
+    ["R68.1", [66, 14]],
+    ["R69.1", [82, 14]],
+    [[56, 14], [56, 11]],
+    ["U9.4", [66, 26], "R68.2"],
+    [[66, 26], [68, 26]],
+    ["U9.5", [82, 28], "R69.2"],
+    [[82, 28], [84, 28]],
+    ["U9.3", [98, 32], "R70.2"],
+    [[98, 32], [100, 32]],
+]
+
+[[block]]
+title = "Battery voltage to the ADC"
+at = [10, 82]
+size = [52, 30]
+parts.R44 = { at = [12, 14], fields = "left" }
+parts.R45 = { at = [12, 22], rot = 180, fields = "left" }
+parts.C59 = [24, 22, 180]
+wires = [
+    ["R44.2", "R45.2"],
+    [[12, 18], [24, 18], "C59.2"],
+    [[24, 18], [34, 18]],
+]
+
+[[block]]
+title = "Power path: VSYS = VBAT or VBUS"
+at = [66, 82]
+size = [86, 46]
+parts.D14 = [24, 12]
+parts.Q8 = [36, 24, 90]
+parts.C63 = { at = [24, 26], rot = 180, fields = "left" }
+parts.R56 = [64, 30]
+parts.R57 = [72, 38, 180]
+wires = [
+    ["D14.2", [14, 12], [14, 9]],
+    ["D14.1", [48, 12], [48, 9]],
+    ["Q8.2", [44, 22], [44, 12]],
+    ["Q8.3", [20, 22], [20, 19]],
+    ["C63.2", [24, 22]],
+    ["Q8.1", [36, 34], [72, 34], "R57.2"],
+    ["R56.2", [64, 34]],
+    [[46, 34], [46, 37], { label = "right" }],
+]
+
+[[block]]
+title = "3V3_D buck: L6981C33, fixed 3.3 V"
+at = [10, 136]
+size = [164, 44]
+parts.IC7 = [60, 24]
+parts.C52 = { at = [24, 24], rot = 180, fields = "left" }
+parts.C53 = { at = [44, 24], rot = 180, fields = "left" }
+parts.C55 = [98, 16, 180]
+parts.L3 = [106, 12]
+parts.C56 = [120, 16, 180]
+parts.C57 = [140, 16, 180]
+parts.C54 = [84, 32, 180]
+wires = [
+    ["IC7.7", [8, 20], [8, 16]],
+    ["IC7.5", [48, 24], [48, 20]],
+    ["C52.2", [24, 20]],
+    ["C53.2", [44, 20]],
+    ["IC7.1", [94, 20], [94, 12], "L3.1"],
+    ["C55.2", [98, 12]],
+    ["IC7.2", [98, 22], "C55.1"],
+    ["L3.2", [158, 12], [158, 9]],
+    ["C56.2", [120, 12]],
+    ["C57.2", [140, 12]],
+    ["IC7.3", [84, 28], "C54.2"],
+    [[84, 28], [90, 28]],
+    ["IC7.6", [58, 36], [62, 36], "IC7.8"],
+    [[60, 36], [60, 38]],
+]
+stubs."IC7.4" = { point = "out" }
+
+[[block]]
+title = "3V3_A analog LDO: ADP7142, RC-filtered input"
+at = [178, 136]
+size = [90, 44]
+parts.R58 = [16, 20, 90]
+parts.C80 = { at = [28, 24], rot = 180, fields = "left" }
+parts.U8 = [50, 24]
+parts.C81 = [66, 24, 180]
+wires = [
+    ["R58.1", [8, 20], [8, 17]],
+    ["R58.2", "U8.6"],
+    ["C80.2", [28, 20]],
+    [[34, 20], [34, 17]],
+    ["U8.1", [72, 20], [72, 17]],
+    ["U8.2", [62, 24], [62, 20]],
+    ["C81.2", [62, 20]],
+    ["U8.3", [48, 34], [52, 34], "U8.7"],
+    [[50, 34], [50, 36]],
+]
+stubs."U8.4" = { point = "out" }

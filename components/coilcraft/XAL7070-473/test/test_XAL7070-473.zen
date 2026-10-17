@@ -1,0 +1,39 @@
+"""XAL7070-473MEC (Coilcraft Doc 856, revised 02/25/26): ratings, and the motor-choke requirement."""
+
+INDUCTOR = Module("../XAL7070-473.zen")
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def ratings(module, inputs):
+    # Doc 856-2, XAL7070-473ME_ row
+    c = part(module)
+    check(c.type == "inductor", "type")
+    check(c.mpn == "XAL7070-473MEC", "MPN")
+    check(c.manufacturer == "Coilcraft", "manufacturer")
+    check(c.prefix == "L", "reference prefix must be L")
+    check(len(c.pins) == 2, "two terminals")
+    check(c.properties["inductance"].matches("47uH 20%"), "inductance")
+    check(c.properties["isat"].matches("4.2A"), "Isat (30 % drop)")
+    check(c.properties["irms"].matches("4.1A"), "Irms (40 C rise)")
+    check(c.properties["dcr"].matches("97.07mOhm"), "DCR max")
+
+
+def motor_choke_requirement(module, inputs):
+    # Next-revision proposal, Drivetrain: Isat above ITRIP 3 A + 0.62 A blanking overshoot, and the
+    # 1-1.5 A rms continuous motor current within the 20 C-rise Irms (3.1 A, Doc 856-2).
+    c = part(module)
+    check(c.properties["isat"].value >= 3.62, "Isat must exceed 3.62 A (ITRIP 3 A + overshoot)")
+    check(c.properties["irms"].value >= 1.5, "Irms must exceed the 1.5 A rms motor current")
+
+
+TestBench(
+    name="XAL7070-473",
+    module=INDUCTOR,
+    test_cases={"default": {"P1": Net("A"), "P2": Net("B")}},
+    checks=[ratings, motor_choke_requirement],
+)

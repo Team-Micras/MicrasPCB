@@ -1,0 +1,121 @@
+
+========================================================================================================
+1. Drone-class coreless motors (published) and inductance scaled from Faulhaber (L ~ 1/kv^2, same turns law)
+========================================================================================================
+  motor                                     V   rpm0     kv     R Istall  L est. from 1024/0816/0615 [I]
+  NFP-D0615-1 (6x15)                      3.4  59000  17353  1.00   3.25   0.9 /  3.6 /  7.6 uH
+  NFP-D0615-2 (6x15)                      3.4  53000  15588  1.20   2.76   1.1 /  4.5 /  9.4 uH
+  NFP-D0720-2184-1 (7x20)                 3.0  49000  16333  0.40   6.73   1.0 /  4.1 /  8.6 uH
+  NFP-D0720-2184-2 (7x20)                 3.0  42000  14000  0.50   5.54   1.4 /  5.5 / 11.7 uH
+  NFP-D0816-3-3.4 (8x16, KOGUMA fan)      3.4  53000  15588  0.40   8.65   1.1 /  4.5 /  9.4 uH
+  Racerstar 8520 (8.5x20)                 3.7  53500  14459  0.40  10.57   1.3 /  5.2 / 10.9 uH
+  Bitcraze 7x20 (Crazyflie upgrade)        -       -  13000  0.75      -   1.6 /  6.4 / 13.5 uH
+  RIC-1020DT-037450 (10x20)               3.7  45000  12162  0.23  16.40   1.8 /  7.4 / 15.4 uH
+  NFP-D1020T-1437 (10x20, 2S)             7.4  51500   6959  0.50  15.70   5.6 / 22.5 / 47.2 uH
+  RIC-1020DT-074400 (10x20, 2S)           7.4  39500   5338  0.83   8.90   9.4 / 38.2 / 80.2 uH
+  Faulhaber electrical time constants L/R: 1024 K 003 SR 11.8 us, 0816 K 003 SR 9.8 us, 0615 N 1,5 S 3.1 us
+  -> generic fan model used below: R 0.2-1.2 ohm, L 1-10 uH (nominal 3 uH for a 1S, 8 uH for a 2S motor) [I]
+
+========================================================================================================
+2. Duty on 4S, on-time per period, and what minimum pulses do
+========================================================================================================
+  motor class: 1S (rated 3.7 V), 2S (rated 7.4 V); an idle/low setting of 1.0 V shown too
+   50 kHz (T 20.00 us,  5504 timer steps =    3 mV/step): 1.0 V: D  6.0 % =  1190 ns | 3.7 V: D 22.0 % =  4405 ns | 7.4 V: D 44.0 % =  8810 ns
+  100 kHz (T 10.00 us,  2752 timer steps =    6 mV/step): 1.0 V: D  6.0 % =   595 ns | 3.7 V: D 22.0 % =  2202 ns | 7.4 V: D 44.0 % =  4405 ns
+  200 kHz (T  5.00 us,  1376 timer steps =   12 mV/step): 1.0 V: D  6.0 % =   298 ns | 3.7 V: D 22.0 % =  1101 ns | 7.4 V: D 44.0 % =  2202 ns
+  400 kHz (T  2.50 us,   688 timer steps =   24 mV/step): 1.0 V: D  6.0 % =   149 ns | 3.7 V: D 22.0 % =   551 ns | 7.4 V: D 44.0 % =  1101 ns
+  500 kHz (T  2.00 us,   550 timer steps =   31 mV/step): 1.0 V: D  6.0 % =   119 ns | 3.7 V: D 22.0 % =   440 ns | 7.4 V: D 44.0 % =   881 ns
+  STSPIN958 (280 ns, DS Table 2): at 100 kHz min duty  2.8 % = 0.47 V on 16.8 V
+  STSPIN958 (280 ns, DS Table 2): at 200 kHz min duty  5.6 % = 0.94 V on 16.8 V
+  STSPIN958 (280 ns, DS Table 2): at 400 kHz min duty 11.2 % = 1.88 V on 16.8 V
+  STSPIN958 (280 ns, DS Table 2): at 500 kHz min duty 14.0 % = 2.35 V on 16.8 V
+
+========================================================================================================
+3. Locked-rotor current from 4S (start-up / stall) and the floor set by a minimum pulse
+========================================================================================================
+  R 0.23:  0.10 path  50.9 A  0.50 path  23.0 A   (battery IR not included: upper bound)
+  R 0.40:  0.10 path  33.6 A  0.50 path  18.7 A   (battery IR not included: upper bound)
+  R 0.75:  0.10 path  19.8 A  0.50 path  13.4 A   (battery IR not included: upper bound)
+  R 1.20:  0.10 path  12.9 A  0.50 path   9.9 A   (battery IR not included: upper bound)
+  STSPIN958 280 ns at 100 kHz: stalled 0.4 ohm motor at min duty draws  0.9 A -> REF limiter must do the soft start
+  STSPIN958 280 ns at 400 kHz: stalled 0.4 ohm motor at min duty draws  3.8 A -> REF limiter must do the soft start
+  STSPIN958 280 ns at 500 kHz: stalled 0.4 ohm motor at min duty draws  4.7 A -> REF limiter must do the soft start
+
+========================================================================================================
+4. Ripple vs PWM frequency, generic motor, 16.8 V bus (pp A / extra winding loss W)
+========================================================================================================
+  extra loss = (dI_pp^2 / 12) * R; dI_pp ~ Vbus*D*(1-D)/(L*f) -> scales with 1/(L*f); loss with R/(L*f)^2
+
+  3.7 V average (D 0.22), R 0.4 ohm:
+    L  1.0 uH:   50k 29.87/29.75   100k 22.12/16.31   200k 13.29/ 5.89   400k  7.06/ 1.66   500k  5.69/ 1.08  1000k  2.87/ 0.28
+    L  2.0 uH:   50k 22.12/16.31   100k 13.29/ 5.89   200k  7.06/ 1.66   400k  3.59/ 0.43   500k  2.87/ 0.28  1000k  1.44/ 0.07
+    L  3.0 uH:   50k 16.77/ 9.38   100k  9.26/ 2.86   200k  4.76/ 0.76   400k  2.40/ 0.19   500k  1.92/ 0.12  1000k  0.96/ 0.03
+    L  5.0 uH:   50k 10.93/ 3.98   100k  5.69/ 1.08   200k  2.87/ 0.28   400k  1.44/ 0.07   500k  1.15/ 0.04  1000k  0.58/ 0.01
+    L 10.0 uH:   50k  5.69/ 1.08   100k  2.87/ 0.28   200k  1.44/ 0.07   400k  0.72/ 0.02   500k  0.58/ 0.01  1000k  0.29/ 0.00
+    2 uH motor +  4.7 uH choke:  100k  4.27/ 0.61   200k  2.15/ 0.15   400k  1.08/ 0.04
+    2 uH motor + 10.0 uH choke:  100k  2.40/ 0.19   200k  1.20/ 0.05   400k  0.60/ 0.01
+    2 uH motor + 22.0 uH choke:  100k  1.20/ 0.05   200k  0.60/ 0.01   400k  0.30/ 0.00
+
+  7.4 V average (D 0.44), R 0.6 ohm:
+    L  1.0 uH:   50k 23.94/28.66   100k 22.47/25.23   200k 16.71/13.96   400k  9.75/ 4.75   500k  7.96/ 3.17  1000k  4.10/ 0.84
+    L  2.0 uH:   50k 22.47/25.23   100k 16.71/13.96   200k  9.75/ 4.75   400k  5.10/ 1.30   500k  4.10/ 0.84  1000k  2.07/ 0.21
+    L  3.0 uH:   50k 19.57/19.16   100k 12.44/ 7.74   200k  6.71/ 2.25   400k  3.43/ 0.59   500k  2.75/ 0.38  1000k  1.38/ 0.10
+    L  5.0 uH:   50k 14.33/10.27   100k  7.96/ 3.17   200k  4.10/ 0.84   400k  2.07/ 0.21   500k  1.65/ 0.14  1000k  0.83/ 0.03
+    L 10.0 uH:   50k  7.96/ 3.17   100k  4.10/ 0.84   200k  2.07/ 0.21   400k  1.03/ 0.05   500k  0.83/ 0.03  1000k  0.41/ 0.01
+    2 uH motor +  4.7 uH choke:  100k  6.03/ 1.82   200k  3.07/ 0.47   400k  1.54/ 0.12
+    2 uH motor + 10.0 uH choke:  100k  3.42/ 0.59   200k  1.72/ 0.15   400k  0.86/ 0.04
+    2 uH motor + 22.0 uH choke:  100k  1.72/ 0.15   200k  0.86/ 0.04   400k  0.43/ 0.01
+
+  Frequency for ripple loss <= 0.1 W (R 0.4 ohm, D 0.22, worst point of 1S on 4S):
+    L  1.0 uH: f >=  1688 kHz
+    L  2.0 uH: f >=   844 kHz
+    L  3.0 uH: f >=   557 kHz
+    L  5.0 uH: f >=   333 kHz
+    L 10.0 uH: f >=   166 kHz
+
+========================================================================================================
+5. Driver loss and junction rise at 1 / 2 / 4 A, 16.8 V, 1S motor at 3.7 V (D 0.22), L 3 uH, each at its chosen f
+========================================================================================================
+
+  V_avg 3.7 V, D 0.22; motor L 3 uH, R 0.4 ohm; loss = driver (+ choke DCR) / motor ripple loss
+  driver                                                         rating |                    1 A |                    2 A |                    4 A
+  STSPIN958 par., SR 2 V/ns, 400k                          5 A rms [DS] |      0.23 +  8C / 0.19 |      0.63 + 23C / 0.19 |      2.13 + 76C / 0.19
+  STSPIN958 par., SR 0.6 V/ns, 400k                        5 A rms [DS] |      0.36 + 13C / 0.19 |      0.89 + 32C / 0.19 |      2.66 + 95C / 0.19
+  DRV8412 PFB mode (A||B, C||D), 400k                6 A cont. PFB [DS] |      0.32 +  8C / 0.19 |      0.88 + 22C / 0.19 |      2.91 + 71C / 0.19
+  DRV8874 IN/IN slow decay, 100k                          6 A peak [DS] |      2.53 + 91C / 2.86 |      3.62 +130C / 2.86 |      7.49 +270C / 2.86
+  DRV8874 100k + 22 uH choke                              6 A peak [DS] |      0.63 + 20C / 0.04 |      1.90 + 60C / 0.04 |      6.49 +199C / 0.04
+  DRV8256 VQFN 100k + 22 uH choke                       6.4 A peak [DS] |      0.49 + 17C / 0.04 |      1.53 + 50C / 0.04 |      5.36 +171C / 0.04
+  DRV8262 single-H, 200k + 10 uH choke                   16 A peak [DS] |      0.48 + 10C / 0.04 |      1.15 + 23C / 0.04 |      3.09 + 58C / 0.04
+  TB67H450FNG, 400k (edges unpubl., 100 ns [A])          3.0 A max [DS] |            2.12 / 0.19 |            5.73 / 0.19 |           18.84 / 0.19
+  DRV8251A, 200k                                        4.1 A peak [DS] |            2.56 / 0.76 |            5.19 / 0.76 |           14.23 / 0.76
+  LS FET CSD17578Q3A + SS34 + UCC27517A, 400k         SS34 3 A avg [DS] |      0.49 + 29C / 0.19 |      0.96 + 58C / 0.19 |      1.92 +115C / 0.19
+  sync. TPS28225 + 2x CSD17578Q3A, 400k                     FET-limited |      0.09 +  5C / 0.19 |      0.19 + 12C / 0.19 |      0.49 + 29C / 0.19
+
+  V_avg 7.4 V, D 0.44; motor L 3 uH, R 0.4 ohm; loss = driver (+ choke DCR) / motor ripple loss
+  driver                                                         rating |                    1 A |                    2 A |                    4 A
+  STSPIN958 par., SR 2 V/ns, 400k                          5 A rms [DS] |      0.29 + 10C / 0.39 |      0.69 + 25C / 0.39 |      2.19 + 78C / 0.39
+  STSPIN958 par., SR 0.6 V/ns, 400k                        5 A rms [DS] |      0.42 + 15C / 0.39 |      0.95 + 34C / 0.39 |      2.71 + 97C / 0.39
+  DRV8412 PFB mode (A||B, C||D), 400k                6 A cont. PFB [DS] |      0.40 + 10C / 0.39 |      0.96 + 23C / 0.39 |      2.99 + 73C / 0.39
+  DRV8874 IN/IN slow decay, 100k                          6 A peak [DS] |      4.51 +163C / 5.69 |      5.61 +202C / 5.69 |      9.47 +341C / 5.69
+  DRV8874 100k + 22 uH choke                              6 A peak [DS] |      0.67 + 21C / 0.09 |      1.94 + 61C / 0.09 |      6.53 +200C / 0.09
+  DRV8256 VQFN 100k + 22 uH choke                       6.4 A peak [DS] |      0.53 + 18C / 0.09 |      1.57 + 51C / 0.09 |      5.39 +172C / 0.09
+  DRV8262 single-H, 200k + 10 uH choke                   16 A peak [DS] |      0.49 + 10C / 0.08 |      1.16 + 23C / 0.08 |      3.10 + 58C / 0.08
+  TB67H450FNG, 400k (edges unpubl., 100 ns [A])          3.0 A max [DS] |            2.62 / 0.39 |            6.23 / 0.39 |           19.33 / 0.39
+  DRV8251A, 200k                                        4.1 A peak [DS] |            3.80 / 1.54 |            6.43 / 1.54 |           15.47 / 1.54
+  LS FET CSD17578Q3A + SS34 + UCC27517A, 400k         SS34 3 A avg [DS] |      0.37 + 22C / 0.39 |      0.73 + 44C / 0.39 |      1.49 + 89C / 0.39
+  sync. TPS28225 + 2x CSD17578Q3A, 400k                     FET-limited |      0.09 +  6C / 0.39 |      0.20 + 12C / 0.39 |      0.49 + 30C / 0.39
+  Schottky share at 4 A, 1S duty: 1.7 W -> SS34 (RthJA 70 C/W [DS]) +120 C
+  Peak current = I + dI_pp/2 must stay under the driver's OCP/limit: e.g. DRV8874 with no choke at 2 A, 3 uH:
+     6.6 A peak against IOCP 6 A min
+
+========================================================================================================
+6. Area estimate (component courtyards, mm^2) [A: typical courtyards, not a layout]
+========================================================================================================
+      76 mm2, 14 parts  STSPIN958 parallel (IC, 1206 shunt, 2x10uF 1206, 2x470n 0603, 4C+4R 0402)
+     202 mm2, 15 parts  DRV8412 (IC, 12 V LDO SOT-223 + 2 C, 4 x 100 nF BST, PVDD 10uF+100n, VREG/VDD/GVDD caps, ROC)
+      54 mm2,  8 parts  DRV8874 (IC, VM 10uF 1206 + 100n, CP 2 C, RIPROPI, VREF 2 R)
+      38 mm2,  8 parts  DRV8256 VQFN (IC, VM 10uF + 100n, CP 2 C, RIPROPI, VREF 2 R)
+      47 mm2,  7 parts  LS FET + SS34 + UCC27517A (FET SON3x3, SMA, driver, 2 C, gate R, pulldown)
+      70 mm2, 13 parts    + current limit (1206 shunt, TLV3201 SOT-23-5, 4 R/C)
+      80 mm2,  8 parts  sync. TPS28225 SOIC-8 + 2 FET SON3x3 + Cbst + VDD C + 2x10uF 1206 + EN R
+      30 mm2,  1 parts  optional series choke for L < 3 uH (4.7-10 uH, Isat > I_limit, ~5x5)

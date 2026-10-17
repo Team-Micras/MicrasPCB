@@ -1,0 +1,76 @@
+"""ADP7142ACPZN3.3-R7 - 40 V, 200 mA, low-noise CMOS LDO, fixed 3.3 V, 6-lead LFCSP. Bare part.
+
+Datasheet: Analog Devices ADP7142 Rev. H (March 2020), 23 pages.
+
+Package and order code (Ordering Guide p23; Figure 67 p22): ADP7142ACPZN3.3-R7, fixed 3.3 V,
+6-lead LFCSP CP-6-3, 2.00 x 2.00 mm body, 0.55 mm high, 0.65 mm pitch, exposed pad 1.60 x
+1.00 mm, marking LP6. The 6-lead LFCSP is chosen over the 5-lead TSOT for its thermal
+resistance (Table 4): RthJA 72.1 C/W (LFCSP) against 170 C/W (TSOT), PsiJB 47.1 against 43 C/W.
+
+Pins (Figure 3 and Table 5, p6, LFCSP column): 1 VOUT, 2 SENSE/ADJ, 3 GND, 4 EN, 5 SS, 6 VIN,
+EP (pad 7 in the footprint), connected to GND inside the package and recommended on the ground
+plane. SENSE connects to the load (to VOUT for the fixed 3.3 V output; this package ties it to
+the VOUT io). SS: leave open for the internal 380 us start-up; never ground it; a capacitor to
+GND lengthens the soft start (Eq. 8, p15: t = 380 us + 0.6 V x CSS / 1.15 uA).
+
+Absolute maximum ratings (Table 3, p5): VIN -0.3 to +44 V; VOUT -0.3 V to VIN; EN -0.3 to +44 V
+(independent of VIN); SENSE/ADJ -0.3 to +6 V; SS -0.3 V to the lower of VIN and 6 V; TJ 150 C.
+Thermal (p17): keep TJ at or below 125 C; thermal shutdown at 150 C, 15 C hysteresis.
+
+Electrical characteristics (Table 1, p3; VOUT = 5 V test conditions unless noted):
+- VIN 2.7 to 40 V. UVLO rising 2.69 V max, falling 2.2 V min.
+- Output accuracy +-0.8 % (10 mA, 25 C); +-1.8 % over 100 uA-200 mA, VIN = VOUT + 1 V to 40 V,
+  TJ -40 to 125 C: 3.24-3.36 V for the 3.3 V option.
+- Ground current 50 / 140 uA at no load, 80 / 190 uA at 10 mA, 180 / 320 uA at 200 mA;
+  shutdown 1.8 uA (VIN 5 V), 3.0 / 10 uA at VIN 40 V.
+- Dropout 30 / 60 mV at 10 mA, 200 / 420 mV at 200 mA (VOUT 5 V); Figure 22 (VOUT 3.3 V,
+  typical): about 20 mV at 10 mA and 30-40 mV at 25 mA.
+- Current limit 250 / 360 / 460 mA. Start-up time 380 us (SS open).
+- Precision EN, 2.7 V <= VIN <= 40 V: rising (on) threshold 1.15 / 1.22 / 1.30 V, falling (off)
+  threshold 1.06 / 1.12 / 1.18 V, 100 mV hysteresis; leakage 0.04 / 1 uA; delay 80 us from EN
+  rising to 10 % of VOUT. A logic-level EN therefore needs >= 1.30 V for on and <= 1.06 V for off.
+- Noise 11 uVrms (10 Hz-100 kHz, all fixed outputs). PSRR 88 dB at 10 kHz, 68 dB at 100 kHz,
+  50 dB at 1 MHz (VIN 7 V, VOUT 5 V).
+
+Capacitors (Table 2 p4; Capacitor Selection p14): input and output each >= 2.2 uF X5R/X7R,
+effective capacitance >= 1.5 uF over temperature, DC bias and tolerance (Eq. 4), ESR 1 mOhm to
+0.3 Ohm; with more than 2.2 uF on the output, raise the input capacitor to match. Place both
+close to the pins (p20).
+
+Power dissipation (Eq. 10, p17): PD = (VIN - VOUT) x ILOAD + VIN x IGND; TJ = TA + PD x RthJA.
+RthJA depends on copper (Table 6): 182.8 C/W with 25 mm^2, 142.6 with 100 mm^2, 83.9 with
+500 mm^2 (LFCSP).
+
+Application on the next main board (research/next-revision, power tree and A.4): 3V3_A for VDDA,
+the INA241s, the receivers and the emitter-sink op amp, fed from VSYS (4.3-17.4 V) through
+22 Ohm + 10 uF, EN on 3V3_D so 3V3_A starts after VDD. The 3V3_D logic high (>= 3.2 V) clears
+the 1.30 V maximum on threshold. Worst case 22.5 mA at VIN 17.4 V: PD = 14.1 V x 22.5 mA +
+17.4 V x 190 uA = 0.32 W, +23 K at 72.1 C/W and +59 K with only 25 mm^2 of copper.
+
+Integrator-owned circuitry: the input and output capacitors, the input RC, an optional CSS, the
+EN drive, and the copper under the exposed pad.
+"""
+
+# Table 1: input 2.7-40 V; output 3.3 V +-1.8 % over load, line and TJ -40 to 125 C.
+VIN = io(Power(voltage="2.7V to 40V"))
+VOUT = io(Power(voltage="3.24V to 3.36V"))
+GND = io(Ground)
+EN = io(Net)
+SS = io(Net)
+
+Component(
+    name="ADP7142",
+    prefix="U",
+    symbol=Symbol(library="ADP7142.kicad_sym"),
+    footprint=File("LFCSP-6-1EP_2x2mm_P0.65mm_EP1x1.6mm.kicad_mod"),
+    part=Part(mpn="ADP7142ACPZN3.3-R7", manufacturer="Analog Devices"),
+    pins={
+        "VOUT": VOUT,
+        "SENSE/ADJ": VOUT,
+        "GND": GND,
+        "EN": EN,
+        "SS": SS,
+        "VIN": VIN,
+        "EP": GND,
+    },
+)

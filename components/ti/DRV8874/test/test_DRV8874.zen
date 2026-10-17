@@ -1,0 +1,158 @@
+"""DRV8874PWPR (TI SLVSF66A): package facts, and the board-side rules of checks.zen on a Figure 19
+application circuit (test/application.zen), each legal strap, and one broken rule per case."""
+
+load("../checks.zen", "drv8874_problems", "drv8874_requirements", "drv8874_settings")
+
+DRV8874 = Module("../DRV8874.zen")
+APP = Module("./application.zen")
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def net_of(module, pin):
+    for name, ports in module.nets().items():
+        for path, p in ports:
+            if path.endswith(".DRV8874") and p == pin:
+                return name
+    error("DRV8874." + pin + " is not connected")
+
+
+def orderable_part(module, inputs):
+    # Package Option Addendum: DRV8874PWPR, HTSSOP (PWP) 16, 3000 tape and reel
+    c = part(module)
+    check(c.mpn == "DRV8874PWPR", "MPN must be DRV8874PWPR, got " + str(c.mpn))
+    check(c.manufacturer == "Texas Instruments", "manufacturer must be Texas Instruments")
+    check(c.prefix == "IC", "reference prefix must be IC")
+
+
+def every_function_pin(module, inputs):
+    # Pin Functions, p3: 16 pins plus the thermal pad
+    expected = [
+        "EN/IN1",
+        "PH/IN2",
+        "~{SLEEP}",
+        "~{FAULT}",
+        "VREF",
+        "IPROPI",
+        "IMODE",
+        "OUT1",
+        "PGND",
+        "OUT2",
+        "VM",
+        "VCP",
+        "CPH",
+        "CPL",
+        "GND",
+        "PMODE",
+        "PAD",
+    ]
+    pins = part(module).pins
+    check(sorted(pins.keys()) == sorted(expected), "pin names differ from the datasheet: " + str(sorted(pins.keys())))
+
+
+def grounds(module, inputs):
+    # Pin Functions and section 10.1: GND, PGND and the thermal pad on the system ground
+    for pin in ["GND", "PGND", "PAD"]:
+        check(net_of(module, pin) == "GND", pin + " must be on GND")
+
+
+TestBench(
+    name="DRV8874_package",
+    module=DRV8874,
+    test_cases={
+        "default": {
+            "VM": Power("VM", voltage="16.8V"),
+            "GND": Ground("GND"),
+            "VCP": Net("VCP"),
+            "CPH": Net("CPH"),
+            "CPL": Net("CPL"),
+            "EN_IN1": Net("EN"),
+            "PH_IN2": Net("PH"),
+            "NSLEEP": Net("NSLEEP"),
+            "NFAULT": Net("NFAULT"),
+            "VREF": Net("VREF"),
+            "IPROPI": Net("IPROPI"),
+            "IMODE": Net("IMODE"),
+            "PMODE": Net("PMODE"),
+            "OUT1": Net("OUT1"),
+            "OUT2": Net("OUT2"),
+        },
+    },
+    checks=[orderable_part, every_function_pin, grounds],
+)
+
+# Decoded straps per application case: Table 2 (PMODE) and Table 6 (IMODE).
+EXPECTED = {
+    ("GND", "GND"): ("L", 1),
+    ("VCC", "R20K"): ("H", 2),
+    ("OPEN", "R62K"): ("HIZ", 3),
+    ("GND", "OPEN"): ("L", 4),
+}
+
+
+def straps_decode(module, inputs):
+    s = drv8874_settings(module)["IC1"]
+    want = EXPECTED[(inputs.get("pmode", "GND"), inputs.get("imode", "GND"))]
+    check((s.pmode, s.imode) == want, "PMODE/IMODE decoded as " + str((s.pmode, s.imode)) + ", expected " + str(want))
+
+
+def itrip_is_3a(module, inputs):
+    # Equation 3: ITRIP = VREF / (RIPROPI x AIPROPI) = 2.70 V / (2.0 kOhm x 450 uA/A) = 3.0 A
+    s = drv8874_settings(module)["IC1"]
+    check(s.itrip != None, "ITRIP not determined")
+    check(s.itrip[1] > 2.95 and s.itrip[1] < 3.05, "typical ITRIP " + str(s.itrip[1]))
+    check(s.itrip[0] > 2.7 and s.itrip[2] < 3.3, "ITRIP band " + str(s.itrip))
+
+
+TestBench(
+    name="DRV8874_application",
+    module=APP,
+    test_cases={
+        "ph_en_fixed_off_time": {},
+        "pwm_cycle_by_cycle": {"pmode": "VCC", "imode": "R20K"},
+        "half_bridge_latched": {"pmode": "OPEN", "imode": "R62K"},
+        "fixed_off_time_latched": {"imode": "OPEN"},
+    },
+    checks=[drv8874_requirements, straps_decode, itrip_is_3a],
+)
+
+# One broken rule per case, and the text its problem must contain.
+FAULTS = {
+    "NO_CVM1": "needs CVM1",
+    "NO_BULK": "needs CVM2",
+    "CVCP_1UF": "needs CVCP",
+    "CFLY_10V": "CFLY of IC1) must be rated",
+    "NO_RIPROPI": "needs RIPROPI",
+    "RIPROPI_680": "above 3 mA",
+    "NO_NFAULT_PULLUP": "needs an external pull-up",
+    "NFAULT_PULLUP_470": "above 5 mA",
+    "SLEEP_PULLDOWN_ONLY": "stays asleep",
+    "IMODE_33K": "outside both Table 6 resistor levels",
+    "VREF_5V": "above the 3.6 V maximum",
+}
+
+
+def flags_the_fault(module, inputs):
+    p = drv8874_problems(module)
+    key = inputs.get("fault", "NONE")
+    if inputs.get("imode") == "R33K":
+        key = "IMODE_33K"
+    if inputs.get("vcc_voltage") == "5V":
+        key = "VREF_5V"
+    want = FAULTS[key]
+    check(len([m for m in p if want in m]) > 0, "expected a problem containing '" + want + "', got " + str(p))
+
+
+TestBench(
+    name="DRV8874_rules_fire",
+    module=APP,
+    test_cases=dict(
+        [(k.lower(), {"fault": k}) for k in FAULTS.keys() if k not in ["IMODE_33K", "VREF_5V"]]
+        + [("imode_33k", {"imode": "R33K"}), ("vref_5v", {"vcc_voltage": "5V"})],
+    ),
+    checks=[flags_the_fault],
+)

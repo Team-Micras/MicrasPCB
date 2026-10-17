@@ -1,0 +1,176 @@
+# Placement of the main2 board's DRIVERS sheet (micras-pcb sch; units of 1.27 mm, y down).
+# The two bridge blocks share one layout (same relative coordinates), so they read alike.
+paper = "A3"
+title = "Motor bridges and fan driver"
+ports = { at = [226, 36], rows = 12, title = "Sheet ports" }
+
+[[block]]
+title = "Left motor (M1): DRV8874 IC9, shunt R75 to the INA241, choke L5"
+at = [10, 10]
+size = [210, 60]
+parts.IC9 = { at = [60, 32], fields = [8, 15] }
+parts.C96 = { at = [14, 14], rot = 270, fields = "right" }
+parts.C95 = [32, 12, 180]
+parts.C94 = [52, 12, 180]
+parts.C91 = [76, 12, 180]
+parts.C92 = [96, 12, 180]
+parts.C93 = [116, 12, 180]
+parts.C97 = [94, 24, 180]
+parts.C98 = [100, 30]
+parts.R73 = { at = [16, 34], fields = "left" }
+parts.R74 = { at = [16, 42], fields = "left" }
+parts.R71 = { at = [42, 44], fields = "left" }
+parts.R72 = { at = [30, 44], fields = "left" }
+parts.R75 = { at = [122, 36], rot = 90, mirror = "x", fields = "top" }
+parts.L5 = { at = [152, 36], fields = "bottom" }
+parts.R76 = [152, 32, 90]
+parts.M1 = { at = [186, 38], mirror = "x", fields = "right" }
+wires = [
+    ["IC9.11", "C97.2"],
+    [[72, 22], [72, 10], [72, 7]],
+    [[14, 10], [116, 10]],
+    ["IC9.12", "C97.1"],
+    ["IC9.13", "C98.1"],
+    ["IC9.14", [98, 30], [98, 32], "C98.2"],
+    ["IC9.5", [16, 38]],
+    ["R73.2", "R74.1"],
+    ["IC9.6", [30, 40], "R72.1"],
+    [[42, 40], "R71.1"],
+    ["IC9.4", [48, 42], [48, 54], { label = "left" }],
+    ["IC9.8", "R75.1"],
+    ["R75.4", "L5.1"],
+    ["L5.1", [148, 32], "R76.1"],
+    ["R76.2", [156, 32], "L5.2"],
+    ["L5.2", "M1.2"],
+    ["IC9.10", [90, 38], [90, 48], [180, 48], [180, 38], "M1.1"],
+    ["IC9.9", [62, 50], [64, 50], "IC9.17"],
+    ["IC9.15", [60, 50], [62, 50]],
+    [[62, 50], [62, 52]],
+]
+taps = ["L5.2"]
+stubs."IC9.7" = { point = "out" }
+stubs."IC9.16" = { point = "out" }
+stubs."R72.2" = { len = 6, label = "left" }
+stubs."R75.2" = { len = 4, label = "left" }
+stubs."R75.3" = { len = 4, label = "right" }
+
+[[block]]
+title = "Right motor (M2): DRV8874 IC8, shunt R65 to the INA241, choke L4"
+at = [10, 73]
+size = [210, 60]
+parts.IC8 = { at = [60, 32], fields = [8, 15] }
+parts.C87 = { at = [14, 14], rot = 270, fields = "right" }
+parts.C86 = [32, 12, 180]
+parts.C85 = [52, 12, 180]
+parts.C82 = [76, 12, 180]
+parts.C83 = [96, 12, 180]
+parts.C84 = [116, 12, 180]
+parts.C88 = [94, 24, 180]
+parts.C89 = [100, 30]
+parts.R63 = { at = [16, 34], fields = "left" }
+parts.R64 = { at = [16, 42], fields = "left" }
+parts.R61 = { at = [42, 44], fields = "left" }
+parts.R62 = { at = [30, 44], fields = "left" }
+parts.R65 = { at = [122, 36], rot = 90, mirror = "x", fields = "top" }
+parts.L4 = { at = [152, 36], fields = "bottom" }
+parts.R66 = [152, 32, 90]
+parts.M2 = { at = [186, 38], mirror = "x", fields = "right" }
+wires = [
+    ["IC8.11", "C88.2"],
+    [[72, 22], [72, 10], [72, 7]],
+    [[14, 10], [116, 10]],
+    ["IC8.12", "C88.1"],
+    ["IC8.13", "C89.1"],
+    ["IC8.14", [98, 30], [98, 32], "C89.2"],
+    ["IC8.5", [16, 38]],
+    ["R63.2", "R64.1"],
+    ["IC8.6", [30, 40], "R62.1"],
+    [[42, 40], "R61.1"],
+    ["IC8.4", [48, 42], [48, 54], { label = "left" }],
+    ["IC8.8", "R65.1"],
+    ["R65.4", "L4.1"],
+    ["L4.1", [148, 32], "R66.1"],
+    ["R66.2", [156, 32], "L4.2"],
+    ["L4.2", "M2.2"],
+    ["IC8.10", [90, 38], [90, 48], [180, 48], [180, 38], "M2.1"],
+    ["IC8.9", [62, 50], [64, 50], "IC8.17"],
+    ["IC8.15", [60, 50], [62, 50]],
+    [[62, 50], [62, 52]],
+]
+taps = ["L4.2"]
+stubs."IC8.7" = { point = "out" }
+stubs."IC8.16" = { point = "out" }
+stubs."R62.2" = { len = 6, label = "left" }
+stubs."R65.2" = { len = 4, label = "left" }
+stubs."R65.3" = { len = 4, label = "right" }
+
+[[block]]
+title = "Fan driver: STSPIN958 IC6, one half-bridge, current limit through R31"
+at = [10, 136]
+size = [156, 66]
+parts.IC6 = { at = [64, 38], fields = [6, 23] }
+parts.C31 = { at = [52, 10], rot = 180, fields = "left" }
+parts.C34 = [76, 10]
+parts.C35 = [96, 10]
+parts.C36 = [116, 10]
+parts.C99 = [136, 10]
+parts.R27 = { at = [32, 24], fields = "left" }
+parts.C30 = { at = [22, 28], rot = 180, fields = "left" }
+parts.R28 = { at = [14, 38], fields = "left" }
+parts.R29 = { at = [14, 46], rot = 180, fields = "left" }
+parts.R30 = { at = [34, 50], rot = 180, fields = "right" }
+parts.L6 = { at = [104, 22], fields = [-6, -5] }
+parts.R77 = { at = [104, 26], rot = 90, fields = "bottom" }
+parts.M3 = { at = [130, 22], fields = "right" }
+parts.R31 = { at = [112, 34], fields = "right" }
+parts.C32 = [98, 44]
+parts.C33 = [102, 50, 180]
+wires = [
+    ["IC6.27", [64, 8], [140, 8]],
+    ["IC6.28", [66, 8]],
+    ["IC6.29", [68, 8]],
+    ["IC6.30", [70, 8]],
+    ["IC6.13", [60, 8], [48, 8]],
+    ["IC6.14", [16, 26], [16, 22], { label = "left" }],
+    ["IC6.15", [14, 42]],
+    ["R28.2", "R29.2"],
+    ["IC6.21", [34, 46], "R30.2"],
+    ["IC6.31", "L6.1"],
+    ["IC6.26", [84, 28], [84, 22]],
+    ["IC6.32", [84, 24]],
+    ["IC6.25", [84, 26]],
+    ["L6.1", [100, 26], "R77.1"],
+    ["R77.2", [108, 26], "L6.2"],
+    ["L6.2", "M3.1"],
+    ["IC6.1", [120, 32], [120, 24], "M3.2"],
+    ["IC6.24", [84, 38], [84, 32]],
+    ["IC6.2", [84, 34]],
+    ["IC6.23", [84, 36]],
+    [[112, 32], "R31.1"],
+    ["IC6.5", "C32.1"],
+    ["IC6.6", [96, 44], [96, 46], "C32.2"],
+    ["IC6.7", "C33.2"],
+    ["IC6.4", [100, 50], [100, 52], "C33.1"],
+    ["IC6.22", [62, 60], [66, 60], "IC6.33"],
+    ["IC6.3", [64, 60]],
+    [[64, 60], [64, 62]],
+]
+taps = ["L6.2"]
+stubs."IC6.12" = { point = "out" }
+stubs."IC6.10" = { point = "out" }
+stubs."IC6.20" = { point = "out" }
+stubs."IC6.19" = { point = "out" }
+stubs."IC6.18" = { point = "out" }
+stubs."IC6.9" = { point = "out" }
+stubs."IC6.16" = { len = 16 }
+
+[[block]]
+title = "Bridge sleep pull-down and fault pull-up (IC8, IC9)"
+at = [226, 10]
+size = [62, 22]
+parts.R49 = { at = [30, 8], rot = 180, fields = "right" }
+parts.R60 = { at = [46, 14], fields = "right" }
+wires = [
+    ["R49.2", [18, 6]],
+    ["R60.2", [46, 18], [18, 18]],
+]

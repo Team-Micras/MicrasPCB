@@ -32,7 +32,14 @@ the entry is dropped when firmware.toml is regenerated.
     pins = { "PA5" = { signal = "ADCx_INP19", label = "Battery_Voltage" } }   # pins set or replaced
     battery = { channel = "pin", divider = 4.7037 }                          # sections merged key by key
 
-Sections other than pins (supply, battery, drive) merge key by key into the contract.
+Sections other than pins (supply, battery, drive, behaviour) merge key by key into the contract.
+`behaviour` names what the firmware must do differently where no pin or number captures it (a
+driver mode, an ADC trigger, a protocol timing), one sentence per key:
+
+    behaviour = { motor_drive = "PH/EN: PWM on EN, direction on PH" }
+
+A board that follows another board's firmware changes (main2 on top of main) lists its own in its
+own file; tests apply both in order.
 """
 
 from __future__ import annotations
@@ -67,7 +74,7 @@ def changes_path(board: str = "main") -> Path:
     return BOARDS / board / "firmware_changes.toml"
 
 
-CHANGE_SECTIONS = ("pins", "supply", "battery", "drive")
+CHANGE_SECTIONS = ("pins", "supply", "battery", "drive", "behaviour")
 
 
 def load_changes(board: str = "main", path: Path | None = None) -> list[dict]:

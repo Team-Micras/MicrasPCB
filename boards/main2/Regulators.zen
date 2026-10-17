@@ -1,0 +1,201 @@
+"""Battery input, switch, monitor and measurement; the VSYS power path; the 3V3_D buck and the
+3V3_A analog LDO.
+
+Power tree (research/next-revision, Power tree):
+- Battery (J1, 4S LiPo, 12.0-16.8 V, 17.4 V with HV cells): BAT_P, then the shunt R59 to VBAT.
+  VBAT feeds the motor bridges and the fan driver (drivers sheet) and, through D14, VSYS.
+- USB (U2 VBUS, +5V, peripherals sheet): through Q8 to VSYS only. There is no 5 V rail: +5V is
+  the VBUS input of the power path, the TVS, and two VBUS-sense dividers.
+- VSYS = OR(VBAT, VBUS) feeds only the 3V3_D buck IC7 and, through R58, the 3V3_A LDO U8. So the
+  ESP32, the MCU (for SWD flashing) and VDDA all run from USB alone, with the bridges off.
+
+Battery input and switch, kept from the main board. J1 takes the pack: + on BAT_P, - on GND_BAT.
+Q6 (HSBB3072, 30 V N-MOSFET) is a low-side switch from GND_BAT to GND; SW4 drives its gate from
+BAT_P through R43 100 kOhm with R41 100 kOhm to GND_BAT, so VGS settles at VBAT / 2 = 6.0-8.7 V
+(RDS(on) 3.8 mOhm max at 4.5 V, HSBB3072 p2), inside +-20 V; VDS 30 V is 1.72x the 17.4 V pack.
+C58 47 nF slews the turn-on at IG / CGD <= 17.4 V / (100 kOhm x 47.2 nF) = 3.7 V/ms (Crss 229
+pF, HSBB3072 p2), below the STSPIN958's 0.5 V/us VS rating (DS14341 Table 1). The body diode
+gives no reverse-polarity protection: it conducts with the pack reversed (research Power tree,
+Battery switch). TODO: reverse-polarity protection and a TVS on BAT_P (research Gaps: battery
+input); the B02B-PASK rating at about 5 A on J1 is unconfirmed.
+TODO: SW4 (MK-12D18-G040) is rated DC 12 V 0.5 A (G-Switch specification); the 4S pack needs a
+switch rated for at least 16.8 V (17.4 V with HV cells). It carries only the gate drive
+(VBAT / 200 kOhm = 87 uA). Kept until a replacement part is chosen.
+
+Battery monitor, U9 (INA228AIDGSR, SLYS021A) on the ESP32's I2C (the MCU has no free I2C pins,
+research Current sensing): the 2 mOhm 4-terminal shunt R59 (WSK25122L000FEA) carries the whole
+battery current from BAT_P to VBAT. IN+ on the BAT_P sense terminal and IN- on the VBAT one,
+Kelvin (section 10.1); VBUS on VBAT, the load side (Figure 10-1 note 1). With ADCRANGE = 1
+(+-40.96 mV, Table 8-1) the range is +-20.48 A. VS on 3V3_D with C90 100 nF (section 9).
+A0 = A1 = GND: address 0x40 (Table 7-2). SDA, SCL and ALERT have R68-R70 10 kOhm pull-ups to
+3V3_D (Figure 8-2); the ESP reads it and relays the readings over UART4. No input filter: the
+shunt sense pads go straight to IN+/IN- (section 8.1.4 makes the filter optional).
+
+Battery measurement: R44 100 kOhm / R45 20 kOhm from VBAT into Battery_Voltage (PA5, ADC12_INP19,
+DS13311 Table 8) with C59 100 nF: 17.4 V x 20 / 120 = 2.90 V at the HV pack's top, below VDDA
+(the main board's 27 kOhm gives 3.70 V, above it); Thevenin 16.7 kOhm with 100 nF (1.7 ms)
+holds the pin for the ADC sample and filters the PWM ripple. The firmware divides by 120 / 20 =
+6.0 (boards/main2/firmware_changes.toml).
+
+Power path (research A.4; power-tree study section 8):
+- VBAT -> VSYS: D14, B5819W 40 V 1 A Schottky (JCET B5817W-B5819W p1: VRRM 40 V, VF 0.6 V max at
+  1 A). The 17.4 V pack is 44 % of VRRM; about 0.13 A at 14.8 V is 46 mW. It blocks VSYS -> VBAT.
+- VBUS -> VSYS: Q8, AO3401A P-MOSFET (-30 V VDS, +-12 V VGS, AO3401A p1), drain on +5V, source
+  on VSYS, so its body diode conducts VBUS -> VSYS and blocks VSYS -> VBUS. The gate follows
+  VBAT through R56 10 kOhm with R57 1 MOhm to GND: with the pack on, the gate sits at 0.99 VBAT
+  and VSYS one Schottky drop below VBAT, VGS about +0.2 V, off (VGS(th) -0.5 to -1.3 V, p2); with
+  the pack off or absent, the gate falls to GND and VGS is about -4.6 V, on. A 4S pack (>= 12 V)
+  is always above VBUS (<= 5.25 V), so the battery always wins and USB never back-feeds VBAT;
+  with the battery on, VSYS never reaches VBUS.
+- VSYS: 4.3-17.4 V (USB-only at 4.4 V minus the FET; the pack minus D14).
+
+3V3_D buck, IC7 (L6981C33DR, fixed 3.3 V, low-consumption mode, DS13554), as on the main board:
+VIN and EN on VSYS. Integrator parts per DS13554 Table 1 p3 and Table 2 p4: C55 100 nF BOOT to
+SW; C54 1 uF on VCC; L3 22 uH (YSPIA0645-220M, 4.5 A Isat); C52 10 uF + C53 1 uF on VSYS at IC7
+(CIN 10 uF typ); C56/C57 22 uF on 3V3_D. Ripple by Eq. 36 at fSW 400 kHz typ (Table 6):
+(17.4 - 3.3) x 3.3 / (17.4 x 22 uH x 400 kHz) = 0.30 A at the top of the HV pack, 20 % of the
+1.5 A rating (the section 8.4.2 target is 20-40 %). Every capacitor on 3V3_D must stay inside the
+30.5-145 uF window of Eq. 42/43 (boards/main2/test/test_power.zen). In LCM the buck skips pulses
+at light load (section 6.4.1, +1.8 %); the analog loads are on 3V3_A, so that step no longer
+reaches the ADC.
+
+3V3_A analog LDO, U8 (ADP7142ACPZN3.3-R7, fixed 3.3 V, 2.7-40 V input, ADP7142 Rev H), the
+research's recommendation over the TPS7A4901 (fixed output, lower noise; Open decisions):
+- Input RC: R58 22 Ohm from VSYS to LDO_IN with C80 10 uF (research A.4). It keeps the 100 kHz
+  motor ripple out of the LDO (68 dB PSRR at 100 kHz, 50 dB at 1 MHz, Table 1) and leaves
+  headroom on USB alone: 4.3 V - 22 Ohm x 23 mA = 3.8 V, above 3.3 V + 40 mV dropout at 25 mA
+  (Figure 22).
+- C81 10 uF on 3V3_A (Table 2: >= 2.2 uF, effective >= 1.5 uF; with more than 2.2 uF on the
+  output, the input capacitor matches it: 10 uF each).
+- EN on 3V3_D: 3V3_A starts after VDD (EN on threshold 1.30 V max, off 1.06 V min, Table 1), so
+  VDDA never leads VDD at power-up (DS13311 section 3.7.1, Figure 2). SS open: the internal
+  380 us start-up (pin table; never ground SS).
+- Loads (research, Power tree): VDDA through R67, U10/U11 INA241A2 VS and REF1, the four
+  phototransistor collectors, the emitter-sink op-amp U12 and its set-point divider: 9.7 mA
+  typical, 22.5 mA worst case. Worst-case heat (Eq. 10): 14.1 V x 22.5 mA + 17.4 V x 190 uA =
+  0.32 W, +23 K at 72.1 C/W (LFCSP, Table 4). TODO: the board-level thermal limit of the LFCSP at
+  about 0.33 W (research Gaps: analog rail); keep the LDO away from the IMU.
+"""
+
+load("@stdlib/interfaces.zen", "I2c")
+load(
+    "./passives.zen",
+    "C_100N_0402",
+    "C_10U_0603",
+    "C_1U_0402",
+    "C_22U_0805_25V",
+    "C_47N_0603",
+    "R_100K_0402",
+    "R_10K_0402",
+    "R_1M_0402",
+    "R_20K_0402",
+    "R_22_0402",
+)
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+ADP7142 = Module("github.com/Team-Micras/MicrasPCB/components/adi/ADP7142/ADP7142.zen")
+AO3401A = Module("github.com/Team-Micras/MicrasPCB/components/aos/AO3401A/AO3401A.zen")
+B02B_PASK = Module("github.com/Team-Micras/MicrasPCB/components/jst/B02B-PASK/B02B-PASK.zen")
+B5819W = Module("github.com/Team-Micras/MicrasPCB/components/cj/B5819W/B5819W.zen")
+HSBB3072 = Module("github.com/Team-Micras/MicrasPCB/components/huashuo/HSBB3072/HSBB3072.zen")
+INA228 = Module("github.com/Team-Micras/MicrasPCB/components/ti/INA228/INA228.zen")
+L6981 = Module("github.com/Team-Micras/MicrasPCB/components/st/L6981/L6981.zen")
+MK_12D18_G040 = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/MK-12D18-G040/MK-12D18-G040.zen")
+WSK2512_MID = Module("github.com/Team-Micras/MicrasPCB/components/vishay/WSK2512-MID/WSK2512-MID.zen")
+YSPIA0645_220M = Module("github.com/Team-Micras/MicrasPCB/components/yjycoin/YSPIA0645-220M/YSPIA0645-220M.zen")
+
+# Its own sheet in the board schematic (layout/main2.kicad_sch).
+Project(name="Regulators", path="layout", layout=False)
+
+# A signal port takes the name of the board net it carries (the firmware's pin label) wherever
+# that name is an identifier, so its sheet pin and hierarchical label match the root's label:
+# KiCad's ERC flags labels whose names differ only in case (similar_labels).
+BAT_P = io(Power)
+VBAT = io(Power)
+VSYS = io(Power)
+V3V3_D = io(Power)
+V3V3_A = io(Power)
+V5V = io(Power)
+GND = io(Ground)
+GND_BAT = io(Ground)
+Battery_Voltage = io(Net)
+BAT_I2C = io(I2c)
+BAT_ALERT = io(Net)
+
+BAT_SW_DRIVE = Net("BAT_SW_DRIVE")
+BAT_SW_GATE = Net("BAT_SW_GATE")
+BAT_SENSE_P = Net("BAT_SENSE_P")
+BAT_SENSE_N = Net("BAT_SENSE_N")
+PATH_GATE = Net("PATH_GATE")
+BUCK_SW = Net("BUCK_SW")
+BUCK_BOOT = Net("BUCK_BOOT")
+# The L6981 VCC LDO output, 3.3 V typ (DS13554 Table 6 p7).
+BUCK_VCC = Power("BUCK_VCC", voltage="3.0V to 3.6V")
+# The LDO input after R58: VSYS less 22 Ohm x 23 mA at most.
+LDO_IN = Power("LDO_IN", voltage="3.8V to 17.4V")
+
+# Battery input and switch.
+B02B_PASK(name="J1", prefix="J", P1=BAT_P, P2=GND_BAT)
+MK_12D18_G040(name="SW4", A=NotConnected(), COM=BAT_P, B=BAT_SW_DRIVE)
+Resistor(name="R43", P1=BAT_SW_DRIVE, P2=BAT_SW_GATE, **R_100K_0402)
+HSBB3072(name="Q6", G=BAT_SW_GATE, S=GND_BAT, D=GND)
+Resistor(name="R41", P1=GND_BAT, P2=BAT_SW_GATE, **R_100K_0402)
+Capacitor(name="C58", P1=GND, P2=BAT_SW_GATE, **C_47N_0603)
+
+# Battery monitor.
+WSK2512_MID(name="R59", P1=BAT_P, S1=BAT_SENSE_P, S2=BAT_SENSE_N, P2=VBAT)
+INA228(
+    name="U9",
+    VS=V3V3_D,
+    GND=GND,
+    IN_P=BAT_SENSE_P,
+    IN_N=BAT_SENSE_N,
+    VBUS=VBAT,
+    I2C=BAT_I2C,
+    ALERT=BAT_ALERT,
+    A0=GND,
+    A1=GND,
+)
+Capacitor(name="C90", P1=GND, P2=V3V3_D, **C_100N_0402)
+Resistor(name="R68", P1=V3V3_D, P2=BAT_I2C.SDA, **R_10K_0402)
+Resistor(name="R69", P1=V3V3_D, P2=BAT_I2C.SCL, **R_10K_0402)
+Resistor(name="R70", P1=V3V3_D, P2=BAT_ALERT, **R_10K_0402)
+
+# Battery measurement.
+Resistor(name="R44", P1=VBAT, P2=Battery_Voltage, **R_100K_0402)
+Resistor(name="R45", P1=GND, P2=Battery_Voltage, **R_20K_0402)
+Capacitor(name="C59", P1=GND, P2=Battery_Voltage, **C_100N_0402)
+
+# Power path.
+B5819W(name="D14", A=VBAT, K=VSYS)
+AO3401A(name="Q8", G=PATH_GATE, S=VSYS, D=V5V)
+Resistor(name="R56", P1=VBAT, P2=PATH_GATE, **R_10K_0402)
+Resistor(name="R57", P1=GND, P2=PATH_GATE, **R_1M_0402)
+Capacitor(name="C63", P1=GND, P2=V5V, **C_10U_0603)
+
+# 3V3_D buck.
+L6981(
+    name="IC7",
+    mpn="L6981C33DR",
+    VIN=VSYS,
+    EN=VSYS,
+    VOUT=V3V3_D,
+    VCC=BUCK_VCC,
+    GND=GND,
+    SW=BUCK_SW,
+    BOOT=BUCK_BOOT,
+)
+Capacitor(name="C55", P1=BUCK_BOOT, P2=BUCK_SW, **C_100N_0402)
+Capacitor(name="C54", P1=GND, P2=BUCK_VCC, **C_1U_0402)
+YSPIA0645_220M(name="L3", P1=BUCK_SW, P2=V3V3_D)
+Capacitor(name="C52", P1=GND, P2=VSYS, **C_10U_0603)
+Capacitor(name="C53", P1=GND, P2=VSYS, **C_1U_0402)
+Capacitor(name="C56", P1=GND, P2=V3V3_D, **C_22U_0805_25V)
+Capacitor(name="C57", P1=GND, P2=V3V3_D, **C_22U_0805_25V)
+
+# 3V3_A analog LDO.
+Resistor(name="R58", P1=VSYS, P2=LDO_IN, **R_22_0402)
+Capacitor(name="C80", P1=GND, P2=LDO_IN, **C_10U_0603)
+ADP7142(name="U8", VIN=LDO_IN, VOUT=V3V3_A, GND=GND, EN=V3V3_D, SS=NotConnected())
+Capacitor(name="C81", P1=GND, P2=V3V3_A, **C_10U_0603)

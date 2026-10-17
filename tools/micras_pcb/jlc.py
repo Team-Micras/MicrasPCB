@@ -19,7 +19,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from .paths import ROOT, board_pcb, board_zen, boards, build_dir
+from .paths import ROOT, SCHEMATIC_ONLY, board_pcb, board_zen, boards, build_dir, has_layout
 from .tools import kicad_cli, pcb
 
 PARTS_FILE = ROOT / "parts" / "jlc.toml"
@@ -184,6 +184,12 @@ def fab(board: str) -> int:
     if errors:
         print("BOM has unsourced parts:\n  " + "\n  ".join(errors))
         return 1
+    if not has_layout(board):
+        bom = out / f"{board}-bom-jlcpcb.csv"
+        _write_csv(bom, rows, ["Comment", "Designator", "Footprint", "LCSC Part #", "MPN"])
+        print(f"  {bom.relative_to(ROOT)}")
+        print(f"{board}: gerbers and CPL skipped: {SCHEMATIC_ONLY}")
+        return 0
     packages = {r["Ref"]: r["Package"] for r in positions(board, out)}
     for row in rows:
         row["Footprint"] = row["Footprint"] or packages.get(row["Designator"].split(",")[0], "")

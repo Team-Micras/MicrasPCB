@@ -1,0 +1,362 @@
+"""Micras main board, second revision: the micromouse's MCU, 4S power, DRV8874 wheel bridges, fan
+driver, sensors, ESP32-S3 radio and debug probe, and user interface.
+
+The design is research/next-revision/README.md: its design basis (DCX 10 L 4.5 V motors on a 4S
+pack with no boost; USB-C to the ESP32 only; the ESP32 replacing the HM-19 module and the SWD
+connector; digital 3V3_D from the L6981C33 and analog 3V3_A from a battery-side LDO; no 5 V
+rail; the STSPIN958 fan driver at 400 kHz), its recommended options and its appendix connection
+lists A.1-A.6. The blocks it keeps unchanged are boards/main's, with their designators; the
+parts it adds continue each series, and the designators of removed parts are not reused.
+
+This root sheet holds the STM32H725RGV6 (IC1) with its supply network and the test pads, and
+connects the five sheets:
+- REGULATORS (Regulators.zen): battery input, switch, monitor (INA228) and measurement; the VSYS
+  power path; the 3V3_D buck and the 3V3_A analog LDO.
+- DRIVERS (Drivers.zen): two DRV8874 bridges with their shunts and chokes; the STSPIN958 fan
+  driver.
+- SENSORS (Sensors.zen): IMU, INA241 current amplifiers, wall sensors with their emitter
+  current sink, encoder slots.
+- PERIPHERALS (Peripherals.zen): buttons, DIP switch, buzzer, LEDs, USB-C.
+- ESP (Esp.zen): the ESP32-S3-MINI-1 radio and debug probe.
+
+The board is a schematic only: Project(layout = False) below. Placement and routing are
+human-led and not started; the layout, its spec/main2.toml and the board's stackup and rules
+(those of boards/main's Board(), the same 4-layer 1.0 mm JLCPCB stackup) come with it.
+
+MCU supply (DS13311 Rev 5; AN5419 Rev 3, Table 2 p7-8 and Figure 5 p10, "Direct SMPS supply"),
+as on the main board, on 3V3_D:
+- VDD (pins 9, 22, 35, 51, 68): C12-C16 100 nF, one per pin, and C17 4.7 uF.
+- VDDSMPS (pin 6) = VDD: C1 10 uF and C2 4.7 uF.
+- VLXSMPS (pin 5) to L1 2.2 uH (AFE201612S2R2MBT), whose other end is VCORE; C3 and C4 10 uF.
+- VFBSMPS (pin 7) and VCAP1-3 (pins 33, 49, 66) all on VCORE, with C7, C6 and C5 100 nF at
+  VCAP1, VCAP2 and VCAP3. The firmware selects PWR_DIRECT_SMPS_SUPPLY.
+- VDDA (pin 16): from 3V3_A, the analog LDO, through R67, a 0 Ohm link in the place of the main
+  board's ferrite bead FB1 (research Power tree: its 340 mOhm DCR times the ADC current step is
+  about 5 LSB at each scan start), with C10 100 nF and C11 1 uF at the pin (AN5419 Table 2). On
+  this package VREF+ is VDDA (DS13311 Figures 46-47 note 1), so the ADC reference is 3V3_A, to
+  which the INA241 references and the emitter set-point are ratiometric. 3V3_A starts after VDD
+  (its LDO's EN is on 3V3_D), so VDDA never leads VDD at power-up (DS13311 section 3.7.1).
+- VBAT (pin 1): 3V3_D (AN5419 Table 2, no backup battery), with C8 100 nF and C9 1 uF.
+
+Pin budget (research H7 pin budget): the two pins the main board left open now carry
+Motors_nFault (PC15, both DRV8874 nFAULT wire-ORed; a slow, reduced-drive pin is fine for an
+open-drain input) and ESP_Flow (PH1, the ESP32's flow-control line). The ESP32 takes the SWD pins
+(PA13/PA14), NRST, BOOT0 (optional, held low by R42) and UART4 (PA11 = UART4_RX, PA12 = UART4_TX),
+so it costs no new pin. The motor pins keep their timers: right motor EN/PH on PA8/PA9 (TIM1),
+left on PC7/PC9 (TIM3). TODO: the research's fast-ADC swap (wall sensors to PC0/PC1, currents to
+two of PA6/PB1/PC4) needs a CubeMX check; until then the currents stay on PC0/PC1. PA5 reads the
+battery voltage and PH0 the USB VBUS, from dividers. There is no HSE or LSE crystal.
+
+Test pads (bare pads, not assembled): the IMU interrupts and the fan signals, as on the main
+board, and the SWD backstop (SWDIO, SWCLK, NRST and GND; research Open decisions), to reach the
+MCU with an external probe if the ESP32 cannot.
+"""
+
+load("@stdlib/interfaces.zen", "DiffPair", "I2c", "Spi", "Usb2")
+load("./passives.zen", "C_100N_0402", "C_10U_0603", "C_1U_0402", "C_4U7_0402", "R_0_0402")
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+AFE201612S2R2MBT = Module("github.com/Team-Micras/MicrasPCB/components/magnetsyc/AFE201612S2R2MBT/AFE201612S2R2MBT.zen")
+STM32H725RGV6 = Module("github.com/Team-Micras/MicrasPCB/components/st/STM32H725RGV6/STM32H725RGV6.zen")
+MountingHole = Module("github.com/Team-Micras/MicrasPCB/components/micras/MountingHole/MountingHole.zen")
+TestPoint = Module("github.com/Team-Micras/MicrasPCB/components/micras/TestPoint/TestPoint.zen")
+Regulators = Module("./Regulators.zen")
+Drivers = Module("./Drivers.zen")
+Sensors = Module("./Sensors.zen")
+Peripherals = Module("./Peripherals.zen")
+Esp = Module("./Esp.zen")
+
+# Supplies.
+# 4S LiPo on J1: 12.0-16.8 V, 17.4 V with HV cells (research Design basis).
+BAT_P = Power("BAT_P", voltage="12V to 17.4V")
+# The battery after the monitor's 2 mOhm shunt: the bridges' and the fan driver's supply.
+VBAT = Power("VBAT", voltage="12V to 17.4V")
+# OR(VBAT, VBUS): VBAT less the B5819W's drop, or VBUS less the P-FET (research Power tree).
+VSYS = Power("VSYS", voltage="4.3V to 17.4V")
+# L6981C33 fixed output (DS13554 Table 6 p6: 3.284-3.346 V).
+V3V3_D = Power("3V3_D", voltage="3.3V")
+# ADP7142ACPZN3.3 fixed output (Rev H Table 1: 3.24-3.36 V over load, line and temperature).
+V3V3_A = Power("3V3_A", voltage="3.3V")
+# The ADC and analog supply, 3V3_A through the 0 Ohm R67.
+VDDA = Power("VDDA", voltage="3.3V")
+# USB VBUS from the USB-C receptacle: 4.75-5.25 V at the host, 4.4 V minimum at a device.
+V5V = Power("+5V", voltage="4.4V to 5.25V")
+# STM32 core supply from the on-chip SMPS: VOS3 to VOS0 (DS13311 Table 13 p117).
+VCORE = Power("VCORE", voltage="0.95V to 1.40V")
+# SMPS switching node; AN5419 Table 2 gives its range as VCORE in the Direct SMPS supply.
+SMPS_LX = Power("SMPS_LX", voltage="0.95V to 1.40V")
+GND = Ground("GND")
+# Battery pack minus, switched to GND by Q6.
+GND_BAT = Ground("GND_BAT")
+
+# MCU signals (names as in the firmware's pin map and boards/main2/firmware_changes.toml).
+RESET = Net("Reset")
+BOOT = Net("Boot")
+SWDIO = Net("SWDIO")
+SWCLK = Net("SWCLK")
+UART4_RX = Net("UART4_RX")
+UART4_TX = Net("UART4_TX")
+ESP_FLOW = Net("ESP_Flow")
+USB = Usb2(D=DiffPair(P=Net("USBD_P"), N=Net("USBD_N")))
+BAT_I2C = I2c(SDA=Net("BAT_SDA"), SCL=Net("BAT_SCL"))
+BAT_ALERT = Net("BAT_ALERT")
+BUTTON = Net("Button")
+BUZZER = Net("Buzzer")
+LED_ARGB = Net("LED_ARGB")
+LED_RED = Net("LED_Red")
+SWITCH_0 = Net("Switch_0")
+SWITCH_1 = Net("Switch_1")
+SWITCH_2 = Net("Switch_2")
+SWITCH_3 = Net("Switch_3")
+
+SPI_SCK = Net("SPI_SCK")
+SPI_MISO = Net("SPI_MISO")
+SPI_MOSI = Net("SPI_MOSI")
+IMU_SPI = Spi(CS=Net("IMU_SPI_CSn"), CLK=SPI_SCK, MISO=SPI_MISO, MOSI=SPI_MOSI)
+ENCODER_LEFT_SPI = Spi(CS=Net("Encoder_Left_CSn"), CLK=SPI_SCK, MISO=SPI_MISO, MOSI=SPI_MOSI)
+ENCODER_RIGHT_SPI = Spi(CS=Net("Encoder_Right_CSn"), CLK=SPI_SCK, MISO=SPI_MISO, MOSI=SPI_MOSI)
+IMU_INT1 = Net("IMU_INT1")
+IMU_INT2 = Net("IMU_INT2")
+ENCODER_LEFT_ABI_A = Net("Encoder_Left_ABI_A")
+ENCODER_LEFT_ABI_B = Net("Encoder_Left_ABI_B")
+ENCODER_RIGHT_ABI_A = Net("Encoder_Right_ABI_A")
+ENCODER_RIGHT_ABI_B = Net("Encoder_Right_ABI_B")
+
+WALL_SENSOR_PWM_0 = Net("Wall_Sensor_PWM_0")
+WALL_SENSOR_PWM_1 = Net("Wall_Sensor_PWM_1")
+WALL_SENSOR_PWM_2 = Net("Wall_Sensor_PWM_2")
+WALL_SENSOR_PWM_3 = Net("Wall_Sensor_PWM_3")
+WALL_SENSOR_0 = Net("Wall_Sensor_0")
+WALL_SENSOR_1 = Net("Wall_Sensor_1")
+WALL_SENSOR_2 = Net("Wall_Sensor_2")
+WALL_SENSOR_3 = Net("Wall_Sensor_3")
+
+MOTOR_LEFT_EN = Net("Motor_Left_EN")
+MOTOR_LEFT_PH = Net("Motor_Left_PH")
+MOTOR_RIGHT_EN = Net("Motor_Right_EN")
+MOTOR_RIGHT_PH = Net("Motor_Right_PH")
+MOTORS_ENABLE = Net("Motors_Enable")
+MOTORS_NFAULT = Net("Motors_nFault")
+MOTOR_L_SENSE_P = Net("Motor_L_Sense+")
+MOTOR_L_SENSE_N = Net("Motor_L_Sense-")
+MOTOR_R_SENSE_P = Net("Motor_R_Sense+")
+MOTOR_R_SENSE_N = Net("Motor_R_Sense-")
+CURRENT_SENSOR_LEFT = Net("Current_Sensor_Left")
+CURRENT_SENSOR_RIGHT = Net("Current_Sensor_Right")
+
+FAN_PWM = Net("Fan_PWM")
+FAN_ENABLE = Net("Fan_Enable")
+FAN_TOFF = Net("Fan_TOFF")
+
+BATTERY_VOLTAGE = Net("Battery_Voltage")
+USB_VBUS_SENSE = Net("USB_VBUS_Sense")
+
+# MCU.
+STM32H725RGV6(
+    name="IC1",
+    VDD=V3V3_D,
+    VDDSMPS=V3V3_D,
+    VDDA=VDDA,
+    VBAT=V3V3_D,
+    VLXSMPS=SMPS_LX,
+    VFBSMPS=VCORE,
+    VCAP1=VCORE,
+    VCAP2=VCORE,
+    VCAP3=VCORE,
+    GND=GND,
+    NRST=RESET,
+    BOOT0=BOOT,
+    PA0=ENCODER_LEFT_ABI_A,
+    PA1=ENCODER_LEFT_ABI_B,
+    PA2=BUZZER,
+    PA3=ENCODER_LEFT_SPI.CS,
+    PA4=WALL_SENSOR_3,
+    PA5=BATTERY_VOLTAGE,
+    PA6=WALL_SENSOR_2,
+    PA7=BUTTON,
+    PA8=MOTOR_RIGHT_EN,
+    PA9=MOTOR_RIGHT_PH,
+    PA10=MOTORS_ENABLE,
+    PA11=UART4_RX,
+    PA12=UART4_TX,
+    PA13=SWDIO,
+    PA14=SWCLK,
+    PA15=ENCODER_RIGHT_ABI_B,
+    PB0=SWITCH_1,
+    PB1=WALL_SENSOR_0,
+    PB2=SWITCH_2,
+    PB3=ENCODER_RIGHT_ABI_A,
+    PB4=IMU_INT2,
+    PB5=IMU_INT1,
+    PB6=WALL_SENSOR_PWM_0,
+    PB7=WALL_SENSOR_PWM_1,
+    PB8=WALL_SENSOR_PWM_2,
+    PB9=WALL_SENSOR_PWM_3,
+    PB10=SWITCH_3,
+    PB12=LED_RED,
+    PB13=FAN_TOFF,
+    PB14=FAN_ENABLE,
+    PB15=FAN_PWM,
+    PC0=CURRENT_SENSOR_LEFT,
+    PC1=CURRENT_SENSOR_RIGHT,
+    PC4=WALL_SENSOR_1,
+    PC5=SWITCH_0,
+    PC6=LED_ARGB,
+    PC7=MOTOR_LEFT_EN,
+    PC9=MOTOR_LEFT_PH,
+    PC10=SPI_SCK,
+    PC11=SPI_MISO,
+    PC12=SPI_MOSI,
+    PC14=ENCODER_RIGHT_SPI.CS,
+    PC15=MOTORS_NFAULT,
+    PD2=IMU_SPI.CS,
+    PH0=USB_VBUS_SENSE,
+    PH1=ESP_FLOW,
+)
+
+Capacitor(name="C1", P1=GND, P2=V3V3_D, **C_10U_0603)
+Capacitor(name="C2", P1=GND, P2=V3V3_D, **C_4U7_0402)
+AFE201612S2R2MBT(name="L1", P1=VCORE, P2=SMPS_LX)
+Capacitor(name="C3", P1=GND, P2=VCORE, **C_10U_0603)
+Capacitor(name="C4", P1=GND, P2=VCORE, **C_10U_0603)
+Capacitor(name="C7", P1=GND, P2=VCORE, **C_100N_0402)
+Capacitor(name="C6", P1=GND, P2=VCORE, **C_100N_0402)
+Capacitor(name="C5", P1=GND, P2=VCORE, **C_100N_0402)
+Capacitor(name="C8", P1=GND, P2=V3V3_D, **C_100N_0402)
+Capacitor(name="C9", P1=GND, P2=V3V3_D, **C_1U_0402)
+Resistor(name="R67", P1=V3V3_A, P2=VDDA, **R_0_0402)
+Capacitor(name="C10", P1=GND, P2=VDDA, **C_100N_0402)
+Capacitor(name="C11", P1=GND, P2=VDDA, **C_1U_0402)
+Capacitor(name="C12", P1=GND, P2=V3V3_D, **C_100N_0402)
+Capacitor(name="C13", P1=GND, P2=V3V3_D, **C_100N_0402)
+Capacitor(name="C14", P1=GND, P2=V3V3_D, **C_100N_0402)
+Capacitor(name="C15", P1=GND, P2=V3V3_D, **C_100N_0402)
+Capacitor(name="C16", P1=GND, P2=V3V3_D, **C_100N_0402)
+Capacitor(name="C17", P1=GND, P2=V3V3_D, **C_4U7_0402)
+
+# Test pads (bare pads, not assembled).
+TestPoint(name="IMU_INT1", prefix="IMU_INT", P1=IMU_INT1)
+TestPoint(name="IMU_INT2", prefix="IMU_INT", P1=IMU_INT2)
+TestPoint(name="FAN_PWM", prefix="FAN_PWM", P1=FAN_PWM)
+TestPoint(name="FAN_ENABLE", prefix="FAN_ENABLE", P1=FAN_ENABLE)
+TestPoint(name="FAN_OVERCURRENT", prefix="FAN_OVERCURRENT", P1=FAN_TOFF)
+TestPoint(name="SWDIO", prefix="SWDIO", P1=SWDIO)
+TestPoint(name="SWCLK", prefix="SWCLK", P1=SWCLK)
+TestPoint(name="NRST", prefix="NRST", P1=RESET)
+TestPoint(name="GND", prefix="GND", P1=GND)
+
+# M2 screw holes to the chassis.
+MountingHole(name="H1")
+MountingHole(name="H2")
+MountingHole(name="H3")
+MountingHole(name="H4")
+
+Regulators(
+    name="REGULATORS",
+    BAT_P=BAT_P,
+    VBAT=VBAT,
+    VSYS=VSYS,
+    V3V3_D=V3V3_D,
+    V3V3_A=V3V3_A,
+    V5V=V5V,
+    GND=GND,
+    GND_BAT=GND_BAT,
+    Battery_Voltage=BATTERY_VOLTAGE,
+    BAT_I2C=BAT_I2C,
+    BAT_ALERT=BAT_ALERT,
+)
+
+Drivers(
+    name="DRIVERS",
+    VBAT=VBAT,
+    V3V3_D=V3V3_D,
+    GND=GND,
+    Motor_Right_EN=MOTOR_RIGHT_EN,
+    Motor_Right_PH=MOTOR_RIGHT_PH,
+    Motor_Left_EN=MOTOR_LEFT_EN,
+    Motor_Left_PH=MOTOR_LEFT_PH,
+    Motors_Enable=MOTORS_ENABLE,
+    Motors_nFault=MOTORS_NFAULT,
+    MOTOR_R_SENSE_P=MOTOR_R_SENSE_P,
+    MOTOR_R_SENSE_N=MOTOR_R_SENSE_N,
+    MOTOR_L_SENSE_P=MOTOR_L_SENSE_P,
+    MOTOR_L_SENSE_N=MOTOR_L_SENSE_N,
+    Current_Sensor_Right=CURRENT_SENSOR_RIGHT,
+    Current_Sensor_Left=CURRENT_SENSOR_LEFT,
+    Fan_PWM=FAN_PWM,
+    Fan_Enable=FAN_ENABLE,
+    Fan_TOFF=FAN_TOFF,
+)
+
+Sensors(
+    name="SENSORS",
+    V3V3_D=V3V3_D,
+    V3V3_A=V3V3_A,
+    GND=GND,
+    SPI_SCK=SPI_SCK,
+    SPI_MISO=SPI_MISO,
+    SPI_MOSI=SPI_MOSI,
+    IMU_SPI_CSn=IMU_SPI.CS,
+    Encoder_Right_CSn=ENCODER_RIGHT_SPI.CS,
+    Encoder_Left_CSn=ENCODER_LEFT_SPI.CS,
+    IMU_INT1=IMU_INT1,
+    IMU_INT2=IMU_INT2,
+    MOTOR_L_SENSE_P=MOTOR_L_SENSE_P,
+    MOTOR_L_SENSE_N=MOTOR_L_SENSE_N,
+    MOTOR_R_SENSE_P=MOTOR_R_SENSE_P,
+    MOTOR_R_SENSE_N=MOTOR_R_SENSE_N,
+    Current_Sensor_Left=CURRENT_SENSOR_LEFT,
+    Current_Sensor_Right=CURRENT_SENSOR_RIGHT,
+    Wall_Sensor_PWM_0=WALL_SENSOR_PWM_0,
+    Wall_Sensor_PWM_1=WALL_SENSOR_PWM_1,
+    Wall_Sensor_PWM_2=WALL_SENSOR_PWM_2,
+    Wall_Sensor_PWM_3=WALL_SENSOR_PWM_3,
+    Wall_Sensor_0=WALL_SENSOR_0,
+    Wall_Sensor_1=WALL_SENSOR_1,
+    Wall_Sensor_2=WALL_SENSOR_2,
+    Wall_Sensor_3=WALL_SENSOR_3,
+    Encoder_Right_ABI_A=ENCODER_RIGHT_ABI_A,
+    Encoder_Right_ABI_B=ENCODER_RIGHT_ABI_B,
+    Encoder_Left_ABI_A=ENCODER_LEFT_ABI_A,
+    Encoder_Left_ABI_B=ENCODER_LEFT_ABI_B,
+)
+
+Peripherals(
+    name="PERIPHERALS",
+    V3V3_D=V3V3_D,
+    V5V=V5V,
+    GND=GND,
+    Button=BUTTON,
+    Reset=RESET,
+    Boot=BOOT,
+    Switch_0=SWITCH_0,
+    Switch_1=SWITCH_1,
+    Switch_2=SWITCH_2,
+    Switch_3=SWITCH_3,
+    Buzzer=BUZZER,
+    LED_ARGB=LED_ARGB,
+    LED_Red=LED_RED,
+    USB=USB,
+    USB_VBUS_Sense=USB_VBUS_SENSE,
+)
+
+Esp(
+    name="ESP",
+    V3V3_D=V3V3_D,
+    V5V=V5V,
+    GND=GND,
+    USB=USB,
+    SWDIO=SWDIO,
+    SWCLK=SWCLK,
+    Reset=RESET,
+    Boot=BOOT,
+    UART4_RX=UART4_RX,
+    UART4_TX=UART4_TX,
+    ESP_Flow=ESP_FLOW,
+    BAT_I2C=BAT_I2C,
+    BAT_ALERT=BAT_ALERT,
+)
+
+# Schematic only: no layout yet (see the docstring).
+Project(name="main2", path="layout", schematic=True, layout=False)

@@ -1,0 +1,53 @@
+"""WS2812C-2020-V6 package facts (WS-DS V1.0 p.2-3) on a 3.3 V rail driven by a 3.3 V MCU."""
+
+WS2812C = Module("../WS2812C-2020.zen")
+
+# The data comes from an STM32H725 output on the same rail: VOH >= VDD - 0.4 V at 8 mA
+# (DS13311 Table 56, as boards/main/Peripherals.zen cites it).
+VOH_DROP = 0.4
+
+
+def led(module):
+    return [c for path, c in module.components().items() if path.endswith("LED")][0]
+
+
+def pins_by_function(module, inputs):
+    got = {}
+    for net, ports in module.nets().items():
+        for path, pin in ports:
+            if path.endswith(".LED"):
+                got[pin] = net
+    check(got == {"DO": "DOUT", "GND": "GND", "DI": "DIN", "VDD": "V3V3"}, "pinout changed: " + str(got))
+
+
+def one_part(module, inputs):
+    # p.5: the 100 nF VDD filter capacitor is the board's; the package is the LED alone.
+    check(len(module.components()) == 1, "the package is the LED alone")
+
+
+def data_high_level(module, inputs):
+    # p.3: VIH 0.55 x VDD min; the driver shares the rail, so its VOH tracks VDD.
+    vdd = led(module).pins["VDD"].voltage
+    check(0.55 * vdd.max <= vdd.min - VOH_DROP, "a 3.3 V driver cannot reach VIH = 0.55 x VDD")
+
+
+def sourcing(module, inputs):
+    c = led(module)
+    check(c.mpn == "WS2812C-2020-V6", "MPN")
+    check(c.manufacturer == "Worldsemi", "manufacturer")
+    check(c.prefix == "D", "reference prefix D")
+
+
+TestBench(
+    name="WS2812C_3V3",
+    module=WS2812C,
+    test_cases={
+        "default": {
+            "VDD": Power("V3V3", voltage="3.3V to 3.35V"),
+            "GND": Ground("GND"),
+            "DI": Net("DIN"),
+            "DO": Net("DOUT"),
+        },
+    },
+    checks=[pins_by_function, one_part, data_high_level, sourcing],
+)

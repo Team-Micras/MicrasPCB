@@ -1,0 +1,155 @@
+=== Motor current ripple, D = 0.5 (worst case) ===
+motor                                                   VM  f kHz  tau us  unipolar A pp  bipolar A pp uni Iac,rms
+DCX8M 2.4V (4.13 ohm, 14 uH)                          16.8     20    3.39           4.06          8.13        1.17
+DCX8M 2.4V (4.13 ohm, 14 uH)                          16.8     40    3.39           3.87          7.74        1.12
+DCX8M 2.4V (4.13 ohm, 14 uH)                          16.8    100    3.39           2.55          5.11        0.74
+DCX8M 2.4V (4.13 ohm, 14 uH)                          16.8    200    3.39           1.44          2.87        0.41
+DCX8M 2.4V (4.13 ohm, 14 uH)                          24.0     20    3.39           5.80         11.61        1.68
+DCX8M 2.4V (4.13 ohm, 14 uH)                          24.0     40    3.39           5.53         11.05        1.60
+DCX8M 2.4V (4.13 ohm, 14 uH)                          24.0    100    3.39           3.65          7.29        1.05
+DCX8M 2.4V (4.13 ohm, 14 uH)                          24.0    200    3.39           2.05          4.10        0.59
+DCX8M 4.2V (12 ohm, 41.1 uH)                          16.8     20    3.43           1.40          2.80        0.40
+DCX8M 4.2V (12 ohm, 41.1 uH)                          16.8     40    3.43           1.33          2.66        0.38
+DCX8M 4.2V (12 ohm, 41.1 uH)                          16.8    100    3.43           0.87          1.74        0.25
+DCX8M 4.2V (12 ohm, 41.1 uH)                          16.8    200    3.43           0.49          0.98        0.14
+DCX8M 4.2V (12 ohm, 41.1 uH)                          24.0     20    3.43           2.00          3.99        0.58
+DCX8M 4.2V (12 ohm, 41.1 uH)                          24.0     40    3.43           1.90          3.80        0.55
+DCX8M 4.2V (12 ohm, 41.1 uH)                          24.0    100    3.43           1.25          2.49        0.36
+DCX8M 4.2V (12 ohm, 41.1 uH)                          24.0    200    3.43           0.70          1.40        0.20
+generic 1 ohm / 20 uH (ASSUMPTION, low-R coreless)    16.8     20   20.00           9.32         18.63        2.69
+generic 1 ohm / 20 uH (ASSUMPTION, low-R coreless)    16.8     40   20.00           5.09         10.17        1.47
+generic 1 ohm / 20 uH (ASSUMPTION, low-R coreless)    16.8    100   20.00           2.09          4.18        0.60
+generic 1 ohm / 20 uH (ASSUMPTION, low-R coreless)    16.8    200   20.00           1.05          2.10        0.30
+generic 1 ohm / 20 uH (ASSUMPTION, low-R coreless)    24.0     20   20.00          13.31         26.62        3.84
+generic 1 ohm / 20 uH (ASSUMPTION, low-R coreless)    24.0     40   20.00           7.27         14.53        2.10
+generic 1 ohm / 20 uH (ASSUMPTION, low-R coreless)    24.0    100   20.00           2.98          5.97        0.86
+generic 1 ohm / 20 uH (ASSUMPTION, low-R coreless)    24.0    200   20.00           1.50          3.00        0.43
+
+Small-ripple approx. dI = VM*D*(1-D)/(L*f) for DCX8M 2.4 V at 16.8 V, 100 kHz: 3.0 A pp (overestimates when T ~ tau)
+
+=== Driver loss per H-bridge, I = 4 A (continuous) ===
+
+-- VM = 16.8 V --
+driver                                f kHz  Pcond25  PcondHot    Psw  Pdead Ptot(hot) eff% of VM*I*0.5
+L6205D (current)                         20     9.92     14.88   0.13   0.12     15.13             68.9
+L6205D (current)                         40     9.92     14.88   0.27   0.24     15.39             68.6
+L6205D (current)                        100     9.92     14.88   0.67   0.60     16.15             67.5
+DRV8874 (x1 per motor)                   20     3.20      4.80   0.20   0.01      5.02             87.0
+DRV8874 (x1 per motor)                   40     3.20      4.80   0.40   0.03      5.23             86.5
+DRV8874 (x1 per motor)                  100     3.20      4.80   1.01   0.07      5.88             85.1
+DRV8256 (x1 per motor)                   20     2.62      4.00   0.09   0.00      4.09             89.1
+DRV8256 (x1 per motor)                   40     2.62      4.00   0.19   0.00      4.19             88.9
+DRV8256 (x1 per motor)                  100     2.62      4.00   0.47   0.00      4.47             88.3
+DRV8262 dual (per bridge)                20     1.60      2.40   0.15   0.04      2.59             92.8
+DRV8262 dual (per bridge)                40     1.60      2.40   0.30   0.09      2.78             92.4
+DRV8262 dual (per bridge)               100     1.60      2.40   0.74   0.22      3.36             90.9
+DRV8962 quad-HB (per bridge)             20     1.70      2.24   0.19   0.04      2.47             93.1
+DRV8962 quad-HB (per bridge)             40     1.70      2.24   0.38   0.09      2.70             92.6
+DRV8962 quad-HB (per bridge)            100     1.70      2.24   0.94   0.22      3.40             90.8
+DRV8263-Q1 (x1 per motor)                20     1.36      2.04   0.15   0.07      2.26             93.7
+DRV8263-Q1 (x1 per motor)                40     1.36      2.04   0.30   0.14      2.48             93.1
+DRV8263-Q1 (x1 per motor)               100     1.36      2.04   0.75   0.36      3.15             91.4
+STSPIN948 (per bridge)                   20     5.76      8.64   0.04   0.00      8.68             79.5
+STSPIN948 (per bridge)                   40     5.76      8.64   0.08   0.00      8.72             79.4
+STSPIN948 (per bridge)                  100     5.76      8.64   0.19   0.00      8.83             79.2
+Discrete DRV8714 + 2x SiZF5302DT         20     0.12      0.17   0.04   0.05      0.25             99.3
+Discrete DRV8714 + 2x SiZF5302DT         40     0.12      0.17   0.08   0.10      0.34             99.0
+Discrete DRV8714 + 2x SiZF5302DT        100     0.12      0.17   0.20   0.24      0.61             98.2
+
+-- VM = 24.0 V --
+driver                                f kHz  Pcond25  PcondHot    Psw  Pdead Ptot(hot) eff% of VM*I*0.5
+L6205D (current)                         20     9.92     14.88   0.19   0.12     15.19             76.0
+L6205D (current)                         40     9.92     14.88   0.38   0.24     15.50             75.6
+L6205D (current)                        100     9.92     14.88   0.96   0.60     16.44             74.5
+DRV8874 (x1 per motor)                   20     3.20      4.80   0.29   0.01      5.10             90.4
+DRV8874 (x1 per motor)                   40     3.20      4.80   0.58   0.03      5.40             89.9
+DRV8874 (x1 per motor)                  100     3.20      4.80   1.44   0.07      6.31             88.4
+DRV8256 (x1 per motor)                   20     2.62      4.00   0.19   0.00      4.19             92.0
+DRV8256 (x1 per motor)                   40     2.62      4.00   0.38   0.00      4.38             91.6
+DRV8256 (x1 per motor)                  100     2.62      4.00   0.96   0.00      4.96             90.6
+DRV8262 dual (per bridge)                20     1.60      2.40   0.21   0.04      2.65             94.8
+DRV8262 dual (per bridge)                40     1.60      2.40   0.42   0.09      2.91             94.3
+DRV8262 dual (per bridge)               100     1.60      2.40   1.06   0.22      3.67             92.9
+DRV8962 quad-HB (per bridge)             20     1.70      2.24   0.27   0.04      2.55             95.0
+DRV8962 quad-HB (per bridge)             40     1.70      2.24   0.54   0.09      2.86             94.4
+DRV8962 quad-HB (per bridge)            100     1.70      2.24   1.34   0.22      3.80             92.7
+DRV8263-Q1 (x1 per motor)                20     1.36      2.04   0.31   0.07      2.42             95.2
+DRV8263-Q1 (x1 per motor)                40     1.36      2.04   0.61   0.14      2.79             94.5
+DRV8263-Q1 (x1 per motor)               100     1.36      2.04   1.53   0.36      3.92             92.4
+STSPIN948 (per bridge)                   20     5.76      8.64   0.08   0.00      8.72             84.6
+STSPIN948 (per bridge)                   40     5.76      8.64   0.15   0.00      8.79             84.5
+STSPIN948 (per bridge)                  100     5.76      8.64   0.38   0.00      9.02             84.2
+Discrete DRV8714 + 2x SiZF5302DT         20     0.12      0.17   0.06   0.05      0.27             99.4
+Discrete DRV8714 + 2x SiZF5302DT         40     0.12      0.17   0.12   0.10      0.38             99.2
+Discrete DRV8714 + 2x SiZF5302DT        100     0.12      0.17   0.29   0.24      0.69             98.6
+
+=== Conduction loss at the 8 A peak (short burst), per bridge, 25 C / hot ===
+L6205D (current)                      39.68 W /  59.52 W
+DRV8874 (x1 per motor)                12.80 W /  19.20 W
+DRV8256 (x1 per motor)                10.50 W /  16.00 W
+DRV8262 dual (per bridge)              6.40 W /   9.60 W
+DRV8962 quad-HB (per bridge)           6.78 W /   8.96 W
+DRV8263-Q1 (x1 per motor)              5.44 W /   8.16 W
+STSPIN948 (per bridge)                23.04 W /  34.56 W
+Discrete DRV8714 + 2x SiZF5302DT       0.47 W /   0.66 W
+
+=== Junction rise at 4 A, 16.8 V, 40 kHz (both motors loaded), using datasheet RthJA ===
+L6205D (current)                     P_pkg = 30.78 W  dT = 1569.7 C  (RthJA 51 C/W, JEDEC/dsheet board)
+DRV8874 (x1 per motor)               P_pkg =  5.23 W  dT =  188.4 C  (RthJA 36.0 C/W, JEDEC/dsheet board)
+DRV8256 (x1 per motor)               P_pkg =  4.19 W  dT =  124.4 C  (RthJA 29.7 C/W, JEDEC/dsheet board)
+DRV8262 dual (per bridge)            P_pkg =  5.56 W  dT =  123.5 C  (RthJA 22.2 C/W, JEDEC/dsheet board)
+DRV8962 quad-HB (per bridge)         P_pkg =  5.41 W  dT =  120.0 C  (RthJA 22.2 C/W, JEDEC/dsheet board)
+DRV8263-Q1 (x1 per motor)            P_pkg =  2.48 W  dT =   86.9 C  (RthJA 35.0 C/W, JEDEC/dsheet board)
+STSPIN948 (per bridge)               P_pkg = 17.43 W  dT =  481.1 C  (RthJA 27.6 C/W, JEDEC/dsheet board)
+
+=== Bridge input ripple (per bridge I*sqrt(D(1-D))) and voltage ripple on local ceramics ===
+I=4.0 A D=0.25: Icap,rms one bridge 1.73 A, two bridges in phase 3.46 A
+I=4.0 A D=0.5: Icap,rms one bridge 2.00 A, two bridges in phase 4.00 A
+I=8.0 A D=0.25: Icap,rms one bridge 3.46 A, two bridges in phase 6.93 A
+I=8.0 A D=0.5: Icap,rms one bridge 4.00 A, two bridges in phase 8.00 A
+C_eff =   10 uF, f =    20 kHz: dV pp (2 x 4 A in phase, D=0.5) = 10.00 V
+C_eff =   10 uF, f =    40 kHz: dV pp (2 x 4 A in phase, D=0.5) =  5.00 V
+C_eff =   10 uF, f =   100 kHz: dV pp (2 x 4 A in phase, D=0.5) =  2.00 V
+C_eff =   20 uF, f =    20 kHz: dV pp (2 x 4 A in phase, D=0.5) =  5.00 V
+C_eff =   20 uF, f =    40 kHz: dV pp (2 x 4 A in phase, D=0.5) =  2.50 V
+C_eff =   20 uF, f =   100 kHz: dV pp (2 x 4 A in phase, D=0.5) =  1.00 V
+C_eff =   44 uF, f =    20 kHz: dV pp (2 x 4 A in phase, D=0.5) =  2.27 V
+C_eff =   44 uF, f =    40 kHz: dV pp (2 x 4 A in phase, D=0.5) =  1.14 V
+C_eff =   44 uF, f =   100 kHz: dV pp (2 x 4 A in phase, D=0.5) =  0.45 V
+
+=== IPROPI resistor sizing for a 3.3 V ADC ===
+DRV8874 RIPROPI 680 ohm: 1 A -> 0.306 V, full scale at 3.0 V = 9.80 A, IPROPI at 6 A = 2.70 mA (<= 3 mA ROC)
+DRV8874 RIPROPI 820 ohm: 1 A -> 0.369 V, full scale at 3.0 V = 8.13 A, IPROPI at 6 A = 2.70 mA (<= 3 mA ROC)
+DRV8874 RIPROPI 1000 ohm: 1 A -> 0.450 V, full scale at 3.0 V = 6.67 A, IPROPI at 6 A = 2.70 mA (<= 3 mA ROC)
+DRV8262 RIPROPI 1500 ohm: 1 A -> 0.318 V, full scale at 3.0 V = 9.43 A
+DRV8262 RIPROPI 1800 ohm: 1 A -> 0.382 V, full scale at 3.0 V = 7.86 A
+DRV8262 RIPROPI 2000 ohm: 1 A -> 0.424 V, full scale at 3.0 V = 7.08 A
+DRV8262 RIPROPI 1.8k, VREF 1.5 V -> ITRIP = 3.93 A;  DRV8874 RIPROPI 1k, VREF 1.5 V -> ITRIP = 3.33 A
+DRV8262 RIPROPI 1.8k, VREF 2.0 V -> ITRIP = 5.24 A;  DRV8874 RIPROPI 1k, VREF 2.0 V -> ITRIP = 4.44 A
+DRV8262 RIPROPI 1.8k, VREF 2.5 V -> ITRIP = 6.55 A;  DRV8874 RIPROPI 1k, VREF 2.5 V -> ITRIP = 5.56 A
+
+=== HSBB3072 low-side battery switch at 4S ===
+VBAT 12.0 V -> VGS  6.0 V (abs max +-20 V), VDS(off) = 12.0 V (30 V rating, 2.50x margin)
+VBAT 14.8 V -> VGS  7.4 V (abs max +-20 V), VDS(off) = 14.8 V (30 V rating, 2.03x margin)
+VBAT 16.8 V -> VGS  8.4 V (abs max +-20 V), VDS(off) = 16.8 V (30 V rating, 1.79x margin)
+I = 8 A: P = I^2 * 3.8 mohm (max at VGS 4.5 V) = 0.24 W ; at 2.4 mohm (VGS 10 V max) 0.15 W
+I = 12 A: P = I^2 * 3.8 mohm (max at VGS 4.5 V) = 0.55 W ; at 2.4 mohm (VGS 10 V max) 0.35 W
+I = 16 A: P = I^2 * 3.8 mohm (max at VGS 4.5 V) = 0.97 W ; at 2.4 mohm (VGS 10 V max) 0.61 W
+
+=== Ripple copper loss in the motor (unipolar, D = 0.5) vs. continuous rating I_nom^2 R ===
+DCX8M 2.4V: continuous copper budget I_nom^2 R = 0.49 W
+   VM   7.4 V  20k:  1.10 W  40k:  1.00 W  100k:  0.44 W  200k:  0.14 W
+   VM  11.1 V  20k:  2.48 W  40k:  2.25 W  100k:  0.98 W  200k:  0.31 W
+   VM  16.8 V  20k:  5.68 W  40k:  5.15 W  100k:  2.24 W  200k:  0.71 W
+   VM  24.0 V  20k: 11.59 W  40k: 10.51 W  100k:  4.58 W  200k:  1.45 W
+   + series 22 uH @16.8 V  40k: 2.50 A pp, 2.15 W  100k: 1.14 A pp, 0.44 W
+   + series 47 uH @16.8 V  40k: 1.62 A pp, 0.91 W  100k: 0.68 A pp, 0.16 W
+   + series 100 uH @16.8 V  40k: 0.91 A pp, 0.28 W  100k: 0.37 A pp, 0.05 W
+DCX8M 4.2V: continuous copper budget I_nom^2 R = 0.48 W
+   VM   7.4 V  20k:  0.38 W  40k:  0.34 W  100k:  0.15 W  200k:  0.05 W
+   VM  11.1 V  20k:  0.85 W  40k:  0.77 W  100k:  0.33 W  200k:  0.10 W
+   VM  16.8 V  20k:  1.95 W  40k:  1.77 W  100k:  0.76 W  200k:  0.24 W
+   VM  24.0 V  20k:  3.99 W  40k:  3.60 W  100k:  1.55 W  200k:  0.49 W
+   + series 22 uH @16.8 V  40k: 1.16 A pp, 1.35 W  100k: 0.62 A pp, 0.38 W
+   + series 47 uH @16.8 V  40k: 0.97 A pp, 0.94 W  100k: 0.46 A pp, 0.21 W
+   + series 100 uH @16.8 V  40k: 0.68 A pp, 0.46 W  100k: 0.29 A pp, 0.09 W

@@ -1,0 +1,156 @@
+"""INA241A2IDGKR package facts (TI SBOSA30D): pinout, legal reference wiring, common-mode range,
+and the in-line motor current range of the next main-board revision (research/next-revision
+appendix A.3: WSK2512 10 mOhm shunt, VS = REF1 = 3V3_A, REF2 = GND)."""
+
+load("@stdlib/units.zen", "Voltage")
+
+INA = Module("../INA241A2.zen")
+
+GAIN = 20.0  # Table 4-1, INA241A2: 20 V/V
+VCM_RANGE = Voltage("-5V to 110V")  # section 6.3
+VS_RANGE = Voltage("2.7V to 20V")  # section 6.3
+
+V3V3_A = Power("V3V3_A", voltage="3.3V 3%")
+GND = Ground("GND")
+VREF = Power("VREF_1V65", voltage="1.65V 1%")
+# The bridge output swings between GND and the 4S pack (17.4 V with HV cells), plus a body-diode
+# drop either way while the bridge recirculates.
+OUT1 = Power("MOTOR_OUT1", voltage="-1V to 18.4V")
+SENSE_N = Power("MOTOR_SENSE_N", voltage="-1V to 18.4V")
+CURRENT = Net("CURRENT")
+
+
+def part(module):
+    return module.components()["INA241A2"]
+
+
+def net_of(module, pin):
+    return part(module).pins[pin].name
+
+
+def orderable_part(module, inputs):
+    # Table 4-1 and the Package Option Addendum: INA241A2IDGKR = gain 20, VSSOP-8 (DGK).
+    c = part(module)
+    check(c.mpn == "INA241A2IDGKR", "MPN must be INA241A2IDGKR, got " + str(c.mpn))
+    check(c.manufacturer == "Texas Instruments", "manufacturer must be Texas Instruments")
+    check(c.prefix == "U", "reference prefix must be U")
+
+
+def dgk_pinout(module, inputs):
+    # Table 5-1: 1 IN-, 2 GND, 3 REF2, 4 NC (symbol: RSVD), 5 OUT, 6 VS, 7 REF1, 8 IN+.
+    pins = part(module).pins
+    expected = ["GND", "IN+", "IN-", "OUT", "REF1", "REF2", "RSVD", "VS"]
+    check(sorted(pins.keys()) == expected, "pin names differ from Table 5-1: " + str(sorted(pins.keys())))
+    check(net_of(module, "IN+") == inputs["IN_P"].name, "IN_P must drive IN+ (pin 8)")
+    check(net_of(module, "IN-") == inputs["IN_N"].name, "IN_N must drive IN- (pin 1)")
+    check(net_of(module, "OUT") == inputs["OUT"].name, "OUT must be pin 5")
+    check(net_of(module, "VS") == inputs["VS"].name, "VS must be pin 6")
+
+
+def reserved_pin_on_ground(module, inputs):
+    # Table 5-1: NC (pin 4) "Reserved. Connect to ground."
+    check(net_of(module, "RSVD") == net_of(module, "GND"), "pin 4 (NC) must be on GND")
+
+
+def supply_in_range(module, inputs):
+    # Section 6.3: VS 2.7-20 V.
+    v = inputs["VS"].voltage
+    check(v in VS_RANGE, "VS " + str(v) + " is outside 2.7-20 V")
+
+
+def reference_pins_legal(module, inputs):
+    # Table 5-1, section 6.5: REF1/REF2 from 0 V to VS, driven by supply, ground or a
+    # low-impedance reference (7.4.3.4).
+    vs = inputs["VS"]
+    for pin in ["REF1", "REF2"]:
+        net = inputs[pin]
+        check(net_of(module, pin) == net.name, pin + " must be its own io")
+        if net.name in (vs.name, inputs["GND"].name):
+            continue
+        check(net.voltage != None, pin + " on " + net.name + " needs a declared low-impedance source (7.4.3.4)")
+        check(
+            net.voltage.min >= 0 and net.voltage.max <= vs.voltage.min,
+            pin
+            + " on "
+            + net.name
+            + " ("
+            + str(net.voltage)
+            + ") must stay within 0 V to VS ("
+            + str(vs.voltage)
+            + ")",
+        )
+
+
+def common_mode_in_range(module, inputs):
+    # Section 6.3: VCM -5 to 110 V at both inputs, independent of VS (6.5 note 1).
+    for io_name in ["IN_P", "IN_N"]:
+        v = inputs[io_name].voltage
+        check(v in VCM_RANGE, io_name + " " + str(v) + " is outside the -5 to 110 V common-mode range")
+
+
+def mid_supply_output(module, inputs):
+    # Section 7.4.3.2, Figure 7-6: REF1 on VS, REF2 on GND gives VOUT = VS / 2 at zero current.
+    check(net_of(module, "REF1") == net_of(module, "VS"), "REF1 must be on VS for the mid-supply output")
+    check(net_of(module, "REF2") == net_of(module, "GND"), "REF2 must be on GND for the mid-supply output")
+
+
+def inline_motor_range(module, inputs):
+    # Equation 1 with VREF1 = VS, VREF2 = 0: VOUT = 20 x I x Rshunt + VS / 2. The gain error is
+    # specified for GND + 50 mV < VOUT < VS - 200 mV (6.5), so with 10 mOhm and VS = 3.3 V the
+    # linear range is +7.25 A / -8.0 A (research/next-revision, Current sensing).
+    vs = inputs["VS"].voltage.value
+    rshunt = 0.010
+    mid = vs / 2
+    i_pos = (vs - 0.2 - mid) / (GAIN * rshunt)
+    i_neg = (mid - 0.05) / (GAIN * rshunt)
+    check(abs(i_pos - 7.25) < 0.01, "positive linear range " + str(i_pos) + " A, expected 7.25 A")
+    check(abs(i_neg - 8.0) < 0.01, "negative linear range " + str(i_neg) + " A, expected 8.0 A")
+
+
+def external_reference(module, inputs):
+    # Section 7.4.3.1, Figure 7-5: both REF pins on one reference set VOUT = VREF at zero current.
+    check(net_of(module, "REF1") == "VREF_1V65" and net_of(module, "REF2") == "VREF_1V65", "both REF pins on VREF")
+
+
+TestBench(
+    name="INA241A2_inline_mid_supply",
+    module=INA,
+    test_cases={
+        "motor_a3": {
+            "VS": V3V3_A,
+            "GND": GND,
+            "IN_P": OUT1,
+            "IN_N": SENSE_N,
+            "REF1": V3V3_A,
+            "REF2": GND,
+            "OUT": CURRENT,
+        },
+    },
+    checks=[
+        orderable_part,
+        dgk_pinout,
+        reserved_pin_on_ground,
+        supply_in_range,
+        reference_pins_legal,
+        common_mode_in_range,
+        mid_supply_output,
+        inline_motor_range,
+    ],
+)
+
+TestBench(
+    name="INA241A2_external_reference",
+    module=INA,
+    test_cases={
+        "vref_1v65": {
+            "VS": V3V3_A,
+            "GND": GND,
+            "IN_P": OUT1,
+            "IN_N": SENSE_N,
+            "REF1": VREF,
+            "REF2": VREF,
+            "OUT": CURRENT,
+        },
+    },
+    checks=[dgk_pinout, reserved_pin_on_ground, reference_pins_legal, common_mode_in_range, external_reference],
+)

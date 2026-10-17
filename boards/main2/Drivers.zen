@@ -1,0 +1,290 @@
+"""Wheel motor bridges (2 x DRV8874) with their in-line shunts and chokes, and the fan driver
+(STSPIN958) reconfigured for a drone-class motor on 4S.
+
+Bridges, IC8 (right motor, M2) and IC9 (left motor, M1): DRV8874PWPR, one HTSSOP-16 per motor
+next to its connector (TI SLVSF66A; research/next-revision, Drivetrain and A.1). The
+datasheet's netlist rules are checked by components/ti/DRV8874/checks.zen in
+boards/main2/test/test_drivers.zen.
+- PH/EN mode, PMODE on GND (Table 2: <= 0.65 V). The timer PWM goes on EN/IN1 and the direction
+  on PH/IN2: right motor Motor_Right_EN (PA8, TIM1_CH1) and Motor_Right_PH (PA9), left motor
+  Motor_Left_EN (PC7, TIM3_CH2) and Motor_Left_PH (PC9). EN = 0 is the low-side brake (Table 3),
+  so the bridge alternates drive and low-side slow decay at 100 kHz, the fPWM maximum (section
+  6.3) and below the INA241's 125 kHz PWM-rejection limit (SBOSA30D 7.3.1.1).
+- IMODE on GND: fixed off-time (25 us, ended by the next input edge, section 7.3.3.2.1) with
+  automatic retry, nFAULT on real faults only (Table 6 level 1). Cycle-by-cycle mode would pulse
+  nFAULT at every chop (Figure 14).
+- Current regulation: ITRIP x AIPROPI = VREF / RIPROPI (equation 3). RIPROPI 2.0 kOhm 1 % (R61,
+  R71) and VREF from a 5.6 kOhm / 24 kOhm divider on 3V3_D (R63/R64, R73/R74): VREF = 3.3 x
+  24 / 29.6 = 2.68 V, ITRIP = 2.68 V / (2.0 kOhm x 450 uA/A) = 2.97 A typ (the research's
+  2.5-3 A), IPROPI 1.34 mA at ITRIP (<= 3 mA, section 6.3). The OCP (6 A min) stays above it.
+- nSLEEP of both bridges on Motors_Enable (PA10) with R49 100 kOhm to GND, so the bridges sleep
+  while the MCU is in reset or halted for SWD flashing (its pins float in analog mode, RM0468
+  section 11.3.1); the inputs' own 100 kOhm pull-downs (Figure 16) make 50 kOhm in parallel.
+- nFAULT: open drain, both wire-ORed on Motors_nFault (PC15) with R60 10 kOhm to 3V3_D (0.33 mA,
+  <= 5 mA, section 6.3).
+- VM on VBAT: C82/C91 100 nF at the pin (CVM1, Table 1), four 10 uF 50 V X7R 1206 per bridge
+  (C83-C86, C92-C95) within a few mm, and C87/C96 100 uF 25 V bulk (CVM2). The input ripple is
+  I x sqrt(D (1 - D)), about 1-1.2 A rms per bridge at 2.4 A (research Drivetrain): the research
+  asks for 2-4 x 10 uF plus a 100-220 uF low-ESR polymer. TODO: the bulk is the JVS25V100M6X4
+  aluminium electrolytic (ESR about 2.4 Ohm at 120 Hz, 54 mA ripple at 120 Hz), so the four
+  ceramics carry the ripple; a low-ESR polymer part (for example JIERR MA25V100M6x6, LCSC
+  C46550465: 30 mOhm and 2.65 A at 100 kHz per the LCSC listing) needs a component package once
+  its datasheet is in hand.
+- VCP: C88/C97 100 nF X7R 50 V to VM (CVCP, 16 V or more). CPH-CPL: C89/C98 22 nF X7R 50 V
+  (CFLY, VM-rated).
+- IPROPI: besides RIPROPI, a DNP 0402 0 Ohm (R62, R72) to the INA241's ADC net, so the first
+  prototype can compare the driver's mirror with the INA241 (fit it, and remove the INA241's
+  output resistor R78/R79 on the sensors sheet; research Current sensing).
+- Motor path: OUT1 -> 10 mOhm 4-terminal shunt (R65, R75, WSK2512R0100FEA, sensed by the
+  INA241A2 on the sensors sheet) -> choke footprint -> motor connector pin 2; OUT2 -> pin 1.
+  Forward (PH = 1, OUT1 high, Table 3) drives current from the bridge into the shunt, the
+  INA241's positive direction. The connector keeps the main board's B02B-PASK.
+- Chokes: L4 / L5 XAL7070-473MEC 47 uH (Isat 4.2 A at a 30 % drop, Irms 4.1 A at 40 C rise,
+  DCR 97 mOhm max; Coilcraft Doc 856), above ITRIP plus the 0.41-0.62 A blanking overshoot,
+  about 3.6 A. Each has a 2512 0 Ohm alternative (R66, R76) across the same two nets, DNP: the
+  choke is fitted by default, because the motor's inductance at 100 kHz is unmeasured (maxon:
+  30-80 % of the 1 kHz value) and without a choke at 0.3 L a 3 A ITRIP peaks at about 5.8 A,
+  near the 6 A OCP minimum, with 2.1 W of ripple loss against the motor's 1.28 W budget
+  (research Drivetrain). Fit the 0 Ohm instead (and leave the choke off) if the bench shows the
+  motor alone keeps the ripple in budget. No capacitor across the motor: it would resonate with
+  the choke (research, Series choke downsides).
+
+Fan, IC6 (STSPIN958, DS14341 Rev 1), driving connector M3 at 400 kHz (research Fan and A.5):
+- MODE1 = H, MODE2 = L, MODE3 = H: single half-bridge, parallel mode, PWM trimming (Table 8);
+  OUT1/OUT2 and LSS1/LSS2 tied (section 5.4.3). PWM2/PH on GND: the load between OUT and LSS,
+  low-side recirculation on limit (sections 5.6.1.2, 5.6.2.2, Figures 11 and 14). OFFSET low.
+- R31 25 mOhm 1 W 1206 (HoLLR1206-1W-25mR-1%) from LSS to GND, Kelvin to the pins.
+- REF from R28 22 kOhm / R29 9.1 kOhm on 3V3_D (the research's example): 3.3 x 9.1 / 31.1 =
+  0.966 V; Eq. 1 (section 5.6), I_peak = VREF / (RSNS x 10) = 3.86 A, about 1.5 x a 2.5 A
+  running current. The limiter is also the soft start: a locked rotor draws 13-50 A from 16.8 V
+  (fan study). TODO: set REF to 1.5 x the chosen motor's running current once it is chosen.
+- SR: R30 1 kOhm, 2 V/ns (Table 7: 1 k / 2.2 k / 5.6 k / 10 kOhm -> 2 / 1.2 / 0.6 / 0.3 V/ns),
+  which cuts the switching loss at 400 kHz against the main board's 5.6 kOhm.
+- EN/nFAULT: R27 39 kOhm to 3V3_D and C30 10 nF (Table 12), on Fan_Enable (PB14). TOFF is the
+  limiter flag in PWM trimming (section 5.6.2), read on Fan_TOFF (PB13). PWM1 on Fan_PWM (PB15,
+  TIM12_CH2). nSTBY on 3V3_D. V1, V2 unused.
+- VS on VBAT: C34/C35 470 nF 50 V X7R 0603 at the pins (Table 12: CS 470 nF) and C36/C99 10 uF
+  50 V X7R 1206, with the bridges' VBAT bulk (the research's alternative to a >= 25 V C36).
+  VDD on 3V3_D with C31 220 nF; C32 100 nF CP1-CP2 and C33 1 uF VSPUMP-VBOOT (Table 12).
+- Choke footprint L6, XGL5030-472MEC 4.7 uH (Isat 4.8 A at a 20 % drop, 6.7 A at 30 %; DCR
+  24.5 mOhm max; Coilcraft Doc 1576), between FAN_OUT and the motor, with R77 2512 0 Ohm across
+  it, DNP. The choke is fitted by default: a 1S drone motor of about 3 uH needs it even at
+  400 kHz (research Q3 ripple table). Fit the 0 Ohm instead for a motor that measures above about
+  4 uH. No capacitor across the fan motor.
+"""
+
+load(
+    "./passives.zen",
+    "C_100N_0402",
+    "C_10N_0402",
+    "C_10U_1206_50V",
+    "C_1U_0402",
+    "C_220N_0402",
+    "C_22N_0402",
+    "C_470N_0603_50V",
+    "R_0_0402",
+    "R_0_2512",
+    "R_100K_0402",
+    "R_10K_0402",
+    "R_1K_0402",
+    "R_22K_0402",
+    "R_24K_0402",
+    "R_25M_1206",
+    "R_2K_0402",
+    "R_39K_0402",
+    "R_5K6_0402",
+    "R_9K1_0402",
+)
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+B02B_PASK = Module("github.com/Team-Micras/MicrasPCB/components/jst/B02B-PASK/B02B-PASK.zen")
+DRV8874 = Module("github.com/Team-Micras/MicrasPCB/components/ti/DRV8874/DRV8874.zen")
+JVS25V100M6X4 = Module("github.com/Team-Micras/MicrasPCB/components/jierr/JVS25V100M6X4/JVS25V100M6X4.zen")
+STSPIN958 = Module("github.com/Team-Micras/MicrasPCB/components/st/STSPIN958/STSPIN958.zen")
+WSK2512_HIGH = Module("github.com/Team-Micras/MicrasPCB/components/vishay/WSK2512-HIGH/WSK2512-HIGH.zen")
+XAL7070_473 = Module("github.com/Team-Micras/MicrasPCB/components/coilcraft/XAL7070-473/XAL7070-473.zen")
+XGL5030_472 = Module("github.com/Team-Micras/MicrasPCB/components/coilcraft/XGL5030-472/XGL5030-472.zen")
+
+# Its own sheet in the board schematic (layout/main2.kicad_sch).
+Project(name="Drivers", path="layout", layout=False)
+
+# A signal port takes the name of the board net it carries (the firmware's pin label) wherever
+# that name is an identifier, so its sheet pin and hierarchical label match the root's label:
+# KiCad's ERC flags labels whose names differ only in case (similar_labels).
+VBAT = io(Power)
+V3V3_D = io(Power)
+GND = io(Ground)
+
+Motor_Right_EN = io(Net)
+Motor_Right_PH = io(Net)
+Motor_Left_EN = io(Net)
+Motor_Left_PH = io(Net)
+Motors_Enable = io(Net)
+Motors_nFault = io(Net)
+MOTOR_R_SENSE_P = io(Net)
+MOTOR_R_SENSE_N = io(Net)
+MOTOR_L_SENSE_P = io(Net)
+MOTOR_L_SENSE_N = io(Net)
+Current_Sensor_Right = io(Net)
+Current_Sensor_Left = io(Net)
+
+Fan_PWM = io(Net)
+Fan_Enable = io(Net)
+Fan_TOFF = io(Net)
+
+FAN_OUT = Net("FAN_OUT")
+FAN_MOTOR = Net("FAN_MOTOR")
+FAN_LSS = Net("FAN_LSS")
+FAN_CP1 = Net("FAN_CP1")
+FAN_CP2 = Net("FAN_CP2")
+FAN_VSPUMP = Net("FAN_VSPUMP")
+FAN_VBOOT = Net("FAN_VBOOT")
+FAN_REF = Net("FAN_REF")
+FAN_SR = Net("FAN_SR")
+
+
+def bridge(side, ic, en, ph, sense_p, sense_n, adc, motor, refs):
+    """One DRV8874 with its supply, charge pump, current setting, shunt, choke and connector.
+
+    refs: designators (cvm1, cvm2 list, bulk, cvcp, cfly, ripropi, ipropi_link, vref_top,
+    vref_bottom, shunt, choke, choke_link).
+    """
+    vcp = Net("MOTOR_{}_VCP".format(side))
+    cph = Net("MOTOR_{}_CPH".format(side))
+    cpl = Net("MOTOR_{}_CPL".format(side))
+    ipropi = Net("MOTOR_{}_IPROPI".format(side))
+    vref = Net("MOTOR_{}_VREF".format(side))
+    out1 = Net("MOTOR_{}_OUT1".format(side))
+    out2 = Net("MOTOR_{}_OUT2".format(side))
+    shunt_out = Net("MOTOR_{}_SHUNT".format(side))
+    terminal = Net("MOTOR_{}_TERMINAL".format(side))
+    DRV8874(
+        name=ic,
+        VM=VBAT,
+        GND=GND,
+        VCP=vcp,
+        CPH=cph,
+        CPL=cpl,
+        EN_IN1=en,
+        PH_IN2=ph,
+        NSLEEP=Motors_Enable,
+        NFAULT=Motors_nFault,
+        VREF=vref,
+        IPROPI=ipropi,
+        IMODE=GND,
+        PMODE=GND,
+        OUT1=out1,
+        OUT2=out2,
+    )
+    Capacitor(name=refs["cvm1"], P1=GND, P2=VBAT, **C_100N_0402)
+    for c in refs["cvm2"]:
+        Capacitor(name=c, P1=GND, P2=VBAT, **C_10U_1206_50V)
+    JVS25V100M6X4(name=refs["bulk"], POS=VBAT, NEG=GND)
+    Capacitor(name=refs["cvcp"], P1=vcp, P2=VBAT, **C_100N_0402)
+    Capacitor(name=refs["cfly"], P1=cph, P2=cpl, **C_22N_0402)
+    Resistor(name=refs["ripropi"], P1=ipropi, P2=GND, **R_2K_0402)
+    Resistor(name=refs["ipropi_link"], P1=ipropi, P2=adc, dnp=True, **R_0_0402)
+    Resistor(name=refs["vref_top"], P1=V3V3_D, P2=vref, **R_5K6_0402)
+    Resistor(name=refs["vref_bottom"], P1=vref, P2=GND, **R_24K_0402)
+    WSK2512_HIGH(name=refs["shunt"], P1=out1, S1=sense_p, S2=sense_n, P2=shunt_out)
+    XAL7070_473(name=refs["choke"], P1=shunt_out, P2=terminal)
+    Resistor(name=refs["choke_link"], P1=shunt_out, P2=terminal, dnp=True, **R_0_2512)
+    B02B_PASK(name=motor, prefix="M", P1=out2, P2=terminal)
+
+
+bridge(
+    "R",
+    "IC8",
+    Motor_Right_EN,
+    Motor_Right_PH,
+    MOTOR_R_SENSE_P,
+    MOTOR_R_SENSE_N,
+    Current_Sensor_Right,
+    "M2",
+    {
+        "cvm1": "C82",
+        "cvm2": ["C83", "C84", "C85", "C86"],
+        "bulk": "C87",
+        "cvcp": "C88",
+        "cfly": "C89",
+        "ripropi": "R61",
+        "ipropi_link": "R62",
+        "vref_top": "R63",
+        "vref_bottom": "R64",
+        "shunt": "R65",
+        "choke": "L4",
+        "choke_link": "R66",
+    },
+)
+bridge(
+    "L",
+    "IC9",
+    Motor_Left_EN,
+    Motor_Left_PH,
+    MOTOR_L_SENSE_P,
+    MOTOR_L_SENSE_N,
+    Current_Sensor_Left,
+    "M1",
+    {
+        "cvm1": "C91",
+        "cvm2": ["C92", "C93", "C94", "C95"],
+        "bulk": "C96",
+        "cvcp": "C97",
+        "cfly": "C98",
+        "ripropi": "R71",
+        "ipropi_link": "R72",
+        "vref_top": "R73",
+        "vref_bottom": "R74",
+        "shunt": "R75",
+        "choke": "L5",
+        "choke_link": "R76",
+    },
+)
+Resistor(name="R49", P1=GND, P2=Motors_Enable, **R_100K_0402)
+Resistor(name="R60", P1=V3V3_D, P2=Motors_nFault, **R_10K_0402)
+
+# Fan driver.
+STSPIN958(
+    name="IC6",
+    VS=VBAT,
+    VDD=V3V3_D,
+    GND=GND,
+    VSPUMP=FAN_VSPUMP,
+    VBOOT=FAN_VBOOT,
+    CP1=FAN_CP1,
+    CP2=FAN_CP2,
+    OUT1=FAN_OUT,
+    OUT2=FAN_OUT,
+    LSS1=FAN_LSS,
+    LSS2=FAN_LSS,
+    V1=NotConnected(),
+    V2=NotConnected(),
+    PWM1=Fan_PWM,
+    PWM2_PH=GND,
+    EN_NFAULT=Fan_Enable,
+    NSTBY=V3V3_D,
+    MODE1=V3V3_D,
+    MODE2=GND,
+    MODE3=V3V3_D,
+    OFFSET=GND,
+    REF=FAN_REF,
+    TOFF=Fan_TOFF,
+    SR=FAN_SR,
+)
+Capacitor(name="C34", P1=VBAT, P2=GND, **C_470N_0603_50V)
+Capacitor(name="C35", P1=VBAT, P2=GND, **C_470N_0603_50V)
+Capacitor(name="C36", P1=VBAT, P2=GND, **C_10U_1206_50V)
+Capacitor(name="C99", P1=VBAT, P2=GND, **C_10U_1206_50V)
+Capacitor(name="C31", P1=GND, P2=V3V3_D, **C_220N_0402)
+Capacitor(name="C32", P1=FAN_CP1, P2=FAN_CP2, **C_100N_0402)
+Capacitor(name="C33", P1=FAN_VSPUMP, P2=FAN_VBOOT, **C_1U_0402)
+Resistor(name="R27", P1=V3V3_D, P2=Fan_Enable, **R_39K_0402)
+Capacitor(name="C30", P1=GND, P2=Fan_Enable, **C_10N_0402)
+Resistor(name="R28", P1=V3V3_D, P2=FAN_REF, **R_22K_0402)
+Resistor(name="R29", P1=GND, P2=FAN_REF, **R_9K1_0402)
+Resistor(name="R30", P1=GND, P2=FAN_SR, **R_1K_0402)
+Resistor(name="R31", P1=FAN_LSS, P2=GND, **R_25M_1206)
+XGL5030_472(name="L6", P1=FAN_OUT, P2=FAN_MOTOR)
+Resistor(name="R77", P1=FAN_OUT, P2=FAN_MOTOR, dnp=True, **R_0_2512)
+B02B_PASK(name="M3", prefix="M", P1=FAN_MOTOR, P2=FAN_LSS)
