@@ -1,6 +1,6 @@
 ---
 name: micras-pcb
-description: Work on the MicrasPCB boards: add or change a part, source it at JLCPCB, build or check the fab package, change mechanics, or script a KiCad file.
+description: Work on the MicrasPCB boards: add or change a part, source it at JLCPCB, build or check the fab package, place or draft a schematic sheet, change mechanics, or script a KiCad file.
 ---
 
 # MicrasPCB workflow
@@ -84,9 +84,10 @@ unverified. Ordering is a manual upload: JLCPCB has no ordering API open to smal
 from `boards/<board>/schematic/<sheet>.toml` (one file per sheet: `<board>.toml` for the root,
 `<MODULE>.toml` for a module sheet). The tool moves pcb's parts, redraws every connection and
 fails unless KiCad's netlist of the placed schematic equals pcb's (nets, names, pins), so a
-placement file can only change how the circuit is drawn. Never edit the `.kicad_sch`; change the
-placement file and run `uv run micras-pcb sch <board>` (it regenerates pcb's output itself and
-takes a few seconds), or `make gen`.
+placement file can only change how the circuit is drawn. What a file leaves out is drafted (see
+Drafts). Never edit the `.kicad_sch`; change the placement file and run
+`uv run micras-pcb sch <board>` (it regenerates pcb's output itself and takes a few seconds), or
+`make gen`.
 
 Units are grid steps of 1.27 mm, x right and y down from the page's top-left corner; part anchors
 and wire points are integers, so every pin lands on KiCad's grid.
@@ -145,8 +146,68 @@ part's body box and pins (grid steps from the anchor, unrotated) with what pcb a
 placing, `micras-pcb sch` lists every overlap on the placed sheets (texts, bodies, wires, page
 border, title block; `tests/test_placement.py` fails on any), and
 `kicad-cli sch export svg -o <dir> boards/<board>/layout/<board>.kicad_sch` renders each sheet to
-look at. `make check` fails while a part has no placement (`micras-pcb sch --check`): a new part
-appears where pcb put it until its sheet's file places it.
+look at.
+
+### Drafts
+
+A part or sheet symbol without an entry is drafted (`tools/micras_pcb/autoplace.py`), so a new
+part lands somewhere readable, and `make check` passes, before anyone places it by hand:
+
+- **Blocks.** Parts joined by a net of their own (a local net, or a sheet port reaching at most
+  one multi-pin part) form a block, anchored by the part with the most pins. A part only on rails
+  (decoupling, bulk) joins the block of the nearest part before it in the Zener source with a
+  pin on its supply; a pull on a net several blocks share goes to a block of shared parts; test
+  points and unconnected parts get blocks of their own. Blocks follow the source order.
+- **Inside a block** the anchor stands upright and every other part goes beside a pin of its net,
+  wired to it, at the nearest position where nothing overlaps (fewest crossings first): two-pin
+  parts on a rail stand up, supply on top and ground at the bottom (pulls at their pins, dividers
+  stacked); series parts, inductors, beads and diodes on a supply lie down; decoupling capacitors
+  hang in a row from a bus on the supply pin they serve; a multi-pin part's pins that face placed
+  pins of their net in line are wired straight (a connector's bus). Pins of one net side by side
+  on a part share a short bus. Every other pin keeps pcb's label or power symbol on a short stub
+  (supplies up, grounds down, or pointing out beside other pins); a wired net gets its label on
+  the wire at a pin or at a short free end.
+- **Sheet.** Identical blocks (same parts and connections, such as the wall-sensor channels or
+  the two bridges) are laid out alike and side by side in equal frames. Frames are titled (a
+  hint, else the block's main parts) and packed top-left first on the smallest standard paper the
+  sheet fills to 70 % at most, around what the hand entries place. Module sheet symbols go in a
+  "Module sheets" frame, their pins that the root sheet's parts use on the left and those only
+  other modules use on the right, each side in the module's `io()` order.
+
+`make gen` (`micras-pcb sch`) drafts in memory: the placement files stay as written, and the title
+block says how many parts were drafted. To adopt a draft, `uv run micras-pcb sch --draft [--sheet
+SHEET] <board>` writes it into the sheet's file as `[[block]]` tables (and `[sheet.X]` tables)
+with `auto = true`, under a comment. A later `--draft` replaces those; delete a block's
+`auto = true` line to make it a hand entry, then edit it like any other. Hand entries always win:
+a draft never moves a part that has one. `uv run micras-pcb sch --draft --all <board>` drafts every
+sheet whole, ignoring the files, into `build/<board>/sch-draft/` (placed sheets and a placement
+file each) to compare with the hand placement.
+
+`micras-pcb sch --check` (in `make check`) fails on a placement entry or wire naming a part or
+pin the sheet does not have, a sheet symbol too small for its pins, a hint naming a part the sheet
+does not have, an overlap or anything off the page, or a placed sheet that is not what the sources
+place now (netlist included); it prints how many parts each sheet drafts.
+
+### Hints
+
+A sheet's Zener module (the board's root `.zen` for the root sheet) may steer its drafts with a
+literal dict that pcb evaluates and ignores: it changes no netlist, BOM, layout or test.
+
+```python
+# Schematic placement hints for `micras-pcb sch --draft` (pcb evaluates and ignores this value).
+SCHEMATIC_HINTS = {
+    "title": "Motor bridges",                            # the title block (default: the docstring's first sentence)
+    "paper": "A3",                                       # the paper (default: the smallest that fits comfortably)
+    "titles": {"W1": "Wall sensor 0"},                   # the title of the block holding W1
+    "blocks": [{"title": "Pulls", "parts": ["R49", "R60"], "anchor": "R49"}],  # a block by hand
+    "flow": {"J1": "left"},                              # J1 left (right, above, below) of its anchor
+    "order": ["IC8", "IC9"],                             # blocks in this order, by a part they hold
+}
+```
+
+Write literals only (the tool reads the text, it does not run Starlark), and add a hint only where
+a draft needs it. A hinted block takes in passives by connectivity, never a multi-pin part it does
+not list.
 
 ## Mechanics
 
