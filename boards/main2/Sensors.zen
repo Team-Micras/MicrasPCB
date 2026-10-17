@@ -92,7 +92,15 @@ V3V3_D = io(Power)
 V3V3_A = io(Power)
 GND = io(Ground)
 
-IMU_SPI = io(Spi)
+# The SPI bus enters once, with each device's chip select: SCK, MISO and MOSI are shared, and
+# three Spi ports would repeat them as nine sheet pins.
+SPI_SCK = io(Net)
+SPI_MISO = io(Net)
+SPI_MOSI = io(Net)
+IMU_SPI_CSn = io(Net)
+Encoder_Right_CSn = io(Net)
+Encoder_Left_CSn = io(Net)
+
 IMU_INT1 = io(Net)
 IMU_INT2 = io(Net)
 
@@ -112,12 +120,14 @@ Wall_Sensor_1 = io(Net)
 Wall_Sensor_2 = io(Net)
 Wall_Sensor_3 = io(Net)
 
-ENCODER_RIGHT_SPI = io(Spi)
 Encoder_Right_ABI_A = io(Net)
 Encoder_Right_ABI_B = io(Net)
-ENCODER_LEFT_SPI = io(Spi)
 Encoder_Left_ABI_A = io(Net)
 Encoder_Left_ABI_B = io(Net)
+
+IMU_SPI = Spi(CS=IMU_SPI_CSn, CLK=SPI_SCK, MISO=SPI_MISO, MOSI=SPI_MOSI)
+ENCODER_RIGHT_SPI = Spi(CS=Encoder_Right_CSn, CLK=SPI_SCK, MISO=SPI_MISO, MOSI=SPI_MOSI)
+ENCODER_LEFT_SPI = Spi(CS=Encoder_Left_CSn, CLK=SPI_SCK, MISO=SPI_MISO, MOSI=SPI_MOSI)
 
 EMITTER_SET = Net("EMITTER_SET")
 EMITTER_SENSE = Net("EMITTER_SENSE")

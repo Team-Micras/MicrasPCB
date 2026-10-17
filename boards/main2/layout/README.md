@@ -37,10 +37,12 @@ The board files are in `boards/main2/` (this README sits in its `layout/` folder
 
 Each module is its own sheet of the KiCad schematic (`Project(..., layout=False)` in its `.zen`),
 its signal ports named after the nets they carry where those names are identifiers, as on the
-main board. pcb 0.4.81 packs the five sheet symbols on the root by their boxes alone, so the root
-labels at SENSORS' pins run up to 11 mm past the page's left edge (open the root in KiCad to read
-them); `tests/test_schematic.py` expects this until a pcb release includes
-[diodeinc/pcb#1522](https://github.com/diodeinc/pcb/pull/1522). Each sheet's docstring describes its circuit with the datasheet figure, table or
+main board. `SENSORS` takes the shared SPI bus once (`SPI_SCK`, `SPI_MISO`, `SPI_MOSI`) with
+each device's chip select, not one `Spi` port per device, so it has 26 sheet pins instead of 32:
+pcb 0.4.81 places the sheet symbols on the root one by one in the order of their names, each as
+near the page centre as the earlier ones leave room, by their boxes alone, and the 32-pin symbol
+fits only against the page's left edge, where its pin labels run past the page. At 26 pins it sits
+right of `ESP`, and `tests/test_schematic.py` checks that every label stays on its page. Each sheet's docstring describes its circuit with the datasheet figure, table or
 equation behind each value; [`tests/test_main2.py`](../../../tests/test_main2.py) checks the power tree, the analog
 rail, the decoupling and the firmware contract on the generated netlist.
 
