@@ -416,7 +416,7 @@ class Placer:
 
     def _drivers_of_group(self, g: str) -> list[Driver]:
         seen, out = set(), []
-        for p in [q for p in self.groups[g] for q in self._partners(p)]:
+        for p in [q for pin in self.groups[g] for q in self._partners(pin)]:
             for d in self.pin_drivers.get(p, []):
                 if (d.kind, d.text, d.extra) not in seen:
                     seen.add((d.kind, d.text, d.extra))
