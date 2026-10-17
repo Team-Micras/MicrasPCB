@@ -148,6 +148,8 @@ To look at a board, download the run's artifact, or open the project in KiCad
 (`pcb open boards/<board>/<board>.zen`). The boards are also viewed online in a self-hosted
 [KiCad Prism](https://github.com/krishna-swaroop/KiCAD-Prism), which takes each board's layout
 folder as a project and shows the board's README from it (`boards/<board>/layout/README.md`).
+Each layout folder's `.prism.json` names the root schematic and the board, so Prism does not take
+the first sheet in the folder (main's `DRIVERS.kicad_sch`) as the root and drop it from the viewer.
 
 ## Working with Claude Code
 
@@ -162,7 +164,7 @@ pin-1 checks, placement and routing, and the fab order.
 
 ```text
 boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb is KiCad-owned, README.md is
-                       the board's description, the rest generated)
+                       the board's description, .prism.json the root files for KiCad Prism, the rest generated)
 boards/<board>/schematic/  one placement file per schematic sheet (micras-pcb sch): parts, wires, frames, paper
 boards/<board>/previous/  snapshot of the board's previous revision (board.json) for the connectivity comparison,
                        and the scripts that build its layout from that revision (transfer_layout.py; main: rework.py)
