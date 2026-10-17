@@ -20,6 +20,7 @@ The board files are in `boards/bluetooth/` (this README sits in its `layout/` fo
 | File | Contents |
 |---|---|
 | [`bluetooth.zen`](../bluetooth.zen) | the circuit (U1 HM-19, USB1 plug, R1-R4, C1, C2, D1, OP1), board stackup and rules |
+| [`schematic/`](../schematic) | how the sheet is drawn (`micras-pcb sch`): the plug, and the HM-19 with its application circuit |
 | [`erc.toml`](../erc.toml) | 3V3 and GND come from the main board through the plug (the PWR_FLAG role for ERC) |
 | [`changes.toml`](../changes.toml) | connectivity changes against the previous revision: the CC signature (M6), the RESETB pull-up (m17) |
 | [`test/`](../test) | `pcb test` bench of the circuit: HM-19 application circuit, LED current, USB-C signature, SBU and VBUS, RESETB |

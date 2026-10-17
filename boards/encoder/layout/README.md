@@ -20,6 +20,7 @@ The board files are in `boards/encoder/` (this README sits in its `layout/` fold
 | File | Contents |
 |---|---|
 | [`encoder.zen`](../encoder.zen) | IC1 (AS5047U), C1, R1-R3, the edge tab J1, net names, stackup and rules |
+| [`schematic/`](../schematic) | how the sheet is drawn (`micras-pcb sch`): the tab wired to the sensor, the SPI pulls |
 | [`test/`](../test) | `pcb test` bench of the board's circuit: one 3V3 supply from the tab, the 100 nF at the sensor, the SPI input pulls, capacitor ratings |
 | [`changes.toml`](../changes.toml) | the connectivity this board adds to the previous revision's (R1-R3) |
 | [`layout/`](.) | this folder: the KiCad project; the `.kicad_pcb` holds placement and routing; [`fixes.py`](fixes.py) and [`fork.py`](fork.py) (the 3V3 fork at IC1 squared) are the scripts that turned the previous layout into this one |
