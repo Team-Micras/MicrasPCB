@@ -195,7 +195,7 @@ def collect(sheet: Sheet) -> tuple[list[Box], list[Box], list[Line]]:
             w_ = text_width(p.atoms()[0])
             # the pin's name, inside the sheet box
             x0 = px + 0.6 if ang == 180 else px - 0.6 - w_
-            texts.append(Box(x0, py - 0.75, x0 + w_, py + 0.75, f"sheet {name} pin {p.atoms()[0]}", f"sheet:{name}"))
+            texts.append(Box(x0, py - 0.75, x0 + w_, py + 0.75, f"sheet {name} pin name {p.atoms()[0]}", f"sheet:{name}"))
     for n in sheet.root.children("rectangle"):
         (x0, y0), (x1, y1) = xy(n.child("start")), xy(n.child("end"))
         for a, b in (((x0, y0), (x1, y0)), ((x1, y0), (x1, y1)), ((x1, y1), (x0, y1)), ((x0, y1), (x0, y0))):
