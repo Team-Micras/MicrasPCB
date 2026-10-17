@@ -320,7 +320,7 @@ class Placer:
                     if p in pins:
                         self.sheet_pin_at[(name, p)] = ((x, y0 + GRID * 2 * (i + 1)), out)
                 if GRID * 2 * (len(names) + 1) > ss.size[1] + 1e-6:
-                    self.problems.append(
+                    self.warnings.append(
                         f"sheet {name}: {len(names)} pins do not fit its {(side and 'right') or 'left'} side"
                     )
 
@@ -938,6 +938,20 @@ def unplaced(board: str) -> list[str]:
         tokens += spec.taps + [s for s in spec.stubs if ":" not in s]
         if bad := sorted(set(tokens) - known):
             out.append(f"{path.name}: wires, taps or stubs name pins the sheet does not have: {', '.join(bad)}")
+        for n in sh.root.children("sheet"):
+            ss = spec.sheets.get(n.prop("Sheetname"))
+            if ss is None:
+                continue
+            pins = [p.atoms()[0] for p in n.children("pin")]
+            listed = [p for p in ss.left + ss.right if p]
+            left = ss.left + [p for p in pins if p not in listed]
+            for side, names in (("left", left), ("right", ss.right)):
+                if GRID * 2 * (len(names) + 1) > ss.size[1] + 1e-6:
+                    out.append(
+                        f"{path.name}: sheet {n.prop('Sheetname')}: {len(names)} pins do not fit its {side} side"
+                    )
+            if stale := sorted(set(listed) - set(pins)):
+                out.append(f"{path.name}: sheet {n.prop('Sheetname')} has no pins {', '.join(stale)}")
         names = {n.prop("Sheetname") for n in sh.root.children("sheet")}
         if missing := sorted(names - set(spec.sheets)):
             out.append(f"{path.name}: sheet symbols without a placement: {', '.join(missing)}")
