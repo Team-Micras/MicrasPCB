@@ -18,8 +18,9 @@ symbol. `micras-pcb sch` then redraws each sheet from its placement file:
 
 Nothing is renamed or reconnected: the tool reads which labels and power symbols pcb attached to
 each pin and draws exactly those, and it fails unless KiCad's netlist of the placed schematic
-equals the one of pcb's (same nets, same names, same pins). A part without a placement entry
-stays where pcb put it and `micras-pcb sch --check` (in `make check`) names it.
+equals the one of pcb's (same nets, same names, same pins). Parts and sheet symbols without an
+entry are drafted (micras_pcb.autoplace) and placed with the rest; `micras-pcb sch --draft`
+writes those drafts into the placement file to adopt and edit.
 
 Coordinates in the placement files are in grid units of 1.27 mm (KiCad's 50 mil schematic grid),
 x right and y down from the page's top-left corner; a block's parts and wire points are relative

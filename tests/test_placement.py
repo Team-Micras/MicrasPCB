@@ -1,5 +1,6 @@
-"""Schematic placement (micras-pcb sch): every part of every sheet has a placement in
-boards/<board>/schematic/, and every placed sheet reads cleanly: no two texts overlap, no text sits
+"""Schematic placement (micras-pcb sch): the placement files in boards/<board>/schematic/ name
+only what their sheets have (parts without an entry are drafted, tests/test_autoplace.py), and
+every placed sheet reads cleanly: no two texts overlap, no text sits
 on a symbol body or is crossed by a wire, no two bodies overlap, no wire runs through a body, and
 nothing runs past the page border or into the title block (micras_pcb.schlint).
 
@@ -17,10 +18,10 @@ from micras_pcb.schematic import DOWN, GRID, LEFT, RIGHT, UP, Sheet, Symbol
 
 
 @pytest.mark.parametrize("board", boards())
-def test_every_part_has_a_placement(board):
-    """Each part and sheet symbol of the board's schematic has an entry in its sheet's placement
-    file, each entry names a part on that sheet, and each sheet is placed."""
-    found = placement.unplaced(board)
+def test_placement_entries_name_what_their_sheets_have(board):
+    """Each entry, wire and hint names a part or pin on its sheet, each sheet symbol holds its
+    pins, and each sheet is placed."""
+    found = placement.unplaced(board, missing_ok=True)
     assert not found, "\n".join(found)
 
 
