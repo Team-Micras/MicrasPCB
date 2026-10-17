@@ -121,7 +121,9 @@ stubs."IC6.12" = { point = "out" }  # per pin: len (stub, grid steps), label = "
 - A wire chain joins pins of one net (the tool refuses two nets), routing each step straight or
   with one bend that leaves and enters pins along their axis; give corner points for anything
   else. A wired net's labels or power symbols go at the chain's free ends, else at its `taps`,
-  else (a local label) along the wire at its first pin; a power or global label needs a free end.
+  else (a local label) along the wire at its first pin, so start the chain at a pin whose wire
+  runs horizontally; a power or global label needs a free end. Taps and stubs name pins as wires
+  do (number, or name when unique).
 - `fields`: `right`, `left` (two-pin parts standing up: default right), `top`, `bottom` (lying
   down: default top), `top-left`, `top-right`, `bottom-left`, `bottom-right`, or `[dx, dy]` from
   the anchor; ICs default to a free corner above or below the body.
