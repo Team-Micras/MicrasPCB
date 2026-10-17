@@ -7,10 +7,8 @@ ports = { at = [138, 123], rows = 11, title = "Sheet ports" }
 [[block]]
 title = "Wall sensor 0: W1, emitter switch Q2"
 at = [10, 11]
-size = [124, 50]
+size = [124, 42]
 parts.R11 = { at = [8, 22], rot = 180, fields = "right" }
-parts.C73 = { at = [30, 28], rot = 90, fields = "bottom" }
-parts.D9 = { at = [44, 36], rot = 90, fields = "left" }
 parts.R12 = { at = [52, 32], rot = 180, fields = "right" }
 parts.Q2 = { at = [64, 28], fields = "right" }
 parts.W1 = { at = [86, 18], fields = "top" }
@@ -18,9 +16,7 @@ parts.R13 = { at = [56, 10], rot = 180, fields = "left" }
 parts.R14 = { at = [98, 20], rot = 180, fields = "right" }
 parts.C26 = { at = [106, 10], rot = 180, fields = "right" }
 wires = [
-    ["C73.1", [8, 28], "R11.1"],
-    ["C73.2", "Q2.G"],
-    ["D9.K", [44, 28]],
+    ["Q2.G", [8, 28], "R11.1"],
     ["R12.2", [52, 28]],
     ["W1.LED_K", [66, 18], "Q2.D"],
     [[70, 18], [70, 24], { label = "right" }],
@@ -35,11 +31,9 @@ stubs."R11.2" = { label = "right" }
 
 [[block]]
 title = "Wall sensor 1: W2, emitter switch Q3"
-at = [10, 63]
-size = [124, 50]
+at = [10, 55]
+size = [124, 42]
 parts.R15 = { at = [8, 22], rot = 180, fields = "right" }
-parts.C74 = { at = [30, 28], rot = 90, fields = "bottom" }
-parts.D10 = { at = [44, 36], rot = 90, fields = "left" }
 parts.R16 = { at = [52, 32], rot = 180, fields = "right" }
 parts.Q3 = { at = [64, 28], fields = "right" }
 parts.W2 = { at = [86, 18], fields = "top" }
@@ -47,9 +41,7 @@ parts.R17 = { at = [56, 10], rot = 180, fields = "left" }
 parts.R18 = { at = [98, 20], rot = 180, fields = "right" }
 parts.C27 = { at = [106, 10], rot = 180, fields = "right" }
 wires = [
-    ["C74.1", [8, 28], "R15.1"],
-    ["C74.2", "Q3.G"],
-    ["D10.K", [44, 28]],
+    ["Q3.G", [8, 28], "R15.1"],
     ["R16.2", [52, 28]],
     ["W2.LED_K", [66, 18], "Q3.D"],
     [[70, 18], [70, 24], { label = "right" }],
@@ -64,11 +56,9 @@ stubs."R15.2" = { label = "right" }
 
 [[block]]
 title = "Wall sensor 2: W3, emitter switch Q4"
-at = [10, 115]
-size = [124, 50]
+at = [10, 99]
+size = [124, 42]
 parts.R19 = { at = [8, 22], rot = 180, fields = "right" }
-parts.C75 = { at = [30, 28], rot = 90, fields = "bottom" }
-parts.D11 = { at = [44, 36], rot = 90, fields = "left" }
 parts.R20 = { at = [52, 32], rot = 180, fields = "right" }
 parts.Q4 = { at = [64, 28], fields = "right" }
 parts.W3 = { at = [86, 18], fields = "top" }
@@ -76,9 +66,7 @@ parts.R21 = { at = [56, 10], rot = 180, fields = "left" }
 parts.R22 = { at = [98, 20], rot = 180, fields = "right" }
 parts.C28 = { at = [106, 10], rot = 180, fields = "right" }
 wires = [
-    ["C75.1", [8, 28], "R19.1"],
-    ["C75.2", "Q4.G"],
-    ["D11.K", [44, 28]],
+    ["Q4.G", [8, 28], "R19.1"],
     ["R20.2", [52, 28]],
     ["W3.LED_K", [66, 18], "Q4.D"],
     [[70, 18], [70, 24], { label = "right" }],
@@ -93,11 +81,9 @@ stubs."R19.2" = { label = "right" }
 
 [[block]]
 title = "Wall sensor 3: W4, emitter switch Q5"
-at = [10, 167]
-size = [124, 50]
+at = [10, 143]
+size = [124, 42]
 parts.R23 = { at = [8, 22], rot = 180, fields = "right" }
-parts.C76 = { at = [30, 28], rot = 90, fields = "bottom" }
-parts.D12 = { at = [44, 36], rot = 90, fields = "left" }
 parts.R24 = { at = [52, 32], rot = 180, fields = "right" }
 parts.Q5 = { at = [64, 28], fields = "right" }
 parts.W4 = { at = [86, 18], fields = "top" }
@@ -105,9 +91,7 @@ parts.R25 = { at = [56, 10], rot = 180, fields = "left" }
 parts.R26 = { at = [98, 20], rot = 180, fields = "right" }
 parts.C29 = { at = [106, 10], rot = 180, fields = "right" }
 wires = [
-    ["C76.1", [8, 28], "R23.1"],
-    ["C76.2", "Q5.G"],
-    ["D12.K", [44, 28]],
+    ["Q5.G", [8, 28], "R23.1"],
     ["R24.2", [52, 28]],
     ["W4.LED_K", [66, 18], "Q5.D"],
     [[70, 18], [70, 24], { label = "right" }],
@@ -143,20 +127,10 @@ title = "Encoder slots: EC1 right wheel, EC2 left wheel"
 at = [226, 11]
 size = [92, 58]
 parts.EC1 = [32, 23]
-parts.C69 = { at = [52, 13], rot = 180, fields = "right" }
-parts.C70 = { at = [72, 13], rot = 180, fields = "right" }
 parts.EC2 = [32, 49]
-parts.C71 = { at = [52, 39], rot = 180, fields = "right" }
-parts.C72 = { at = [72, 39], rot = 180, fields = "right" }
-wires = [
-    ["EC1.5", [44, 19], [44, 11], [72, 11], "C70.2"],
-    ["C69.2", [52, 11]],
-    [[44, 11], [44, 9]],
-    ["EC2.5", [44, 45], [44, 37], [72, 37], "C72.2"],
-    ["C71.2", [52, 37]],
-    [[44, 37], [44, 35]],
-]
+stubs."EC1.5" = { point = "out" }
 stubs."EC1.6" = { point = "out" }
+stubs."EC2.5" = { point = "out" }
 stubs."EC2.6" = { point = "out" }
 
 [[block]]
@@ -164,14 +138,10 @@ title = "Motor current: TSC2020, 20 V/V across the 40 mOhm shunts"
 at = [138, 73]
 size = [180, 46]
 parts.IC4 = [40, 28]
-parts.C68 = { at = [52, 12], rot = 180, fields = "right" }
 parts.IC3 = [126, 28]
-parts.C67 = { at = [138, 12], rot = 180, fields = "right" }
 wires = [
-    ["IC4.6", [40, 10], [52, 10], "C68.2"],
-    [[40, 10], [40, 8]],
-    ["IC3.6", [126, 10], [138, 10], "C67.2"],
-    [[126, 10], [126, 8]],
+    ["IC4.6", [40, 12]],
+    ["IC3.6", [126, 12]],
 ]
 stubs."IC4.7" = { point = "out" }
 stubs."IC4.3" = { point = "out" }

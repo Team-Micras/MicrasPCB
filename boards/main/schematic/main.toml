@@ -19,7 +19,6 @@ parts.C1 = { at = [86, 30], rot = 180 }
 parts.C2 = { at = [66, 30], rot = 180 }
 parts.C10 = { at = [86, 16], rot = 180 }
 parts.C11 = { at = [66, 16], rot = 180 }
-parts.FB1 = { at = [58, 14], rot = 90, fields = "top" }
 parts.C12 = { at = [126, 42], rot = 180 }
 parts.C13 = { at = [146, 42], rot = 180 }
 parts.C14 = { at = [166, 42], rot = 180 }
@@ -37,9 +36,7 @@ wires = [
     [[106, 44], [106, 40]],
     ["L1.1", [86, 44], "C3.2"],
     ["IC1.6", [112, 68], [112, 28], "C1.2", "C2.2", [60, 28]],
-    ["IC1.16", [114, 66], [114, 14], "C10.2", "C11.2", "FB1.2"],
-    ["FB1.1", [46, 14]],
-    [[98, 14], [98, 10]],
+    ["IC1.16", [114, 66], [114, 14], "C10.2", "C11.2", [60, 14]],
     ["IC1.68", [116, 64], [116, 28], "C17.2", "C8.2", "C9.2", [172, 28]],
     [[116, 40], "C12.2", "C13.2", "C14.2", "C15.2", "C16.2"],
     ["IC1.1", [116, 54]],
@@ -59,7 +56,7 @@ wires = [
 stubs."IC1.48" = { len = 14 }
 stubs."IC1.52" = { len = 14 }
 [[block.note]]
-text = "VDDA = VREF+, filtered for the ADC"
+text = "VDDA (= VREF+): 1 uF + 100 nF at the pin"
 at = [4, 12]
 [[block.note]]
 text = "VDDSMPS: 10 uF + 4.7 uF"
@@ -86,10 +83,10 @@ at = [6, 72]
 text = "  The firmware selects PWR_DIRECT_SMPS_SUPPLY."
 at = [6, 74]
 [[block.note]]
-text = "- VDDA is also VREF+ on this package: FB1 keeps the"
+text = "- VDDA is also VREF+ on this package: on 3V3, with"
 at = [6, 76]
 [[block.note]]
-text = "  wall-emitter pulses on 3V3 out of the ADC reference."
+text = "  C10 and C11 at the pin."
 at = [6, 78]
 [[block.note]]
 text = "- No HSE or LSE crystal: PC15 and PH1 are unused."
@@ -103,12 +100,12 @@ size = [80, 150]
 [sheet.REGULATORS]
 at = [262, 18]
 size = [36, 6]
-left = ["Battery_Voltage", "Motors_Enable"]
+left = []
 
 [sheet.DRIVERS]
 at = [262, 34]
 size = [36, 18]
-left = ["Motor_Left_PWM_FW", "Motor_Left_PWM_BW", "Motor_Right_PWM_FW", "Motor_Right_PWM_BW", "Motors_Enable", "Fan_PWM", "Fan_Enable", "Fan_TOFF"]
+left = ["Motor_Left_PWM_FW", "Motor_Left_PWM_BW", "Motor_Right_PWM_FW", "Motor_Right_PWM_BW", "Motor_Enable", "Fan_PWM", "Fan_Enable", "Fan_Overcurrent"]
 right = ["MOTOR_L_SENSE_P", "MOTOR_L_SENSE_N", "MOTOR_R_SENSE_P", "MOTOR_R_SENSE_N"]
 
 [sheet.SENSORS]
@@ -119,8 +116,8 @@ right = ["MOTOR_L_SENSE_P", "MOTOR_L_SENSE_N", "MOTOR_R_SENSE_P", "MOTOR_R_SENSE
 
 [sheet.PERIPHERALS]
 at = [262, 130]
-size = [36, 28]
-left = ["Reset", "Boot", "Button", "Switch_0", "Switch_1", "Switch_2", "Switch_3", "Buzzer", "LED_Red", "LED_ARGB", "USBD_P", "USBD_N", "USB_VBUS_Sense"]
+size = [36, 26]
+left = ["Reset", "Boot", "Button", "Switch_0", "Switch_1", "Switch_2", "Switch_3", "Buzzer", "LED_Blue", "LED_ARGB", "USBD_P", "USBD_N"]
 
 [[block]]
 title = "SWD debug connector"
@@ -129,7 +126,6 @@ size = [50, 30]
 parts.P1 = [26, 16]
 stubs."P1.3" = { len = 10 }
 stubs."P1.4" = { len = 10 }
-stubs."P1.5" = { len = 10 }
 stubs."P1.1" = { point = "out" }
 stubs."P1.2" = { point = "out" }
 
