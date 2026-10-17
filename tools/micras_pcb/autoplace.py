@@ -45,6 +45,7 @@ HINTS = "SCHEMATIC_HINTS"
 HINT_KEYS = {"title", "paper", "blocks", "titles", "flow", "order"}
 GAP = 0.0  # grid units kept between two items' boxes
 BODY_GAP = 1.0  # between two parts' bodies
+TEXT_GAP = 0.8  # between two texts on one line
 TEXT_CLEAR = 0.3  # from a wire to another net's text
 CROSSING = 40  # what a wire crossing costs a candidate position, in grid steps of wire
 PAD = 2  # frame padding, grid units
@@ -423,8 +424,19 @@ def _items_bbox(it: Items):
     return (min(xs0), min(ys0), max(xs1), max(ys1))
 
 
-def _hits(p, q, gap=GAP) -> bool:
-    return p[0] < q[2] + gap and q[0] < p[2] + gap and p[1] < q[3] + gap and q[1] < p[3] + gap
+def _hits(p, q, gap=GAP, gy=None) -> bool:
+    gy = gap if gy is None else gy
+    return p[0] < q[2] + gap and q[0] < p[2] + gap and p[1] < q[3] + gy and q[1] < p[3] + gy
+
+
+def _box_gap(a, b) -> tuple[float, float]:
+    """The room kept between two boxes (x, y): bodies apart, texts a word space apart along a
+    line, label rows at a pin pitch."""
+    if a[4] == b[4] == "body":
+        return BODY_GAP, BODY_GAP
+    if a[4] == b[4] == "text":
+        return TEXT_GAP, GAP
+    return GAP, GAP
 
 
 class Canvas:
@@ -479,7 +491,7 @@ class Canvas:
         for nb in items.boxes:
             for lay in layers:
                 for b in lay.boxes:
-                    if _hits(nb, b, BODY_GAP if nb[4] == b[4] == "body" else GAP):
+                    if _hits(nb, b, *_box_gap(nb, b)):
                         return None
                 for a, b, h in lay.segs:
                     if _seg_box(a, b, nb, self._clear(nb, h, ok)):
@@ -1318,8 +1330,14 @@ class Block:
                     continue
                 if self.extra_wires(only=sk, crossings=True):
                     continue
-                opts = {}
-                ti = self._site_term(s, opts, ("site", sk))
+                # a long stub carries the label past its neighbours' labels
+                for opts in [{"len": n, **o} for n in (12, 16, 20, 24, 30) for o in ({}, {"point": "out"})]:
+                    ti = self._site_term(s, opts, ("site", sk))
+                    if ti is None or self.cv.conflicts(ti, allowed=[("site", sk)]) == 0:
+                        break
+                else:
+                    opts = {}
+                    ti = self._site_term(s, opts, ("site", sk))
                 if os.environ.get("AUTOPLACE_DEBUG"):
                     print(f"  no room for the label of {s.rep} at {s.loc}: {self._blockers(ti, sk)}")
             if opts:
@@ -1336,9 +1354,9 @@ class Block:
             return False
         perp = (s.out[1], s.out[0])
         g = ("site", sk)
-        for k in (1, 2, 3):
+        for k in (1, 2, 3, 4, 6):
             for dv in (1, -1, 2, -2, 3, -3):
-                for L in (2, 3, 4):
+                for L in (2, 3, 4, 6, 8):
                     p1 = _add(s.loc, s.out, k)
                     p2 = _add(p1, perp, dv)
                     e = _add(p2, s.out, L)
