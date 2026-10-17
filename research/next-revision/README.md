@@ -50,7 +50,7 @@ assumed 90 %). The TPS61178 could not stay anyway: recommended VOUT tops out at 
 
 ```text
 4S LiPo 12.0-16.8 V (17.4 V HV) ─ J1 ─ Q6 HSBB3072 (slew-limited low-side switch) ─ VBAT
-   [reverse polarity: keyed connector only]  [TVS: SMAJ18A recommended, owner's decision]
+   [reverse polarity: keyed connector only]  [TVS D15 SMAJ18A across J1]
    VBAT ─┬─ R_bat 2 mΩ 4-terminal ─ INA228 (I²C to the ESP32)
          ├─ DRV8874 (right) ─ WSK2512 10 mΩ ─ choke footprint (47 µH or 0 Ω) ─ DCX 10 L 4.5 V   INA241A2 on the shunt
          ├─ DRV8874 (left)  ─ WSK2512 10 mΩ ─ choke footprint (47 µH or 0 Ω) ─ DCX 10 L 4.5 V   INA241A2 on the shunt
@@ -191,7 +191,7 @@ DRV8874 nFAULT ×2 wire-OR ─ PC15
   inside the 300 mV of the analog-rail model's HV case at a sixth of the electrolytic's footprint
   and half its height, rated at 50 V, with no short-failure mode. What the ceramics give up: the
   damping of a bench supply on long leads, and some milliseconds of regeneration hold-up.
-- **VBAT overvoltage and a TVS** (calculations/power_tree/vbat_bulk.py). The lowest ratings on VBAT
+- **VBAT overvoltage and the TVS** (calculations/power_tree/vbat_bulk.py). The lowest ratings on VBAT
   and VSYS: the 25 V MLCCs on VSYS (C52, C53, C80), Q8 AO3401A (−30 V VDS, VSYS against an absent
   VBUS), Q6 HSBB3072 (30 V VDS, with the pack connected), then 40 V (DRV8874 VM abs max, B5819W),
   42 V (L6981 VIN), 44 V (ADP7142), 62 V (STSPIN958 VS), 85 V (INA228). Per case:
@@ -205,15 +205,17 @@ DRV8874 nFAULT ×2 wire-OR ─ PC15
     energy (76-130 g at 4 m/s). The 56 µF of ceramics reach 25 V in 2.9 ms, 30 V in 5.2 ms and the
     DRV8874's 40 V in 11 ms (the electrolytics bought 12-47 ms); a stop lasts hundreds of ms.
 
-  Recommendation (not on the board, the owner's decision): an **SMAJ18A** (Littelfuse; VR 18 V
-  above the 17.4 V pack, VBR 20.0-22.1 V, VC 29.2 V at 13.7 A, 400 W 10/1000 µs, 3.3 W on an
-  infinite heatsink; DO-214AC 4.8-5.3 × 2.4-2.8 × 1.9-2.3 mm, about 18 mm² with its pads; LCSC
-  C148219, $0.11, or C908771 $0.03) from BAT_P to GND_BAT at J1. Q6 is on while the board runs, so
-  it clamps VBAT too: braking regeneration at about 0.15 A and 21 V for a few hundred ms, under
-  every rating above, and a bench hot plug. The SOD-123FL SMF18A (200 W, RθJA 220 °C/W; 3.9 ×
+  The TVS: **D15, SMAJ18A** (Littelfuse; VR 18 V above the 17.4 V pack, IR 1 µA max, VBR
+  20.0-22.1 V, VC 29.2 V at 13.7 A, 400 W 10/1000 µs, 3.3 W on an infinite heatsink; DO-214AC
+  4.8-5.3 × 2.4-2.8 × 1.9-2.3 mm, about 18 mm² with its pads; LCSC C148219, $0.11) from BAT_P to
+  GND_BAT at J1. With the pack pulled under braking its current runs VBAT → R59 → D15 → GND_BAT and
+  back to GND through Q6: the channel with SW4 on, the body diode with SW4 off (GND_BAT → GND is
+  its forward direction). For 0.15-2 A of braking current VBAT settles at 21.2-22.4 V with SW4 on
+  and 21.9-23.1 V with SW4 off (simulated at a 21 V knee; up to 1.1 V more at the 22.1 V VBR
+  maximum), under every rating above, for the few hundred ms of a stop (about 1 J at most). D15
+  also clamps Q6's VDS and a bench hot plug. The SOD-123FL SMF18A (200 W, RθJA 220 °C/W; 3.9 ×
   2.0 × 1.1 mm, C409420, $0.12) has the same voltages in half the area but marginal heat capacity
-  for 1 J over a stop. Without a TVS, the firmware must stop regenerative braking (coast, or EN = 0
-  low-side brake, which dissipates in the motor) whenever VBAT rises above the pack's maximum.
+  for 1 J over a stop.
 
 ### Drivetrain
 
@@ -482,7 +484,7 @@ New or changed parts; JLC numbers and prices as queried on 2026-10-15 (stock is 
 | Motors | maxon DCX 10 L 4.5 V × 2 | new; order code **TODO**; length against MicrasHardware `Motor.body_l` = 20 **TODO** | 2.9 Ω, 45 µH, kt 3.52 mNm/A, 0.648 A cont., 14,300 rpm, 11 g | [maxon p100] |
 | Battery | 4S 150-300 mAh: four 1S 300 mAh cells (~28 g) or a 4S pack (22-36 g) | new; IR unmeasured | non-HV charging keeps the TPS2121 option open | drivetrain study §4-§5 |
 | Battery switch | HSBB3072 (Q6) | keep | 30 V VDS, VGS = VBAT/2 | repo `components/huashuo/HSBB3072` |
-| Reverse polarity, TVS | none (the connector keys the polarity); TVS SMAJ18A at J1 recommended, not fitted | owner's decision | VR 18 V, VBR 20-22.1 V, VC 29.2 V at 13.7 A; C148219 $0.11 | [VBAT overvoltage](#power-tree) |
+| Reverse polarity, TVS | none (the connector keys the polarity); TVS D15 SMAJ18A across J1 | new | VR 18 V, VBR 20-22.1 V, VC 29.2 V at 13.7 A; C148219 $0.11 | [VBAT overvoltage](#power-tree) |
 | Power path | 40 V 1 A Schottky + AO3401A-class P-FET, or 2 × LM74700-Q1/MX74700T + N-FETs; TPS2121 with non-HV cells only | replaces the TPS2121 mux for HV cells | B5819W C8598 basic; LM74700QDDFRQ1 C3236229 $1.32; MX74700T C22468156 $0.41 | power-tree study §8 |
 | Digital 3V3 | L6981C33 | keep | 1.5 A, 3.5-38 V, 30.5-145 µF window; C5268096 shows 1 in stock | [L6981] |
 | Analog 3V3_A | ADP7142ACPZN3.3 (LFCSP) or TPS7A4901DGNR, behind 22 Ω + 10 µF | new | 40 V / 36 V, 11 / 15.4 µVrms; C659360 $2.88 / C16430 $1.26 | ADP7142 Rev H; [TPS7A49] |
@@ -839,7 +841,6 @@ path on the same board.
 | Fan motor and driver | STSPIN958 (≤ ~3 A continuous) / TPS28225 half-bridge (above) | Fan motor not chosen |
 | Analog LDO | ADP7142ACPZN3.3 (fixed) / TPS7A4901 (adjustable, cheaper) | Package thermal at ≈ 0.33 W |
 | Power path | Schottky + P-FET / 2 × LM74700-Q1 / TPS2121 (non-HV only) | – |
-| TVS on the battery input | SMAJ18A at J1 (recommended) / none, with a firmware VBAT limit on braking | Reverse polarity: the keyed connector only (owner) |
 | ESP form factor | MINI-1-N8 in the rear-left corner, antenna 5 mm beyond the rear edge (recommended) / MINI-1U-N8 with an external antenna / PICO-1 + chip antenna | Overhang, M1 and the drive block against antenna tuning; antenna bench test |
 | ESP chip | S3 (recommended) / C5 under the Q2 conditions | – |
 | Toolchain | CMSIS-DAP through OpenOCD (master) or probe-rs | ST-Link and CubeProgrammer workflows are lost |
@@ -866,7 +867,7 @@ path on the same board.
   running on VFQFPN68 (DS13311 Table 84 is for BGA, one ADC); the arena-light phototransistor current.
 - **Power path**: no 40 V Schottky checked for leakage and VF; the AO3401A VGS rating not re-read; the
   Type-C Rp advertisement not used for a higher USB budget.
-- **Battery input**: the TVS decision; B02B-PASK connector rating at about 5 A; no published IR for
+- **Battery input**: B02B-PASK connector rating at about 5 A; no published IR for
   4S 200-300 mAh packs; SW4's ON position (the SK-12D29 drawing does not say which lever position
   joins which pin); the HSBB3072 model in vbat_bulk.py is fitted to its datasheet table, not measured.
 - **Fan**: no drone motor publishes inductance (the 1-12 µH range is inferred); NFP figures are from

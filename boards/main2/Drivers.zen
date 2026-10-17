@@ -34,8 +34,8 @@ boards/main2/test/test_drivers.zen.
   CL31B106KBHNNN's Samsung curve). The pack's own resistance (0.1-0.3 Ohm) damps its lead
   inductance against the ceramics (Q 0.72 at 300 nH); a bench supply on 1 m leads leaves Q about
   4 (research calculations/power_tree/vbat_bulk.py, which compares the polymer and electrolytic
-  alternatives). Pulled under braking, the pack no longer absorbs regenerated energy: see the
-  battery input on the regulators sheet.
+  alternatives). With the pack pulled under braking, the TVS D15 at J1 takes the regenerated
+  energy (the battery input on the regulators sheet).
 - VCP: C88/C97 100 nF X7R 50 V to VM (CVCP, 16 V or more). CPH-CPL: C89/C98 22 nF X7R 50 V
   (CFLY, VM-rated).
 - IPROPI: besides RIPROPI, a DNP 0402 0 Ohm (R62, R72) to the INA241's ADC net, so the first

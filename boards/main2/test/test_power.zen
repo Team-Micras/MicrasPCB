@@ -251,6 +251,37 @@ def ceramic_capacitors_only(module, inputs):
     report(p)
 
 
+def vbat_clamp(module, inputs):
+    # VBAT needs a TVS that clamps below the DRV8874's 40 V VM absolute maximum (SLVSF66A 6.1)
+    # with the pack pulled under braking, and stands off the 17.4 V pack. Its cathode sits on
+    # VBAT or on BAT_P (VBAT through the shunt R59), its anode on GND or on GND_BAT (GND through
+    # Q6, whose body diode conducts GND_BAT -> GND with Q6 off).
+    b = index(module)
+    vbat = net(b, "IC8", "VM")
+    shunt_in = net(b, "R59", "I1") if net(b, "R59", "I2") == vbat else None
+    q6_source = net(b, "Q6", "S") if net(b, "Q6", "D") == "GND" else None
+    found = []
+    for ref, c in b.parts.items():
+        if c.type != "tvs" or c.dnp or "K" not in c.pins or "A" not in c.pins:
+            continue
+        k, a = net(b, ref, "K"), net(b, ref, "A")
+        if k not in [vbat, shunt_in] or a not in ["GND", q6_source]:
+            continue
+        if "clamping_voltage" not in c.properties:
+            continue
+        vc = c.properties["clamping_voltage"].value
+        vr = c.properties["reverse_standoff_voltage"].value
+        pack = c.pins["K"].voltage.max
+        if vc >= 40.0:
+            report([ref + " clamps at " + eng(vc, "V") + ", not below the DRV8874's 40 V"])
+            return
+        if vr < pack:
+            report([ref + " stands off " + eng(vr, "V") + ", below the " + eng(pack, "V") + " pack"])
+            return
+        found.append(ref)
+    report([] if found else ["VBAT has no TVS from VBAT/BAT_P to GND/GND_BAT clamping below 40 V"])
+
+
 def capacitor_voltage_ratings(module, inputs):
     # Every capacitor's rated voltage must cover the largest voltage across it, from the
     # declared ranges of the nets it joins (nets without a declared range are skipped).
@@ -284,6 +315,7 @@ TestBench(
         battery_switch_slew,
         battery_switch_rating,
         ceramic_capacitors_only,
+        vbat_clamp,
         capacitor_voltage_ratings,
     ],
 )

@@ -157,3 +157,14 @@ maximum, or a TVS takes the energy.
 Regen clamp current about 0.15 A at about 21 V: the TVS sits near VBR (20-22.1 V),
 far below VC 29.2 V at 13.7 A; 3.2 W for a few hundred ms (0.83 J at most).
 Hot plug: the TVS also holds Q6's VDS (30 V absolute maximum) below 30 V.
+
+=== 7. The SMAJ18A at J1 with the pack pulled under braking, Q6 on and off ===
+SW4 / Q6                I regen  VBAT max  VBAT end   Q6 VDS  Q6 VGS
+on (channel)             0.15 A   21.22 V   21.22 V  -0.00 V 10.61 V
+on (channel)             0.50 A   21.46 V   21.46 V  -0.00 V 10.73 V
+on (channel)             2.00 A   22.41 V   22.40 V  -0.00 V 11.20 V
+off (body diode)         0.15 A   21.89 V   21.89 V  -0.67 V -0.00 V
+off (body diode)         0.50 A   22.16 V   22.16 V  -0.70 V -0.00 V
+off (body diode)         2.00 A   23.14 V   23.14 V  -0.74 V -0.00 V
+Both states clamp VBAT: with SW4 off the TVS current returns to GND through Q6's body diode
+(GND_BAT to GND is its forward direction), adding its drop (1.2 V max at 1 A, HSBB3072 p2).
