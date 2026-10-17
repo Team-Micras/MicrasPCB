@@ -687,13 +687,10 @@ def plane_vias(refs: list[str]) -> list[str]:
 
 def pieces_now(names) -> dict[str, int]:
     """How many pieces (islands) each net's copper is in."""
-    import types
-
     import router
 
-    fx.B.BuildConnectivity()
-    me = types.SimpleNamespace(b=fx.B)
-    return {n: len(router.Router.copper(me, fx.B.FindNet(n).GetNetCode())) for n in names if fx.B.FindNet(n)}
+    r = router.Router(fx.B)
+    return {n: len(r.copper(fx.B.FindNet(n).GetNetCode())) for n in names if fx.B.FindNet(n)}
 
 
 def route(lost: dict[str, float], boxes, pieces: dict[str, int]) -> list[str]:
