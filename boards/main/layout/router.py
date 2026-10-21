@@ -1382,7 +1382,8 @@ def _reach(free, target, via):
         eb.append(b + off)
         off += n
     a, b = np.concatenate(ea), np.concatenate(eb)
-    lab = _union(off, a, b)
+    # one spare label past the last run: a layer without a free cell indexes it, masked out below
+    lab = np.append(_union(off, a, b), -1)
     same, anyl = [], []
     tl = [np.unique(lab[rids[li][target[li] & free[li]] + sum(ns[:li])]) for li in range(nl)]
     for li in range(nl):
@@ -1393,7 +1394,7 @@ def _reach(free, target, via):
         m = via & free[0] & free[1]
         va = rids[0][m]
         vb = rids[1][m] + ns[0]
-        lab2 = _union(off, np.concatenate([a, va]), np.concatenate([b, vb]))
+        lab2 = np.append(_union(off, np.concatenate([a, va]), np.concatenate([b, vb])), -1)
         tall = np.unique(np.concatenate([lab2[rids[li][target[li] & free[li]] + sum(ns[:li])] for li in range(nl)]))
         for li in range(nl):
             r = rids[li]

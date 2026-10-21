@@ -66,14 +66,13 @@ wires = [
 ]
 
 [[block]]
-title = "Buttons: user, reset (NRST), boot (BOOT0)"
+title = "Buttons: user, reset (NRST); BOOT0 pull-down"
 at = [8, 68]
 size = [60, 54]
 parts.SW2 = [12, 12]
 parts.C20 = { at = [26, 14], rot = 180 }
 parts.SW3 = [12, 28]
 parts.C21 = { at = [26, 30], rot = 180 }
-parts.SW5 = { at = [12, 44], mirror = "y" }
 parts.R42 = { at = [26, 46], rot = 180 }
 parts.C60 = [36, 46]
 wires = [
@@ -87,10 +86,7 @@ wires = [
     ["SW3.3", [44, 26]],
     ["SW3.4", [20, 28], [20, 26]],
     ["C21.2", [26, 26]],
-    ["SW5.4", [4, 44], [4, 40]],
-    ["SW5.3", [4, 42]],
-    ["SW5.1", [44, 42]],
-    ["SW5.2", [20, 44], [20, 42]],
+    [[26, 42], [44, 42]],
     ["R42.2", [26, 42]],
     ["C60.1", [36, 42]],
 ]

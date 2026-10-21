@@ -68,20 +68,8 @@ wires = [
 
 [[block]]
 at = [0, 0]
-frame = [[88, 168, 84, 54, "Test pads: IMU interrupts and fan driver (bare pads)"]]
-parts.IMU_INT1 = [106, 184]
-parts.IMU_INT2 = [106, 204]
-parts.FAN_PWM1 = [148, 182]
-parts.FAN_ENABLE1 = [148, 196]
-parts.FAN_OVERCURRENT1 = [148, 210]
-
-[[block]]
-at = [0, 0]
-frame = [[176, 168, 58, 54, "Test pads: SWD backstop (bare pads)"]]
-parts.SWDIO1 = [192, 184]
-parts.SWCLK1 = [192, 204]
-parts.NRST1 = [218, 184]
-parts.GND1 = [218, 204]
+frame = [[176, 168, 58, 54, "SWD header for an ST-Link (bare pads)"]]
+parts.SWD1 = [200, 194, 180]
 
 [[block]]
 at = [0, 0]
@@ -108,7 +96,7 @@ right = ["Battery_Voltage"]
 at = [36, 60]
 size = [30, 16]
 left = ["BAT_I2C.SDA", "BAT_I2C.SCL", "BAT_ALERT", "USB.D.P", "USB.D.N"]
-right = ["Reset", "Boot", "SWDIO", "SWCLK", "UART4_RX", "UART4_TX", "ESP_Flow"]
+right = ["Reset", "SWDIO", "SWCLK", "UART4_RX", "UART4_TX", "ESP_Flow"]
 
 [sheet.PERIPHERALS]
 at = [36, 92]
@@ -137,7 +125,6 @@ at = [267, 124]
 size = [36, 24]
 left = [
     "Motor_Left_EN", "Motor_Left_PH", "Motor_Right_EN", "Motor_Right_PH", "Motors_Enable",
-    "Motors_nFault", "Current_Sensor_Left", "Current_Sensor_Right", "Fan_PWM", "Fan_Enable",
-    "Fan_TOFF",
+    "Motors_nFault", "Fan_PWM", "Fan_Enable", "Fan_TOFF",
 ]
 right = ["MOTOR_L_SENSE_P", "MOTOR_L_SENSE_N", "MOTOR_R_SENSE_P", "MOTOR_R_SENSE_N"]

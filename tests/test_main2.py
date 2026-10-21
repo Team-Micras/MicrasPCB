@@ -1,8 +1,8 @@
-"""The main2 board (schematic only): power tree, analog rail, decoupling and the firmware contract.
+"""The main2 board's circuit: power tree, analog rail, decoupling and the firmware contract.
 
 main2 is research/next-revision/README.md entered in Zener. These tests read its generated
-schematic (the netlist KiCad exports) and Zener's BOM; the layout-dependent checks (decoupling
-distance, courtyards, DRC) join when the board has a layout.
+schematic (the netlist KiCad exports) and Zener's BOM; tests/test_main2_layout.py and the
+layout-wide checks of tests/test_layout.py take its layout.
 """
 
 import shutil

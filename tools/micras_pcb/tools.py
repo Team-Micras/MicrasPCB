@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import shutil
+from pathlib import Path
 
 from .paths import ROOT
 
@@ -32,3 +33,19 @@ def pcb() -> list[str]:
     if not exe:
         raise SystemExit("pcb not found: install the Zener toolchain (see README) or set PCB")
     return [exe, "+" + versions()["PCB_TOOLCHAIN"]]
+
+
+def freerouting() -> list[str]:
+    """Freerouting, pinned to versions.env: FREEROUTING (a jar) or the release jar in
+    ~/.cache/micras-pcb, run with Java."""
+    v = versions()["FREEROUTING_VERSION"]
+    jar = Path(os.environ.get("FREEROUTING") or f"~/.cache/micras-pcb/freerouting-{v}.jar").expanduser()
+    if not jar.exists():
+        raise SystemExit(
+            f"Freerouting {v} not found: download https://github.com/freerouting/freerouting/releases/download/"
+            f"v{v}/freerouting-{v}.jar to {jar} or set FREEROUTING"
+        )
+    java = shutil.which("java")
+    if not java:
+        raise SystemExit("java not found: Freerouting needs Java 21 or later")
+    return [java, "-jar", str(jar)]

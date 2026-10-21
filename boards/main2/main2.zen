@@ -19,9 +19,10 @@ connects the five sheets:
 - PERIPHERALS (Peripherals.zen): buttons, DIP switch, buzzer, LEDs, USB-C.
 - ESP (Esp.zen): the ESP32-S3-MINI-1 radio and debug probe.
 
-The board is a schematic only: Project(layout = False) below. Placement and routing are
-human-led and not started; the layout, its spec/main2.toml and the board's stackup and rules
-(those of boards/main's Board(), the same 4-layer 1.0 mm JLCPCB stackup) come with it.
+The board's mechanics (outline, screw holes, encoder slots, fan hole, wheel and switch notches,
+the drive blocks' zones) are spec/main2.toml. Its stackup and rules are boards/main's: the same
+4-layer 1.0 mm JLCPCB stackup. Every part sits on the top side: the board rides 1.2 mm off the
+floor (MicrasHardware Board.bottom_z).
 
 MCU supply (DS13311 Rev 5; AN5419 Rev 3, Table 2 p7-8 and Figure 5 p10, "Direct SMPS supply"),
 as on the main board, on 3V3_D:
@@ -38,11 +39,15 @@ as on the main board, on 3V3_D:
   (its LDO's EN is on 3V3_D), so VDDA never leads VDD at power-up (DS13311 section 3.7.1).
 - VBAT (pin 1): 3V3_D (AN5419 Table 2, no backup battery), with C8 100 nF and C9 1 uF.
 
-Pin budget (research H7 pin budget): the two pins the main board left open now carry
-Motors_nFault (PC15, both DRV8874 nFAULT wire-ORed; a slow, reduced-drive pin is fine for an
-open-drain input) and ESP_Flow (PH1, the ESP32's flow-control line). The ESP32 takes the SWD pins
-(PA13/PA14), NRST, BOOT0 (optional, held low by R42) and UART4 (PA11 = UART4_RX, PA12 = UART4_TX),
-so it costs no new pin. The motor pins keep their timers: right motor EN/PH on PA8/PA9 (TIM1),
+Pin budget (research H7 pin budget): the two pins the main board left open carry two more
+lines, Motors_nFault (both DRV8874 nFAULT wire-ORed) and ESP_Flow (the ESP32's flow-control line).
+Layout pin swaps (owner, 2026-10-20): the DIP switch sits on the STM32's right and rear, so
+Switch_1-3 take the plain inputs on the right-facing pin rows, PH1, PC15 and PC14 (reduced-drive
+pins, fine for inputs with pull-ups), and the lines bound for the rear-left leave from the
+left-facing rows: ESP_Flow on PB0, Motors_nFault on PB2 (EXTI2), Encoder_Right_CSn on PB10; on
+the main board's pins every one of them circled the chip. The ESP32 takes the SWD pins
+(PA13/PA14), NRST and UART4 (PA11 = UART4_RX, PA12 = UART4_TX), so it costs no new pin. BOOT0 is
+held low by R42: the MCU always starts from its flash. The motor pins keep their timers: right motor EN/PH on PA8/PA9 (TIM1),
 left on PC7/PC9 (TIM3). TODO: the research's fast-ADC swap (wall sensors to PC0/PC1, currents to
 two of PA6/PB1/PC4) needs a CubeMX check; until then the currents stay on PC0/PC1.
 - PA5 is DAC1_OUT2, Wall_Emitter_Set, the wall emitters' current set-point (SENSORS sheet). PA4
@@ -57,12 +62,29 @@ two of PA6/PB1/PC4) needs a CubeMX check; until then the currents stay on PC0/PC
 - The H7 learns of USB power from the ESP32 over UART4; the ESP32 senses VBUS on its own divider
   (ESP sheet).
 
-Test pads (bare pads, not assembled): the IMU interrupts and the fan signals, as on the main
-board, and the SWD backstop (SWDIO, SWCLK, NRST and GND; research Open decisions), to reach the
-MCU with an external probe if the ESP32 cannot.
+SWD header SWD1 (bare 1.27 mm pitch pads, not assembled): 1 GND, 2 SWDIO, 3 SWCLK, for an ST-Link
+when the ESP32 cannot reach the MCU (the owner's choice: no supply pin, no NRST). The board has
+no test pads.
 """
 
 load("@stdlib/interfaces.zen", "DiffPair", "I2c", "Spi", "Usb2")
+load(
+    "@stdlib/board_config.zen",
+    "BoardConfig",
+    "Constraints",
+    "Copper",
+    "CopperLayer",
+    "DesignRules",
+    "DielectricLayer",
+    "Holes",
+    "Material",
+    "NetClass",
+    "PredefinedSizes",
+    "Silkscreen",
+    "SolderMask",
+    "Stackup",
+    "ViaDimension",
+)
 load("./passives.zen", "C_100N_0402", "C_10U_0603", "C_1U_0402", "C_4U7_0402", "R_0_0402")
 
 Capacitor = Module("@stdlib/generics/Capacitor.zen")
@@ -70,7 +92,7 @@ Resistor = Module("@stdlib/generics/Resistor.zen")
 AFE201612S2R2MBT = Module("github.com/Team-Micras/MicrasPCB/components/magnetsyc/AFE201612S2R2MBT/AFE201612S2R2MBT.zen")
 STM32H725RGV6 = Module("github.com/Team-Micras/MicrasPCB/components/st/STM32H725RGV6/STM32H725RGV6.zen")
 MountingHole = Module("github.com/Team-Micras/MicrasPCB/components/micras/MountingHole/MountingHole.zen")
-TestPoint = Module("github.com/Team-Micras/MicrasPCB/components/micras/TestPoint/TestPoint.zen")
+SwdHeader = Module("github.com/Team-Micras/MicrasPCB/components/micras/SwdHeader/SwdHeader.zen")
 Regulators = Module("./Regulators.zen")
 Drivers = Module("./Drivers.zen")
 Sensors = Module("./Sensors.zen")
@@ -193,9 +215,9 @@ STM32H725RGV6(
     PA13=SWDIO,
     PA14=SWCLK,
     PA15=ENCODER_RIGHT_ABI_B,
-    PB0=SWITCH_1,
+    PB0=ESP_FLOW,
     PB1=WALL_SENSOR_0,
-    PB2=SWITCH_2,
+    PB2=MOTORS_NFAULT,
     PB3=ENCODER_RIGHT_ABI_A,
     PB4=IMU_INT2,
     PB5=IMU_INT1,
@@ -203,7 +225,7 @@ STM32H725RGV6(
     PB7=WALL_SENSOR_PWM_1,
     PB8=WALL_SENSOR_PWM_2,
     PB9=WALL_SENSOR_PWM_3,
-    PB10=SWITCH_3,
+    PB10=ENCODER_RIGHT_SPI.CS,
     PB12=LED_RED,
     PB13=FAN_TOFF,
     PB14=FAN_ENABLE,
@@ -218,11 +240,11 @@ STM32H725RGV6(
     PC10=SPI_SCK,
     PC11=SPI_MISO,
     PC12=SPI_MOSI,
-    PC14=ENCODER_RIGHT_SPI.CS,
-    PC15=MOTORS_NFAULT,
+    PC14=SWITCH_3,
+    PC15=SWITCH_2,
     PD2=IMU_SPI.CS,
     PH0=SWITCH_0,
-    PH1=ESP_FLOW,
+    PH1=SWITCH_1,
 )
 
 Capacitor(name="C1", P1=GND, P2=V3V3_D, **C_10U_0603)
@@ -245,16 +267,8 @@ Capacitor(name="C15", P1=GND, P2=V3V3_D, **C_100N_0402)
 Capacitor(name="C16", P1=GND, P2=V3V3_D, **C_100N_0402)
 Capacitor(name="C17", P1=GND, P2=V3V3_D, **C_4U7_0402)
 
-# Test pads (bare pads, not assembled).
-TestPoint(name="IMU_INT1", prefix="IMU_INT", P1=IMU_INT1)
-TestPoint(name="IMU_INT2", prefix="IMU_INT", P1=IMU_INT2)
-TestPoint(name="FAN_PWM", prefix="FAN_PWM", P1=FAN_PWM)
-TestPoint(name="FAN_ENABLE", prefix="FAN_ENABLE", P1=FAN_ENABLE)
-TestPoint(name="FAN_OVERCURRENT", prefix="FAN_OVERCURRENT", P1=FAN_TOFF)
-TestPoint(name="SWDIO", prefix="SWDIO", P1=SWDIO)
-TestPoint(name="SWCLK", prefix="SWCLK", P1=SWCLK)
-TestPoint(name="NRST", prefix="NRST", P1=RESET)
-TestPoint(name="GND", prefix="GND", P1=GND)
+# SWD header for an ST-Link (bare pads, not assembled).
+SwdHeader(name="SWD", prefix="SWD", GND=GND, SWDIO=SWDIO, SWCLK=SWCLK)
 
 # M2 screw holes to the chassis.
 MountingHole(name="H1")
@@ -292,8 +306,6 @@ Drivers(
     MOTOR_R_SENSE_N=MOTOR_R_SENSE_N,
     MOTOR_L_SENSE_P=MOTOR_L_SENSE_P,
     MOTOR_L_SENSE_N=MOTOR_L_SENSE_N,
-    Current_Sensor_Right=CURRENT_SENSOR_RIGHT,
-    Current_Sensor_Left=CURRENT_SENSOR_LEFT,
     Fan_PWM=FAN_PWM,
     Fan_Enable=FAN_ENABLE,
     Fan_TOFF=FAN_TOFF,
@@ -360,7 +372,6 @@ Esp(
     SWDIO=SWDIO,
     SWCLK=SWCLK,
     Reset=RESET,
-    Boot=BOOT,
     UART4_RX=UART4_RX,
     UART4_TX=UART4_TX,
     ESP_Flow=ESP_FLOW,
@@ -368,5 +379,79 @@ Esp(
     BAT_ALERT=BAT_ALERT,
 )
 
-# Schematic only: no layout yet (see the docstring).
-Project(name="main2", path="layout", schematic=True, layout=False)
+# Stackup and rules: boards/main's, from the Altium MicrasMainBoard.PcbDoc (layer stack and design rules):
+# 4 layers, 1 oz outer / 0.5 oz inner copper, 0.2104 mm prepreg (Dk 4.4) and 0.5 mm core
+# (Dk 4.48), 1.0212 mm without mask. Zener writes a 10 um solder mask a side (not configurable),
+# so the stackup totals 1.0412 mm; Altium's 0.6 mil (15.24 um) resist makes it 1.0517 mm. The
+# board is ordered as JLCPCB's 1.0 mm 4-layer stackup either way. Rules: 0.1 mm clearance,
+# 10 mil (0.254 mm) preferred track, 0.45 / 0.3 mm vias, 0.2 mm copper to board edge, 0.02 mm
+# solder mask expansion (rule SolderMaskExpansion, 0.7874 mil). The track widths and the other
+# via sizes are the ones its routing uses; the 0.35 / 0.2 mm via is main2's own, for the escapes
+# of the STM32's 0.4 mm pitch pins (owner, 2026-10-18; JLCPCB's limits, rules/jlcpcb.kicad_dru:
+# 0.15 mm hole, 0.05 mm ring, 0.075 mm preferred). Finish: ENIG, black solder mask, white
+# silkscreen (the owner's choice).
+Board(
+    name="main2",
+    path="layout",
+    layers=4,
+    schematic=True,
+    config=BoardConfig(
+        design_rules=DesignRules(
+            constraints=Constraints(
+                copper=Copper(
+                    minimum_clearance=0.1,
+                    minimum_track_width=0.1,
+                    minimum_via_diameter=0.35,
+                    copper_to_edge_clearance=0.2,
+                ),
+                holes=Holes(minimum_through_hole=0.2, hole_to_hole_clearance=0.254),
+                # Silkscreen text down to 0.5 mm high with a 0.125 mm stroke, the owner's choice for
+                # the reference designators. JLCPCB guarantees legibility from 1.0 mm high and
+                # 0.153 mm stroke; this board accepts smaller text. The stroke minimum is set by
+                # `micras-pcb rules` (rules/kicad-severities.toml [design.main2]): Zener has no field
+                # for it.
+                silkscreen=Silkscreen(minimum_text_height=0.5),
+                solder_mask=SolderMask(clearance=0.02),
+            ),
+            predefined_sizes=PredefinedSizes(
+                track_widths=[0.2, 0.2248, 0.254, 0.3, 0.4, 0.6, 0.8, 1.0],
+                via_dimensions=[
+                    ViaDimension(diameter=0.35, drill=0.2),
+                    ViaDimension(diameter=0.45, drill=0.3),
+                    ViaDimension(diameter=0.5, drill=0.3),
+                    ViaDimension(diameter=0.8, drill=0.4),
+                ],
+            ),
+            netclasses=[
+                NetClass(
+                    name="Default",
+                    clearance=0.1,
+                    track_width=0.254,
+                    via_diameter=0.45,
+                    via_drill=0.3,
+                    diff_pair_width=0.2248,
+                    diff_pair_gap=0.127,
+                ),
+            ],
+        ),
+        stackup=Stackup(
+            copper_finish="ENIG",
+            solder_mask_color="Black",
+            silk_screen_color="White",
+            materials=[
+                Material(name="NP-155F prepreg", relative_permittivity=4.4),
+                Material(name="NP-155F core", relative_permittivity=4.48),
+            ],
+            thickness=1.0412,
+            layers=[
+                CopperLayer(thickness=0.035, role="mixed"),
+                DielectricLayer(thickness=0.2104, material="NP-155F prepreg", form="prepreg"),
+                CopperLayer(thickness=0.0152, role="mixed"),
+                DielectricLayer(thickness=0.5, material="NP-155F core", form="core"),
+                CopperLayer(thickness=0.0152, role="mixed"),
+                DielectricLayer(thickness=0.2104, material="NP-155F prepreg", form="prepreg"),
+                CopperLayer(thickness=0.035, role="mixed"),
+            ],
+        ),
+    ),
+)

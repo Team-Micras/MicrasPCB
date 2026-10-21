@@ -9,7 +9,7 @@ CI.
 | `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.79 mm | the previous revision's placement and routing, plus pull resistors on the sensor's SPI inputs; passes every check ([open items](boards/encoder/layout/README.md#open-items)) |
 | `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | circuit with the design review's findings fixed, placed and routed; passes every gate ([known faults](boards/main/layout/README.md#known-faults)) |
 | `bluetooth`: HM-19 BLE module on a vertical USB-C plug that mates the main board's U2, 2 layers, 0.79 mm | placed and routed as the previous revision with its design review fixes (a CC signature for the main board's switched SBU supply, a RESETB pull-up); passes every gate ([known faults](boards/bluetooth/layout/README.md#known-faults)) |
-| `main2`: the main board's second revision ([research/next-revision](research/next-revision/README.md)): 4S power, DRV8874 bridges with INA241 current sensing, ESP32-S3 radio and debug probe on the USB-C | schematic only, placement and routing not started; passes every gate, the layout ones skip it ([open items](boards/main2/layout/README.md#open-items)) |
+| `main2`: the main board's second revision ([research/next-revision](research/next-revision/README.md)): 4S power, DRV8874 bridges with INA241 current sensing, ESP32-S3 radio and debug probe on the USB-C | placed and routed but for 12 connections; fails DRC and the layout check on those alone, passes every other gate ([layout](boards/main2/layout/README.md#layout)) |
 
 ## How it fits together
 
@@ -134,9 +134,10 @@ and fails if any gate failed.
 | lint | `ruff` | Python lint and format |
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 
-Every board passes every gate. A schematic-only board (its root declares `Project(layout =
-False)`, so it has no `.kicad_pcb` yet: `main2`) passes the schematic gates, and LVS, DRC, DFM,
-the layout tests and the gerber, CPL and 3D outputs skip it with that reason; `make fab` writes
+Every board passes every gate but `main2`, whose DRC and layout check fail on its 12 unrouted
+connections. A schematic-only board (its root declares `Project(layout = False)`, so it has no
+`.kicad_pcb`) passes the schematic gates, and LVS, DRC, DFM, the layout tests and the gerber, CPL
+and 3D outputs skip it with that reason; `make fab` writes
 its BOM alone. The main board's and the Bluetooth module's READMEs
 ([main](boards/main/layout/README.md#known-faults),
 [bluetooth](boards/bluetooth/layout/README.md#known-faults)) give the root cause of each warning

@@ -1,0 +1,28 @@
+"""SwdHeader package: GND, SWDIO and SWCLK on their pins, no BOM or placement entry."""
+
+SwdHeader = Module("../SwdHeader.zen")
+
+GND = Ground("GND")
+SWDIO = Net("SWDIO")
+SWCLK = Net("SWCLK")
+
+
+def pinout(module, inputs):
+    # pads 1-3 are the symbol's GND, SWDIO and SWCLK pins (SwdHeader.kicad_sym)
+    nets = module.nets()
+    for name in ("GND", "SWDIO", "SWCLK"):
+        check([pin for _, pin in nets[name]] == [name], name + " must be on the " + name + " pin")
+
+
+def bare_pads(module, inputs):
+    c = module.components()["J"]
+    check(c.skip_bom, "the header is not a BOM line")
+    check(c.skip_pos, "the header is not placed")
+
+
+TestBench(
+    name="SwdHeader",
+    module=SwdHeader,
+    test_cases={"default": {"GND": GND, "SWDIO": SWDIO, "SWCLK": SWCLK}},
+    checks=[pinout, bare_pads],
+)

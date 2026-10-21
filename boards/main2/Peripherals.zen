@@ -5,10 +5,9 @@ Buttons (GT-TC048B tactile switches, MCU internal pull-ups), as on the main boar
 - SW3 on NRST with C21 100 nF to GND, the recommended NRST protection (DS13311 Figure 27
   p168: 0.1 uF; the pin has an internal 30-50 kOhm pull-up, Table 61 p167). The ESP32 also
   drives NRST, open drain (ESP sheet).
-- SW5 from BOOT0 to 3V3_D, with R42 10 kOhm from BOOT0 to GND (AN5419 Figure 19 p30) and C60
-  100 nF from BOOT0 to GND: R42 holds BOOT0 low while 3V3_D ramps and while the ESP32's BOOT0
-  line is high impedance, so the MCU boots from flash.
-SW1, a 4-way DIP switch, pulls Switch_0..3 to GND (Switch_0 on PH0, Switch_1-3 on PB0, PB2, PB10,
+BOOT0: R42 10 kOhm (AN5419 Figure 19 p30) and C60 100 nF to GND hold it low, so the MCU always
+boots from flash; there is no BOOT0 button.
+SW1, a 4-way DIP switch, pulls Switch_0..3 to GND (Switch_0 on PH0, Switch_1-3 on PH1, PC15, PC14,
 all with the MCU's internal pull-ups).
 
 Buzzer: BZ1 (FUET-5030, 3 V electromagnetic, externally driven) from 3V3_D through R3 10 Ohm to
@@ -104,7 +103,6 @@ GT_TC048B(name="SW2", A=GND, B=Button)
 Capacitor(name="C20", P1=GND, P2=Button, **C_100N_0402)
 GT_TC048B(name="SW3", A=GND, B=Reset)
 Capacitor(name="C21", P1=GND, P2=Reset, **C_100N_0402)
-GT_TC048B(name="SW5", A=Boot, B=V3V3_D)
 Resistor(name="R42", P1=GND, P2=Boot, **R_10K_0402)
 Capacitor(name="C60", P1=Boot, P2=GND, **C_100N_0402)
 DSHP04TJGER(

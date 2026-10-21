@@ -1,9 +1,10 @@
 """ESP32-S3-MINI-1-N8: the radio, the USB device and the MCU's debug probe (research/next-revision,
 ESP32 and USB, ESP32 form factor and A.6).
 
-The module, U13 (Espressif ESP32-S3-MINI-1 & MINI-1U datasheet v1.7), replaces the HM-19 module
-and the SWD connector P1: it bridges the PC's USB to the MCU's UART4, flashes and debugs the MCU
-over SWD (CMSIS-DAP over USB and over Wi-Fi), and relays Wi-Fi and Bluetooth LE telemetry. The
+The module, U13 (Espressif ESP32-S3-MINI-1 & MINI-1U datasheet v1.7), replaces the HM-19 module:
+it bridges the PC's USB to the MCU's UART4, flashes and debugs the MCU over SWD (CMSIS-DAP over
+USB and over Wi-Fi), and relays Wi-Fi and Bluetooth LE telemetry. The root sheet's SWD header SWD1
+takes an ST-Link instead when the ESP32 cannot reach the MCU. The
 S3 is the Wi-Fi/BLE ESP32 with a general-purpose USB OTG controller (ESP32-S3 datasheet section
 4.2.1.7), so the one USB-C port can be a CMSIS-DAP v2 probe, a CDC serial port and a mass-storage
 drive at once (research Q2). Fallback, same footprint family: the ESP32-S3-MINI-1U-N8 (LCSC
@@ -39,13 +40,10 @@ Links to the MCU (A.6). Host lines stay off the strapping pins:
   R86 22 Ohm (checklist, SPI: a series resistor on the clock trace).
 - NRST: GPIO13 to Reset, driven open-drain by the firmware (NRST has its 30-50 kOhm pull-up, SW3
   and C21; DS13311 Table 61).
-- BOOT0 (optional, research Flashing): GPIO14 through R87 1 kOhm, so SW5 (to 3V3_D) and the ESP
-  pin never fight; driven high, BOOT0 sits at 3.3 x 10 / 11 = 3.0 V against R42 10 kOhm. While
-  GPIO14 is high impedance at the ESP's reset, R42 holds BOOT0 low.
 - UART (UART1, IO MUX pins of Table 3-1, not UART0, which carries the ROM messages): GPIO17
   U1TXD through R88 100 Ohm (checklist, UART: a series resistor on TX) to UART4_RX (PA11),
   GPIO18 U1RXD from UART4_TX (PA12). Up to 5 Mbaud (research H7 data link).
-- GPIO21 to ESP_Flow (PH1), the flow-control line toward the MCU.
+- GPIO21 to ESP_Flow (PB0), the flow-control line toward the MCU.
 Battery monitor (U9 INA228, regulators sheet): GPIO8 BAT_SDA, GPIO9 BAT_SCL, GPIO10 BAT_ALERT
 (pull-ups at U9). The MCU has no free I2C pins; the ESP relays the readings over UART4.
 VBUS detect: R91 22 kOhm / R92 33 kOhm from +5V into ESP_VBUS_Sense (GPIO7, ADC1_CH6):
@@ -63,7 +61,6 @@ load(
     "C_22U_0805_25V",
     "R_100_0402",
     "R_10K_0402",
-    "R_1K_0402",
     "R_22K_0402",
     "R_22_0402",
     "R_33K_0402",
@@ -87,7 +84,6 @@ USB = io(Usb2)
 SWDIO = io(Net)
 SWCLK = io(Net)
 Reset = io(Net)
-Boot = io(Net)
 UART4_RX = io(Net)
 UART4_TX = io(Net)
 ESP_Flow = io(Net)
@@ -98,7 +94,6 @@ ESP_EN = Net("ESP_EN")
 ESP_BOOT = Net("ESP_BOOT")
 ESP_USB = Usb2(D=DiffPair(P=Net("ESP_USB_D_P"), N=Net("ESP_USB_D_N")))
 ESP_SWCLK = Net("ESP_SWCLK")
-ESP_BOOT0 = Net("ESP_BOOT0")
 ESP_TXD = Net("ESP_TXD")
 ESP_VBUS_SENSE = Net("ESP_VBUS_Sense")
 
@@ -124,7 +119,7 @@ ESP32_S3_MINI_1(
     IO11=SWDIO,
     IO12=ESP_SWCLK,
     IO13=Reset,
-    IO14=ESP_BOOT0,
+    IO14=NC(),
     IO15=NC(),
     IO16=NC(),
     IO17=ESP_TXD,
@@ -167,7 +162,6 @@ Resistor(name="R85", P1=USB.D.N, P2=ESP_USB.D.N, **R_22_0402)
 
 # MCU links.
 Resistor(name="R86", P1=ESP_SWCLK, P2=SWCLK, **R_22_0402)
-Resistor(name="R87", P1=ESP_BOOT0, P2=Boot, **R_1K_0402)
 Resistor(name="R88", P1=ESP_TXD, P2=UART4_RX, **R_100_0402)
 
 # VBUS detect.

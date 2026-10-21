@@ -35,3 +35,13 @@ min_text_thickness = 0.125
 # (Silkscreen): every text is 0.5 mm high with a 0.125 mm stroke, the owner's choice (KiCad's
 # stroke font caps the stroke at a quarter of the text size). Zener has no field for it.
 min_text_thickness = 0.125
+
+[design.main2]
+# Minimum silkscreen text stroke, with the 0.5 mm minimum height of boards/main2/main2.zen
+# (Silkscreen): boards/main's reference designators, 0.5 mm high with a 0.125 mm stroke, the
+# owner's choice (KiCad's stroke font caps the stroke at a quarter of the text size). Zener has no
+# field for it.
+min_text_thickness = 0.125
+# The 0.35 / 0.2 mm escape via of boards/main2/main2.zen: a 0.075 mm ring, JLCPCB's preferred
+# minimum (rules/jlcpcb.kicad_dru). Zener has no field for it.
+min_via_annular_width = 0.075

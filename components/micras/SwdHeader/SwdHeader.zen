@@ -1,0 +1,27 @@
+"""SWD header: three bare through-hole pads at 1.27 mm pitch for an ST-Link's SWD lines.
+
+Pads 1 GND, 2 SWDIO, 3 SWCLK: the middle three contacts of boards/main's SWD connector P1
+(1 SWD_VDD, 2 GND, 3 SWDIO, 4 SWCLK, 5 NRST) in the same order, without the probe supply and
+NRST. Footprint: KiCad's PinHeader_1x03_P1.27mm_Vertical (kicad-footprint-generator,
+connector/pin_header_socket) with its 1.0 mm pads grown to 1.05 mm, square pad 1, on 0.65 mm
+drills at 1.27 mm pitch: a 0.2 mm ring against JLCPCB's 0.18 mm PTH minimum and 0.22 mm between
+pads (rules/jlcpcb.kicad_dru). No part is placed: a 1.27 mm pitch header (or the probe's wires) is soldered by hand,
+so the header is excluded from the BOM and the placement file. The footprint embeds KiCad's
+PinHeader_1x03_P1.27mm_Vertical model all the same, so the layout's height checks see the
+soldered header.
+"""
+
+prefix = config(str, default="J", help="Reference designator prefix")
+
+GND = io(Ground)
+SWDIO = io(Net)
+SWCLK = io(Net)
+
+Component(
+    name="J",
+    prefix=prefix,
+    symbol=Symbol(library="SwdHeader.kicad_sym"),
+    pins={"GND": GND, "SWDIO": SWDIO, "SWCLK": SWCLK},
+    skip_bom=True,
+    skip_pos=True,
+)

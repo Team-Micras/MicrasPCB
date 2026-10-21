@@ -12,10 +12,10 @@ design basis (maxon DCX 10 L 4.5 V motors on a 4S pack, no boost; USB-C to the E
 `boards/main`'s, with their designators; new parts continue each series (C80-C112, D14-D15, IC8-IC9,
 L4-L6, Q8-Q9, R56-R92, U8-U13), and the designators of removed parts are not reused.
 
-The board is **schematic only**: its Zener root declares `Project(layout = False)`, so `make gen`
-writes the KiCad schematic and no `.kicad_pcb`, and the layout gates (LVS, DRC, DFM, layout
-pytest, the fab gerbers and CPL, the 3D outputs) skip it with that reason. Placement and routing
-are human-led and not started.
+The board is 100 x 50 mm, 4 layers, 1.04 mm, every part on the top side. Its mechanics are
+[`spec/main2.toml`](../../../spec/main2.toml): the outline, the screw holes, the encoder slots, the
+fan hole, the switch notch, the parts that mate with the robot and the zones the chassis takes over
+the board (see [Layout](#layout)).
 
 ## Files
 
@@ -23,18 +23,19 @@ The board files are in `boards/main2/` (this README sits in its `layout/` folder
 
 | File | Sheet instance | Contents |
 |---|---|---|
-| [`main2.zen`](../main2.zen) | root | IC1 (STM32H725RGV6) and its supply network (C1-C17, L1, R67), test pads (IMU, fan, the SWD backstop), M2 screw holes H1-H4 |
+| [`main2.zen`](../main2.zen) | root | IC1 (STM32H725RGV6) and its supply network (C1-C17, L1, R67), the ST-Link header SWD1, M2 screw holes H1-H4 |
 | [`Regulators.zen`](../Regulators.zen) | `REGULATORS` | J1 battery connector with its TVS D15, battery switch SW4/Q6, battery monitor U9 (INA228) with its 2 mOhm shunt R59, battery measurement R44/R45, power path D14/Q8, 3V3_D buck IC7, 3V3_A LDO U8 |
 | [`Drivers.zen`](../Drivers.zen) | `DRIVERS` | IC8/IC9 (DRV8874) bridges for M2/M1 with their 10 mOhm shunts R65/R75 and 47 uH chokes L4/L5, IC6 (STSPIN958) fan driver for M3 with its shunt R31 and 4.7 uH choke L6 |
 | [`Sensors.zen`](../Sensors.zen) | `SENSORS` | IC2 (LSM6DSV) IMU, U10/U11 (INA241A2) current amplifiers, wall sensors W1-W4 with their AC-coupled selectors Q2-Q5 and the emitter current sink U12/Q9/R83 with its DAC set-point, encoder slots EC1/EC2 |
-| [`Peripherals.zen`](../Peripherals.zen) | `PERIPHERALS` | SW1 DIP switch, SW2/SW3/SW5 buttons, BZ1 buzzer, D1/D2 (WS2812C-2020-V6) status LEDs, D4/D5 LEDs, U2 USB-C with its ESD protection U6/D8 |
+| [`Peripherals.zen`](../Peripherals.zen) | `PERIPHERALS` | SW1 DIP switch, SW2/SW3 buttons, R42 BOOT0 pull-down, BZ1 buzzer, D1/D2 (WS2812C-2020-V6) status LEDs, D4/D5 LEDs, U2 USB-C with its ESD protection U6/D8 |
 | [`Esp.zen`](../Esp.zen) | `ESP` | U13 (ESP32-S3-MINI-1-N8) with its decoupling, EN RC, GPIO0 pull-up and recovery pads, USB series resistors, links to the MCU, VBUS sensing |
 | [`passives.zen`](../passives.zen) | | value, package, rating and part number of every resistor, ceramic capacitor and LED line |
-| [`schematic/`](../schematic) | | how each sheet is drawn (`micras-pcb sch`): the root with IC1, its supply domains, test pads and the module sheets, and one file per module sheet, each block in a titled frame |
+| [`schematic/`](../schematic) | | how each sheet is drawn (`micras-pcb sch`): the root with IC1, its supply domains, the SWD header and the module sheets, and one file per module sheet, each block in a titled frame |
 | [`erc.toml`](../erc.toml) | | nets supplied from off the board (BAT_P, GND, GND_BAT, +5V) or through a passive part (VBAT, VSYS, 3V3_D, the LDO input, VDDA), the PWR_FLAG role for ERC; the two ERC warnings the module sheets leave until a pcb release includes [diodeinc/pcb#1522](https://github.com/diodeinc/pcb/pull/1522) (as on the [main board](../../main/layout/README.md#known-faults)) |
 | [`firmware_changes.toml`](../firmware_changes.toml) | | the firmware changes this board needs against the v1 firmware (see [Firmware changes](#firmware-changes)) |
 | [`test/`](../test) | | `pcb test` benches: MCU and ESP links, power, drivers, peripherals |
-| [`layout/`](.) | | this folder: the generated KiCad schematic project; `main2.kicad_sch` is the root sheet, with one sheet per module (`REGULATORS.kicad_sch`, ...) |
+| [`layout/`](.) | | this folder: the KiCad project; `main2.kicad_sch` is the root sheet, with one sheet per module (`REGULATORS.kicad_sch`, ...); the `.kicad_pcb` holds placement and routing; `place.py` places every part and `route.py` pours the planes and routes the board (see [Layout](#layout)) |
+| [`spec/main2.toml`](../../../spec/main2.toml) | | mechanical interface: thickness, axle origin, outline, screw holes, encoder slots, fan hole, wheel and switch notches, the battery switch, USB-C and wall sensors' positions, the chassis zones |
 
 Each module is its own sheet of the KiCad schematic (`Project(..., layout=False)` in its `.zen`),
 its signal ports named after the nets they carry where those names are identifiers, as on the
@@ -85,7 +86,7 @@ USB VBUS (+5V) ─ Q8 AO3401A (gate follows VBAT) ─┴─ VSYS 4.3-17.4 V
 - **Bridges**: one DRV8874PWPR per motor, PH/EN mode (PMODE = GND), PWM on EN and direction on
   PH (right PA8/PA9, left PC7/PC9), IMODE = GND (fixed off-time, automatic retry), ITRIP 2.97 A
   from RIPROPI 2.0 kOhm and VREF 2.68 V (5.6k/24k from 3V3_D). nSLEEP of both on Motors_Enable
-  (PA10) with R49 100 kOhm to GND; nFAULT of both wire-ORed on Motors_nFault (PC15) with R60
+  (PA10) with R49 100 kOhm to GND; nFAULT of both wire-ORed on Motors_nFault (PB2) with R60
   10 kOhm to 3V3_D. Per bridge: 100 nF + 4 x 10 uF 50 V X7R 1206 + 2 x 10 uF 50 V X7R 1210 (the
   bulk) on VM, 100 nF VCP, 22 nF CPH-CPL.
 - **Motor path**: OUT1 -> 10 mOhm WSK2512 4-terminal shunt -> 47 uH XAL7070-473 choke -> motor
@@ -93,16 +94,14 @@ USB VBUS (+5V) ─ Q8 AO3401A (gate follows VBAT) ─┴─ VSYS 4.3-17.4 V
   is fitted until the motor's inductance at 100 kHz is measured.
 - **Current**: INA241A2 (gain 20) on each shunt, VS and REF1 on 3V3_A, REF2 on GND: 0.2 V/A
   around VDDA / 2, about +7.1 / -8.0 A, into PC0 (left) and PC1 (right) through 100 Ohm with
-  1 nF C0G at the pin. A DNP 0 Ohm from each DRV8874 IPROPI to the same ADC net lets the first
-  prototype compare the driver's mirror (fit it and remove the 100 Ohm).
+  1 nF C0G at the pin.
 - **Battery current**: the INA228 on R59 (+-20.48 A at ADCRANGE = 1), read by the ESP32.
 
 ## Fan
 
 STSPIN958 in parallel half-bridge mode, PWM trimming, on TIM12 at 400 kHz: R31 25 mOhm, REF from
 22k/9.1k on 3V3_D (current limit 3.86 A), RSR 1 kOhm (2 V/ns), 2 x 470 nF 50 V + 2 x 10 uF 50 V
-on VS, and a 4.7 uH XGL5030-472 choke between FAN_OUT and the motor with its 2512 0 Ohm
-alternative (DNP). Fan_PWM PB15, Fan_Enable PB14, Fan_TOFF PB13 as on the main board.
+on VS, and a 4.7 uH XGL5030-472 choke between FAN_OUT and the motor. Fan_PWM PB15, Fan_Enable PB14, Fan_TOFF PB13 as on the main board.
 
 ## Sensors
 
@@ -123,17 +122,19 @@ alternative (DNP). Fan_PWM PB15, Fan_Enable PB14, Fan_TOFF PB13 as on the main b
 - **USB-C** D+/D- through U6 (USBLC6) and 22 Ohm series resistors to GPIO20/GPIO19 only: the PC
   sees the ESP32 (CMSIS-DAP v2, CDC and mass storage), never the MCU. CC 5.1 kOhm Rd; SBU open.
 - **Links to the MCU**: SWDIO GPIO11 -> PA13, SWCLK GPIO12 -> PA14 (22 Ohm), NRST GPIO13
-  (open drain), BOOT0 GPIO14 through 1 kOhm (R42 keeps it low), UART1 GPIO17/18 <-> UART4
-  PA11/PA12 at up to 5 Mbaud (100 Ohm on the ESP's TX), flow control GPIO21 -> PH1.
+  (open drain), UART1 GPIO17/18 <-> UART4
+  PA11/PA12 at up to 5 Mbaud (100 Ohm on the ESP's TX), flow control GPIO21 -> PB0.
 - **The ESP's own lines**: INA228 I²C on GPIO8/9 with ALERT on GPIO10; VBUS sense on GPIO7
   through 22k/33k (3.15 V at 5.25 V), reported to the MCU over UART4.
-- **SWD backstop**: test pads SWDIO, SWCLK, NRST and GND on the MCU side.
+- **ST-Link header** SWD1: bare 1.27 mm pitch pads, 1 GND, 2 SWDIO, 3 SWCLK (no supply, no NRST),
+  for a probe when the ESP32 cannot reach the MCU. BOOT0 stays low (R42): the MCU always starts
+  from flash.
 
 ## Pins
 
 The MCU keeps the main board's pin map except: PA8/PA9 and PC7/PC9 carry EN/PH of the right and
-left bridges; PA11/PA12 carry UART4 to the ESP32 (no USB); PC15 reads Motors_nFault; PH1 reads
-ESP_Flow; PA13/PA14 and NRST go to the ESP32 instead of the SWD connector; PA5 is the emitter
+left bridges; PA11/PA12 carry UART4 to the ESP32 (no USB); PB2 reads Motors_nFault; PB0 reads
+ESP_Flow; PA13/PA14 and NRST go to the ESP32 (PA13/PA14 also to the header SWD1); PA5 is the emitter
 DAC (DAC1_OUT2), PC5 reads the battery divider (ADC12_INP8) and PH0 reads Switch_0, the MCU having
 no VBUS input. Every GPIO of the VFQFPN68 is now used.
 
@@ -142,35 +143,43 @@ no VBUS input. Every GPIO of the VFQFPN68 is now used.
 [`firmware_changes.toml`](../firmware_changes.toml) lists what the firmware must change against
 the v1 firmware (`boards/main/firmware.toml`), on top of the main board's own pending changes:
 PH/EN drive at 100 kHz with TIM3 slaved to TIM1; Motors_Enable as nSLEEP (1 ms wake);
-Motors_nFault on PC15; INA241 sampling on TIM1 TRGO2 with dual injected ADC1/ADC2; the battery
+Motors_nFault on PB2; INA241 sampling on TIM1 TRGO2 with dual injected ADC1/ADC2; the battery
 divider constant 6.0 on PC5; Switch_0 on PH0; the fan at 400 kHz; UART4 to the ESP32 at up to
-5 Mbaud with ESP_Flow on PH1, USB power reported by the ESP32; one wall emitter at a time, with
+5 Mbaud with ESP_Flow on PB0, USB power reported by the ESP32; one wall emitter at a time, with
 the emitter DAC on PA5 stepping with each selector and a code per emitter; the WS2812C timing (T0L/T1L at most 1 us); flashing through the
 ESP32's CMSIS-DAP with OpenOCD or probe-rs.
 
 ## Layout
 
-Not started. When placement starts, the root's `Project(layout = False)` becomes the main board's
-`Board(...)` (the same 4-layer 1.0 mm JLCPCB stackup and rules), a `spec/main2.toml` takes the
-mechanical interface, and the layout gates apply. Placement notes from the research, all
-decisions for the owner:
+[`place.py`](place.py) places every part and [`route.py`](route.py) pours the planes and routes
+the board; their docstrings give the rules they follow. The `.kicad_pcb` holds their result with
+hand-routed corrections on top.
 
-- **ESP32**: the rear-left corner with the PCB antenna 5.05 mm beyond the rear edge, its feed
-  end at the corner; this needs the screw hole M1 moved, the corner squared and the left drive
-  block about 1 mm forward. No copper on any layer under the antenna (the footprint carries the
-  keep-out), dense GND vias along its edge, the bridges and the USB/UART lines away from it.
-- **Bridges**: each DRV8874 next to its motor connector with its shunt, choke and INA241; tight
-  OUT -> shunt -> choke -> motor loops; size the battery input, Q6, the VBAT plane and the bridge
-  supply for about 6 A peak and 3-4 A rms.
-- **Analog**: U8 near VDDA and away from the IMU; 3V3_A as its own trace to VDDA, the INA241s
-  and the sensors; the emitter loop and the 1.2 Ohm sink Kelvin-connected, away from VDDA/VSSA;
-  no motor, emitter or ESP return current through the analog ground.
-- **Chokes**: shielded parts away from the AS5047U encoders and the IMU.
+- **Placement**: every part on the top side. The spec places what mates with the robot; the
+  ESP32-S3-MINI-1 sits in the rear-left corner with its antenna on the rear edge, each DRV8874 by
+  its motor with its shunt, choke and bulk capacitors, the IMU between the encoder slots on the
+  axle, the MCU and the wall-sensor channels in the nose, and the fan driver, DIP switch, buzzer
+  and 3V3_A LDO beside the fan hole.
+- **Planes**: In1.Cu is ground over the whole board; In2.Cu is ground but for the STM32's 3V3_D
+  and VCORE islands under and round it; B.Cu carries the VBAT pour over the power entry and both
+  bridges, and no other net's track runs on B.Cu inside it.
+- **Tracks**: F.Cu and B.Cu only, octilinear. The power paths (`ROUTES` in `route.py`) are wide
+  and locked; signals are 0.15 mm, 0.12 mm where they leave a fine-pitch pin, at 0.10-0.11 mm
+  clearance. A switching net keeps 0.5 mm from an analog net on the same layer.
+- **Vias**: 0.45/0.3 mm for power and planes, 0.35/0.2 mm for signals (the escapes between the
+  STM32's 0.4 mm pitch pins); a 0.2 mm hole is above JLCPCB's 0.15 mm minimum and below its
+  0.3 mm preferred size, which KiCad's DRC reports as a warning.
+- **Not routed yet**: 12 connections, which KiCad's DRC lists as unconnected: ESP_Flow and
+  UART4_TX to the ESP32; Encoder_Left_CSn and Encoder_Left_ABI_B to EC2; Encoder_Right_CSn to EC1;
+  Motors_Enable (STM32 to R49, and IC8 to IC9); Motors_nFault (STM32 to R60); Switch_0 to SW1;
+  Wall_Sensor_3 to W4; SINK_OUT (U12 to C113); WALL1_LED_K (Q3 to W2). The F.Cu and B.Cu ground
+  pours, the ground stitching and the teardrops come after them.
 
 ## Open items
 
-Each is a visible TODO in the sheet that owns it.
+Each but the routing (see [Layout](#layout)) is a visible TODO in the sheet that owns it.
 
+- Routing: the 12 unconnected connections, then the outer ground pours, stitching and teardrops.
 - Battery input: the B02B-PASK rating at about 5 A; which SW4 lever position is ON (the SK-12D29
   drawing does not say).
 - Choke 0 Ohm alternatives: the 2512 jumper's current rating.

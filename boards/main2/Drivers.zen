@@ -20,7 +20,7 @@ boards/main2/test/test_drivers.zen.
 - nSLEEP of both bridges on Motors_Enable (PA10) with R49 100 kOhm to GND, so the bridges sleep
   while the MCU is in reset or halted for SWD flashing (its pins float in analog mode, RM0468
   section 11.3.1); the inputs' own 100 kOhm pull-downs (Figure 16) make 50 kOhm in parallel.
-- nFAULT: open drain, both wire-ORed on Motors_nFault (PC15) with R60 10 kOhm to 3V3_D (0.33 mA,
+- nFAULT: open drain, both wire-ORed on Motors_nFault (PB2) with R60 10 kOhm to 3V3_D (0.33 mA,
   <= 5 mA, section 6.3).
 - VM on VBAT, all ceramic: C82/C91 100 nF at the pin (CVM1, Table 1), four 10 uF 50 V X7R 1206
   per bridge (C83-C86, C92-C95) within a few mm, and the bulk (CVM2, VM-rated; section 9.1 leaves
@@ -38,9 +38,6 @@ boards/main2/test/test_drivers.zen.
   energy (the battery input on the regulators sheet).
 - VCP: C88/C97 100 nF X7R 50 V to VM (CVCP, 16 V or more). CPH-CPL: C89/C98 22 nF X7R 50 V
   (CFLY, VM-rated).
-- IPROPI: besides RIPROPI, a DNP 0402 0 Ohm (R62, R72) to the INA241's ADC net, so the first
-  prototype can compare the driver's mirror with the INA241 (fit it, and remove the INA241's
-  output resistor R78/R79 on the sensors sheet; research Current sensing).
 - Motor path: OUT1 -> 10 mOhm 4-terminal shunt (R65, R75, WSK2512R0100FEA, sensed by the
   INA241A2 on the sensors sheet) -> choke footprint -> motor connector pin 2; OUT2 -> pin 1.
   Forward (PH = 1, OUT1 high, Table 3) drives current from the bridge into the shunt, the
@@ -73,10 +70,9 @@ Fan, IC6 (STSPIN958, DS14341 Rev 1), driving connector M3 at 400 kHz (research F
   50 V X7R 1206, with the bridges' VBAT bulk (the research's alternative to a >= 25 V C36).
   VDD on 3V3_D with C31 220 nF; C32 100 nF CP1-CP2 and C33 1 uF VSPUMP-VBOOT (Table 12).
 - Choke footprint L6, XGL5030-472MEC 4.7 uH (Isat 4.8 A at a 20 % drop, 6.7 A at 30 %; DCR
-  24.5 mOhm max; Coilcraft Doc 1576), between FAN_OUT and the motor, with R77 2512 0 Ohm across
-  it, DNP. The choke is fitted by default: a 1S drone motor of about 3 uH needs it even at
-  400 kHz (research Q3 ripple table). Fit the 0 Ohm instead for a motor that measures above about
-  4 uH. No capacitor across the fan motor.
+  24.5 mOhm max; Coilcraft Doc 1576), between FAN_OUT and the motor: a 1S drone motor of about
+  3 uH needs it even at 400 kHz (research Q3 ripple table). A motor that measures above about
+  4 uH can run without it (a wire link across L6's pads). No capacitor across the fan motor.
 """
 
 load(
@@ -89,7 +85,6 @@ load(
     "C_220N_0402",
     "C_22N_0402",
     "C_470N_0603_50V",
-    "R_0_0402",
     "R_0_2512",
     "R_100K_0402",
     "R_10K_0402",
@@ -132,8 +127,6 @@ MOTOR_R_SENSE_P = io(Net)
 MOTOR_R_SENSE_N = io(Net)
 MOTOR_L_SENSE_P = io(Net)
 MOTOR_L_SENSE_N = io(Net)
-Current_Sensor_Right = io(Net)
-Current_Sensor_Left = io(Net)
 
 Fan_PWM = io(Net)
 Fan_Enable = io(Net)
@@ -150,11 +143,11 @@ FAN_REF = Net("FAN_REF")
 FAN_SR = Net("FAN_SR")
 
 
-def bridge(side, ic, en, ph, sense_p, sense_n, adc, motor, refs):
+def bridge(side, ic, en, ph, sense_p, sense_n, motor, refs):
     """One DRV8874 with its supply, charge pump, current setting, shunt, choke and connector.
 
-    refs: designators (cvm1, cvm2 list, bulk list, cvcp, cfly, ripropi, ipropi_link, vref_top,
-    vref_bottom, shunt, choke, choke_link).
+    refs: designators (cvm1, cvm2 list, bulk list, cvcp, cfly, ripropi, vref_top, vref_bottom,
+    shunt, choke, choke_link).
     """
     vcp = Net("MOTOR_{}_VCP".format(side))
     cph = Net("MOTOR_{}_CPH".format(side))
@@ -191,7 +184,6 @@ def bridge(side, ic, en, ph, sense_p, sense_n, adc, motor, refs):
     Capacitor(name=refs["cvcp"], P1=vcp, P2=VBAT, **C_100N_0402)
     Capacitor(name=refs["cfly"], P1=cph, P2=cpl, **C_22N_0402)
     Resistor(name=refs["ripropi"], P1=ipropi, P2=GND, **R_2K_0402)
-    Resistor(name=refs["ipropi_link"], P1=ipropi, P2=adc, dnp=True, **R_0_0402)
     Resistor(name=refs["vref_top"], P1=V3V3_D, P2=vref, **R_5K6_0402)
     Resistor(name=refs["vref_bottom"], P1=vref, P2=GND, **R_24K_0402)
     WSK2512_HIGH(name=refs["shunt"], P1=out1, S1=sense_p, S2=sense_n, P2=shunt_out)
@@ -207,7 +199,6 @@ bridge(
     Motor_Right_PH,
     MOTOR_R_SENSE_P,
     MOTOR_R_SENSE_N,
-    Current_Sensor_Right,
     "M2",
     {
         "cvm1": "C82",
@@ -216,7 +207,6 @@ bridge(
         "cvcp": "C88",
         "cfly": "C89",
         "ripropi": "R61",
-        "ipropi_link": "R62",
         "vref_top": "R63",
         "vref_bottom": "R64",
         "shunt": "R65",
@@ -231,7 +221,6 @@ bridge(
     Motor_Left_PH,
     MOTOR_L_SENSE_P,
     MOTOR_L_SENSE_N,
-    Current_Sensor_Left,
     "M1",
     {
         "cvm1": "C91",
@@ -240,7 +229,6 @@ bridge(
         "cvcp": "C97",
         "cfly": "C98",
         "ripropi": "R71",
-        "ipropi_link": "R72",
         "vref_top": "R73",
         "vref_bottom": "R74",
         "shunt": "R75",
@@ -293,5 +281,4 @@ Resistor(name="R29", P1=GND, P2=FAN_REF, **R_9K1_0402)
 Resistor(name="R30", P1=GND, P2=FAN_SR, **R_1K_0402)
 Resistor(name="R31", P1=FAN_LSS, P2=GND, **R_25M_1206)
 XGL5030_472(name="L6", P1=FAN_OUT, P2=FAN_MOTOR)
-Resistor(name="R77", P1=FAN_OUT, P2=FAN_MOTOR, dnp=True, **R_0_2512)
 B02B_PASK(name="M3", prefix="M", P1=FAN_MOTOR, P2=FAN_LSS)

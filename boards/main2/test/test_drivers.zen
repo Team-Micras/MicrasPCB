@@ -81,11 +81,11 @@ def drv8874_control_lines(module, inputs):
     # Section 7.3.2 Table 3: EN/IN1 takes the timer PWM, PH/IN2 the direction (research A.1:
     # right motor PA8/PA9, left PC7/PC9). nSLEEP of both bridges on Motors_Enable (PA10) with a
     # pull-down, so they sleep while the MCU is in reset, when its pins float in analog mode
-    # (RM0468 section 11.3.1). nFAULT (open drain) wire-ORed on PC15 with one pull-up.
+    # (RM0468 section 11.3.1). nFAULT (open drain) wire-ORed on PB2 with one pull-up.
     b = index(module)
     p = []
     sleep = net(b, MCU, "PA10")
-    fault = net(b, MCU, "PC15-OSC32_OUT")
+    fault = net(b, MCU, "PB2")
     for ic, (motor, shunt, choke, link, amp, en, ph, adc) in BRIDGES.items():
         if net(b, ic, "EN/IN1") != net(b, MCU, en):
             p.append(ic + " EN/IN1 is not on " + en)
@@ -94,7 +94,7 @@ def drv8874_control_lines(module, inputs):
         if net(b, ic, "~{SLEEP}") != sleep:
             p.append(ic + " nSLEEP is not on Motors_Enable (PA10)")
         if net(b, ic, "~{FAULT}") != fault:
-            p.append(ic + " nFAULT is not on PC15")
+            p.append(ic + " nFAULT is not on PB2")
     if not [r for r in two_terminal(b, "resistor", sleep, "GND") if ohms(b, r) <= 100e3 * 1.01]:
         p.append(sleep + " needs a pull-down of at most 100 kOhm to hold the bridges asleep in reset")
     ups = [r for r in refs_on(b, fault) if b.parts[r].type == "resistor" and not b.parts[r].dnp]

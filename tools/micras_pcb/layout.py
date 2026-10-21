@@ -46,11 +46,22 @@ class Footprint:
     pads: list[Pad] = field(default_factory=list)
     models: list[str] = field(default_factory=list)
     paste_boxes: list[tuple[float, float, float, float]] = field(default_factory=list)  # local x0, y0, x1, y1
+    courtyard: list[tuple[float, float]] = field(default_factory=list)  # local points of the courtyard graphics
+
+    def courtyard_box(self) -> tuple[float, float, float, float] | None:
+        """The courtyard's bounding box on the board (KiCad frame: x0, y0, x1, y1), or None."""
+        if not self.courtyard:
+            return None
+        pts = [_rotate(x, y, self.rotation) for x, y in self.courtyard]
+        xs = [self.xy[0] + x for x, _ in pts]
+        ys = [self.xy[1] + y for _, y in pts]
+        return min(xs), min(ys), max(xs), max(ys)
 
     def pasted(self, pad: Pad) -> bool:
         """The pad gets solder paste: its own opening (not cancelled by a negative paste margin), or a
-        paste shape over its centre: drawn on the footprint's paste layer, or a paste-only pad (the
-        KiCad library's way of splitting a stencil aperture from its copper pad)."""
+        paste shape over it: drawn on the footprint's paste layer, or a paste-only pad (the KiCad
+        library's way of splitting a stencil aperture from its copper pad, or an exposed pad's paste
+        into windows around its centre)."""
         if set(pad.layers) & PASTE:
             half = [d / 2 * (1 + pad.paste_ratio) + pad.paste_margin for d in pad.size]
             if min(half) > 0:
@@ -62,7 +73,8 @@ class Footprint:
                 hx, hy = (d / 2 * (1 + q.paste_ratio) + q.paste_margin for d in q.size)
                 if min(hx, hy) > 0:
                     boxes.append((q.local[0] - hx, q.local[1] - hy, q.local[0] + hx, q.local[1] + hy))
-        return any(x0 <= x <= x1 and y0 <= y <= y1 for x0, y0, x1, y1 in boxes)
+        hw, hh = pad.size[0] / 2, pad.size[1] / 2
+        return any(x0 < x + hw and x - hw < x1 and y0 < y + hh and y - hh < y1 for x0, y0, x1, y1 in boxes)
 
     def pads_named(self, number: str) -> list[Pad]:
         return [p for p in self.pads if p.number == number]
@@ -80,6 +92,7 @@ class Track:
     layer: str
     start: tuple[float, float]
     end: tuple[float, float]
+    width: float = 0.0
 
 
 @dataclass
@@ -122,10 +135,18 @@ def _footprint(fp) -> Footprint:
     attr = set(fp.child("attr").atoms()) if fp.child("attr") else set()
     glayers = set()
     paste_boxes = []
+    court = []
     for head in GRAPHICS:
         for g in fp.children(head):
             if g.child("layer"):
                 glayers.add(g.child("layer").atoms()[0])
+                if g.child("layer").atoms()[0] in COURTYARD:
+                    court += [_xy(g.child(k)) for k in ("start", "end", "mid") if g.child(k)]
+                    if g.child("pts"):
+                        court += [_xy(q) for q in g.child("pts").children("xy")]
+                    if head == "fp_rect" and g.child("start") and g.child("end"):
+                        (x0, y0), (x1, y1) = _xy(g.child("start")), _xy(g.child("end"))
+                        court += [(x0, y1), (x1, y0)]
                 if g.child("layer").atoms()[0] in PASTE:
                     pts = [_xy(g.child(k)) for k in ("start", "end", "center", "mid") if g.child(k)]
                     if g.child("pts"):
@@ -145,6 +166,7 @@ def _footprint(fp) -> Footprint:
         attributes=attr,
         graphic_layers=glayers,
         paste_boxes=paste_boxes,
+        courtyard=court,
     )
     for pad in fp.children("pad"):
         a = pad.atoms()
@@ -206,6 +228,7 @@ def parse(text: str) -> Board:
                     layer=t.child("layer").atoms()[0],
                     start=_xy(t.child("start")),
                     end=_xy(t.child("end")),
+                    width=float(t.child("width").atoms()[0]) if t.child("width") else 0.0,
                 )
             )
     vias = [
@@ -236,3 +259,66 @@ def load_file(path: Path) -> Board:
 
 def load(board: str) -> Board:
     return load_file(board_pcb(board))
+
+
+def part_heights(path: Path, thickness: float) -> dict[str, float]:
+    """Each part's height above the board's top face (mm), from the 3D models: the tops of the
+    meshes of a KiCad GLB export (kicad-cli), whose nodes carry the reference designators."""
+    import json
+    import struct
+    import subprocess
+    import tempfile
+
+    from .tools import kicad_cli
+
+    with tempfile.TemporaryDirectory() as d:
+        glb = Path(d) / "board.glb"
+        cmd = [kicad_cli(), "pcb", "export", "glb", "-f", "--no-board-body", "-o", str(glb), str(path)]
+        subprocess.run(cmd, check=True, capture_output=True)
+        data = glb.read_bytes()
+    n = struct.unpack("<I", data[12:16])[0]
+    gltf = json.loads(data[20 : 20 + n])
+    nodes, accessors = gltf["nodes"], gltf["accessors"]
+
+    def mul(a, b):
+        return [[sum(a[i][k] * b[k][j] for k in range(4)) for j in range(4)] for i in range(4)]
+
+    def matrix(node):
+        if "matrix" in node:
+            m = node["matrix"]  # column-major
+            return [[m[j * 4 + i] for j in range(4)] for i in range(4)]
+        x, y, z, w = node.get("rotation", [0, 0, 0, 1])
+        sx, sy, sz = node.get("scale", [1, 1, 1])
+        tx, ty, tz = node.get("translation", [0, 0, 0])
+        r = [
+            [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+            [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+            [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
+        ]
+        return [
+            [r[0][0] * sx, r[0][1] * sy, r[0][2] * sz, tx],
+            [r[1][0] * sx, r[1][1] * sy, r[1][2] * sz, ty],
+            [r[2][0] * sx, r[2][1] * sy, r[2][2] * sz, tz],
+            [0, 0, 0, 1],
+        ]
+
+    top: dict[str, float] = {}
+    stack = [(i, [[float(i == j) for j in range(4)] for i in range(4)], None) for i in gltf["scenes"][0]["nodes"]]
+    while stack:
+        i, m, ref = stack.pop()
+        node = nodes[i]
+        m = mul(m, matrix(node))
+        name = node.get("name") or ""
+        if ref is None and name and not name.startswith("=>"):
+            ref = name
+        if "mesh" in node and ref:
+            for prim in gltf["meshes"][node["mesh"]]["primitives"]:
+                a = accessors[prim["attributes"]["POSITION"]]
+                lo, hi = a["min"], a["max"]
+                for x in (lo[0], hi[0]):
+                    for y in (lo[1], hi[1]):
+                        for z in (lo[2], hi[2]):
+                            up = m[1][0] * x + m[1][1] * y + m[1][2] * z + m[1][3]  # glTF: y up, metres
+                            top[ref] = max(top.get(ref, -1.0), up)
+        stack += [(c, m, ref) for c in node.get("children", [])]
+    return {ref: round(v * 1000 - thickness, 3) for ref, v in top.items()}

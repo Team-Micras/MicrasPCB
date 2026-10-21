@@ -93,9 +93,8 @@ def vbat_on_vdd(module, inputs):
 
 def boot0_pulled_down(module, inputs):
     # AN5419 Figure 19 p30: BOOT0 to VSS through 10 kOhm; no capacitor from BOOT0 to a supply
-    # (its power-up ramp would boot the system bootloader, AN2606). The ESP32 drives BOOT0 only
-    # through a series resistor, so SW5 (to 3V3_D) and the ESP pin never fight, and a high BOOT0
-    # still clears VIH (0.17 VDD + 0.6 V, DS13311 Table 55).
+    # (its power-up ramp would boot the system bootloader, AN2606). Nothing else touches BOOT0:
+    # the MCU always starts from its flash (boards/main2/firmware_changes.toml, flash).
     b = index(module)
     boot = net(b, MCU, "BOOT0")
     p = []
@@ -105,17 +104,22 @@ def boot0_pulled_down(module, inputs):
     for r in touching(b, "capacitor", boot):
         if other_net(b, r, boot) != "GND":
             p.append(r + " couples BOOT0 to " + other_net(b, r, boot))
-    esp_side = [
-        r
-        for r in touching(b, "resistor", boot)
-        if other_net(b, r, boot) != "GND" and ESP in refs_on(b, other_net(b, r, boot))
-    ]
-    if len(esp_side) != 1:
-        p.append("BOOT0 must reach the ESP32 through one series resistor, found " + str(esp_side))
-    elif downs:
-        high = 3.3 * ohms(b, downs[0]) / (ohms(b, downs[0]) + ohms(b, esp_side[0]))
-        if high < 0.17 * 3.3 + 0.6:
-            p.append("the ESP32 drives BOOT0 to only " + eng(high, "V") + ", below VIH")
+    others = sorted(
+        [r for r in refs_on(b, boot) if r != MCU and r not in downs and r not in touching(b, "capacitor", boot)]
+    )
+    if others:
+        p.append("BOOT0 must be left to its pull-down, but it also reaches " + str(others))
+    report(p)
+
+
+def swd_header(module, inputs):
+    # The owner's ST-Link backstop: SWD1 pads 1 GND, 2 SWDIO (PA13), 3 SWCLK (PA14), no supply and
+    # no NRST (main2.zen).
+    b = index(module)
+    p = []
+    for pin, n in (("GND", "GND"), ("SWDIO", net(b, MCU, "PA13")), ("SWCLK", net(b, MCU, "PA14"))):
+        if "SWD" not in refs_on(b, n):
+            p.append("SWD1 " + pin + " must be on " + n)
     report(p)
 
 
@@ -127,10 +131,10 @@ def nrst_protection(module, inputs):
 
 
 def esp_is_the_debug_probe(module, inputs):
-    # Research ESP32 and USB and A.6: the ESP32 replaces the SWD header; SWDIO (PA13), SWCLK
+    # Research ESP32 and USB and A.6: the ESP32 is the debug probe (SWD1 is the ST-Link backstop); SWDIO (PA13), SWCLK
     # (PA14) and NRST reach ESP GPIOs (directly or through one series resistor of 100 Ohm or
     # less), so it can connect under reset (AN5419 Figure 21); UART4 (PA11 RX, PA12 TX) crosses
-    # to an ESP UART; PH1 carries flow control. None of these lands on an ESP strapping pin
+    # to an ESP UART; PB0 carries flow control. None of these lands on an ESP strapping pin
     # (Table 4-1), and the ESP's UART0 (GPIO43/44, ROM messages) is not used for the link.
     b = index(module)
     p = []
@@ -142,7 +146,7 @@ def esp_is_the_debug_probe(module, inputs):
         "PA14": "SWCLK",
         "PA11": "UART4_RX (the ESP's TX)",
         "PA12": "UART4_TX (the ESP's RX)",
-        "PH1-OSC_OUT": "flow control",
+        "PB0": "flow control",
     }
     for mcu_pin, what in links.items():
         m = net(b, MCU, mcu_pin)
@@ -159,17 +163,17 @@ def esp_is_the_debug_probe(module, inputs):
 
 def pin_budget(module, inputs):
     # Research H7 pin budget: every MCU GPIO is used; the two the main board left open carry
-    # Motors_nFault (PC15, both DRV8874 nFAULT) and the ESP32's flow control (PH1).
+    # Motors_nFault (both DRV8874 nFAULT, on PB2) and the ESP32's flow control (PB0).
     b = index(module)
     p = []
     for pin, n in b.parts[MCU].pins.items():
         if pin[:1] == "P" and pin[1:2] in "ABCDH" and n.name == "":
             p.append("IC1 " + pin + " is unconnected")
-    fault = net(b, MCU, "PC15-OSC32_OUT")
+    fault = net(b, MCU, "PB2")
     if sorted([r for r in refs_on(b, fault) if r.startswith("IC") and r != MCU]) != ["IC8", "IC9"]:
-        p.append("PC15 must carry both DRV8874 nFAULT outputs")
-    if ESP not in refs_on(b, net(b, MCU, "PH1-OSC_OUT")):
-        p.append("PH1 must reach the ESP32")
+        p.append("PB2 must carry both DRV8874 nFAULT outputs")
+    if ESP not in refs_on(b, net(b, MCU, "PB0")):
+        p.append("PB0 must reach the ESP32")
     report(p)
 
 
@@ -183,6 +187,7 @@ TestBench(
         vdda_from_the_analog_rail,
         vbat_on_vdd,
         boot0_pulled_down,
+        swd_header,
         nrst_protection,
         esp_is_the_debug_probe,
         pin_budget,
