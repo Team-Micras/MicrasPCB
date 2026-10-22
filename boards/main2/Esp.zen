@@ -44,15 +44,13 @@ Links to the MCU (A.6). Host lines stay off the strapping pins:
   U1TXD through R88 100 Ohm (checklist, UART: a series resistor on TX) to UART4_RX (PA11),
   GPIO18 U1RXD from UART4_TX (PA12). Up to 5 Mbaud (research H7 data link).
 - GPIO21 to ESP_Flow (PB0), the flow-control line toward the MCU.
-Battery monitor (U9 INA228, regulators sheet): GPIO8 BAT_SDA, GPIO9 BAT_SCL, GPIO10 BAT_ALERT
-(pull-ups at U9). The MCU has no free I2C pins; the ESP relays the readings over UART4.
 VBUS detect: R91 22 kOhm / R92 33 kOhm from +5V into ESP_VBUS_Sense (GPIO7, ADC1_CH6):
 5.25 V x 33 / 55 = 3.15 V at most (below VDD + 0.3 V) and 4.4 V x 0.6 = 2.64 V at least (above
 VIH 0.75 x VDD = 2.48 V; Table 6-3). The ESP reports USB power to the MCU over UART4, which
 has no VBUS sense of its own (boards/main2/firmware_changes.toml, esp).
 """
 
-load("@stdlib/interfaces.zen", "DiffPair", "I2c", "Usb2")
+load("@stdlib/interfaces.zen", "DiffPair", "Usb2")
 load(
     "./passives.zen",
     "C_100N_0402",
@@ -87,8 +85,6 @@ Reset = io(Net)
 UART4_RX = io(Net)
 UART4_TX = io(Net)
 ESP_Flow = io(Net)
-BAT_I2C = io(I2c)
-BAT_ALERT = io(Net)
 
 ESP_EN = Net("ESP_EN")
 ESP_BOOT = Net("ESP_BOOT")
@@ -113,9 +109,9 @@ ESP32_S3_MINI_1(
     IO5=NC(),
     IO6=NC(),
     IO7=ESP_VBUS_SENSE,
-    IO8=BAT_I2C.SDA,
-    IO9=BAT_I2C.SCL,
-    IO10=BAT_ALERT,
+    IO8=NC(),
+    IO9=NC(),
+    IO10=NC(),
     IO11=SWDIO,
     IO12=ESP_SWCLK,
     IO13=Reset,

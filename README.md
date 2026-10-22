@@ -134,8 +134,7 @@ and fails if any gate failed.
 | lint | `ruff` | Python lint and format |
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 
-Every board passes every gate but `main2`, whose DRC and layout check fail on its 12 unrouted
-connections. A schematic-only board (its root declares `Project(layout = False)`, so it has no
+Every board passes every gate. A schematic-only board (its root declares `Project(layout = False)`, so it has no
 `.kicad_pcb`) passes the schematic gates, and LVS, DRC, DFM, the layout tests and the gerber, CPL
 and 3D outputs skip it with that reason; `make fab` writes
 its BOM alone. The main board's and the Bluetooth module's READMEs

@@ -1,7 +1,7 @@
 # Main board, second revision (main2)
 
 The second revision of the Micras main board, as a schematic: the STM32H725RGV6 controller, a 4S
-battery input with its monitor, a VSYS power path, separate digital and analog 3.3 V rails, two
+battery input with its fuse, a VSYS power path, separate digital and analog 3.3 V rails, two
 DRV8874 wheel bridges with in-line INA241 current sensing, the STSPIN958 fan driver, the IMU,
 four wall sensors on a shared emitter current sink, the slots for the two encoder boards, the
 ESP32-S3 radio and debug probe on the USB-C port, and the user interface.
@@ -24,7 +24,7 @@ The board files are in `boards/main2/` (this README sits in its `layout/` folder
 | File | Sheet instance | Contents |
 |---|---|---|
 | [`main2.zen`](../main2.zen) | root | IC1 (STM32H725RGV6) and its supply network (C1-C17, L1, R67), the ST-Link header SWD1, M2 screw holes H1-H4 |
-| [`Regulators.zen`](../Regulators.zen) | `REGULATORS` | J1 battery connector with its TVS D15, battery switch SW4/Q6, battery monitor U9 (INA228) with its 2 mOhm shunt R59, battery measurement R44/R45, power path D14/Q8, 3V3_D buck IC7, 3V3_A LDO U8 |
+| [`Regulators.zen`](../Regulators.zen) | `REGULATORS` | J1 battery connector with its fuse F1 and TVS D15, battery switch SW4/Q6, battery measurement R44/R45, power path D14/Q8, 3V3_D buck IC7, 3V3_A LDO U8 |
 | [`Drivers.zen`](../Drivers.zen) | `DRIVERS` | IC8/IC9 (DRV8874) bridges for M2/M1 with their 10 mOhm shunts R65/R75 and 47 uH chokes L4/L5, IC6 (STSPIN958) fan driver for M3 with its shunt R31 and 4.7 uH choke L6 |
 | [`Sensors.zen`](../Sensors.zen) | `SENSORS` | IC2 (LSM6DSV) IMU, U10/U11 (INA241A2) current amplifiers, wall sensors W1-W4 with their AC-coupled selectors Q2-Q5 and the emitter current sink U12/Q9/R83 with its DAC set-point, encoder slots EC1/EC2 |
 | [`Peripherals.zen`](../Peripherals.zen) | `PERIPHERALS` | SW1 DIP switch, SW2/SW3 buttons, R42 BOOT0 pull-down, BZ1 buzzer, D1/D2 (WS2812C-2020-V6) status LEDs, D4/D5 LEDs, U2 USB-C with its ESD protection U6/D8 |
@@ -51,13 +51,13 @@ rail, the decoupling and the firmware contract on the generated netlist.
 ## Power
 
 ```text
-4S LiPo 12.0-16.8 V (17.4 V HV) ─ J1 (D15 SMAJ18A across it) ─ BAT_P ─ R59 2 mΩ (U9 INA228, I²C to the ESP32) ─ VBAT
+4S LiPo 12.0-16.8 V (17.4 V HV) ─ J1 ─ BAT_P ─ F1 20 A fuse ─ VBAT (D15 SMAJ18A to GND_BAT)
    pack - ─ GND_BAT ─ Q6 HSBB3072 (SW4, slew-limited) ─ GND
 VBAT ─┬─ IC8/IC9 DRV8874 VM, IC6 STSPIN958 VS
       ├─ R44/R45 100k/20k ─ PC5 (Battery_Voltage, ratio 6.0)
       └─ D14 B5819W ─┐
 USB VBUS (+5V) ─ Q8 AO3401A (gate follows VBAT) ─┴─ VSYS 4.3-17.4 V
-      VSYS ─┬─ IC7 L6981C33 ─ 3V3_D: MCU VDD, ESP32, IMU, encoders, LEDs, emitters, INA228
+      VSYS ─┬─ IC7 L6981C33 ─ 3V3_D: MCU VDD, ESP32, IMU, encoders, LEDs, emitters
             └─ R58 22 Ω + C80 10 µF ─ U8 ADP7142 3.3 V (EN = 3V3_D) ─ 3V3_A: VDDA (R67 0 Ω),
                   INA241 VS/REF1, phototransistor collectors, emitter-sink op-amp and its bias
 ```
@@ -71,10 +71,16 @@ USB VBUS (+5V) ─ Q8 AO3401A (gate follows VBAT) ─┴─ VSYS 4.3-17.4 V
 - **3V3_A**: the ADP7142ACPZN3.3 LDO from VSYS through 22 Ohm + 10 uF, its EN on 3V3_D so VDDA
   never leads VDD; about 10 mA typical, 23 mA worst case, 0.32 W at the HV pack's top.
 - **No 5 V rail**: VBUS feeds only Q8, its clamp D8 and the ESP32's VBUS-sense divider.
-- **Battery switch**: Q6 as on the main board; SW4 is the SK-12D29-G060 (DC 24 V, the main board's
-  switch body with a 6.0 mm lever, its own footprint). No reverse-polarity protection: the connector
-  keys the polarity.
-- **TVS**: D15 (SMAJ18A, 18 V standoff, 20-22.1 V breakdown) across J1, BAT_P to GND_BAT. With the
+- **Fuse**: F1, Littelfuse 0501020.WR1 (20 A fast-acting, 32 VDC, 150 A interrupting, 2.0 mOhm;
+  a 1206 under the chassis's 1.5 mm zone), carries the whole battery current from J1 to VBAT: a
+  short on the board opens it. About 10 A worst case (both bridges at ITRIP, the fan at its
+  limit) against the 13.6 A it carries continuously at 75 C; plugging the pack in is 0.21 A2s
+  against its 54.8 A2s.
+- **Battery switch**: Q6 as on the main board, its gate fed from VBAT; SW4 is the SK-12D29-G060
+  (DC 24 V, the main board's switch body with a 6.0 mm lever, its own footprint). The connector
+  keys the polarity; a reversed pack forward-biases D15 through F1, which opens.
+- **TVS**: D15 (SMAJ18A, 18 V standoff, 20-22.1 V breakdown) behind F1, VBAT to GND_BAT, so a
+  TVS that fails short opens the fuse. With the
   pack pulled while the bridges brake, it holds VBAT near 21-23 V through Q6's channel (SW4 on) or
   its body diode (SW4 off), below the 25 V MLCCs on VSYS and the DRV8874's 40 V.
 - **No electrolytics**: VBAT carries only ceramics (56 uF effective at 16.8 V); the research's
@@ -93,9 +99,8 @@ USB VBUS (+5V) ─ Q8 AO3401A (gate follows VBAT) ─┴─ VSYS 4.3-17.4 V
   connector; OUT2 -> connector. Each choke has a 2512 0 Ohm alternative across it, DNP: the choke
   is fitted until the motor's inductance at 100 kHz is measured.
 - **Current**: INA241A2 (gain 20) on each shunt, VS and REF1 on 3V3_A, REF2 on GND: 0.2 V/A
-  around VDDA / 2, about +7.1 / -8.0 A, into PC0 (left) and PC1 (right) through 100 Ohm with
-  1 nF C0G at the pin.
-- **Battery current**: the INA228 on R59 (+-20.48 A at ADCRANGE = 1), read by the ESP32.
+  around VDDA / 2, about +7.1 / -8.0 A, into PB1 (left, a fast ADC channel) and PC1 (right)
+  through 100 Ohm, with 1 nF C0G beside the resistor.
 
 ## Fan
 
@@ -124,7 +129,7 @@ on VS, and a 4.7 uH XGL5030-472 choke between FAN_OUT and the motor. Fan_PWM PB1
 - **Links to the MCU**: SWDIO GPIO11 -> PA13, SWCLK GPIO12 -> PA14 (22 Ohm), NRST GPIO13
   (open drain), UART1 GPIO17/18 <-> UART4
   PA11/PA12 at up to 5 Mbaud (100 Ohm on the ESP's TX), flow control GPIO21 -> PB0.
-- **The ESP's own lines**: INA228 I²C on GPIO8/9 with ALERT on GPIO10; VBUS sense on GPIO7
+- **The ESP's own lines**: VBUS sense on GPIO7
   through 22k/33k (3.15 V at 5.25 V), reported to the MCU over UART4.
 - **ST-Link header** SWD1: bare 1.27 mm pitch pads, 1 GND, 2 SWDIO, 3 SWCLK (no supply, no NRST),
   for a probe when the ESP32 cannot reach the MCU. BOOT0 stays low (R42): the MCU always starts
@@ -136,7 +141,9 @@ The MCU keeps the main board's pin map except: PA8/PA9 and PC7/PC9 carry EN/PH o
 left bridges; PA11/PA12 carry UART4 to the ESP32 (no USB); PB2 reads Motors_nFault; PB0 reads
 ESP_Flow; PA13/PA14 and NRST go to the ESP32 (PA13/PA14 also to the header SWD1); PA5 is the emitter
 DAC (DAC1_OUT2), PC5 reads the battery divider (ADC12_INP8) and PH0 reads Switch_0, the MCU having
-no VBUS input. Every GPIO of the VFQFPN68 is now used.
+no VBUS input. For the routing, Current_Sensor_Left moves to PB1 (a fast ADC channel),
+Wall_Sensor_0 to PA4 and Wall_Sensor_3 to PC0, each keeping an ADC1 and an ADC2 input. Every GPIO
+of the VFQFPN68 is now used.
 
 ## Firmware changes
 
@@ -153,7 +160,8 @@ ESP32's CMSIS-DAP with OpenOCD or probe-rs.
 
 [`place.py`](place.py) places every part and [`route.py`](route.py) pours the planes and routes
 the board; their docstrings give the rules they follow. The `.kicad_pcb` holds their result with
-hand-routed corrections on top.
+the connections they left routed by rip-up scripts and by hand, under the same rules. Every
+connection is routed.
 
 - **Placement**: every part on the top side. The spec places what mates with the robot; the
   ESP32-S3-MINI-1 sits in the rear-left corner with its antenna on the rear edge, each DRV8874 by
@@ -163,31 +171,35 @@ hand-routed corrections on top.
 - **Planes**: In1.Cu is ground over the whole board; In2.Cu is ground but for the STM32's 3V3_D
   and VCORE islands under and round it; B.Cu carries the VBAT pour over the power entry and both
   bridges, and no other net's track runs on B.Cu inside it.
-- **Tracks**: F.Cu and B.Cu only, octilinear. The power paths (`ROUTES` in `route.py`) are wide
-  and locked; signals are 0.15 mm, 0.12 mm where they leave a fine-pitch pin, at 0.10-0.11 mm
-  clearance. A switching net keeps 0.5 mm from an analog net on the same layer.
+- **Tracks**: F.Cu and B.Cu, octilinear. The power paths (`ROUTES` in `route.py`) are wide and
+  locked; signals are 0.15 mm, 0.12 mm where they leave a fine-pitch pin (0.10 mm on 5 mm of
+  UART4_RX beside the STM32), at 0.10-0.11 mm clearance. A switching net keeps 0.5 mm from an
+  analog net on the same layer.
+- **In2.Cu hops**: where the outer layers have no room, digital lines of the STM32 and the ESP32
+  cross under on In2.Cu, about 150 mm on 17 nets (encoders, UART4_TX, ESP_Flow, fan and motor
+  control lines, switches). A hop keeps 0.25 mm (plan view) from every switching and analog track
+  on B.Cu, stays off the VBAT pour and out of the STM32's islands, and leaves In2.Cu's ground in
+  one piece but for pockets of 1.7 mm2 at most, each with its own ground via
+  (`tests/test_main2_layout.py`).
+- **Pours, stitching, teardrops**: F.Cu and B.Cu carry ground pours over what the tracks leave;
+  ground stitching vias at a 3 mm pitch wherever all four layers are ground; teardrops on every
+  pad and via.
 - **Vias**: 0.45/0.3 mm for power and planes, 0.35/0.2 mm for signals (the escapes between the
   STM32's 0.4 mm pitch pins); a 0.2 mm hole is above JLCPCB's 0.15 mm minimum and below its
   0.3 mm preferred size, which KiCad's DRC reports as a warning.
-- **Not routed yet**: 12 connections, which KiCad's DRC lists as unconnected: ESP_Flow and
-  UART4_TX to the ESP32; Encoder_Left_CSn and Encoder_Left_ABI_B to EC2; Encoder_Right_CSn to EC1;
-  Motors_Enable (STM32 to R49, and IC8 to IC9); Motors_nFault (STM32 to R60); Switch_0 to SW1;
-  Wall_Sensor_3 to W4; SINK_OUT (U12 to C113); WALL1_LED_K (Q3 to W2). The F.Cu and B.Cu ground
-  pours, the ground stitching and the teardrops come after them.
 
 ## Open items
 
-Each but the routing (see [Layout](#layout)) is a visible TODO in the sheet that owns it.
+Each is a visible TODO in the sheet that owns it.
 
-- Routing: the 12 unconnected connections, then the outer ground pours, stitching and teardrops.
 - Battery input: the B02B-PASK rating at about 5 A; which SW4 lever position is ON (the SK-12D29
-  drawing does not say).
+  drawing does not say); the pack's short-circuit current against F1's 150 A interrupting rating.
 - Choke 0 Ohm alternatives: the 2512 jumper's current rating.
 - Emitter sink: a bench step across R83 to confirm the modelled response; the AO3400A's VGS at
   175 mA (Figure 2 or a measurement) and a cold check of the AC-coupled selectors' margin; the
   firmware's DAC timing against the selectors.
 - Fan: the REF setting for the chosen motor.
-- Current inputs: the CubeMX check of the fast-ADC-channel swap; R_iso + C_f stability.
+- ADC pins: the CubeMX check of the ADC set-up on the swapped pins; R_iso + C_f stability.
 - 3V3_A: the LDO's board-level thermal limit at about 0.33 W.
 - Status LEDs: blue and green at 3.2-3.3 V (bench).
 - ESP32: the antenna bench test in the chassis decides between the MINI-1 and the MINI-1U-N8

@@ -8,7 +8,7 @@ slots, battery switch, USB-C, wall sensors); `ANCHORS` place the other large par
 
 - rear, open up to the battery: the ESP32-S3-MINI-1 in the rear-left corner with its antenna on the
   rear edge (research/next-revision/README.md, ESP placement), the USB-C in the middle of the rear
-  edge, the battery input (J1, D15, Q6, R59/U9) and the 3V3_D buck in the rear-right corner by SW4;
+  edge, the battery input (J1, F1, D15, Q6) and the 3V3_D buck in the rear-right corner by SW4;
 - behind the drive blocks (the only room for 7 mm parts near the motors): both motor chokes with
   their 0 Ohm options and the motor connectors;
 - under the left motor (spec [drive_blocks] left_motor, parts up to 2.7 mm) the left bridge, inboard
@@ -89,17 +89,15 @@ ANCHORS = {
     "R66": (-21.5, -11.0, 90),
     "M1": (-29.6, 3.9, 0),
     "M2": (-29.6, -4.4, 0),
-    # rear middle: the USB-C's ESD array, between the connector and the ESP32; the battery
-    # monitor beside it
+    # rear middle: the USB-C's ESD array, between the connector and the ESP32
     "U6": (-35.8, 4.4, 0),
-    "U9": (-34.4, -2.2, 180),
     # the battery path's diode to VSYS, by the input
     "D14": (-29.3, -12.0, 180),
     # rear-right: battery input and the 3V3_D buck
     "J1": (-31.5, -21.6, 90),
     "D15": (-31.5, -16.2, 90),
     "Q6": (-25.6, -21.6, 0),
-    "R59": (-23.0, -15.5, 90),
+    "F1": (-23.0, -15.5, 90),
     "IC7": (-43.4, -10.6, 0),
     "L3": (-36.0, -9.6, 0),
     # under the left motor: left bridge; inboard of the right block: right bridge
@@ -154,7 +152,7 @@ NEAR = {
     "C7": ("IC1", "33"),
     "C6": ("IC1", "49"),
     "C5": ("IC1", "66"),
-    # DRV8874 CVM1 (SLVSF66A Table 1), STSPIN958 CS and VDD (DS14341 Table 12), INA241, INA228,
+    # DRV8874 CVM1 (SLVSF66A Table 1), STSPIN958 CS and VDD (DS14341 Table 12), INA241 and
     # TLV9001 at VS
     # the bridges' charge pumps first (the flying capacitor across CPH-CPL, VCP's at VCP), then
     # VM's 100 nF beside them
@@ -168,7 +166,6 @@ NEAR = {
     "C35": ("IC6", "29"),
     "C31": ("IC6", "13"),
     "C106": ("U12", "5"),
-    "C90": ("U9", "6"),
     "C101": ("U10", "7"),
     "C104": ("U11", "7"),
     # ADP7142 input and output (Rev H Table 2)

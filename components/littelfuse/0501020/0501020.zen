@@ -1,0 +1,49 @@
+"""0501020.WR1 - fast-acting fuse, 20 A, 32 VDC, Littelfuse 501 series (1206). Bare part.
+
+Datasheet: Littelfuse "Surface Mount Fuses, Ceramic Fuse > 501 Series", revised 08/20/15 (LCSC
+C207007).
+
+Ratings (Electrical Specifications by Item, 20 A row): 32 V maximum; interrupting rating 150 A at
+32 VDC (note 1: tested at the rated voltage, time constant < 0.5 ms); nominal resistance
+0.00200 Ohm (at < 10 % of the rated current); nominal melting I2t 54.760 A2s (at 1 ms); 0.05936 V
+and 1.1871 W at the rated current (on 3 oz copper). Opening time (Electrical Characteristics):
+at 100 % of the rating 4 hours minimum, at 350 % 5 s maximum. Continuous current: at most 80 % of
+the rating (notes), times the Temperature Re-rating Curve's factor on top (0.85 at 75 C, the
+datasheet's example: I = 0.80 x 0.85 x IRAT). Operating temperature -55 to 150 C.
+
+Package (Dimensions): body 3.200 +-0.178 x 1.63 +0.10/-0.20 mm, 0.835 +-0.15 mm high, 0.520 mm
+terminations; recommended pad layout two 1.000 x 1.800 mm pads 1.500 mm apart, 3.500 mm overall.
+Marking code 20, mounted with the marking up (notes). The fuse has no polarity.
+"""
+
+load("@stdlib/units.zen", "Current", "Resistance", "Voltage")
+
+P1 = io(Net)
+P2 = io(Net)
+
+# Electrical Specifications by Item, 20 A row.
+current_rating = Current("20A")
+voltage_rating = Voltage("32V")
+interrupting_current = Current("150A")  # at 32 VDC
+cold_resistance = Resistance("2mOhm")
+melting_i2t = 54.76  # A2s, at 1 ms
+continuous_derating = 0.80  # of the rating, before the temperature re-rating
+
+Component(
+    name="F",
+    prefix="F",
+    symbol=Symbol(library="0501020.kicad_sym"),
+    footprint=File("Fuse_Littelfuse_501_1206.kicad_mod"),
+    part=Part(mpn="0501020.WR1", manufacturer="Littelfuse"),
+    pins={"1": P1, "2": P2},
+    properties={
+        "value": "20A 32V fast",
+        "current_rating": current_rating,
+        "voltage_rating": voltage_rating,
+        "interrupting_current": interrupting_current,
+        "cold_resistance": cold_resistance,
+        "melting_i2t": melting_i2t,
+        "continuous_derating": continuous_derating,
+    },
+    type="fuse",
+)

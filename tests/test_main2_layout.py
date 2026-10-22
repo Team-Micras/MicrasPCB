@@ -83,13 +83,14 @@ def test_the_chassis_zones_are_inside_the_board():
 
 
 def _zones() -> list[tuple[str, list[str], list[tuple[float, float]]]]:
-    """The board's pours: (net, layers, outline points); rule areas left out."""
+    """The board's pours: (net, layers, outline points); rule areas and teardrops (part of their
+    track) left out."""
     from micras_pcb import sexpr
 
     root = sexpr.parse(board_pcb("main2").read_text())
     out = []
     for z in root.children("zone"):
-        if z.child("keepout"):
+        if z.child("keepout") or (z.child("attr") and z.child("attr").child("teardrop")):
             continue
         name = z.child("net_name") or z.child("net")
         layers = (z.child("layers") or z.child("layer")).atoms()
@@ -167,6 +168,38 @@ def test_inner_layers_are_ground_planes():
         }
     )
     assert not far, "\n".join(far)
+
+
+# Signal hops on In2.Cu (owner, 2026-10-21): where F.Cu and B.Cu leave no room, a digital line of
+# the STM32 or the ESP32 crosses under on In2.Cu. A hop keeps IN2_UNDER (plan view) from every
+# switching and analog track on B.Cu, which the 0.21 mm prepreg would couple it to, stays off the
+# VBAT pour and out of the STM32's supply islands; In1.Cu carries no track.
+IN2_UNDER = 0.25  # mm
+SUPPLIES = {"GND", "3V3_D", "3V3_A", "VCORE", "VDDA", "VBAT", "VSYS", "+5V"}
+
+
+def test_in2_signal_hops_are_digital_and_keep_clear():
+    pcb = layout.load("main2")
+    zones = _zones()
+    hops = [t for t in pcb.tracks if t.layer in ("In1.Cu", "In2.Cu")]
+    assert all(t.layer == "In2.Cu" for t in hops), "a track on In1.Cu"
+    digital = {p.net for ref in ("IC1", "U13") for p in pcb.footprints[ref].pads if p.net}
+    digital -= SUPPLIES | nets.ANALOG | nets.SWITCHING
+    assert not {t.net for t in hops} - digital, f"not digital on In2.Cu: {sorted({t.net for t in hops} - digital)}"
+    noisy = [t for t in pcb.tracks if t.layer == "B.Cu" and (t.net in nets.SWITCHING or t.net in nets.ANALOG)]
+    near = sorted(
+        {
+            f"{h.net} {_gap(h, b):.2f} mm under {b.net} near {_xy(h.start)}"
+            for h in hops
+            for b in noisy
+            if _gap(h, b) < IN2_UNDER
+        }
+    )
+    assert not near, "\n".join(near)
+    keep_off = [pts for n, layers, pts in zones if n == "VBAT" and "B.Cu" in layers]
+    keep_off += [pts for n, layers, pts in zones if n in MCU_ISLANDS and "In2.Cu" in layers]
+    inside = sorted({f"{h.net} at {_xy(p)}" for h in hops for p in _samples(h) if any(_inside(p, z) for z in keep_off)})
+    assert not inside, "\n".join(inside)
 
 
 def test_no_other_track_runs_on_b_cu_over_the_vbat_pour():

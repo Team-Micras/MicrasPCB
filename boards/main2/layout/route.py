@@ -148,7 +148,7 @@ def rect(x0, x1, y0, y1):
 
 BOARD = rect(-47.0, 54.0, -25.5, 25.5)  # the outline clips every pour
 
-# B.Cu VBAT: the battery input (R59, D14, rear right) and the middle, under both bridges and the
+# B.Cu VBAT: the battery input (F1, D14, rear right) and the middle, under both bridges and the
 # capacitors behind them (C82-C84, C88, C91, C97): the bridges' supply loop (VM, the bottom pin
 # rows) closes there. It stops at the bridges' logic pins (x > -8.6): their tracks drop to B.Cu
 # there and pass under the OUT1 paths, and B.Cu ahead stays the IMU's and the encoders'. The other
@@ -161,7 +161,7 @@ VBAT_POUR = [
     (-30.5, -5.0),  # D14, C95 (x -30.5..-24.5, y -11..-5)
     (-30.5, -11.0),
     (-28.0, -11.0),
-    (-28.0, -19.5),  # R59, D14 (x -28..-17, y -19.5..-11)
+    (-28.0, -19.5),  # F1, D14 (x -28..-17, y -19.5..-11)
     (-17.0, -19.5),
     (-17.0, -12.5),
     (-8.6, -12.5),
@@ -1044,10 +1044,9 @@ def local_nets() -> list[str]:
     return [n for _, n in sorted(out)]
 
 
-# Signal nets routed before the power paths, which would wall in their pins: the battery shunt's
-# Kelvin sense pair (R59's sense pads sit between BAT_P's tracks and the VBAT pour) and the
-# battery switch's gate (Q6's gate pin, between its GND_BAT pins and their track to J1)
-EARLY = ("REGULATORS.BAT_SENSE_P", "REGULATORS.BAT_SENSE_N", "REGULATORS.BAT_SW_GATE")
+# Signal nets routed before the power paths, which would wall in their pins: the battery switch's
+# gate (Q6's gate pin, between its GND_BAT pins and their track to J1)
+EARLY = ("REGULATORS.BAT_SW_GATE",)
 # Parts whose pins the power paths keep off on B.Cu: the encoders' pads take their signals' vias
 # beside them, so VBAT does not run under them
 CLEAR_BELOW = ("EC1", "EC2")
@@ -1373,7 +1372,9 @@ def drc() -> dict:
         # the save writes KiCad's default project beside the board: the layout's replaces it
         for ext in (".kicad_pro", ".kicad_dru"):
             shutil.copy(PCB.with_suffix(ext), pcb.with_suffix(ext))
-        cmd = [tools.kicad_cli(), "pcb", "drc", "--format", "json", "--severity-error", "-o", str(report), str(pcb)]
+        # KiCad refills the zones under the .kicad_dru (as `micras-pcb drc` does): pcbnew's filler
+        # reads only the board's 0.20 mm edge minimum, not the pours' 0.21 mm rule
+        cmd = [tools.kicad_cli(), "pcb", "drc", "--refill-zones", "--format", "json", "--severity-error", "-o", str(report), str(pcb)]
         subprocess.run(cmd, check=True, capture_output=True)
         return json.loads(report.read_text())
 

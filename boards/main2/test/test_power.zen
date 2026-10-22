@@ -1,7 +1,7 @@
-"""Power stage: battery switch Q6 and monitor U9, the VSYS power path D14/Q8, the 3V3_D buck IC7,
+"""Power stage: battery fuse F1 and switch Q6, the VSYS power path D14/Q8, the 3V3_D buck IC7,
 the 3V3_A LDO U8, the battery divider, capacitor ratings.
 
-Sources: ST DS13554 Rev 3 (L6981), ADI ADP7142 Rev H, TI SLYS021A (INA228), JCET B5817W-B5819W,
+Sources: ST DS13554 Rev 3 (L6981), ADI ADP7142 Rev H, Littelfuse 501 Series (revised 08/20/15), JCET B5817W-B5819W,
 AOS AO3401A, Huashuo HSBB3072 Ver 3.0, ST DS14341 Rev 1 (STSPIN958 dVS/dt), ST DS13311 Rev 5,
 research/next-revision (Power tree; A.3, A.4). Net voltage ranges are main2.zen's (4S pack
 12.0-17.4 V).
@@ -25,7 +25,7 @@ MAIN2 = Module("../main2.zen")
 
 BUCK = "IC7"
 LDO = "U8"
-MONITOR = "U9"
+FUSE = "F1"
 MCU = "IC1"
 
 
@@ -184,33 +184,32 @@ def battery_divider(module, inputs):
     report(p)
 
 
-def battery_monitor(module, inputs):
-    # SLYS021A: IN+/IN- Kelvin on a 4-terminal shunt (section 10.1) carrying the battery current
-    # from J1 to VBAT; VBUS on the load side (Figure 10-1 note 1); A0/A1 on GND, address 0x40
-    # (Table 7-2); SDA, SCL and ALERT pulled up (Figure 8-2); 2 mOhm with ADCRANGE = 1
-    # (+-40.96 mV) gives +-20.48 A, above the 6 A battery peak (research Drivetrain).
+def battery_fuse(module, inputs):
+    # The fuse carries the whole battery current from J1 to VBAT, and nothing else sits ahead of
+    # it. Its continuous current at 75 C, the rating times its continuous derating times the
+    # re-rating curve's 0.85 (Littelfuse 501 Series notes and example), covers the worst-case load:
+    # both bridges at their 2.97 A ITRIP and the fan at its 3.86 A limit (drivers sheet) with the
+    # 3V3 rails, about 10 A. Its interrupting rating holds up to its voltage rating, above the pack.
     b = index(module)
     p = []
-    shunt = [r for r in refs_on(b, net(b, MONITOR, "IN+")) if r != MONITOR]
-    if len(shunt) != 1:
-        report([MONITOR + " IN+ must sense one 4-terminal shunt, found " + str(shunt)])
-        return
-    s = shunt[0]
-    if net(b, s, "I1") != net(b, "J1", "Pin_1") or net(b, s, "I2") != net(b, "IC8", "VM"):
-        p.append(s + " must carry the battery current from J1 to VBAT")
-    if net(b, MONITOR, "IN+") != net(b, s, "E1") or net(b, MONITOR, "IN-") != net(b, s, "E2"):
-        p.append(MONITOR + " IN+/IN- must be the shunt's sense terminals")
-    if net(b, MONITOR, "VBUS") != net(b, s, "I2"):
-        p.append(MONITOR + " VBUS must be on the load side")
-    for pin in ["A0", "A1"]:
-        if net(b, MONITOR, pin) != "GND":
-            p.append(MONITOR + " " + pin + " must be on GND (address 0x40)")
-    for pin in ["SDA", "SCL", "ALERT"]:
-        if not two_terminal(b, "resistor", net(b, MONITOR, pin), net(b, MONITOR, "VS")):
-            p.append(MONITOR + " " + pin + " has no pull-up to VS")
-    full_scale = 40.96e-3 / b.parts[s].resistance.value
-    if full_scale < 6.0:
-        p.append(s + " gives " + eng(full_scale, "A") + " full scale, below the 6 A battery peak")
+    f = b.parts[FUSE]
+    if net(b, FUSE, "1") != net(b, "J1", "Pin_1") or net(b, FUSE, "2") != net(b, "IC8", "VM"):
+        p.append(FUSE + " must carry the battery current from J1 to VBAT")
+    ahead = sorted([r for r in refs_on(b, net(b, "J1", "Pin_1")) if r not in ["J1", FUSE]])
+    if ahead:
+        p.append("ahead of " + FUSE + " on the pack's +: " + str(ahead))
+    hot = f.properties["current_rating"].value * f.properties["continuous_derating"] * 0.85
+    if hot < 10.0:
+        p.append(FUSE + " carries " + eng(hot, "A") + " at 75 C, below the 10 A load")
+    pack = f.pins["1"].voltage.max
+    if pack > f.properties["voltage_rating"].value:
+        p.append(
+            FUSE
+            + " is rated "
+            + eng(f.properties["voltage_rating"].value, "V")
+            + "; the pack reaches "
+            + eng(pack, "V")
+        )
     report(p)
 
 
@@ -231,7 +230,7 @@ def battery_switch_slew(module, inputs):
 
 
 def battery_switch_rating(module, inputs):
-    # SW4 carries Q6's gate drive from BAT_P: its DC rating must cover the pack (17.4 V with HV
+    # SW4 carries Q6's gate drive from VBAT: its DC rating must cover the pack (17.4 V with HV
     # cells; research Power tree, 4S ratings). SK-12D29-G060: DC 24 V (G-Switch specification).
     b = index(module)
     sw = b.parts["SW4"]
@@ -254,18 +253,17 @@ def ceramic_capacitors_only(module, inputs):
 def vbat_clamp(module, inputs):
     # VBAT needs a TVS that clamps below the DRV8874's 40 V VM absolute maximum (SLVSF66A 6.1)
     # with the pack pulled under braking, and stands off the 17.4 V pack. Its cathode sits on
-    # VBAT or on BAT_P (VBAT through the shunt R59), its anode on GND or on GND_BAT (GND through
-    # Q6, whose body diode conducts GND_BAT -> GND with Q6 off).
+    # VBAT, behind the fuse, its anode on GND or on GND_BAT (GND through Q6, whose body diode
+    # conducts GND_BAT -> GND with Q6 off).
     b = index(module)
     vbat = net(b, "IC8", "VM")
-    shunt_in = net(b, "R59", "I1") if net(b, "R59", "I2") == vbat else None
     q6_source = net(b, "Q6", "S") if net(b, "Q6", "D") == "GND" else None
     found = []
     for ref, c in b.parts.items():
         if c.type != "tvs" or c.dnp or "K" not in c.pins or "A" not in c.pins:
             continue
         k, a = net(b, ref, "K"), net(b, ref, "A")
-        if k not in [vbat, shunt_in] or a not in ["GND", q6_source]:
+        if k != vbat or a not in ["GND", q6_source]:
             continue
         if "clamping_voltage" not in c.properties:
             continue
@@ -279,7 +277,7 @@ def vbat_clamp(module, inputs):
             report([ref + " stands off " + eng(vr, "V") + ", below the " + eng(pack, "V") + " pack"])
             return
         found.append(ref)
-    report([] if found else ["VBAT has no TVS from VBAT/BAT_P to GND/GND_BAT clamping below 40 V"])
+    report([] if found else ["VBAT has no TVS from VBAT to GND/GND_BAT clamping below 40 V"])
 
 
 def capacitor_voltage_ratings(module, inputs):
@@ -311,7 +309,7 @@ TestBench(
         analog_ldo,
         analog_ldo_dissipation,
         battery_divider,
-        battery_monitor,
+        battery_fuse,
         battery_switch_slew,
         battery_switch_rating,
         ceramic_capacitors_only,

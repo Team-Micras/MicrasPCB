@@ -1,18 +1,35 @@
-"""Battery input, switch, monitor and measurement; the VSYS power path; the 3V3_D buck and the
-3V3_A analog LDO.
+"""Battery input, fuse, switch and measurement; the VSYS power path; the 3V3_D buck and the 3V3_A
+analog LDO.
 
 Power tree (research/next-revision, Power tree):
-- Battery (J1, 4S LiPo, 12.0-16.8 V, 17.4 V with HV cells): BAT_P, then the shunt R59 to VBAT.
+- Battery (J1, 4S LiPo, 12.0-16.8 V, 17.4 V with HV cells): BAT_P, then the fuse F1 to VBAT.
   VBAT feeds the motor bridges and the fan driver (drivers sheet) and, through D14, VSYS.
 - USB (U2 VBUS, +5V, peripherals sheet): through Q8 to VSYS only. There is no 5 V rail: +5V is
   the VBUS input of the power path, the TVS, and two VBUS-sense dividers.
 - VSYS = OR(VBAT, VBUS) feeds only the 3V3_D buck IC7 and, through R58, the 3V3_A LDO U8. So the
   ESP32, the MCU (for SWD flashing) and VDDA all run from USB alone, with the bridges off.
 
-Battery input and switch. J1 takes the pack: + on BAT_P, - on GND_BAT; the connector keys the
-polarity, and the board has no reverse-polarity protection (Q6's body diode conducts with the
-pack reversed; research Power tree, Battery switch). Q6 (HSBB3072, 30 V N-MOSFET) is a low-side
-switch from GND_BAT to GND; SW4 drives its gate from BAT_P through R43 100 kOhm with R41
+Battery input, fuse and switch. J1 takes the pack: + on BAT_P, - on GND_BAT; the connector keys
+the polarity (Q6's body diode conducts with the pack reversed; research Power tree, Battery
+switch).
+F1 (0501020.WR1, Littelfuse 501 series, revised 08/20/15, 20 A row: fast-acting, 32 VDC,
+2.0 mOhm, melting I2t 54.76 A2s at 1 ms) carries the whole battery current from BAT_P to VBAT, so
+a short on the board (a cracked VBAT capacitor, a failed bridge) opens it instead of heating
+copper; only J1 and BAT_P's copper to F1 sit ahead of it. The worst-case load is about 10 A: both
+bridges at their 2.97 A ITRIP and the fan at its 3.86 A limit (drivers sheet) with the 3V3 rails,
+inside the 13.6 A it carries continuously at 75 C (80 % of the rating times the re-rating curve's
+0.85, the datasheet's example); 20 mV at 10 A. At 350 % of the rating it opens within 5 s
+(Electrical Characteristics). Plugging the pack in charges the VBAT ceramics through the pack's
+resistance: I2t = C V^2 / (2 R), 0.21 A2s for their 140 uF nominal (56 uF effective at 16.8 V,
+drivers sheet) at 17.4 V and 0.1 Ohm, far below the melting I2t. It interrupts 150 A at 32 VDC.
+A 1206 part (0.835 mm high) because F1 sits under the chassis's 1.5 mm tail_right zone
+(spec/main2.toml). TODO: the pack's short-circuit current (its C rating and internal resistance)
+against those 150 A.
+A reversed pack (against the key) forward-biases D15 from GND_BAT into VBAT, a short through F1,
+which opens; until then the board sees only the difference between D15's drop and Q6's
+body-diode drop. D15 need not survive it (IFSM 60 A for 8.3 ms, SMAJ series p1).
+Q6 (HSBB3072, 30 V N-MOSFET) is a low-side switch from GND_BAT to GND; SW4 drives its gate from
+VBAT through R43 100 kOhm with R41
 100 kOhm to GND_BAT, so VGS settles at VBAT / 2 = 6.0-8.7 V (RDS(on) 3.8 mOhm max at 4.5 V,
 HSBB3072 p2), inside +-20 V; VDS 30 V is 1.72x the 17.4 V pack. C58 47 nF slews the turn-on at
 IG / CGD <= 17.4 V / (100 kOhm x 47.2 nF) = 3.7 V/ms (Crss 229 pF, HSBB3072 p2), below the
@@ -26,11 +43,12 @@ pack; it carries only the gate drive (VBAT / 200 kOhm = 87 uA). Its body is the 
 MK-12D18 size (8.6 x 3.6 x 3.6 mm) with a 6.0 mm black lever over the rear notch's edge; three
 pins at 2.0 mm pitch and two frame legs (components/g-switch/SK-12D29-G060).
 TVS, D15 (SMAJ18A, Littelfuse SMAJ series p2: VR 18 V, VBR 20.0-22.1 V at 1 mA, VC 29.2 V at
-13.7 A, 400 W 10/1000 us), across J1: cathode on BAT_P, anode on GND_BAT. VR is above the 17.4 V
+13.7 A, 400 W 10/1000 us), behind F1: cathode on VBAT, anode on GND_BAT, so a TVS that fails
+short (its failure mode when over-stressed, p1) opens F1. VR is above the 17.4 V
 pack (IR 1 uA max). With the pack pulled while the bridges brake, the motors push up to 3.8 W into
 VBAT (research Power tree, VBAT overvoltage), which the VBAT ceramics alone hold below the
-DRV8874's 40 V for only about 11 ms. D15 takes that current from VBAT through R59 and returns it
-to GND through Q6, in both of Q6's states: with SW4 on, through its channel (VGS = VBAT / 2);
+DRV8874's 40 V for only about 11 ms. D15 takes that current from VBAT and returns it to GND through
+Q6, in both of Q6's states: with SW4 on, through its channel (VGS = VBAT / 2);
 with SW4 off, through its body diode, whose forward direction is GND_BAT to GND (VSD 1.2 V max at
 1 A, HSBB3072 p2). VBAT then sits at VBR plus D15's slope, plus the body-diode drop with SW4 off:
 21.2-22.4 V with SW4 on and 21.9-23.1 V off for 0.15-2 A of braking current (simulated at a
@@ -40,14 +58,6 @@ clamped from 17.4 V on 1 m leads). Research calculations/power_tree/vbat_bulk.py
 TODO: the B02B-PASK rating at about 5 A on J1 is unconfirmed; which SW4 lever position joins COM
 to B (ON) is not on the drawing: check a sample before the silkscreen marks it.
 
-Battery monitor, U9 (INA228AIDGSR, SLYS021A) on the ESP32's I2C (the MCU has no free I2C pins,
-research Current sensing): the 2 mOhm 4-terminal shunt R59 (WSK25122L000FEA) carries the whole
-battery current from BAT_P to VBAT. IN+ on the BAT_P sense terminal and IN- on the VBAT one,
-Kelvin (section 10.1); VBUS on VBAT, the load side (Figure 10-1 note 1). With ADCRANGE = 1
-(+-40.96 mV, Table 8-1) the range is +-20.48 A. VS on 3V3_D with C90 100 nF (section 9).
-A0 = A1 = GND: address 0x40 (Table 7-2). SDA, SCL and ALERT have R68-R70 10 kOhm pull-ups to
-3V3_D (Figure 8-2); the ESP reads it and relays the readings over UART4. No input filter: the
-shunt sense pads go straight to IN+/IN- (section 8.1.4 makes the filter optional).
 
 Battery measurement: R44 100 kOhm / R45 20 kOhm from VBAT into Battery_Voltage (PC5, ADC12_INP8,
 DS13311 Table 8; a slow channel, Table 85 notes 4-5) with C59 100 nF: 17.4 V x 20 / 120 =
@@ -96,7 +106,6 @@ research's recommendation over the TPS7A4901 (fixed output, lower noise; Open de
   about 0.33 W (research Gaps: analog rail); keep the LDO away from the IMU.
 """
 
-load("@stdlib/interfaces.zen", "I2c")
 load(
     "./passives.zen",
     "C_100N_0402",
@@ -116,13 +125,12 @@ Resistor = Module("@stdlib/generics/Resistor.zen")
 ADP7142 = Module("github.com/Team-Micras/MicrasPCB/components/adi/ADP7142/ADP7142.zen")
 AO3401A = Module("github.com/Team-Micras/MicrasPCB/components/aos/AO3401A/AO3401A.zen")
 B02B_PASK = Module("github.com/Team-Micras/MicrasPCB/components/jst/B02B-PASK/B02B-PASK.zen")
+FUSE_20A = Module("github.com/Team-Micras/MicrasPCB/components/littelfuse/0501020/0501020.zen")
 B5819W = Module("github.com/Team-Micras/MicrasPCB/components/cj/B5819W/B5819W.zen")
 HSBB3072 = Module("github.com/Team-Micras/MicrasPCB/components/huashuo/HSBB3072/HSBB3072.zen")
-INA228 = Module("github.com/Team-Micras/MicrasPCB/components/ti/INA228/INA228.zen")
 L6981 = Module("github.com/Team-Micras/MicrasPCB/components/st/L6981/L6981.zen")
 SK_12D29_G060 = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/SK-12D29-G060/SK-12D29-G060.zen")
 SMAJ18A = Module("github.com/Team-Micras/MicrasPCB/components/littelfuse/SMAJ18A/SMAJ18A.zen")
-WSK2512_MID = Module("github.com/Team-Micras/MicrasPCB/components/vishay/WSK2512-MID/WSK2512-MID.zen")
 YSPIA0645_220M = Module("github.com/Team-Micras/MicrasPCB/components/yjycoin/YSPIA0645-220M/YSPIA0645-220M.zen")
 
 # Its own sheet in the board schematic (layout/main2.kicad_sch).
@@ -140,13 +148,9 @@ V5V = io(Power)
 GND = io(Ground)
 GND_BAT = io(Ground)
 Battery_Voltage = io(Net)
-BAT_I2C = io(I2c)
-BAT_ALERT = io(Net)
 
 BAT_SW_DRIVE = Net("BAT_SW_DRIVE")
 BAT_SW_GATE = Net("BAT_SW_GATE")
-BAT_SENSE_P = Net("BAT_SENSE_P")
-BAT_SENSE_N = Net("BAT_SENSE_N")
 PATH_GATE = Net("PATH_GATE")
 BUCK_SW = Net("BUCK_SW")
 BUCK_BOOT = Net("BUCK_BOOT")
@@ -155,33 +159,15 @@ BUCK_VCC = Power("BUCK_VCC", voltage="3.0V to 3.6V")
 # The LDO input after R58: VSYS less 22 Ohm x 23 mA at most.
 LDO_IN = Power("LDO_IN", voltage="3.8V to 17.4V")
 
-# Battery input and switch.
+# Battery input, fuse and switch.
 B02B_PASK(name="J1", prefix="J", P1=BAT_P, P2=GND_BAT)
-SMAJ18A(name="D15", K=BAT_P, A=GND_BAT)
-SK_12D29_G060(name="SW4", A=NotConnected(), COM=BAT_P, B=BAT_SW_DRIVE)
+FUSE_20A(name="F1", P1=BAT_P, P2=VBAT)
+SMAJ18A(name="D15", K=VBAT, A=GND_BAT)
+SK_12D29_G060(name="SW4", A=NotConnected(), COM=VBAT, B=BAT_SW_DRIVE)
 Resistor(name="R43", P1=BAT_SW_DRIVE, P2=BAT_SW_GATE, **R_100K_0402)
 HSBB3072(name="Q6", G=BAT_SW_GATE, S=GND_BAT, D=GND)
 Resistor(name="R41", P1=GND_BAT, P2=BAT_SW_GATE, **R_100K_0402)
 Capacitor(name="C58", P1=GND, P2=BAT_SW_GATE, **C_47N_0603)
-
-# Battery monitor.
-WSK2512_MID(name="R59", P1=BAT_P, S1=BAT_SENSE_P, S2=BAT_SENSE_N, P2=VBAT)
-INA228(
-    name="U9",
-    VS=V3V3_D,
-    GND=GND,
-    IN_P=BAT_SENSE_P,
-    IN_N=BAT_SENSE_N,
-    VBUS=VBAT,
-    I2C=BAT_I2C,
-    ALERT=BAT_ALERT,
-    A0=GND,
-    A1=GND,
-)
-Capacitor(name="C90", P1=GND, P2=V3V3_D, **C_100N_0402)
-Resistor(name="R68", P1=V3V3_D, P2=BAT_I2C.SDA, **R_10K_0402)
-Resistor(name="R69", P1=V3V3_D, P2=BAT_I2C.SCL, **R_10K_0402)
-Resistor(name="R70", P1=V3V3_D, P2=BAT_ALERT, **R_10K_0402)
 
 # Battery measurement.
 Resistor(name="R44", P1=VBAT, P2=Battery_Voltage, **R_100K_0402)

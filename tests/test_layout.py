@@ -61,7 +61,6 @@ DECOUPLING = [
         (90e-9, 110e-9),
         "SBOSA30D sections 8.3.1, 8.4.1: 0.1 uF as close as possible to the supply and ground pins",
     ),
-    ("INA228", ("VS",), 1, (90e-9, 110e-9), "SLYS021A sections 9, 10.1: 0.1 uF as close as possible to VS and GND"),
     (
         "DRV8874",
         ("VM",),

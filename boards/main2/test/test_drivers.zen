@@ -29,7 +29,7 @@ FAN = "IC6"
 # bridge -> (motor connector, shunt, choke, choke's 0 Ohm alternative, amplifier, MCU EN pin, MCU PH pin, ADC pin)
 BRIDGES = {
     "IC8": ("M2", "R65", "L4", "R66", "U10", "PA8", "PA9", "PC1"),
-    "IC9": ("M1", "R75", "L5", "R76", "U11", "PC7", "PC9", "PC0"),
+    "IC9": ("M1", "R75", "L5", "R76", "U11", "PC7", "PC9", "PB1"),
 }
 # research Drivetrain: ITRIP 2.5-3 A typ; the 47 uH choke lets the current overshoot ITRIP by
 # 0.41-0.62 A during tBLK + tDEG (current_sense/q1_sampling.py).

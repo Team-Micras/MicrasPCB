@@ -24,7 +24,7 @@ behaviour = { motor_fault = "EXTI on the falling edge of Motors_nFault: stop the
 
 [[change]]
 id = "current"
-summary = "Motor current from the INA241A2 amplifiers: 20 V/V on 10 mOhm, 0.2 V/A, zero at VDDA / 2 (ratiometric), positive from the bridge into the motor; range about +7.1 / -8.0 A. The pins stay PC0 (left) and PC1 (right) until the CubeMX check of the research's fast-channel swap"
+summary = "Motor current from the INA241A2 amplifiers: 20 V/V on 10 mOhm, 0.2 V/A, zero at VDDA / 2 (ratiometric), positive from the bridge into the motor; range about +7.1 / -8.0 A. Left on PB1 (ADC1/2 channel 5, a fast channel), right on PC1 (ADC1/2 channel 11, slow); the wall sensors they displace move to PA4 and PC0 (pinmap)"
 behaviour = { current_sampling = "TIM1 TRGO2 = Update (CNT = 0 and CNT = ARR) triggers ADC1 + ADC2 in dual injected-simultaneous mode (optional JOVSE x4); tag each sample mid-on or mid-off by TIM1 DIR; no wall-sensor conversion overlapping the injected samples", current_calibration = "offset and linearity calibration at boot, the zero with the bridge braking at each prepare(), a per-board gain in flash" }
 
 [[change]]
@@ -40,8 +40,8 @@ pins = { "PH0-OSC_IN" = { signal = "GPIO_Input", label = "Switch_0", pull = "up"
 
 [[change]]
 id = "pinmap"
-summary = "Layout pin swaps (owner, 2026-10-20): each line leaves the STM32 from the pin row facing its part, so none circles the chip. Switch_1-3 move to PH1, PC15, PC14 (switches), ESP_Flow to PB0 (esp), Motors_nFault to PB2 (fault), and Encoder_Right_CSn from PC14 to PB10 (GPIO output, as before)"
-pins = { "PB10" = { signal = "GPIO_Output", label = "Encoder_Right_CSn" } }
+summary = "Layout pin swaps (owner, 2026-10-20): each line leaves the STM32 from the pin row facing its part, so none circles the chip. Switch_1-3 move to PH1, PC15, PC14 (switches), ESP_Flow to PB0 (esp), Motors_nFault to PB2 (fault), and Encoder_Right_CSn from PC14 to PB10 (GPIO output, as before). For the routing (owner, 2026-10-21): Current_Sensor_Left moves from PC0 to PB1 (current), Wall_Sensor_0 from PB1 to PA4 and Wall_Sensor_3 from PA4 to PC0"
+pins = { "PB10" = { signal = "GPIO_Output", label = "Encoder_Right_CSn" }, "PA4" = { signal = "ADCx_INP18", label = "Wall_Sensor_0" }, "PB1" = { signal = "ADCx_INP5", label = "Current_Sensor_Left" }, "PC0" = { signal = "ADCx_INP10", label = "Wall_Sensor_3" } }
 
 [[change]]
 id = "fan"
@@ -52,7 +52,7 @@ behaviour = { fan_pwm = "400 kHz; duty = V_cmd / VBAT, never below the 11.2 % fl
 id = "esp"
 summary = "UART4 (PA11 RX, PA12 TX) is the link to the ESP32-S3 (its UART1) at up to 5 Mbaud; ESP_Flow (PB0) is the ESP's flow-control line toward the MCU (low: hold off). PA11/PA12 carry no USB: the USB-C port is the ESP32's"
 pins = { "PB0" = { signal = "GPIO_Input", label = "ESP_Flow", pull = "down" } }
-behaviour = { uart4 = "UART4 at up to 5 Mbaud with DMA; ESP-to-MCU attention in band; battery-monitor readings (the INA228 on the ESP's I2C) arrive over this link", usb_power = "the ESP32 senses VBUS on its own divider (ESP_VBUS_Sense, GPIO7) and reports USB power over UART4; the H7 has no VBUS input", usb_only = "with USB power reported by the ESP32 and no battery reading, keep the emitters, LEDs and motors off or dim (the USB budget is 500 mA)" }
+behaviour = { uart4 = "UART4 at up to 5 Mbaud with DMA; ESP-to-MCU attention in band", usb_power = "the ESP32 senses VBUS on its own divider (ESP_VBUS_Sense, GPIO7) and reports USB power over UART4; the H7 has no VBUS input", usb_only = "with USB power reported by the ESP32 and no battery reading, keep the emitters, LEDs and motors off or dim (the USB budget is 500 mA)" }
 
 [[change]]
 id = "emitters"

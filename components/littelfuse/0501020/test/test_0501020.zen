@@ -1,0 +1,39 @@
+"""0501020.WR1 package facts (Littelfuse 501 series, revised 08/20/15) in a 4S battery line."""
+
+FUSE = Module("../0501020.zen")
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def datasheet_limits(module, inputs):
+    # Electrical Specifications by Item, 20 A row.
+    c = part(module)
+    check(c.mpn == "0501020.WR1", "MPN")
+    check(c.manufacturer == "Littelfuse", "manufacturer")
+    check(c.prefix == "F", "reference prefix F")
+    check(c.type == "fuse", "type")
+    check(c.properties["current_rating"].matches("20A"), "20 A")
+    check(c.properties["voltage_rating"].matches("32V"), "32 VDC")
+    check(c.properties["interrupting_current"].matches("150A"), "150 A at 32 VDC")
+    check(c.properties["cold_resistance"].matches("2mOhm"), "2.0 mOhm")
+
+
+def rated_for_the_pack(module, inputs):
+    # The interrupting rating holds up to the 32 V rating, above the 17.4 V HV pack.
+    c = part(module)
+    v = c.pins["1"].voltage.max
+    check(v <= c.properties["voltage_rating"].value, "the line exceeds the 32 V rating: " + str(v))
+
+
+TestBench(
+    name="0501020",
+    module=FUSE,
+    test_cases={
+        "4s_hv": {"P1": Power("PACK_P", voltage="0V to 17.4V"), "P2": Power("VBAT", voltage="0V to 17.4V")},
+    },
+    checks=[datasheet_limits, rated_for_the_pack],
+)

@@ -10,7 +10,7 @@ parts it adds continue each series, and the designators of removed parts are not
 
 This root sheet holds the STM32H725RGV6 (IC1) with its supply network and the test pads, and
 connects the five sheets:
-- REGULATORS (Regulators.zen): battery input, switch, monitor (INA228) and measurement; the VSYS
+- REGULATORS (Regulators.zen): battery input, fuse, switch and measurement; the VSYS
   power path; the 3V3_D buck and the 3V3_A analog LDO.
 - DRIVERS (Drivers.zen): two DRV8874 bridges with their shunts and chokes; the STSPIN958 fan
   driver.
@@ -48,11 +48,16 @@ left-facing rows: ESP_Flow on PB0, Motors_nFault on PB2 (EXTI2), Encoder_Right_C
 the main board's pins every one of them circled the chip. The ESP32 takes the SWD pins
 (PA13/PA14), NRST and UART4 (PA11 = UART4_RX, PA12 = UART4_TX), so it costs no new pin. BOOT0 is
 held low by R42: the MCU always starts from its flash. The motor pins keep their timers: right motor EN/PH on PA8/PA9 (TIM1),
-left on PC7/PC9 (TIM3). TODO: the research's fast-ADC swap (wall sensors to PC0/PC1, currents to
-two of PA6/PB1/PC4) needs a CubeMX check; until then the currents stay on PC0/PC1.
+left on PC7/PC9 (TIM3). The ADC lines are swapped for the routing: Current_Sensor_Left on PB1,
+Wall_Sensor_0 on PA4, Wall_Sensor_3 on PC0, Current_Sensor_Right still on PC1. Each pin keeps an
+ADC1 and an ADC2 input, which the currents' dual injected-simultaneous sampling needs (STM32CubeMX
+MCU database, STM32H725RGVx: PB1 ADC1/2_INP5, PC1 ADC1/2/3_INP11, PA4 ADC1/2_INP18, PC0
+ADC1/2/3_INP10), and PB1 is a fast channel (DS13311 Table 85; research Current sensing), so the
+left current takes half of the research's fast-ADC swap. TODO: the whole ADC set-up (injected and
+regular groups on these channels) is not yet checked in CubeMX.
 - PA5 is DAC1_OUT2, Wall_Emitter_Set, the wall emitters' current set-point (SENSORS sheet). PA4
   (DAC1_OUT1) and PA5 are the package's only DAC outputs (STM32CubeMX MCU database,
-  STM32H725RGVx; DS13311 Table 8), and PA4 carries Wall_Sensor_3.
+  STM32H725RGVx; DS13311 Table 8), and PA4 carries Wall_Sensor_0.
 - PC5 reads the battery voltage from its divider (REGULATORS sheet): ADC12_INP8, a slow channel
   (DS13311 Table 85 notes 4-5: on PC5 only the INN input is fast), on a TT_ha pin (Table 8) that
   the divider keeps below VDDA.
@@ -67,7 +72,7 @@ when the ESP32 cannot reach the MCU (the owner's choice: no supply pin, no NRST)
 no test pads.
 """
 
-load("@stdlib/interfaces.zen", "DiffPair", "I2c", "Spi", "Usb2")
+load("@stdlib/interfaces.zen", "DiffPair", "Spi", "Usb2")
 load(
     "@stdlib/board_config.zen",
     "BoardConfig",
@@ -102,7 +107,7 @@ Esp = Module("./Esp.zen")
 # Supplies.
 # 4S LiPo on J1: 12.0-16.8 V, 17.4 V with HV cells (research Design basis).
 BAT_P = Power("BAT_P", voltage="12V to 17.4V")
-# The battery after the monitor's 2 mOhm shunt: the bridges' and the fan driver's supply.
+# The battery after the fuse F1: the bridges' and the fan driver's supply.
 VBAT = Power("VBAT", voltage="12V to 17.4V")
 # OR(VBAT, VBUS): VBAT less the B5819W's drop, or VBUS less the P-FET (research Power tree).
 VSYS = Power("VSYS", voltage="4.3V to 17.4V")
@@ -131,8 +136,6 @@ UART4_RX = Net("UART4_RX")
 UART4_TX = Net("UART4_TX")
 ESP_FLOW = Net("ESP_Flow")
 USB = Usb2(D=DiffPair(P=Net("USBD_P"), N=Net("USBD_N")))
-BAT_I2C = I2c(SDA=Net("BAT_SDA"), SCL=Net("BAT_SCL"))
-BAT_ALERT = Net("BAT_ALERT")
 BUTTON = Net("Button")
 BUZZER = Net("Buzzer")
 LED_ARGB = Net("LED_ARGB")
@@ -203,7 +206,7 @@ STM32H725RGV6(
     PA1=ENCODER_LEFT_ABI_B,
     PA2=BUZZER,
     PA3=ENCODER_LEFT_SPI.CS,
-    PA4=WALL_SENSOR_3,
+    PA4=WALL_SENSOR_0,
     PA5=WALL_EMITTER_SET,
     PA6=WALL_SENSOR_2,
     PA7=BUTTON,
@@ -216,7 +219,7 @@ STM32H725RGV6(
     PA14=SWCLK,
     PA15=ENCODER_RIGHT_ABI_B,
     PB0=ESP_FLOW,
-    PB1=WALL_SENSOR_0,
+    PB1=CURRENT_SENSOR_LEFT,
     PB2=MOTORS_NFAULT,
     PB3=ENCODER_RIGHT_ABI_A,
     PB4=IMU_INT2,
@@ -230,7 +233,7 @@ STM32H725RGV6(
     PB13=FAN_TOFF,
     PB14=FAN_ENABLE,
     PB15=FAN_PWM,
-    PC0=CURRENT_SENSOR_LEFT,
+    PC0=WALL_SENSOR_3,
     PC1=CURRENT_SENSOR_RIGHT,
     PC4=WALL_SENSOR_1,
     PC5=BATTERY_VOLTAGE,
@@ -287,8 +290,6 @@ Regulators(
     GND=GND,
     GND_BAT=GND_BAT,
     Battery_Voltage=BATTERY_VOLTAGE,
-    BAT_I2C=BAT_I2C,
-    BAT_ALERT=BAT_ALERT,
 )
 
 Drivers(
@@ -375,8 +376,6 @@ Esp(
     UART4_RX=UART4_RX,
     UART4_TX=UART4_TX,
     ESP_Flow=ESP_FLOW,
-    BAT_I2C=BAT_I2C,
-    BAT_ALERT=BAT_ALERT,
 )
 
 # Stackup and rules: boards/main's, from the Altium MicrasMainBoard.PcbDoc (layer stack and design rules):

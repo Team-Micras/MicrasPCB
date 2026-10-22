@@ -1,7 +1,7 @@
 [board]
 name = "main2"
 path = "main2.zen"
-description = "Micras main board, second revision: STM32H725 controller, 4S power, DRV8874 wheel bridges, STSPIN958 fan driver, INA241/INA228 current sensing, ESP32-S3 radio and debug probe."
+description = "Micras main board, second revision: STM32H725 controller, 4S power, DRV8874 wheel bridges, STSPIN958 fan driver, INA241 current sensing, battery fuse, ESP32-S3 radio and debug probe."
 
 [dependencies]
 "github.com/Team-Micras/MicrasPCB/components/adi/ADP7142" = "0.1.0"
@@ -20,6 +20,7 @@ description = "Micras main board, second revision: STM32H725 controller, 4S powe
 "github.com/Team-Micras/MicrasPCB/components/huashuo/HSBB3072" = "0.1.0"
 "github.com/Team-Micras/MicrasPCB/components/jst/B02B-PASK" = "0.1.0"
 "github.com/Team-Micras/MicrasPCB/components/kangshen/DSHP04TJGER" = "0.1.0"
+"github.com/Team-Micras/MicrasPCB/components/littelfuse/0501020" = "0.1.0"
 "github.com/Team-Micras/MicrasPCB/components/littelfuse/SMAJ18A" = "0.1.0"
 "github.com/Team-Micras/MicrasPCB/components/magnetsyc/AFE201612S2R2MBT" = "0.1.0"
 "github.com/Team-Micras/MicrasPCB/components/micras/EncoderSlot" = "0.1.0"
@@ -33,10 +34,8 @@ description = "Micras main board, second revision: STM32H725 controller, 4S powe
 "github.com/Team-Micras/MicrasPCB/components/st/STSPIN958" = "0.1.0"
 "github.com/Team-Micras/MicrasPCB/components/st/USBLC6-2SC6" = "0.1.0"
 "github.com/Team-Micras/MicrasPCB/components/ti/DRV8874" = "0.1.0"
-"github.com/Team-Micras/MicrasPCB/components/ti/INA228" = "0.1.0"
 "github.com/Team-Micras/MicrasPCB/components/ti/INA241A2" = "0.1.0"
 "github.com/Team-Micras/MicrasPCB/components/ti/TLV9001" = "0.1.0"
 "github.com/Team-Micras/MicrasPCB/components/vishay/WSK2512-HIGH" = "0.1.0"
-"github.com/Team-Micras/MicrasPCB/components/vishay/WSK2512-MID" = "0.1.0"
 "github.com/Team-Micras/MicrasPCB/components/worldsemi/WS2812C-2020" = "0.1.0"
 "github.com/Team-Micras/MicrasPCB/components/yjycoin/YSPIA0645-220M" = "0.1.0"

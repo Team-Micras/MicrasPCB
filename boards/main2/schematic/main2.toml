@@ -89,13 +89,12 @@ frame = [
 [sheet.REGULATORS]
 at = [36, 36]
 size = [30, 8]
-left = ["BAT_I2C.SDA", "BAT_I2C.SCL", "BAT_ALERT"]
 right = ["Battery_Voltage"]
 
 [sheet.ESP]
 at = [36, 60]
 size = [30, 16]
-left = ["BAT_I2C.SDA", "BAT_I2C.SCL", "BAT_ALERT", "USB.D.P", "USB.D.N"]
+left = ["USB.D.P", "USB.D.N"]
 right = ["Reset", "SWDIO", "SWCLK", "UART4_RX", "UART4_TX", "ESP_Flow"]
 
 [sheet.PERIPHERALS]

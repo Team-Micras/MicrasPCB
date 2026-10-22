@@ -15,12 +15,12 @@ the bidirectional mid-supply output of section 7.4.3.2, VOUT = 20 x 10 mOhm x I 
 ratiometric to VDDA, which 3V3_A also feeds. Range: (3.3 V - 0.2 V - 1.65 V) / 0.2 V/A = +7.25 A
 and (1.65 V - 0.02 V) / 0.2 V/A = -8.15 A (output swing, section 6.5), above the 2.97 A ITRIP plus
 its overshoot. The output drives the ADC through R78 / R79 100 Ohm (R_iso) with C102 / C105 1 nF
-C0G at the MCU pin (Current_Sensor_Right on PC1, Current_Sensor_Left on PC0): the INA241 drives
-1 nF directly (section 6.5), and the resistor isolates the C0G and the ADC's sampling charge.
-TODO: the stability of R_iso + C_f is to be checked on the bench (research Bench measurements);
-the research's "fast ADC channel" swap (wall sensors to PC0/PC1, currents to two of
-PA6/PB1/PC4) is not verified in CubeMX, so the currents stay on PC0/PC1 (ADC slow channels:
-one conversion per PWM centre still fits; research H7 pin budget).
+C0G after it, on the ADC line (Current_Sensor_Right on PC1, a slow ADC channel,
+Current_Sensor_Left on PB1, a fast one; main2.zen's pin budget): the INA241 drives 1 nF directly
+(section 6.5), and the resistor isolates the C0G and the ADC's sampling charge. Each C0G sits
+beside its resistor, 10-14 mm of track from the pin. On the slow channel one conversion per
+PWM centre still fits (research H7 pin budget).
+TODO: the stability of R_iso + C_f is to be checked on the bench (research Bench measurements).
 
 Wall sensors W1-W4 (SFH 4550 emitter over a TPS601A phototransistor) with a shared constant-
 current emitter sink whose set-point the MCU's DAC writes (research IR emitters and A.4; the model
