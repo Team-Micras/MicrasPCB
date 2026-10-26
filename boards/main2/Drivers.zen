@@ -86,9 +86,10 @@ boards/main2/test/test_drivers.zen.
   the motor's inductance left out: 5.48 A, under the 6 A OCP minimum, which also needs 3 us above
   it, and inside the INA241's +7.25 A; the choke keeps 60 % of its inductance there (soft
   saturation). At the datasheet timing and maxon's 0.3 the overshoot is 0.94 A, 4.17 A, within
-  the 4.2 A Isat. Choke heat at the 1.0 A rms run limit: 105 mW in the DCR plus at most 467 mW of
-  core loss (Coilcraft's loss-tool data for the XAL7070 series scaled to 47 uH, doubled), +15 K
-  at 26.5 K/W. Height 7.0 mm (7.13 mm with unreflowed terminations), within the 8.0 mm open
+  the 4.2 A Isat. Choke heat (Coilcraft Power Inductor tool, XAL7070-473 at 100 kHz with 1.1 A pp
+  of ripple, 40 C ambient, 2026-10-25): 330 mW in all and 49 C at a 1.0 A run current (L 42.3 uH
+  at the 1.6 A peak), 799 mW and 63 C at 2.5 A; research choke_check.py's bound (105 mW of DCR
+  plus at most 467 mW of core loss, +15 K) sits above it. Height 7.0 mm (7.13 mm with unreflowed terminations), within the 8.0 mm open
   height of spec/main2.toml and the 7.2 mm of the left_tail zone (research
   calculations/drivetrain/choke_check.py). No capacitor across the motor: it would resonate with
   the choke (research, Series choke downsides).

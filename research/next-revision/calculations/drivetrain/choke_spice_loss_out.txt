@@ -1,0 +1,17 @@
+Coilcraft Document 267 models (XAL7070 and XGL5030 tables, rev. 12/14/22)
+XGL5030-472 at 408 kHz: LVAR 4.7 uH, ESR(AC) 0.277 ohm
+XAL7070-473 at 100 kHz: LVAR 45.0 uH, ESR(AC) 0.871 ohm
+
+Check against Coilcraft's loss tool for XGL5030-472 (71.6 mW x dIpp^1.99 at 0.408 MHz):
+  dIpp 1.00 A: model   25.1 mW, loss tool   71.6 mW
+  dIpp 2.00 A: model  100.6 mW, loss tool  284.4 mW
+  dIpp 2.76 A: model  191.5 mW, loss tool  539.9 mW
+
+XAL7070-473 at 100 kHz (wheel choke):
+  dIpp 0.500 A, D 0.5: AC loss   19.7 mW
+  dIpp 1.000 A, D 0.5: AC loss   78.9 mW
+  dIpp 1.113 A, D 0.5: AC loss   97.7 mW
+  dIpp 1.113 A, D 0.3: AC loss  109.1 mW
+
+The small-signal model gives 0.35 x the loss tool on the XGL5030-472 (both scale with dIpp^2).
+Scaled by that ratio, XAL7070-473 at 1.113 A pp: 276 mW (D 0.5), 309 mW (D 0.3), against the 467 mW bound choke_check.py uses.

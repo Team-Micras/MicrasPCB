@@ -979,6 +979,9 @@
 			(embedded_fonts no)
 		)
 		(symbol "BZT52C10S-7-F"
+			(pin_names
+				(hide yes)
+			)
 			(exclude_from_sim yes)
 			(in_bom yes)
 			(on_board yes)
@@ -1049,21 +1052,46 @@
 				)
 			)
 			(symbol "BZT52C10S-7-F_0_1"
-				(rectangle
-					(start -5.08 2.54)
-					(end 5.08 -2.54)
+				(polyline
+					(pts
+						(xy -1.27 1.27) (xy -1.27 -1.27) (xy 1.27 0) (xy -1.27 1.27)
+					)
 					(stroke
 						(width 0.254)
 						(type default)
 					)
 					(fill
-						(type background)
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.27 0) (xy 1.27 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.762 -1.27) (xy 1.27 -1.27) (xy 1.27 1.27) (xy 1.778 1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
 					)
 				)
 			)
 			(symbol "BZT52C10S-7-F_1_1"
 				(pin passive line
-					(at 7.62 0 180)
+					(at 3.81 0 180)
 					(length 2.54)
 					(name "K"
 						(effects
@@ -1081,7 +1109,7 @@
 					)
 				)
 				(pin passive line
-					(at -7.62 0 0)
+					(at -3.81 0 0)
 					(length 2.54)
 					(name "A"
 						(effects
@@ -5149,7 +5177,7 @@
 		(dnp no)
 		(uuid "f6ece735-7c58-5c39-bf57-75dfb3f37518")
 		(property "Reference" "D16"
-			(at 156.21 130.81 90)
+			(at 154.94 130.81 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -5160,7 +5188,7 @@
 			)
 		)
 		(property "Value" "10V zener"
-			(at 156.21 133.35 90)
+			(at 154.94 133.35 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6195,7 +6223,7 @@
 	)
 	(wire
 		(pts
-			(xy 152.4 124.46) (xy 152.4 119.38)
+			(xy 152.4 128.27) (xy 152.4 119.38)
 		)
 		(stroke
 			(width 0)
@@ -6215,7 +6243,7 @@
 	)
 	(wire
 		(pts
-			(xy 152.4 139.7) (xy 152.4 147.32)
+			(xy 152.4 135.89) (xy 152.4 147.32)
 		)
 		(stroke
 			(width 0)

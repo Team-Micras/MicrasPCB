@@ -72,6 +72,9 @@ a 0.6669) keeps 95 / 87 / 79 / 69 / 57 % of the zero-current inductance at 1 / 2
 soft saturation with the datasheet's 30 % drop at Isat. Core loss from Coilcraft's power-inductor
 loss tool, recorded for the XAL7070-102 to -682: P = C x f(MHz) x dIpp^2.1 mW, independent of the
 DC current below 0.5 MHz, C / L(uH)^1.05 = 24-33 across the series, so 1400-1900 extrapolated to
-this part. On main2 (DCX 10 L at 100 kHz): at most 1.11 A pp of ripple, at most 467 mW of core
-loss with that coefficient doubled, +15 K at 26.5 K/W with the DCR at a 1.0 A rms run
+this part. On main2 (DCX 10 L at 100 kHz): at most 1.11 A pp of ripple. Coilcraft's Power
+Inductor tool (1.1 A pp, 100 kHz, 40 C ambient, 2026-10-25) gives 330 mW in all and 49 C at a
+1.0 A current (42.3 uH at the 1.6 A peak), 799 mW and 63 C at 2.5 A; the model's bound (at most
+467 mW of core loss with that coefficient doubled, +15 K at 26.5 K/W with the DCR) sits above
+it at a 1.0 A rms run
 (`research/next-revision/calculations/drivetrain/choke_check.py`).

@@ -936,11 +936,13 @@ PWM ripple against these costs; both are fitted.
   wheel peaks stay under the DRV8874's 6 A OCP minimum ([Drivetrain](#drivetrain)), the fan's
   under the STSPIN958's 7 A once it starts at 50 kHz ([Fan](#fan)).
 - **DCR and core loss.** The DCR adds to the 2.9 Ω loop: each 100 mΩ costs 0.1 W at 1 A rms
-  and adds 3.4 % to the loop resistance (computed). Core loss, from Coilcraft's loss-tool data
-  ([Coilcraft loss data]): at most 467 mW in each wheel choke (the XAL7070 series' coefficient
-  extrapolated to 47 µH and doubled, at 1.11 A pp), +15 K at the 1.0 A rms run limit with the DCR;
-  at most 0.53 W in L6 at 2.8 A pp and 400 kHz, +17 K with the DCR at 2.5 A
-  (drivetrain/choke_check.py, fan/fan_choke_check.py).
+  and adds 3.4 % to the loop resistance (computed). Coilcraft's Power Inductor tool (40 °C ambient, 2026-10-25) gives the
+  losses outright: a wheel choke (XAL7070-473, 100 kHz, 1.1 A pp) takes 330 mW in all and reaches
+  49 °C at a 1.0 A run current, 799 mW and 63 °C at 2.5 A; L6 (XGL5030-472, 400 kHz, 2.8 A pp,
+  2.5 A) 673 mW and 57 °C. The models' bounds sit at or above these: at most 467 mW of core loss
+  per wheel choke (the series' loss-tool coefficient extrapolated to 47 µH and doubled; 276-309 mW
+  from the part's Document 267 SPICE model, drivetrain/choke_spice_loss.py), +15 K at 1.0 A with
+  the DCR, and at most 0.53 W in L6, +17 K (drivetrain/choke_check.py, fan/fan_choke_check.py).
 - **Stray field.** Use a shielded part, keep it away from the AS5047U magnetic encoders and the IMU,
   and keep the bridge → shunt → choke → motor loop tight (inference).
 - **Slower current.** The electrical time constant grows from 15.5 µs (motor alone, datasheet L) to
@@ -1067,6 +1069,7 @@ MB, git-ignored) into their `out/` folder; the netlists (`.cir`), logs and summa
 | [drivetrain/ripple.py](calculations/drivetrain/ripple.py), [ripple_exact.py](calculations/drivetrain/ripple_exact.py) | `ripple_out.txt`, `ripple_exact_out.txt` | PWM ripple, rule of thumb and exact periodic RL |
 | [drivetrain/dcx10l_ripple.py](calculations/drivetrain/dcx10l_ripple.py) | `dcx10l_ripple_out.txt` | DCX 10 L 4.5 V ripple at 40-200 kHz with 0-100 µH chokes |
 | [drivetrain/choke_check.py](calculations/drivetrain/choke_check.py) | `choke_check_out.txt` | Wheel ripple, choke core loss and heat, ITRIP band and reversal overshoot over 0.2-1.0 × the motor L, the choke's tolerance and DC bias |
+| [drivetrain/choke_spice_loss.py](calculations/drivetrain/choke_spice_loss.py) | `choke_spice_loss_out.txt` | Choke ripple loss from Coilcraft's Document 267 SPICE models (XAL7070-473, XGL5030-472), scaled to the loss tool on the XGL5030-472 |
 | [current_sense/ina241_edge.py](calculations/current_sense/ina241_edge.py) | `ina241_edge_out.txt` | INA241A2 at VS 3.3 V after 0-16.8 V common-mode edges, and the error at the phase centres (TI PSpice model in ngspice, about 2 min) |
 | [drivetrain/sim.py](calculations/drivetrain/sim.py), [extra.py](calculations/drivetrain/extra.py), [duty.py](calculations/drivetrain/duty.py), [vreq.py](calculations/drivetrain/vreq.py) | `sim_out.txt`, `extra_out.txt`, `duty_out.txt`, `vreq_out.txt` | Traction limit, acceleration, thermal run budget, burst times, figure of merit, bus voltage needed |
 | [drivetrain/power_stage_calc.py](calculations/drivetrain/power_stage_calc.py) | `power_stage_calc_out.txt` | Bridge loss, ripple with chokes, input-capacitor ripple, battery switch |
