@@ -1,0 +1,41 @@
+"""BZT52C10S-7-F - 10 V zener diode, 200 mW, SOD-323 (Diodes Incorporated).
+
+Datasheet: Diodes Incorporated BZT52C2V0S - BZT52C39S, DS30093 Rev. 20 - 2 (February 2017),
+5 pages, LCSC C260895.
+
+Electrical characteristics (p.2, TA = 25 C, BZT52C10S row): VZ 9.4 / 10 / 10.6 V at IZT 5 mA
+(pulse test, note 6); ZZT 20 Ohm max at IZT; ZZK 150 Ohm max at IZK 1.0 mA; IR 0.1 uA max at
+VR 7 V; temperature coefficient +4.5 to +8.0 mV/C at IZT. Marking WF.
+Maximum ratings (p.2): VF 0.9 V max at IF 10 mA; PD 200 mW, RthJA 625 C/W (note 7); TJ, TSTG -65
+to 150 C.
+Package (p.4, SOD323): body 1.20-1.40 x 1.60-1.80 mm, 2.30-2.70 mm over the leads, 1.10 mm max
+body (A2) plus 0.10 mm stand-off (A1). Suggested pad layout (p.4): X 0.590, Y 0.450, X1 2.700 mm.
+Polarity (p.1): the band marks the cathode.
+
+Pins: pad 1 cathode (K), pad 2 anode (A): KiCad's D_SOD-323 footprint numbers the cathode pad 1
+and marks it with its silkscreen bar.
+
+Packaged because the stdlib Zener generic cannot carry an MPN.
+"""
+
+A = io(Net)
+K = io(Net)
+
+Component(
+    name="D",
+    prefix="D",
+    symbol=Symbol(library="BZT52C10S.kicad_sym"),
+    footprint=File("D_SOD-323.kicad_mod"),
+    part=Part(mpn="BZT52C10S-7-F", manufacturer="Diodes Incorporated"),
+    pins={
+        "A": A,
+        "K": K,
+    },
+    properties={
+        "value": "10V zener",
+        "zener_voltage_min": 9.4,  # V at IZT 5 mA
+        "zener_voltage_max": 10.6,
+        "reverse_current_max": 0.1e-6,  # A at 7 V
+    },
+    type="zener",
+)

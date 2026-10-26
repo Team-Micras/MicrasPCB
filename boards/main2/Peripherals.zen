@@ -12,25 +12,49 @@ all with the MCU's internal pull-ups).
 
 Buzzer: BZ1 (FUET-5030, 3 V electromagnetic, externally driven) from 3V3_D through R3 10 Ohm to
 the low-side switch Q1 (AO3400A), driven from Buzzer (PA2, TIM15) through R1 220 Ohm with R2
-10 kOhm gate pull-down; D3 (1N4148W) clamps the coil. R3 is a 1206 (250 mW): at the firmware's
+10 kOhm gate pull-down; D3 (1N4148WS, the board's clamp diode, D9-D12) clamps the coil: at most
+the 174 mA coil current below, decaying, against its 300 mA IFM and 2 A IFSM at 1 us. R3 is a 1206 (250 mW): at the firmware's
 50 % duty and low tones the coil current approaches 3.3 V / (9 + 10) Ohm = 174 mA with the 9 Ohm
 minimum coil (FUET-5030 p2), 151 mW in R3.
 
 LEDs:
 - D1, D2: WS2812C-2020-V6 addressable LEDs in a chain on 3V3_D (research IR emitters and status
   LEDs; A.4), replacing the main board's WS2815C-2020, whose 9.5-13.5 V supply range fits
-  neither 4S nor 3.3 V. DI of D1 on LED_ARGB (PC6, TIM8_CH1), D1 DO to D2 DI. VDD 3.3-5.3 V and
-  DI VIH 0.55 x VDD = 1.82 V at 3.3 V (WS2812C-2020-V6 V1.0 p2-3), so PC6 drives it directly;
-  C19 (D1) and C18 (D2) 100 nF on VDD (p5 typical application). The bit timing caps T0L and
-  T1L at 1 us (p3-4), against the WS2815C's 5 us (boards/main2/firmware_changes.toml).
-  TODO: the datasheet specifies 3.3 V only in the feature text and the ratings range; blue and
-  green at 3.2-3.3 V need a bench check (research Bench measurements).
+  neither 4S nor 3.3 V. DI of D1 on LED_ARGB (PB9, TIM17_CH1), D1 DO to D2 DI. VDD 3.3-5.3 V and
+  DI VIH 0.55 x VDD, 1.81-1.84 V on this rail, VIL 0.7 V (Worldsemi WS2812C-2020-V6 datasheet
+  V1.1 p3), so PB9 (VOH >= VDD - 0.4 V, VOL <= 0.4 V, DS13311 Table 56) drives it directly with
+  1 V and 0.3 V of margin; C19 (D1) and C18 (D2) 100 nF on VDD (p5 typical application). The bit
+  timing caps T0L and T1L at 1 us and asks 1.25 us a bit (V1.1 p4), against the WS2815C's 5 us
+  (boards/main2/firmware_changes.toml, leds).
+  3.3 V operation: the datasheet's tables are at VDD = 5 V; its supply range is 3.3-5.3 V (p3) and
+  its features "3.3 V power supply is supported" (p1). Each channel's constant-current sink holds
+  4.95-4.99 mA from 0.4 V across it, 4.07 mA at 0.3 V (the Chinese V1.1 p5 "VF" curve, read from
+  the figure), so a channel keeps its full 5 mA while its LED's VF is at most VDD - 0.4 V, 2.884 V
+  at the rail's 3.284 V minimum. Worldsemi gives no per-colour VF; a comparable InGaN RGB part reads
+  2.76 V blue and 2.88 V green at 5 mA (Everlight EAST1616RGBA4 Rev 1, Figures p7-8, typical), so
+  red and blue keep full current and green sits at the knee: 4.95 mA for a typical die, about 4.1 mA
+  (-18 %) for one 0.1 V higher. At worst white and yellow lean slightly away from green; the colours
+  stay recognisable, and the IC starts (rated from 3.3 V, the rail 16 mV below; send the first frame
+  1 ms or more after power-up). No addressable LED of this size rates its supply below 3.3 V in its
+  electrical table (SK6805-EC20 3.5-5.5 V, XL-2020RGBC-2812B 3.5-5.5 V, SK6812-EC20 3.7-5.5 V,
+  WS2816A/C-1313 3.3-5.5 V), and the 12 mA WS2812B-2020-V6 needs more headroom, so the WS2812C
+  stays.
 - D4 (yellow) from LED_Red (PB12, the firmware's label) through R4 680 Ohm; D5 (red) from
-  3V3_D through R5 680 Ohm, the power indicator.
+  3V3_D through R5 680 Ohm, the power indicator. (3.3 V - VF) / 680 Ohm is 1.0-2.5 mA for the
+  NCD0603Y2's VF 1.6-2.6 V and 1.3-2.2 mA for the KT-0603R's 1.8-2.4 V (LCSC C89811 and C2286
+  listings, at their rated current; VF is lower at 2 mA): an indicator's brightness at a tenth of
+  the 20-25 mA rating, and little of the 500 mA USB budget. The yellow LED loads PB12 far below
+  the 8 mA of its VOH specification (DS13311 Table 56).
 
 USB-C, U2 (GT-USB-7010ASV), a USB 2.0 device port of the ESP32 only (research ESP32 and USB):
 - VBUS on +5V: into the power path Q8 (regulators sheet), the ESP32's sense divider (ESP sheet),
-  and D8 (PESD5V0S1BL, 5 V working voltage) to GND at the receptacle. R6/R7 5.1 kOhm Rd on
+  and D8 to GND at the receptacle: SP1005-01ETG (Littelfuse SP1005 Series datasheet, revised
+  07/17/19, Electrical Characteristics: VRWM 6.0 V, leakage 0.5 uA max at 5 V, VBR 8.5 V typ at
+  1 mA, VC 9.3 V at 1 A and 15.6 V at 10 A, 8/20 us; IPP 8 A; IEC 61000-4-2 +-30 kV contact;
+  bidirectional, SOD882, the KiCad SOD-882 land of 0.4 x 0.7 mm pads at 0.7 mm centres holds its
+  0.25 x 0.5 mm terminals at 0.65 mm pitch, against the datasheet's 0.325 x 0.65 mm pads at
+  0.65 mm). Its stand-off is above the 5.5 V a Type-C source may hold on VBUS (vSafe5V; the +5V
+  net's range), so it stays off at any legal VBUS. R6/R7 5.1 kOhm Rd on
   CC1/CC2 (sink). The ESP32 tells the H7 over UART4 when it runs from USB alone.
 - D+/D- (USBD_P/USBD_N) from the receptacle through U6 (USBLC6-2SC6, each line in on one I/O pad
   and out on its twin, pins 1/6 and 3/4, so the clamp sits in line) to the ESP32's GPIO20/GPIO19, whose USB PHY needs no
@@ -59,7 +83,7 @@ Led = Module("@stdlib/generics/Led.zen")
 Resistor = Module("@stdlib/generics/Resistor.zen")
 Tvs = Module("@stdlib/generics/Tvs.zen")
 AO3400A = Module("github.com/Team-Micras/MicrasPCB/components/aos/AO3400A/AO3400A.zen")
-D1N4148W = Module("github.com/Team-Micras/MicrasPCB/components/hongjiacheng/1N4148W/1N4148W.zen")
+D1N4148WS = Module("github.com/Team-Micras/MicrasPCB/components/cj/1N4148WS/1N4148WS.zen")
 DSHP04TJGER = Module("github.com/Team-Micras/MicrasPCB/components/kangshen/DSHP04TJGER/DSHP04TJGER.zen")
 FUET_5030 = Module("github.com/Team-Micras/MicrasPCB/components/fuet/FUET-5030/FUET-5030.zen")
 GT_TC048B = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/GT-TC048B-H025-L1/GT-TC048B-H025-L1.zen")
@@ -123,11 +147,14 @@ Resistor(name="R3", P1=BUZZER_DRAIN, P2=BUZZER_COIL, **R_10_1206)
 AO3400A(name="Q1", G=BUZZER_GATE, S=GND, D=BUZZER_DRAIN)
 Resistor(name="R1", P1=BUZZER_GATE, P2=Buzzer, **R_220_0402)
 Resistor(name="R2", P1=GND, P2=BUZZER_GATE, **R_10K_0402)
-D1N4148W(name="D3", A=BUZZER_COIL, K=V3V3_D)
+D1N4148WS(name="D3", A=BUZZER_COIL, K=V3V3_D)
 
-# LEDs.
-WS2812C(name="D1", VDD=V3V3_D, GND=GND, DI=LED_ARGB, DO=LED_CHAIN)
-WS2812C(name="D2", VDD=V3V3_D, GND=GND, DI=LED_CHAIN, DO=NotConnected())
+# LEDs. Accepted build warning: 3V3_D's range (3.284-3.346 V, DS13554 Table 6) dips 16 mV below
+# the WS2812C's 3.3 V minimum (V1.1 p3); the owner's choice of LED, its 3.3 V operation above.
+# Only the LEDs see the rail as 3.3-3.346 V, so the build warns for any other part below its range.
+LED_VDD = Power(V3V3_D, voltage="3.3V to 3.346V")
+WS2812C(name="D1", VDD=LED_VDD, GND=GND, DI=LED_ARGB, DO=LED_CHAIN)
+WS2812C(name="D2", VDD=LED_VDD, GND=GND, DI=LED_CHAIN, DO=NotConnected())
 Capacitor(name="C19", P1=GND, P2=V3V3_D, **C_100N_0402)
 Capacitor(name="C18", P1=GND, P2=V3V3_D, **C_100N_0402)
 Resistor(name="R4", P1=LED_YELLOW_A, P2=LED_Red, **R_680_0402)
@@ -151,9 +178,9 @@ Tvs(
     name="D8",
     package="SOD-882",
     direction="Bidirectional",
-    reverse_standoff_voltage="5V",
-    mpn="PESD5V0S1BL,315",
-    manufacturer="Nexperia",
+    reverse_standoff_voltage="6V",
+    mpn="SP1005-01ETG",
+    manufacturer="Littelfuse",
     A=GND,
     K=V5V,
 )

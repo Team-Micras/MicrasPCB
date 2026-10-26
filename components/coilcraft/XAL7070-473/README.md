@@ -65,12 +65,13 @@ Coilcraft model is behind a login. `pcb rectify check`: OK.
 The top bar marks the start (short) lead, "Connect high dv/dt here for lowest EMI": put that end
 on the bridge side (DRV8874 OUT, through the shunt) when placing.
 
-## 0 Ohm option
+## DC bias and losses
 
-The choke is fitted only if the motor's measured inductance at 100 kHz needs it. A 2512 0 Ohm
-jumper lands on the same two pads as an either/or population: KiCad's 2512 pads (1.225 mm wide,
-centres at +-2.96 mm) cover the choke pads (1.45-3.37 mm from the centre) except about 0.2 mm
-past their outer edge, and a 2010 (pads at +-2.31 mm) fits entirely. The board can therefore draw
-a DNP 2512 footprint sharing the choke's pads or simply solder the jumper on them; never fit both
-(the jumper shorts the choke). Rate the jumper for the 3 A ITRIP plus overshoot (about 3.6 A
-peak) and 1.5 A rms.
+Coilcraft's saturation SPICE model of the part (XAL7070-473_sat: L 41.781 uH, Is 9.6419 A,
+a 0.6669) keeps 95 / 87 / 79 / 69 / 57 % of the zero-current inductance at 1 / 2 / 3 / 4.2 / 6 A, a
+soft saturation with the datasheet's 30 % drop at Isat. Core loss from Coilcraft's power-inductor
+loss tool, recorded for the XAL7070-102 to -682: P = C x f(MHz) x dIpp^2.1 mW, independent of the
+DC current below 0.5 MHz, C / L(uH)^1.05 = 24-33 across the series, so 1400-1900 extrapolated to
+this part. On main2 (DCX 10 L at 100 kHz): at most 1.11 A pp of ripple, at most 467 mW of core
+loss with that coefficient doubled, +15 K at 26.5 K/W with the DCR at a 1.0 A rms run
+(`research/next-revision/calculations/drivetrain/choke_check.py`).

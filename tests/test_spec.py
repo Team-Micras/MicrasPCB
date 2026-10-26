@@ -165,3 +165,120 @@ def test_main_mech_export_is_in_the_robot_frame(main_spec):
     assert min(xs) == pytest.approx(main_spec["outline"]["rear"], abs=1e-3)
     assert max(ys) - min(ys) == pytest.approx(main_spec["outline"]["width"], abs=1e-3)
     assert [h["name"] for h in m["holes"]] == ["H1", "H2", "H3", "H4"]
+
+
+# --- main2: the outline the spec draws, the antenna notch -------------------------------------------
+
+MAIN2 = spec.load("main2")
+U13_FOOTPRINT = ROOT / "components/espressif/ESP32-S3-MINI-1/ESP32-S3-MINI-1.kicad_mod"
+EDGE_CLEARANCE = 0.2  # mm, copper to board edge (rules/jlcpcb.kicad_dru)
+
+
+def _main2_board() -> list[tuple[float, float]]:
+    """main2's board outline (robot frame) as a polygon: the largest closed loop of the elements."""
+    els = mech.main2_outline(MAIN2)
+    loops, left = [], list(els)
+    while left:
+        group, ends = [left.pop(0)], None
+        ends = {_key(group[0].a), _key(group[0].b)}
+        grown = True
+        while grown:
+            grown = False
+            for e in list(left):
+                if _key(e.a) in ends or _key(e.b) in ends:
+                    group.append(e)
+                    left.remove(e)
+                    ends |= {_key(e.a), _key(e.b)}
+                    grown = True
+        loops.append(group)
+    board = max(loops, key=len)
+    return mech.chain(board)
+
+
+def _key(p):
+    return round(p[0], 6), round(p[1], 6)
+
+
+def _inside(p, poly) -> bool:
+    x, y = p
+    hit = False
+    for (x0, y0), (x1, y1) in zip(poly, [*poly[1:], poly[0]], strict=True):
+        if (y0 > y) != (y1 > y) and x < x0 + (y - y0) * (x1 - x0) / (y1 - y0):
+            hit = not hit
+    return hit
+
+
+def _edge_distance(p, poly) -> float:
+    def seg(a, b):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        L = dx * dx + dy * dy
+        u = 0.0 if L == 0 else max(0.0, min(1.0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L))
+        return math.dist(p, (a[0] + u * dx, a[1] + u * dy))
+
+    return min(seg(a, b) for a, b in zip(poly, [*poly[1:], poly[0]], strict=True))
+
+
+def _u13_to_robot(u: float, v: float) -> tuple[float, float]:
+    """A point of U13's footprint (KiCad footprint frame) on the board, in the robot frame."""
+    p = MAIN2["u13"]
+    a = math.radians(p["rotation"])
+    kx, ky = mech.robot_to_kicad(MAIN2, (p["x"], p["y"]))
+    return mech.kicad_to_robot(MAIN2, (kx + u * math.cos(a) + v * math.sin(a), ky - u * math.sin(a) + v * math.cos(a)))
+
+
+def _u13_footprint():
+    root = sexpr.parse(U13_FOOTPRINT.read_text())
+    keepout = next(z for z in root.children("zone") if z.child("keepout"))
+    area = [tuple(float(v) for v in xy.atoms()) for xy in keepout.child("polygon").child("pts").children("xy")]
+    pads = []
+    for pad in root.children("pad"):
+        (u, v, *_), (w, h) = (float(a) for a in pad.child("at").atoms()), (float(a) for a in pad.child("size").atoms())
+        pads.append((pad.atoms()[0], [(u + su * w / 2, v + sv * h / 2) for su in (1, -1) for sv in (1, -1)]))
+    return area, pads
+
+
+def test_main2_outline_is_one_closed_loop():
+    board = _main2_board()
+    assert len(board) > 100
+    o = MAIN2["outline"]
+    xs, ys = [p[0] for p in board], [p[1] for p in board]
+    assert max(xs) == pytest.approx(o["front"], abs=1e-6)
+    assert min(xs) == pytest.approx(o["rear"], abs=1e-6)
+    assert (min(ys), max(ys)) == (pytest.approx(-o["width"] / 2, abs=1e-6), pytest.approx(o["width"] / 2, abs=1e-6))
+
+
+def test_main2_antenna_notch_cuts_the_board_away_under_the_antenna():
+    """ESP32-S3 Hardware Design Guidelines (General Principles of PCB Layout for Modules): no board
+    under the module's antenna; the footprint's keep-out (the 5.05 mm antenna area, Figure 11-1) lies
+    in the notch, the module's pads on the board, at least the edge clearance in."""
+    board = _main2_board()
+    area, pads = _u13_footprint()
+    corners = [_u13_to_robot(u, v) for u, v in area]
+    cx, cy = (sum(c[0] for c in corners) / len(corners), sum(c[1] for c in corners) / len(corners))
+    # the keep-out's corners, a hair towards its centre, and a grid over it: all off the board
+    xs, ys = [c[0] for c in corners], [c[1] for c in corners]
+    grid = [
+        (min(xs) + (max(xs) - min(xs)) * i / 20, min(ys) + (max(ys) - min(ys)) * j / 40)
+        for i in range(21)
+        for j in range(41)
+    ]
+    inner = [(x + (cx - x) * 1e-3, y + (cy - y) * 1e-3) for x, y in [*corners, *grid]]
+    on_board = [p for p in inner if _inside(p, board) and _edge_distance(p, board) > 1e-3]
+    assert not on_board, f"antenna area on the board at {on_board[:3]}"
+    for name, pts in pads:
+        for p in (_u13_to_robot(u, v) for u, v in pts):
+            assert _inside(p, board), f"U13 pad {name} off the board at {p}"
+            assert _edge_distance(p, board) >= EDGE_CLEARANCE - 1e-6, f"U13 pad {name} at {p}: too near the edge"
+
+
+def test_main2_antenna_notch_keeps_off_the_chassis_zones():
+    o, n = MAIN2["outline"], MAIN2["antenna_notch"]
+    x0, x1, y0, y1 = o["rear"], o["rear"] + n["depth"], o["width"] / 2 - n["width"], o["width"] / 2
+    for name, (zx0, zx1, zy0, zy1, _h) in mech.keepout_zones(MAIN2):
+        assert min(x1, zx1) <= max(x0, zx0) or min(y1, zy1) <= max(y0, zy0), f"the antenna notch cuts into {name}"
+    # and the two rear-corner notches stay apart: the rear edge between them carries the USB-C
+    usb = MAIN2["usb"]
+    assert (
+        y0 > usb["y"] + usb["peg_offset"]
+        and -o["width"] / 2 + MAIN2["switch_notch"]["width"] < usb["y"] - usb["peg_offset"]
+    )

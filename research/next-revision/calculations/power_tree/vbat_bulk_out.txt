@@ -17,6 +17,10 @@ Effective VBAT capacitance at 16.8 V (all VBAT caps on one node; 100 kHz trace i
   ceramic: 4 x 1210 10u 50V X7R per bridge             80.6 uF
   polymer: 25TQC33MYF per bridge                       98.1 uF
   polymer: 25TQC100MD3 per bridge                     232.1 uF
+  ceramic: 1210 only, 4 per bridge + 2 at the fan      60.6 uF
+  board + 1 x MA35V47M6X6 47u 35V polymer Al          107.6 uF
+  board + 1 x MA35V100M6X8 100u 35V polymer Al        160.6 uF
+  board + 1 x 35SVPF22M 22u 35V OS-CON                 82.6 uF
 Bridges in phase (the worst case, and the firmware's interleave is untested) at D = 0.5, and
 interleaved 180 degrees at D = 0.25 (the interleaved worst case; at D = 0.5 the two cancel).
 
@@ -45,6 +49,22 @@ polymer: 25TQC100MD3 per bridge                      2.4 A    0, D.5    153mV   
 polymer: 25TQC100MD3 per bridge                      2.4 A 180, D.25     71mV   0.13 A  bulk 0.37 A, CL31B106x10 0.14 A
 polymer: 25TQC100MD3 per bridge                      3.0 A    0, D.5    183mV   0.50 A  bulk 1.01 A, CL31B106x10 0.20 A
 polymer: 25TQC100MD3 per bridge                      3.0 A 180, D.25     83mV   0.16 A  bulk 0.44 A, CL31B106x10 0.16 A
+ceramic: 1210 only, 4 per bridge + 2 at the fan      2.4 A    0, D.5    213mV   0.52 A  CL32B106x10 0.28 A
+ceramic: 1210 only, 4 per bridge + 2 at the fan      2.4 A 180, D.25     67mV   0.09 A  CL32B106x10 0.16 A
+ceramic: 1210 only, 4 per bridge + 2 at the fan      3.0 A    0, D.5    265mV   0.65 A  CL32B106x10 0.34 A
+ceramic: 1210 only, 4 per bridge + 2 at the fan      3.0 A 180, D.25     77mV   0.12 A  CL32B106x10 0.19 A
+board + 1 x MA35V47M6X6 47u 35V polymer Al           2.4 A    0, D.5    142mV   0.34 A  bulk 0.88 A, CL32B106x10 0.21 A
+board + 1 x MA35V47M6X6 47u 35V polymer Al           2.4 A 180, D.25     56mV   0.08 A  bulk 0.36 A, CL32B106x10 0.15 A
+board + 1 x MA35V47M6X6 47u 35V polymer Al           3.0 A    0, D.5    176mV   0.42 A  bulk 1.10 A, CL32B106x10 0.25 A
+board + 1 x MA35V47M6X6 47u 35V polymer Al           3.0 A 180, D.25     64mV   0.10 A  bulk 0.44 A, CL32B106x10 0.17 A
+board + 1 x MA35V100M6X8 100u 35V polymer Al         2.4 A    0, D.5    123mV   0.31 A  bulk 1.15 A, CL32B106x10 0.20 A
+board + 1 x MA35V100M6X8 100u 35V polymer Al         2.4 A 180, D.25     55mV   0.08 A  bulk 0.45 A, CL32B106x10 0.15 A
+board + 1 x MA35V100M6X8 100u 35V polymer Al         3.0 A    0, D.5    152mV   0.39 A  bulk 1.43 A, CL32B106x10 0.24 A
+board + 1 x MA35V100M6X8 100u 35V polymer Al         3.0 A 180, D.25     63mV   0.10 A  bulk 0.55 A, CL32B106x10 0.17 A
+board + 1 x 35SVPF22M 22u 35V OS-CON                 2.4 A    0, D.5    163mV   0.38 A  bulk 0.62 A, CL32B106x10 0.22 A
+board + 1 x 35SVPF22M 22u 35V OS-CON                 2.4 A 180, D.25     57mV   0.08 A  bulk 0.29 A, CL32B106x10 0.15 A
+board + 1 x 35SVPF22M 22u 35V OS-CON                 3.0 A    0, D.5    202mV   0.48 A  bulk 0.77 A, CL32B106x10 0.27 A
+board + 1 x 35SVPF22M 22u 35V OS-CON                 3.0 A 180, D.25     65mV   0.10 A  bulk 0.35 A, CL32B106x10 0.17 A
 Target: the power-tree model assumed 150 mV pp (300 mV in its HV case) at 100 kHz on VBAT
 (calculations/power_tree/sim_power_tree.py), and the analog rail met its budget with it.
 MLCC ripple capability: CL31B106KBHNNN 2.60 A rms for a 10 C rise, 3.66 A for 20 C
@@ -79,6 +99,22 @@ polymer: 25TQC100MD3 per bridge                    pack 0.1R, 100 nH        33.0
 polymer: 25TQC100MD3 per bridge                    pack 0.1R, 300 nH        19.1k    36m  0.35     101mO     24mO
 polymer: 25TQC100MD3 per bridge                    pack 0.3R, 100 nH        33.0k    21m  0.07     273mO     23mO
 polymer: 25TQC100MD3 per bridge                    bench 30m, 1 uH          10.4k    66m  2.05      95mO     24mO
+ceramic: 1210 only, 4 per bridge + 2 at the fan    pack 0.1R, 100 nH        64.7k    41m  0.40     102mO     29mO
+ceramic: 1210 only, 4 per bridge + 2 at the fan    pack 0.1R, 300 nH        37.3k    70m  0.69     104mO     29mO
+ceramic: 1210 only, 4 per bridge + 2 at the fan    pack 0.3R, 100 nH        64.7k    41m  0.13     300mO     27mO
+ceramic: 1210 only, 4 per bridge + 2 at the fan    bench 30m, 1 uH          20.4k   128m  4.01     523mO     27mO
+board + 1 x MA35V47M6X6 47u 35V polymer Al         pack 0.1R, 100 nH        48.5k    30m  0.30     102mO     19mO
+board + 1 x MA35V47M6X6 47u 35V polymer Al         pack 0.1R, 300 nH        28.0k    53m  0.52     102mO     19mO
+board + 1 x MA35V47M6X6 47u 35V polymer Al         pack 0.3R, 100 nH        48.5k    30m  0.10     296mO     18mO
+board + 1 x MA35V47M6X6 47u 35V polymer Al         bench 30m, 1 uH          15.3k    96m  3.01     254mO     19mO
+board + 1 x MA35V100M6X8 100u 35V polymer Al       pack 0.1R, 100 nH        39.7k    25m  0.24     101mO     17mO
+board + 1 x MA35V100M6X8 100u 35V polymer Al       pack 0.1R, 300 nH        22.9k    43m  0.42     102mO     18mO
+board + 1 x MA35V100M6X8 100u 35V polymer Al       pack 0.3R, 100 nH        39.7k    25m  0.08     288mO     17mO
+board + 1 x MA35V100M6X8 100u 35V polymer Al       bench 30m, 1 uH          12.6k    79m  2.47     157mO     18mO
+board + 1 x 35SVPF22M 22u 35V OS-CON               pack 0.1R, 100 nH        55.4k    35m  0.34     102mO     21mO
+board + 1 x 35SVPF22M 22u 35V OS-CON               pack 0.1R, 300 nH        32.0k    60m  0.59     102mO     22mO
+board + 1 x 35SVPF22M 22u 35V OS-CON               pack 0.3R, 100 nH        55.4k    35m  0.12     298mO     20mO
+board + 1 x 35SVPF22M 22u 35V OS-CON               bench 30m, 1 uH          17.5k   110m  3.44     363mO     21mO
 
 6 A load release (both bridges and the fan stop at once) from the 17.4 V HV pack:
   electrolytic: JVS25V100M6X4 per bridge             pack 100nH 17.40 V   pack 300nH 17.42 V   bench 1uH 18.07 V
@@ -87,38 +123,43 @@ polymer: 25TQC100MD3 per bridge                    bench 30m, 1 uH          10.4
   ceramic: 4 x 1210 10u 50V X7R per bridge           pack 100nH 17.40 V   pack 300nH 17.41 V   bench 1uH 17.93 V
   polymer: 25TQC33MYF per bridge                     pack 100nH 17.40 V   pack 300nH 17.40 V   bench 1uH 17.81 V
   polymer: 25TQC100MD3 per bridge                    pack 100nH 17.40 V   pack 300nH 17.40 V   bench 1uH 17.59 V
+  ceramic: 1210 only, 4 per bridge + 2 at the fan    pack 100nH 17.40 V   pack 300nH 17.44 V   bench 1uH 18.03 V
+  board + 1 x MA35V47M6X6 47u 35V polymer Al         pack 100nH 17.40 V   pack 300nH 17.40 V   bench 1uH 17.81 V
+  board + 1 x MA35V100M6X8 100u 35V polymer Al       pack 100nH 17.40 V   pack 300nH 17.40 V   bench 1uH 17.69 V
+  board + 1 x 35SVPF22M 22u 35V OS-CON               pack 100nH 17.40 V   pack 300nH 17.40 V   bench 1uH 17.91 V
 
-=== 4. Hot plug and the battery switch (Q6 HSBB3072, R43/R41 100k, C58 47 nF G-D) ===
+=== 4. Hot plug and the battery switch with C58 47 nF from gate to drain only ===
+(the bulk options compared with that gate network; section 8 compares the gate networks)
 option                                             source              SW4  board max  Q6 VDS max  I peak  VGS max
-electrolytic: JVS25V100M6X4 per bridge             pack 100 nH         off    15.32 V      3.33 V  98.7 A   3.15 V
-electrolytic: JVS25V100M6X4 per bridge             pack 100 nH          on    17.39 V      3.32 V  98.7 A   5.90 V
-electrolytic: JVS25V100M6X4 per bridge             pack 300 nH         off    15.32 V      3.17 V  79.4 A   3.00 V
-electrolytic: JVS25V100M6X4 per bridge             pack 300 nH          on    17.39 V      3.16 V  79.4 A   5.90 V
-electrolytic: JVS25V100M6X4 per bridge             bench 1 uH          off    19.62 V      3.13 V  75.0 A   2.96 V
-electrolytic: JVS25V100M6X4 per bridge             bench 1 uH           on    19.64 V      3.12 V  75.0 A   5.92 V
-ceramic only, bulk removed                         pack 100 nH         off    15.62 V      3.32 V  98.0 A   3.15 V
-ceramic only, bulk removed                         pack 100 nH          on    17.39 V      3.32 V  98.0 A   5.96 V
-ceramic only, bulk removed                         pack 300 nH         off    16.76 V      3.15 V  78.1 A   2.99 V
-ceramic only, bulk removed                         pack 300 nH          on    17.39 V      3.15 V  78.1 A   5.97 V
-ceramic only, bulk removed                         bench 1 uH          off    25.35 V      3.08 V  70.3 A   2.92 V
-ceramic only, bulk removed                         bench 1 uH           on    25.38 V      3.08 V  70.3 A   5.98 V
-ceramic: 2 x 1210 10u 50V X7R per bridge           pack 100 nH         off    15.61 V      3.39 V 106.9 A   3.22 V
-ceramic: 2 x 1210 10u 50V X7R per bridge           pack 100 nH          on    17.39 V      3.39 V 106.9 A   5.95 V
-ceramic: 2 x 1210 10u 50V X7R per bridge           pack 300 nH         off    15.62 V      3.25 V  88.8 A   3.08 V
-ceramic: 2 x 1210 10u 50V X7R per bridge           pack 300 nH          on    17.39 V      3.24 V  88.8 A   5.95 V
-ceramic: 2 x 1210 10u 50V X7R per bridge           bench 1 uH          off    24.15 V      3.25 V  88.7 A   3.08 V
-ceramic: 2 x 1210 10u 50V X7R per bridge           bench 1 uH           on    24.18 V      3.24 V  88.8 A   5.97 V
-polymer: 25TQC33MYF per bridge                     pack 100 nH         off    15.57 V      3.38 V 106.0 A   3.21 V
-polymer: 25TQC33MYF per bridge                     pack 100 nH          on    17.39 V      3.38 V 106.0 A   5.94 V
-polymer: 25TQC33MYF per bridge                     pack 300 nH         off    15.58 V      3.27 V  91.9 A   3.10 V
-polymer: 25TQC33MYF per bridge                     pack 300 nH          on    17.39 V      3.27 V  91.9 A   5.94 V
-polymer: 25TQC33MYF per bridge                     bench 1 uH          off    21.24 V      3.37 V 102.6 A   3.18 V
-polymer: 25TQC33MYF per bridge                     bench 1 uH           on    21.28 V      3.35 V 102.7 A   5.98 V
+electrolytic: JVS25V100M6X4 per bridge             pack 100 nH         off    14.68 V      3.56 V  96.9 A   3.38 V
+electrolytic: JVS25V100M6X4 per bridge             pack 100 nH          on    17.39 V      3.56 V  96.9 A   5.72 V
+electrolytic: JVS25V100M6X4 per bridge             pack 300 nH         off    14.68 V      3.45 V  77.7 A   3.27 V
+electrolytic: JVS25V100M6X4 per bridge             pack 300 nH          on    17.39 V      3.45 V  77.7 A   5.72 V
+electrolytic: JVS25V100M6X4 per bridge             bench 1 uH          off    19.17 V      3.42 V  73.2 A   3.24 V
+electrolytic: JVS25V100M6X4 per bridge             bench 1 uH           on    19.19 V      3.42 V  73.2 A   5.75 V
+ceramic only, bulk removed                         pack 100 nH         off    15.06 V      3.60 V  96.2 A   3.38 V
+ceramic only, bulk removed                         pack 100 nH          on    17.39 V      3.56 V  96.2 A   5.79 V
+ceramic only, bulk removed                         pack 300 nH         off    16.30 V      3.55 V  76.3 A   3.26 V
+ceramic only, bulk removed                         pack 300 nH          on    17.39 V      3.44 V  76.3 A   5.81 V
+ceramic only, bulk removed                         bench 1 uH          off    24.72 V      3.58 V  68.6 A   3.22 V
+ceramic only, bulk removed                         bench 1 uH           on    24.74 V      3.39 V  68.6 A   5.81 V
+ceramic: 2 x 1210 10u 50V X7R per bridge           pack 100 nH         off    15.04 V      3.61 V 105.1 A   3.42 V
+ceramic: 2 x 1210 10u 50V X7R per bridge           pack 100 nH          on    17.39 V      3.61 V 105.1 A   5.78 V
+ceramic: 2 x 1210 10u 50V X7R per bridge           pack 300 nH         off    15.07 V      3.58 V  87.0 A   3.33 V
+ceramic: 2 x 1210 10u 50V X7R per bridge           pack 300 nH          on    17.39 V      3.50 V  87.0 A   5.78 V
+ceramic: 2 x 1210 10u 50V X7R per bridge           bench 1 uH          off    23.61 V      3.57 V  86.8 A   3.32 V
+ceramic: 2 x 1210 10u 50V X7R per bridge           bench 1 uH           on    23.64 V      3.50 V  86.8 A   5.80 V
+polymer: 25TQC33MYF per bridge                     pack 100 nH         off    15.00 V      3.60 V 104.2 A   3.42 V
+polymer: 25TQC33MYF per bridge                     pack 100 nH          on    17.39 V      3.60 V 104.2 A   5.77 V
+polymer: 25TQC33MYF per bridge                     pack 300 nH         off    15.00 V      3.55 V  90.2 A   3.34 V
+polymer: 25TQC33MYF per bridge                     pack 300 nH          on    17.39 V      3.52 V  90.2 A   5.77 V
+polymer: 25TQC33MYF per bridge                     bench 1 uH          off    20.79 V      3.59 V 100.7 A   3.40 V
+polymer: 25TQC33MYF per bridge                     bench 1 uH           on    20.83 V      3.58 V 100.7 A   5.87 V
 With an SMAJ18A from BAT_P to GND_BAT at J1:
-ceramic only, bulk removed                         pack 100 nH          on    17.39 V      3.32 V  98.0 A   5.95 V
-ceramic only, bulk removed                         bench 1 uH           on    24.29 V      3.08 V  70.3 A   5.97 V
-ceramic: 2 x 1210 10u 50V X7R per bridge           pack 100 nH          on    17.39 V      3.39 V 106.9 A   5.95 V
-ceramic: 2 x 1210 10u 50V X7R per bridge           bench 1 uH           on    23.49 V      3.24 V  88.8 A   5.96 V
+ceramic only, bulk removed                         pack 100 nH          on    17.39 V      3.56 V  96.2 A   5.79 V
+ceramic only, bulk removed                         bench 1 uH           on    23.68 V      3.39 V  68.6 A   5.81 V
+ceramic: 2 x 1210 10u 50V X7R per bridge           pack 100 nH          on    17.39 V      3.61 V 105.1 A   5.78 V
+ceramic: 2 x 1210 10u 50V X7R per bridge           bench 1 uH           on    22.96 V      3.50 V  86.8 A   5.80 V
 Reference, Q6 shorted (a plain switch or no switch: the pack lands straight on the capacitors):
 electrolytic: JVS25V100M6X4 per bridge             pack 100 nH           -    17.39 V           - 120.5 A
 electrolytic: JVS25V100M6X4 per bridge             bench 1 uH            -    23.63 V           -  90.1 A
@@ -131,8 +172,8 @@ polymer: 25TQC33MYF per bridge                     bench 1 uH            -    25
 
 SW4 closing (pack plugged, 3 Ohm load) and SW4 opening under a 5.8 A load (3 Ohm at 17.4 V),
 pack 0.1 Ohm behind 100 nH:
-  ceramic only, bulk removed                         close: board max 16.81 V, 10-90 % in  5.24 ms, inrush  5.60 A | open: Q6 VDS max 17.40 V, board max 16.81 V, fall 36.22 ms
-  ceramic: 2 x 1210 10u 50V X7R per bridge           close: board max 16.81 V, 10-90 % in  5.24 ms, inrush  5.64 A | open: Q6 VDS max 17.40 V, board max 16.81 V, fall 36.23 ms
+  ceramic only, bulk removed                         close: board max 16.82 V, 10-90 % in  5.78 ms, inrush  5.63 A | open: Q6 VDS max 17.40 V, board max 16.82 V, fall 28.29 ms
+  ceramic: 2 x 1210 10u 50V X7R per bridge           close: board max 16.82 V, 10-90 % in  5.79 ms, inrush  5.68 A | open: Q6 VDS max 17.40 V, board max 16.82 V, fall 28.30 ms
 
 === 5. Regeneration into VBAT with the pack disconnected ===
 Back-EMF at 14,300 rpm: 5.27 V, far below the 12-17.4 V pack: a coasting motor never
@@ -149,6 +190,10 @@ ceramic: 2 x 1210 10u 50V X7R per bridge              2.9ms    5.2ms   11.2ms
 ceramic: 4 x 1210 10u 50V X7R per bridge              4.2ms    7.5ms   16.0ms
 polymer: 25TQC33MYF per bridge                        5.2ms    9.3ms   19.8ms
 polymer: 25TQC100MD3 per bridge                      12.3ms   22.2ms   47.2ms
+ceramic: 1210 only, 4 per bridge + 2 at the fan       3.1ms    5.7ms   12.1ms
+board + 1 x MA35V47M6X6 47u 35V polymer Al            5.6ms   10.2ms   21.7ms
+board + 1 x MA35V100M6X8 100u 35V polymer Al          8.5ms   15.3ms   32.5ms
+board + 1 x 35SVPF22M 22u 35V OS-CON                  4.3ms    7.8ms   16.6ms
 A stop from 4 m/s lasts hundreds of ms: no capacitor bank absorbs it. Either the firmware
 stops regenerative braking (coast or low-side brake, EN = 0) when VBAT rises above the pack's
 maximum, or a TVS takes the energy.
@@ -162,9 +207,118 @@ Hot plug: the TVS also holds Q6's VDS (30 V absolute maximum) below 30 V.
 SW4 / Q6                I regen  VBAT max  VBAT end   Q6 VDS  Q6 VGS
 on (channel)             0.15 A   21.22 V   21.22 V  -0.00 V 10.61 V
 on (channel)             0.50 A   21.46 V   21.46 V  -0.00 V 10.73 V
-on (channel)             2.00 A   22.41 V   22.40 V  -0.00 V 11.20 V
+on (channel)             2.00 A   22.40 V   22.40 V  -0.00 V 11.20 V
 off (body diode)         0.15 A   21.89 V   21.89 V  -0.67 V -0.00 V
 off (body diode)         0.50 A   22.16 V   22.16 V  -0.70 V -0.00 V
 off (body diode)         2.00 A   23.14 V   23.14 V  -0.74 V -0.00 V
 Both states clamp VBAT: with SW4 off the TVS current returns to GND through Q6's body diode
 (GND_BAT to GND is its forward direction), adding its drop (1.2 V max at 1 A, HSBB3072 p2).
+
+=== 8. Q6's gate network against the STSPIN958's 0.5 V/us VS slew (DS14341 Table 1) ===
+Plug-in (pack 0.1 Ohm at 17.4 V; bench supply 30 mOhm on 1 m leads at 17.4 and 24 V); VBAT
+slew is VBAT - GND (the STSPIN958's VS), Q6 VGS its peak; 150 Ohm on VBAT, no USB:
+gate                         source                SW4  VBAT slew  I peak       I2t  Q6 VGS  Q6 VDS board max
+C58 47n G-D                  pack 100 nH           off   1.611V/us 106.0 A  0.0632A2s  3.43 V  3.61 V   14.88 V
+C58 47n G-D                  pack 100 nH            on   1.611V/us 106.0 A  0.0633A2s  3.43 V  3.61 V   15.68 V
+C58 47n G-D                  pack 300 nH           off   1.330V/us  89.0 A  0.0628A2s  3.34 V  3.52 V   14.88 V
+C58 47n G-D                  pack 300 nH            on   1.331V/us  89.0 A  0.0629A2s  3.34 V  3.52 V   15.68 V
+C58 47n G-D                  bench 1 uH 17.4 V     off   1.372V/us  92.4 A  0.1179A2s  3.36 V  3.54 V   22.16 V
+C58 47n G-D                  bench 1 uH 17.4 V      on   1.372V/us  92.4 A  0.1182A2s  3.36 V  3.53 V   22.19 V
+C58 47n G-D                  bench 1 uH 24 V       off   2.002V/us 134.9 A  0.2543A2s  3.57 V  3.77 V   30.91 V
+C58 47n G-D                  bench 1 uH 24 V        on   2.003V/us 134.9 A  0.2556A2s  3.57 V  3.75 V   30.95 V
+(a) C58 47n G-D + 2.2u G-S   pack 100 nH           off   0.018V/us  10.9 A  0.0000A2s  0.53 V 25.07 V    0.03 V
+(a) C58 47n G-D + 2.2u G-S   pack 100 nH            on   0.018V/us  10.9 A  0.0000A2s  0.53 V 25.07 V    0.03 V
+(a) C58 47n G-D + 2.2u G-S   pack 300 nH           off   0.018V/us   6.2 A  0.0000A2s  0.50 V 23.78 V    0.02 V
+(a) C58 47n G-D + 2.2u G-S   pack 300 nH            on   0.018V/us   6.2 A  0.0000A2s  0.50 V 23.78 V    0.02 V
+(a) C58 47n G-D + 2.2u G-S   bench 1 uH 17.4 V     off   0.018V/us   3.2 A  0.0000A2s  0.48 V 22.65 V    0.02 V
+(a) C58 47n G-D + 2.2u G-S   bench 1 uH 17.4 V      on   0.018V/us   3.2 A  0.0000A2s  0.48 V 22.65 V    0.02 V
+(a) C58 47n G-D + 2.2u G-S   bench 1 uH 24 V       off   0.019V/us   4.5 A  0.0058A2s  0.50 V 23.89 V    0.03 V
+(a) C58 47n G-D + 2.2u G-S   bench 1 uH 24 V        on   0.019V/us   4.5 A  0.0058A2s  0.53 V 23.89 V    0.03 V
+(b) C58 47n G-S + 1n G-D     pack 100 nH           off   0.002V/us   2.8 A  0.0000A2s  0.69 V 22.60 V    0.03 V
+(b) C58 47n G-S + 1n G-D     pack 100 nH            on   0.002V/us   2.8 A  0.0000A2s  1.46 V 22.60 V    0.03 V
+(b) C58 47n G-S + 1n G-D     pack 300 nH           off   0.001V/us   1.5 A  0.0000A2s  0.67 V 21.85 V    0.02 V
+(b) C58 47n G-S + 1n G-D     pack 300 nH            on   0.001V/us   1.5 A  0.0000A2s  1.46 V 21.85 V    0.02 V
+(b) C58 47n G-S + 1n G-D     bench 1 uH 17.4 V     off   0.001V/us   0.6 A  0.0000A2s  0.66 V 21.39 V    0.02 V
+(b) C58 47n G-S + 1n G-D     bench 1 uH 17.4 V      on   0.001V/us   0.6 A  0.0000A2s  1.46 V 21.39 V    0.02 V
+(b) C58 47n G-S + 1n G-D     bench 1 uH 24 V       off   0.001V/us   4.4 A  0.0057A2s  0.72 V 23.85 V    0.03 V
+(b) C58 47n G-S + 1n G-D     bench 1 uH 24 V        on   0.001V/us   4.4 A  0.0057A2s  1.96 V 23.85 V    0.03 V
+(b) C58 100n G-S + 1n G-D    pack 100 nH           off   0.002V/us   2.8 A  0.0000A2s  0.34 V 22.57 V    0.03 V
+(b) C58 100n G-S + 1n G-D    pack 100 nH            on   0.002V/us   2.8 A  0.0000A2s  0.75 V 22.57 V    0.03 V
+(b) C58 100n G-S + 1n G-D    pack 300 nH           off   0.001V/us   1.5 A  0.0000A2s  0.33 V 21.85 V    0.02 V
+(b) C58 100n G-S + 1n G-D    pack 300 nH            on   0.001V/us   1.5 A  0.0000A2s  0.75 V 21.85 V    0.02 V
+(b) C58 100n G-S + 1n G-D    bench 1 uH 17.4 V     off   0.001V/us   0.6 A  0.0000A2s  0.32 V 21.39 V    0.02 V
+(b) C58 100n G-S + 1n G-D    bench 1 uH 17.4 V      on   0.001V/us   0.6 A  0.0000A2s  0.75 V 21.39 V    0.02 V
+(b) C58 100n G-S + 1n G-D    bench 1 uH 24 V       off   0.001V/us   4.4 A  0.0057A2s  0.35 V 23.85 V    0.03 V
+(b) C58 100n G-S + 1n G-D    bench 1 uH 24 V        on   0.001V/us   4.4 A  0.0057A2s  1.00 V 23.85 V    0.03 V
+
+SW4 closing at 1 ms and opening at 1 ms under a 3 Ohm load (5.8 A at 17.4 V), pack 0.1 Ohm on
+100 nH: the delay to 10 % (closing) or from 90 % (opening) of VBAT, the 10-90 % time, the slew,
+the inrush peak and Q6's peak power (VDS x ID):
+gate                         event      delay   10-90 %  VBAT slew  I peak  Q6 peak  Q6 energy
+C58 47n G-D                  close    1.46 ms  5.795 ms   0.002V/us  5.73 A   25.9 W  126.96 mJ
+C58 47n G-D                  open    10.06 ms 26.746 ms   0.001V/us  5.60 A   24.1 W  550.22 mJ
+(a) C58 47n G-D + 2.2u G-S   close   35.79 ms 10.192 ms   0.002V/us  5.68 A   25.3 W  253.80 mJ
+(a) C58 47n G-D + 2.2u G-S   open   271.23 ms 48.642 ms   0.000V/us  5.60 A   24.2 W 1068.31 mJ
+(b) C58 47n G-S + 1n G-D     close    0.88 ms  0.305 ms   0.055V/us  7.76 A   61.9 W   18.79 mJ
+(b) C58 47n G-S + 1n G-D     open     6.64 ms  1.603 ms   0.010V/us  5.60 A   19.8 W   26.79 mJ
+(b) C58 100n G-S + 1n G-D    close    1.73 ms  0.404 ms   0.042V/us  7.63 A   50.7 W   21.21 mJ
+(b) C58 100n G-S + 1n G-D    open    12.94 ms  2.130 ms   0.008V/us  5.60 A   20.8 W   39.17 mJ
+Q6's SOA (HSBB3072 Fig. 8, TC = 25 C, single pulse): about 410 W for 100 us and 130 W for 1 ms.
+(b) C58 100n G-S + 1n G-D: plug-in with SW4 on, the whole turn-on (5 ms, 150 Ohm load): F1 carries 4.08 A peak, I2t 3.99 mA2s.
+
+Pack pulled at 1 ms with SW4 on, under 3 Ohm (5.8 A) and 1.5 Ohm (11.6 A, both bridges and the fan
+at their limits): VBAT discharges into the load, whatever the gate network:
+  C58 47n G-D                   3.0 Ohm: VBAT slew  0.093 V/us, board max 16.76 V
+  C58 47n G-D                   1.5 Ohm: VBAT slew  0.178 V/us, board max 16.17 V
+  (a) C58 47n G-D + 2.2u G-S    3.0 Ohm: VBAT slew  0.093 V/us, board max 16.76 V
+  (a) C58 47n G-D + 2.2u G-S    1.5 Ohm: VBAT slew  0.178 V/us, board max 16.17 V
+  (b) C58 47n G-S + 1n G-D      3.0 Ohm: VBAT slew  0.093 V/us, board max 16.77 V
+  (b) C58 47n G-S + 1n G-D      1.5 Ohm: VBAT slew  0.178 V/us, board max 16.17 V
+  (b) C58 100n G-S + 1n G-D     3.0 Ohm: VBAT slew  0.093 V/us, board max 16.76 V
+  (b) C58 100n G-S + 1n G-D     1.5 Ohm: VBAT slew  0.178 V/us, board max 16.17 V
+
+Plug-in with USB already powering the board (SW4 on): the pack's - lands on GND_BAT, Q6 decides
+when VBAT rises; VSYS sits on USB until then:
+  C58 47n G-D                  VBAT slew  1.769 V/us, Q6 VGS max  8.69 V, Q8 VGS  -4.99 to  0.27 V
+  (a) C58 47n G-D + 2.2u G-S   VBAT slew  0.016 V/us, Q6 VGS max  8.44 V, Q8 VGS  -4.99 to  0.28 V
+  (b) C58 47n G-S + 1n G-D     VBAT slew  0.064 V/us, Q6 VGS max  8.69 V, Q8 VGS  -4.99 to  0.30 V
+  (b) C58 100n G-S + 1n G-D    VBAT slew  0.054 V/us, Q6 VGS max  8.66 V, Q8 VGS  -4.99 to  0.30 V
+
+(b) C58 100n G-S + 1n G-D (the board): every case above keeps VBAT within 0.5 V/us (largest 0.178 V/us).
+Q6 stays off at plug-in and ramps VBAT over 0.4 ms, so the pack's or a bench supply's lead
+inductance never rings against the VBAT bank at plug-in: a bulk part's damping shows only in
+section 3 (load release, source impedance).
+
+=== 9. Q8 (AO3401A) gate-source, +-12 V absolute maximum (AOS p1) ===
+case                                                          C63   D8  D16  Q8 VGS min  VSYS max
+pack plugged with USB present, SW4 on                        10uF  yes   no     -4.99 V   17.11 V
+pack plugged with USB present, SW4 on                        10uF   no   no     -4.99 V   17.11 V
+pack plugged with USB present, SW4 on                         1uF   no   no     -4.99 V   17.11 V
+pack plugged with USB present, SW4 on                         1uF  yes  yes     -4.99 V   17.11 V
+pack plugged with USB present, SW4 on                         1uF   no  yes     -4.99 V   17.11 V
+VBAT shorted to GND, no USB, 0 W                             10uF  yes   no     -8.58 V   17.39 V
+VBAT shorted to GND, no USB, 0 W                             10uF   no   no    -12.25 V   17.39 V
+VBAT shorted to GND, no USB, 0 W                              1uF   no   no    -15.39 V   17.39 V
+VBAT shorted to GND, no USB, 0 W                              1uF  yes  yes     -9.28 V   17.39 V
+VBAT shorted to GND, no USB, 0 W                              1uF   no  yes    -10.55 V   17.39 V
+VBAT shorted to GND, no USB, 0.5 W on VSYS                   10uF  yes   no     -8.50 V   17.11 V
+VBAT shorted to GND, no USB, 0.5 W on VSYS                   10uF   no   no    -11.23 V   17.11 V
+VBAT shorted to GND, no USB, 0.5 W on VSYS                    1uF   no   no    -14.75 V   17.11 V
+VBAT shorted to GND, no USB, 0.5 W on VSYS                    1uF  yes  yes     -9.18 V   17.11 V
+VBAT shorted to GND, no USB, 0.5 W on VSYS                    1uF   no  yes    -10.55 V   17.11 V
+VBAT shorted to GND, USB present                             10uF  yes   no     -5.31 V   17.39 V
+VBAT shorted to GND, USB present                             10uF   no   no     -5.42 V   17.39 V
+VBAT shorted to GND, USB present                              1uF   no   no     -5.55 V   17.39 V
+VBAT shorted to GND, USB present                              1uF  yes  yes     -5.22 V   17.39 V
+VBAT shorted to GND, USB present                              1uF   no  yes     -5.48 V   17.39 V
+pack pulled under 1.5 Ohm (11.6 A), no USB, 0 W              10uF  yes   no     -9.56 V   16.17 V
+pack pulled under 1.5 Ohm (11.6 A), no USB, 0 W              10uF   no   no    -12.82 V   16.17 V
+pack pulled under 1.5 Ohm (11.6 A), no USB, 0 W               1uF   no   no    -15.74 V   16.17 V
+pack pulled under 1.5 Ohm (11.6 A), no USB, 0 W               1uF  yes  yes     -9.56 V   16.17 V
+pack pulled under 1.5 Ohm (11.6 A), no USB, 0 W               1uF   no  yes    -10.55 V   16.17 V
+SW4 opened under 3 Ohm (5.8 A), no USB, 0 W                  10uF  yes   no     -9.43 V   16.81 V
+SW4 opened under 3 Ohm (5.8 A), no USB, 0 W                  10uF   no   no    -13.28 V   16.81 V
+SW4 opened under 3 Ohm (5.8 A), no USB, 0 W                   1uF   no   no    -16.29 V   16.81 V
+SW4 opened under 3 Ohm (5.8 A), no USB, 0 W                   1uF  yes  yes     -9.43 V   16.81 V
+SW4 opened under 3 Ohm (5.8 A), no USB, 0 W                   1uF   no  yes    -10.56 V   16.81 V
+With D16 (the board) Q8's VGS stays at or above -10.56 V, inside +-12 V, with or without D8.

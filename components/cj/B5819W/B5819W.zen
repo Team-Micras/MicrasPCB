@@ -8,9 +8,10 @@ average; IFSM 9 A (8.3 ms); IFRM 1.5 A; Pd 500 mW, derated linearly to 0 at 125 
 power derating curve); RthJA 200 C/W; TJ 125 C max; Tstg -55 to 150 C.
 Electrical characteristics (DS p.1, Ta = 25 C): V(BR) 40 V min at 1 mA; IR 1 mA max at 40 V;
 VF max 0.6 V at 1 A, 0.9 V at 3 A; CD 120 pF max at 4 V, 1 MHz.
-Typical curves (DS p.2): VF about 0.3 V at 0.1 A and 0.5 V at 1 A (25 C); reverse current at
-VR 17 V about 12 uA at 25 C, 0.12 mA at 75 C and 1.2 mA at 100 C; at VR 5 V about 6 uA,
-70 uA and 0.6 mA.
+Typical curves (DS p.2, read at 250 dpi): Forward Characteristics, VF about 0.30 V at 0.1 A and
+0.48 V at 1 A at 25 C, 0.22 V and 0.43 V at 100 C (about -1.2 mV/C at 0.13 A); Reverse
+Characteristics, at VR 1 / 5 / 17 V about 5 / 6 / 12 uA at 25 C, 55 / 64 / 110 uA at 75 C and
+0.42 / 0.59 / 0.92 mA at 100 C (log-interpolated: about 140 uA at 85 C and a few volts).
 Polarity (DS p.1 package view): the marking bar indicates the cathode.
 
 Pins: pad 1 cathode (K), pad 2 anode (A): KiCad's D_SOD-123 footprint numbers the cathode pad 1
@@ -19,9 +20,10 @@ footprint is the KiCad library's SOD-123 land.
 
 Application on the next main board (research/next-revision, power path; A.4): VBAT -> VSYS
 OR-ing diode. The 4S pack (17.4 V with HV cells) sits at 44 % of VRRM. Forward: about 0.13 A at
-14.8 V (L6981 and the analog LDO), about 46 mW with VF ~0.35 V, +9 K at 200 C/W. Reverse: the
-diode only blocks while VSYS (USB VBUS, <= 5.25 V) is above a missing or switched-off pack, so VR
-stays near 5 V; its leakage then back-feeds the switched VBAT node (inference).
+14.8 V (L6981 and the analog LDO), about 40 mW with VF 0.32 V, +8 K at 200 C/W. Reverse: the
+diode only blocks while VSYS (USB VBUS, <= 5.5 V) is above a missing or switched-off pack, so VR
+stays under 5.5 V; its leakage then lifts the otherwise floating VBAT node, which the board's
+12 kOhm battery divider holds down (boards/main2/Regulators.zen, battery measurement).
 
 This is the stdlib Rectifier generic's part, packaged because the generic cannot carry an MPN.
 """

@@ -1,0 +1,80 @@
+"""05010xx.WR1 - fast-acting fuses, 10-20 A, 32 VDC, Littelfuse 501 series (1206). Bare part.
+
+Datasheet: Littelfuse "Surface Mount Fuses, Ceramic Fuse > 501 Series", Revised 12/14/17
+(littelfuse.com assetdocs "fuse-501-datasheet", the current revision; LCSC still serves the
+08/20/15 one, whose 10/12/20 A resistances, 15/20 A I2t and curves it supersedes; the two show
+the same Dimensions, so pcb.toml and the footprint link the LCSC copy). The four rows share
+the body, the pads, the voltage and the interrupting rating; they differ in the ampere rating,
+the element's resistance and its melting I2t.
+
+Ratings (Electrical Specifications by Item): 32 V maximum; interrupting rating 150 A at 32 VDC
+for every row (note 1: tested at the rated voltage, time constant < 0.5 ms).
+
+| Rating | MPN | Nominal resistance (note 2) | Melting I2t at 1 ms (note 3) | Drop / power at the rating (note 4) |
+|---|---|---|---|---|
+| 10 A | 0501010.WR1 | 3.62 mOhm | 10.385 A2s | 44.07 mV / 0.4407 W |
+| 12 A | 0501012.WR1 | 3.11 mOhm | 20.341 A2s | 49.27 mV / 0.5912 W |
+| 15 A | 0501015.WR1 | 2.50 mOhm | 39.700 A2s | 48.43 mV / 0.7265 W |
+| 20 A | 0501020.WR1 | 1.94 mOhm | 86.360 A2s | 58.88 mV / 1.1776 W |
+
+Opening time (Electrical Characteristics for Series, 25 C): at 100 % of the rating 4 hours
+minimum, at 350 % 5 s maximum. Continuous current: at most 80 % of the rating (notes), times the
+Temperature Re-rating Curve's factor on top (0.85 at 75 C, the datasheet's example: I = 0.80 x
+0.85 x IRAT). Average Time Current Curves (page 2): the current that opens each row in 100 s, 1 s
+and 10 ms, digitised from the chart's vector paths against its own axis lines (the I2t this gives
+at 1 ms, 9.5 / 18.4 / 39.3 / 85.6 A2s, is within 10 % of the table's):
+
+| Rating | 100 s | 1 s | 10 ms |
+|---|---|---|---|
+| 10 A | 25 A | 32 A | 54 A |
+| 12 A | 28 A | 37 A | 67 A |
+| 15 A | 32 A | 45 A | 94 A |
+| 20 A | 40 A | 60 A | 141 A |
+
+Operating temperature -55 to 150 C.
+
+Package (Dimensions): body 3.200 +-0.178 x 1.63 +0.10/-0.20 mm, 0.835 +-0.15 mm high, 0.520 mm
+terminations; recommended pad layout two 1.000 x 1.800 mm pads 1.500 mm apart, 3.500 mm overall.
+Marking code 10, 12, 15 or 20, mounted with the marking up (notes). The fuse has no polarity.
+"""
+
+load("@stdlib/units.zen", "Current", "Resistance", "Voltage")
+
+# Electrical Specifications by Item and the Average Time Current Curves, one row per rating:
+# (MPN, cold resistance, melting I2t at 1 ms in A2s, opening current at 100 s / 1 s / 10 ms in A).
+ROWS = {
+    "10A": ("0501010.WR1", "3.62mOhm", 10.385, (25.0, 32.0, 54.0)),
+    "12A": ("0501012.WR1", "3.11mOhm", 20.341, (28.0, 37.0, 67.0)),
+    "15A": ("0501015.WR1", "2.5mOhm", 39.7, (32.0, 45.0, 94.0)),
+    "20A": ("0501020.WR1", "1.94mOhm", 86.36, (40.0, 60.0, 141.0)),
+}
+
+Rating = enum("10A", "12A", "15A", "20A")
+rating = config(Rating, default="20A", help="Ampere rating (the row of the 501 series)")
+
+mpn, cold, i2t, opening = ROWS[rating.value]
+
+P1 = io(Net)
+P2 = io(Net)
+
+Component(
+    name="F",
+    prefix="F",
+    symbol=Symbol(library="05010xx.kicad_sym"),
+    footprint=File("Fuse_Littelfuse_501_1206.kicad_mod"),
+    part=Part(mpn=mpn, manufacturer="Littelfuse"),
+    pins={"1": P1, "2": P2},
+    properties={
+        "value": rating.value + " 32V fast",
+        "current_rating": Current(rating.value),
+        "voltage_rating": Voltage("32V"),
+        "interrupting_current": Current("150A"),  # at 32 VDC
+        "cold_resistance": Resistance(cold),
+        "melting_i2t": i2t,  # A2s, at 1 ms
+        "continuous_derating": 0.80,  # of the rating, before the temperature re-rating
+        "opening_current_100s": opening[0],  # A, Average Time Current Curves
+        "opening_current_1s": opening[1],
+        "opening_current_10ms": opening[2],
+    },
+    type="fuse",
+)

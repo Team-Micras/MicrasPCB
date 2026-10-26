@@ -58,16 +58,21 @@ TI's PWP0016J drawings in SLVSF66A (4223595/B):
   pitch, pad centres 5.8 mm apart (x = +-2.9 mm). Thermal pad 17: 3.4 x 5.0 mm copper (note 8:
   "size of metal pad may vary due to creepage requirement"), solder-mask-defined 2.46 x 3.55 mm
   opening (a separate F.Mask aperture, as the KiCad library does), `zone_connect` solid.
-- Paste (p41, Example Stencil Design): signal pads 1:1; thermal pad 2.46 x 3.55 mm, TI's opening
-  for a 0.125 mm stencil (0.1 mm: 2.75 x 3.97; 0.15 mm: 2.25 x 3.24).
+- Paste: signal pads 1:1 (p41, Example Stencil Design). The thermal pad's paste is split for
+  thermal vias left open (no via-in-pad process): six windows, two columns x = +-0.2 to +-1.18 mm
+  by three rows y = -1.6 to -0.8, -0.4 to +0.4, +0.8 to +1.6 mm, 54 % of the 2.46 x 3.55 mm opening,
+  each 0.2 mm clear of the via grid's centres. TI's p41 opening is the full 2.46 x 3.55 mm (0.125 mm
+  stencil) over vias its note 9 asks filled, plugged or tented; TI SLUA271C section 4.4 asks 50-70 %
+  paste coverage on an exposed pad, in windows that let it outgas.
 - Thermal vias (p40; section 10.1 "A recommended land pattern for the thermal vias is provided in
   the package drawing section"): 12 vias of 0.2 mm, a 3 x 4 grid at 1.2 mm pitch (x = -1.2, 0,
   +1.2 mm; y = +-0.6, +-1.8 mm). They are drawn on **Cmts.User** as a guide, not as footprint
   pads: the layout places them as GND board vias inside pad 17. Footprint through-hole pads
   would count as 0.2 mm PTH holes in DFM (JLCPCB prefers 0.5 mm PTH, 0.2 mm vias,
   `rules/jlcpcb-pdk.toml`) and make `pcb rectify` read the footprint as mixed technology.
-  Note 9: "vias under paste be filled, plugged or tented": tent them on B.Cu, or order via
-  plugging. Section 8.2.1.2.3 simulates the thermal vias on the same 1.2 mm grid, with an inner
+  Note 9 asks "vias under paste be filled, plugged or tented"; the split paste keeps them out from
+  under it, so they can stay open on both sides (tenting a pad's via from the back traps air, TI
+  SLUA271C section 3.4.1). Section 8.2.1.2.3 simulates the thermal vias on the same 1.2 mm grid, with an inner
   GND plane and the largest top-copper area that fits (section 10.1).
 - Body 4.4 x 5.0 mm on F.Fab (p39: 4.3-4.5 x 4.9-5.1 mm), pin-1 corner chamfered; silkscreen on
   the body's top and bottom edges, the top one extended over pin 1; F.CrtYd 0.25 mm (IPC-7351B

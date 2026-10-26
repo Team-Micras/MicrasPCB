@@ -130,12 +130,13 @@ def _slot(c: tuple[float, float], length: float, width: float) -> list:
 
 
 def main2_outline(s: dict) -> list:
-    """boards/main2's Edge.Cuts in the robot frame: the board (nose, wheel notches, switch notch,
-    rounded corners), the encoder slots, the fan hole and the USB-C peg holes."""
-    o, n, sw = s["outline"], s["wheel_notches"], s["switch_notch"]
+    """boards/main2's Edge.Cuts in the robot frame: the board (nose, wheel notches, the antenna and
+    switch notches in the rear corners, rounded corners), the encoder slots, the fan hole and the
+    USB-C peg holes."""
+    o, n, sw, an = s["outline"], s["wheel_notches"], s["switch_notch"], s["antenna_notch"]
     f, r, hw = o["front"], o["rear"], o["width"] / 2
     ni, nx, nr = n["inner_y"], n["half_length"], n["corner_radius"]
-    rc, sr = o["rear_corner_radius"], sw["corner_radius"]
+    sr, ar = sw["corner_radius"], an["corner_radius"]
     corners = [  # counter-clockwise from the front edge's right end (x forward, y left)
         ((f, -o["nose_half_width"]), o["front_corner_radius"]),
         ((f, o["nose_half_width"]), o["front_corner_radius"]),
@@ -144,7 +145,9 @@ def main2_outline(s: dict) -> list:
         ((nx, ni), nr),
         ((-nx, ni), nr),
         ((-nx, hw), nr),
-        ((r, hw), rc),
+        ((r + an["depth"], hw), ar),
+        ((r + an["depth"], hw - an["width"]), ar),
+        ((r, hw - an["width"]), ar),
         ((r, -hw + sw["width"]), sr),
         ((r + sw["depth"], -hw + sw["width"]), sr),
         ((r + sw["depth"], -hw), sr),
@@ -721,15 +724,17 @@ def main_json(s: dict, root: sexpr.Node) -> dict:
 
 def main2_json(s: dict, root: sexpr.Node) -> dict:
     """The second main board in the robot frame: main_json's fields (the outline from the layout,
-    which the spec draws), plus the switch notch, the USB-C receptacle, the wall sensors and the
-    drive blocks' zones."""
+    which the spec draws), plus the antenna and switch notches, the USB-C receptacle, the ESP32
+    module, the wall sensors and the drive blocks' zones."""
     edge = []
     for e in outline_elements(s, root):
         if isinstance(e, Line):
             edge.append({"type": "line", "start": _r(e.a), "end": _r(e.b)})
         else:
             edge.append({"type": "arc", "start": _r(e.a), "mid": _r(e.mid), "end": _r(e.b)})
-    o, sl, n, sw, u = (s[k] for k in ("outline", "encoder_slots", "wheel_notches", "switch_notch", "usb"))
+    o, sl, n, sw, an, u = (
+        s[k] for k in ("outline", "encoder_slots", "wheel_notches", "switch_notch", "antenna_notch", "usb")
+    )
     holes = [v for v in s.values() if isinstance(v, dict) and v.get("path", "").startswith("H")]
     walls = [v for k, v in s.items() if k.startswith("w") and isinstance(v, dict) and "path" in v]
     return {
@@ -762,6 +767,12 @@ def main2_json(s: dict, root: sexpr.Node) -> dict:
             "y": [-o["width"] / 2, -o["width"] / 2 + sw["width"]],
             "corner_radius": sw["corner_radius"],
             "switch": {"pos": [s["sw4"]["x"], s["sw4"]["y"]], "lever": "along -x, 6.0 mm from the body's rear face"},
+        },
+        "antenna_notch": {
+            "x": [o["rear"], o["rear"] + an["depth"]],
+            "y": [o["width"] / 2 - an["width"], o["width"] / 2],
+            "corner_radius": an["corner_radius"],
+            "module": {"pos": [s["u13"]["x"], s["u13"]["y"]], "antenna": "along -x, over the notch"},
         },
         "usb": {
             "pos": [u["x"], u["y"]],

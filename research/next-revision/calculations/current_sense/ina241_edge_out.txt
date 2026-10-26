@@ -1,0 +1,21 @@
+INA241A2 (TI PSpice model, hold not modelled), VS 3.3 V, REF mid-supply, R_iso 150 Ohm + C_f 1 nF
+DC output at the pin, 1 A (VSENSE 10 mV): 1.850166 V
+
+1. One common-mode edge 0 -> 16.8 V in 150 ns at t = 2 us, back to 0 V at t = 7 us
+   during the rising edge: -19.8 / +28.3 mV (-99 / +141 mA), the part's 1 us hold blanks it
+   0.5 us after the rising edge: +4.54 mV = +22.7 mA
+   1.0 us after the rising edge: +1.08 mV = +5.4 mA
+   2.0 us after the rising edge: +1.19 mV = +5.9 mA
+   4.0 us after the rising edge: +1.04 mV = +5.2 mA
+   1.0 us after the falling edge: -0.17 mV = -0.9 mA
+   2.0 us after the falling edge: -0.33 mV = -1.7 mA
+   4.0 us after the falling edge: -0.29 mV = -1.4 mA
+   AC-CMRR check: 16.8 V x 10^(-105/20) x 20 = 1.89 mV, the plateau of Figure 6-8
+
+2. 100 kHz common-mode square 0 / 16.8 V (150 ns edges), sampled 0.7 us after each phase centre
+   D     mid-on mA   mid-off mA   D-weighted mean mA
+   0.2      +5.24       -1.27      +0.03
+   0.5      +3.24       -3.20      +0.02
+   0.8      +1.31       -5.21      +0.01
+   The residue is the AC-CMRR tail of each edge (about 16 us), +/- with the edge's sign: it cancels in the
+   duty-weighted mean of the two centres and is at most a few mA on either centre alone.

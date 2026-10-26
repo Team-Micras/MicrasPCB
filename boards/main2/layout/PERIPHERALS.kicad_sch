@@ -9,7 +9,7 @@
 		(comment 1 "Placed from boards/main2/schematic/PERIPHERALS.toml")
 	)
 	(lib_symbols
-		(symbol "1N4148W"
+		(symbol "1N4148WS"
 			(exclude_from_sim yes)
 			(in_bom yes)
 			(on_board yes)
@@ -25,7 +25,7 @@
 					)
 				)
 			)
-			(property "Value" "1N4148W"
+			(property "Value" "1N4148WS"
 				(at 0 -3.81 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -35,7 +35,7 @@
 					)
 				)
 			)
-			(property "Footprint" "SOD-123_L2.7-W1.6-LS3.7-FD.kicad_mod"
+			(property "Footprint" "D_SOD-323.kicad_mod"
 				(at 0 -6.35 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -46,7 +46,7 @@
 					)
 				)
 			)
-			(property "Datasheet" "https://www.lcsc.com/product-detail/C7420318.html"
+			(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_1810101110_Jiangsu-Changjing-Electronics-Technology-Co---Ltd--1N4148WS_C2128.pdf"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -57,7 +57,7 @@
 					)
 				)
 			)
-			(property "Description" "Fast switching diode, 100 V, 150 mA, trr 4 ns, SOD-123 (pad 1 anode, pad 2 cathode)"
+			(property "Description" "Fast switching diode, 100 V, 150 mA, trr 4 ns, SOD-323 (pad 1 cathode, pad 2 anode)"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -79,7 +79,7 @@
 					)
 				)
 			)
-			(symbol "1N4148W_0_1"
+			(symbol "1N4148WS_0_1"
 				(rectangle
 					(start -5.08 2.54)
 					(end 5.08 -2.54)
@@ -92,11 +92,11 @@
 					)
 				)
 			)
-			(symbol "1N4148W_1_1"
+			(symbol "1N4148WS_1_1"
 				(pin passive line
-					(at -7.62 0 0)
+					(at 7.62 0 180)
 					(length 2.54)
-					(name "A"
+					(name "K"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -112,9 +112,9 @@
 					)
 				)
 				(pin passive line
-					(at 7.62 0 180)
+					(at -7.62 0 0)
 					(length 2.54)
-					(name "K"
+					(name "A"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -3837,7 +3837,7 @@
 		)
 	)
 	(symbol
-		(lib_id "1N4148W")
+		(lib_id "1N4148WS")
 		(at 229.87 33.02 90)
 		(unit 1)
 		(body_style 1)
@@ -3858,7 +3858,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "1N4148W"
+		(property "Value" "1N4148WS"
 			(at 226.06 34.29 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -3869,7 +3869,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Team-Micras_MicrasPCB_components_hongjiacheng_1N4148W:SOD-123_L2.7-W1.6-LS3.7-FD"
+		(property "Footprint" "Team-Micras_MicrasPCB_components_cj_1N4148WS:D_SOD-323"
 			(at 229.87 33.02 90)
 			(hide yes)
 			(show_name no)
@@ -3880,7 +3880,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.lcsc.com/product-detail/C7420318.html"
+		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_1810101110_Jiangsu-Changjing-Electronics-Technology-Co---Ltd--1N4148WS_C2128.pdf"
 			(at 229.87 33.02 90)
 			(hide yes)
 			(show_name no)
@@ -3891,7 +3891,7 @@
 				)
 			)
 		)
-		(property "Description" "Fast switching diode, 100 V, 150 mA, trr 4 ns, SOD-123 (pad 1 anode, pad 2 cathode)"
+		(property "Description" "Fast switching diode, 100 V, 150 mA, trr 4 ns, SOD-323 (pad 1 cathode, pad 2 anode)"
 			(at 229.87 33.02 90)
 			(hide yes)
 			(show_name no)
@@ -5363,7 +5363,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "5V TVS Diode"
+		(property "Value" "6V TVS Diode"
 			(at 63.754 26.67 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5396,7 +5396,7 @@
 				)
 			)
 		)
-		(property "Description" "5V TVS Diode"
+		(property "Description" "6V TVS Diode"
 			(at 66.04 25.4 90)
 			(hide yes)
 			(show_name no)

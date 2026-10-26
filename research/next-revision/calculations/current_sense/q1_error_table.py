@@ -8,7 +8,7 @@
 #  INA241A2: Vos +-15 uV; dVos/dT +-150 nV/K; GERR +-0.01 %, drift +-1 ppm/K; CMRR 150 dB min;
 #            ref divider +-0.01 % (VREF1=VS, VREF2=GND); en 49 nV/rtHz; BW 1.1 MHz.  SBOSA30D sec. 6.5
 #  WSK2512 10 mOhm: +-0.5 % (D) or +-1 % (F); TCR +-35 ppm/K (5 mOhm-0.2 Ohm). Vishay doc 30108
-#  WSK thermal EMF < 3 uV/K (doc 30195 for WSK1206; assumed similar for WSK2512 -> 2 K mismatch)
+#  WSK thermal EMF < 3 uV/K (Vishay Power Metal Strip overview VMN-PL0407-1703 p7, WSK2512 listed) -> 2 K mismatch
 #  H725 ADC (typ, after calibration): EG +-15 LSB, INL +-13 LSB, SNR 77 dB s.e.  DS13311 Table 86
 #  VDDA absolute: +-1.5 % analog rail (research/next-revision/README.md); after per-board gain cal ASSUMED +-0.2 % residual
 #            drift (TPS7A20 tempco not extracted -> gap; VREFINT tracking can reduce it).

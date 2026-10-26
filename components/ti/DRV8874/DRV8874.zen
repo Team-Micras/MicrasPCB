@@ -24,7 +24,8 @@ output current 0 to 3 mA; VREF 0 to 3.6 V. Thermal (section 6.4): RthJA 36.0 C/W
 Electrical characteristics (section 6.5, p5-6):
 - RDS(on) 100 mOhm typ, 120 mOhm max per FET (high side and low side, VM 24 V, 2 A, TJ 25 C):
   200 / 240 mOhm across the bridge. Body diode 0.9 V; tRISE/tFALL 150 ns, tPD 400 ns, tDEAD
-  100 ns (VM 24 V).
+  100 ns (VM 24 V). No minimum input or output pulse width is specified (SLVSF66A, the current
+  revision); an input pulse under tRISE + tFALL does not reach full output swing.
 - Logic inputs: VIL 0.7 V (VM < 5 V) or 0.8 V (VM >= 5 V) max, VIH 1.5 V min; 100 kOhm pull-down
   to GND (Figure 16), so an open EN/IN1, PH/IN2 or nSLEEP reads low.
 - PMODE tri-level (Table 2, section 7.3.2): VTIL 0 to 0.65 V -> PH/EN mode; VTIZ 0.9-1.2 V (left

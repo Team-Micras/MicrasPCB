@@ -12,13 +12,15 @@ print("=== 1. Analog-rail (3V3_A) load budget ===")
 # (name, typical A, maximum A, source)
 loads = [
     ("VDDA: ADC1+ADC2 16-bit single-ended BOOST=11 @25 MHz, 2 x 720 uA", 2 * 720e-6, 2 * 1440e-6,
-     "DS13311 Table 84 (720 uA SE, 1440 uA differential)"),
+     "DS13311 Rev 5 Table 84: per ADC, maxima guaranteed by design (note 1; note 3, BGA and one ADC, "
+     "covers only fs): 720 uA SE, 1440 uA differential"),
     ("VDDA: ADC3 12-bit at 1-5 MSPS", 122e-6, 430e-6, "DS13311 Table 87 (122-350 uA SE, 430 uA diff)"),
     ("2 x INA241A2 VS", 2 * 2.5e-3, 2 * 3.2e-3, "INA241 SBOSA30D sec. 6.5: IQ 2.5 typ, 3 max 25 C, 3.2 max -40..125 C"),
     ("4 x TPS601A collector (1 kOhm load, one lit + ambient)", 2.0e-3 + 3 * 0.3e-3, 4 * 3.1e-3,
      "max = 3.1 V / 1 kOhm saturation per sensor (target.hpp l.440-448); typ = assumption"),
-    ("emitter CC sink: op-amp (TLV9001 IQ 60 uA typ) + set divider ~0.2 mA", 0.26e-3, 0.35e-3,
-     "TLV9001 IQ 60 typ, 77 max at 5.5 V (SBOS833R sec. 7.10); divider = design choice"),
+    ("emitter CC sink: op-amp (TLV9001 IQ 60 uA typ), 200k bias, set-point DAC on VDDA/VREF+", 0.26e-3, 0.35e-3,
+     "TLV9001 IQ 60 typ, 77 max at 5.5 V (SBOS833R sec. 7.10); 200 kOhm from 3V3_A, 16 uA; DAC buffer off "
+     "20 uA from VDDA + 160 uA from VREF+ = VDDA on VFQFPN68, typ (DS13311 Table 90): 0.26 mA typ, max kept"),
 ]
 opt = ("(optional) LSM6DSV Vdd, gyro+accel high-performance", 0.65e-3, 0.65e-3, "LSM6DSV DS13476 Rev 5 Table 4 IddHP")
 ityp = sum(l[1] for l in loads)

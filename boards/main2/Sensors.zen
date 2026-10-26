@@ -10,17 +10,28 @@ Motor current, U10 (right motor) and U11 (left motor): INA241A2IDGKR, gain 20 V/
 research Current sensing and A.3), across the 10 mOhm 4-terminal shunts R65 / R75 on the drivers
 sheet, IN+ on the bridge-side sense terminal and IN- on the motor side, with no input filter (the
 25-45 uA input bias makes any series resistance an error, section 6.5). VS on 3V3_A with C100 /
-C103 100 nF at the pin (section 8.3.1); REF1 on 3V3_A (with C101 / C104 10 nF) and REF2 on GND:
-the bidirectional mid-supply output of section 7.4.3.2, VOUT = 20 x 10 mOhm x I + 3V3_A / 2,
+C103 100 nF at the pin (section 8.3.1, the one bypass capacitor of Figure 8-3); REF1, the pin
+beside VS, on the same 3V3_A node, so that capacitor holds it too, and REF2 on GND: the
+bidirectional mid-supply output of section 7.4.3.2, VOUT = 20 x 10 mOhm x I + 3V3_A / 2,
 ratiometric to VDDA, which 3V3_A also feeds. Range: (3.3 V - 0.2 V - 1.65 V) / 0.2 V/A = +7.25 A
 and (1.65 V - 0.02 V) / 0.2 V/A = -8.15 A (output swing, section 6.5), above the 2.97 A ITRIP plus
-its overshoot. The output drives the ADC through R78 / R79 100 Ohm (R_iso) with C102 / C105 1 nF
+its overshoot. The output drives the ADC through R78 / R79 150 Ohm (R_iso) with C102 / C105 1 nF
 C0G after it, on the ADC line (Current_Sensor_Right on PC1, a slow ADC channel,
-Current_Sensor_Left on PB1, a fast one; main2.zen's pin budget): the INA241 drives 1 nF directly
-(section 6.5), and the resistor isolates the C0G and the ADC's sampling charge. Each C0G sits
+Current_Sensor_Left on PB1, a fast one; main2.zen's pin budget). Section 6.5 rates 1 nF straight
+on OUT ("no sustained oscillations", no isolation resistor); TI's INA241A2 PSpice model (SBOMC92)
+gives 4.2 dB of peaking and 26 % overshoot there, and behind 150 Ohm a flat response at the pin
+(-3 dB at 0.93 MHz, no overshoot; research/next-revision/calculations/current_sense/ina241_riso.py,
+ina241_riso_out.txt). The resistor also takes the ADC's sampling charge: the 4 pF sample capacitor
+(DS13311 Table 84) arrives at another channel's voltage (the wall sensors and the battery share
+ADC1/ADC2) and kicks C_f by up to 13 mV (66 mA), and since the INA241's output impedance rises to
+about 55 Ohm at 1 MHz (Figure 6-24) the pin rings back instead of settling as R_iso x C_f. 150 Ohm
+damps that ring: the error stays under 1 mA from 0.64 us on in every corner of the model (C_f
++-5 %, the ADC switch resistance, which DS13311 does not publish, 50-1000 Ohm, 2-10 pF on the
+pin, VCM 0-16.8 V, and the model's output impedance raised to Figure 6-24's), against 0.87 us
+with the basic 100 Ohm part, which still leaves 1.24 mA at 0.8 us. The firmware samples PB1/PC1
+for at least 0.7 us (boards/main2/firmware_changes.toml, current; tests/test_main2.py). Each C0G sits
 beside its resistor, 10-14 mm of track from the pin. On the slow channel one conversion per
 PWM centre still fits (research H7 pin budget).
-TODO: the stability of R_iso + C_f is to be checked on the bench (research Bench measurements).
 
 Wall sensors W1-W4 (SFH 4550 emitter over a TPS601A phototransistor) with a shared constant-
 current emitter sink whose set-point the MCU's DAC writes (research IR emitters and A.4; the model
@@ -44,40 +55,84 @@ is research/next-revision/calculations/emitter/emitter_sink.py, its results emit
   58 uA per code (emitter_sink_out.txt section 4). Static errors, the DAC's +-12 LSB total
   unadjusted error and +-1 % gain error (buffer off, DS13311 Table 91), RO, R80/R81 1 %, the
   op-amp offset and R83 0.1 %, are a gain each sensor's calibration takes in; 3V3_D and the
-  emitter's VF do not enter.
+  emitter's VF do not enter. What a calibration cannot take in is RO's drift after it, which
+  DS13311 does not give; but Table 90's 10.3-16 kOhm bounds RO over every operating condition, so
+  the drift of one part stays inside 172.7-177.3 mA, +-1.3 % about the typical 13 kOhm (2.6 % if
+  a part swung end to end), against the emitter's own -0.5 %/K (SFH 4550 v1.9 p5, TCI).
 - Emitter n: R13/R17/R21/R25 3.3 Ohm 0603 from 3V3_D to the LED anode; the LED cathode on the
   drain of its selector Q2-Q5 (AO3400A), whose source is EMITTER_SINK. At VF max (1.79 V at
   175 mA between the SFH 4550's maximum points, p5) and 3V3_D at 3.229 V (its 3.284 V minimum
   less the 22 mV emitter droop and a 33 mV ESP32 dip, research power-tree study section 6), the
   selector and Q9 keep 3.229 - 1.79 - 0.175 x 3.3 - 0.21 = 0.65 V. The firmware lights each
   emitter 150 us per 1 ms frame, 15 % (MicrasFirmware config/targets/v1/target.hpp), so the
-  3.3 Ohm carries 101 mW during a pulse and 15 mW on average (100 mW rated), and Q9 0.16 W during
-  a pulse, 60 % of the time.
+  3.3 Ohm carries 101 mW during a pulse and 15 mW on average (25 mW at the 223 mA full scale):
+  UNI-ROYAL rates the 0603 1/10 W continuous to 70 C, derated linearly to 0 at 155 C (82 mW at
+  85 C), and 2.5 x its rated voltage, 6.25 x the power, for 5 s (thick film chip resistor data
+  sheet V.3, 2019, sections 6, 9 and 11), so a 150 us pulse of 101-164 mW is far inside it. Q9
+  carries the sink's 175 mA 60 % of the time at VDS = 3V3_D - VF - I x 3.3 Ohm - 0.21 V, at most
+  0.98 V (3.346 V, VF 1.575 V on the p5 chord) and 1.15 V for a VF as low as 1.4 V: 0.17-0.20 W in
+  a pulse, 0.12 W on average, 15 K above ambient at the AO3400A's 125 C/W maximum steady-state
+  RthJA (p1; PD 1.4 W at 25 C).
+  The resistor also limits the emitter current when the sink fails on (Q9 shorted or U12 stuck
+  high): (3.346 V - VF) / (3.3 + 1.2 Ohm) is about 0.35 A with VF on the chord of the p5 typical
+  points, inside the SFH 4550's 0.38 A pulse rating at tp 150 us and D 0.2 (25 C chart,
+  WallSensor.zen), so a failed sink does not overstress the emitters while the AC-coupled
+  selectors still pulse them. The sink's own full scale (code 4095 at VDDA 3.36 V and RO
+  10.3 kOhm) is 0.23 A. A 2.2 Ohm basic part would give the selector 0.19 V more headroom but let
+  a failed sink drive 0.44 A, above the rating; 4.7 Ohm leaves the selector 0.41 V
+  (boards/main2/test/test_sensors.zen, emitter_pulse_within_rating). The pulse rating falls with
+  temperature: the 85 C chart allows about 0.07 A at D 0.2, and by the chart's scaling (an
+  inference, WallSensor.zen) 223 mA at full scale holds to about 56 C ambient, 175 mA to about
+  65 C.
 - Selector gates, AC-coupled as on the main board: Wall_Sensor_PWM_n through R11/R15/R19/R23
   220 Ohm and C73-C76 220 nF to the gate, with R12/R16/R20/R24 22 kOhm to GND and a 1N4148WS
   clamp (D9-D12) from GND to the gate. A pin held high lets the gate decay with 22 kOhm x 220 nF =
-  4.8 ms: the emitter current falls below 100 mA within 7.5 ms and below 1 mA within 11.1 ms at
-  VGS(th) 0.65 V min (AO3400A p2), so the emitter never carries the sink's 175 mA as DC, above its
+  4.8 ms: the emitter current falls below 100 mA within 5.4 ms and below 1 mA within 7.5 ms for a
+  minimum-threshold part (VGS(th) 0.65 V, AO3400A p2; emitter_sink_out.txt section 2), so the
+  emitter never carries the sink's 175 mA as DC, above its
   100 mA DC rating (SFH 4550 p4). In the firmware's frame each gate is clamped at every falling
   edge and relaxes for 850 us, so a pulse starts at -0.2 V + the pin's high level (VDD - 0.4 V =
   2.83 V at 3.229 V, DS13311 Table 56) and the gate reads 2.54 V at 75 us and 2.50 V at 141 us.
   The selector is a source follower in series with Q9: the current stays regulated while
   2.50 V - VGS(175 mA) is above Q9's 0.22 V (0.21 V + 175 mA x 48 mOhm), and the model gives the
-  same current as with a DC-coupled gate (emitter_sink_out.txt section 1). TODO: VGS at 175 mA
-  is taken as VGS(th) + 0.3 V, 1.75 V at the 1.45 V maximum, and VGS(th) rises about 0.26 V at
-  -40 C (a generic -4 mV/K; the AO3400A datasheet gives neither), leaving 0.25 V of margin
-  (0.07 V with a 10 kOhm pull-down); read AO3400A Figure 2 or measure, and check a board cold.
+  same current as with a DC-coupled gate (emitter_sink_out.txt section 1). VGS at 175 mA is
+  VGS(th) + 0.35 V: the typical part's Figure 2 (AO3400A Rev 3.1, transfer characteristics at
+  VDS 5 V) reads 1.41 V at 25 C against the 1.05 V typical VGS(th), so 1.80 V for a 1.45 V
+  maximum part. The same figure reads 1.19 V at 125 C, -2.2 mV/K, which extrapolated to -40 C
+  adds 0.14 V: 1.94 V, leaving 2.50 - 1.94 - 0.22 = 0.34 V of margin at the end of the scan
+  (the model, with the selector fitted to Figure 2, gives +0.34 V and keeps the current regulated
+  up to a VGS of 2.10 V). AOS publishes no SPICE model for the AO3400A; a level-3 AO3400 model in
+  AOS's format, of unknown provenance, moves 1.369 V at 25 C to 1.455 V at -40 C and 1.215 V at
+  125 C, -1.3 to -1.5 mV/K, so the extrapolation of Figure 2 is the conservative one
+  (emitter_sink_out.txt section 5).
 - Firmware: one emitter at a time; two selectors on together share the set current. The DAC
   holds the slot's code only while that slot's selector is on: it steps up at or after the
   selector's rising edge and back to 0 at or before its falling edge, and stays 0 in the dark
-  slot. Then the pulse rises without overshoot to within 1 % 7-13 us after the selector's edge,
-  over 60 us before the scan starts at 75 us; a DAC that leads or trails its selector by 5 us lets
-  U12 saturate, and the pulse starts at 284 mA and is within 1 % after 19 us, still before the
-  scan (emitter_sink_out.txt section 3). The codes set each emitter's brightness
-  (boards/main2/firmware_changes.toml, emitters). TODO: confirm the step response on the bench
-  across R83.
+  slot. Then, in TI's TLV9002 PSpice model (the TLV9001's dual) with Q9 fitted to the AO3400A's
+  datasheet, from a minimum-threshold part to a maximum one at -40 C and with +-2 mV of offset,
+  the pulse rises without overshoot to within 1 % 7.4-13 us after the selector's edge, over 60 us
+  before the scan starts at 75 us; a gate of twice the datasheet's capacitance (the level-3
+  AO3400 stand-in, -40 to 85 C) overshoots to at most 233 mA and is within 1 % after 18 us. A DAC
+  that leads or trails its selector by 5 us lets U12 saturate: the pulse starts at up to 275 mA
+  and is within 1 % after 28 us, still before the scan. Every peak stays under the SFH 4550's
+  0.38 A pulse rating (emitter_sink_out.txt section 3). The codes set each emitter's brightness
+  (boards/main2/firmware_changes.toml, emitters).
 - Receiver n: the phototransistor collector on 3V3_A, its emitter on Wall_Sensor_n (ADC) with
-  R14/R18/R22/R26 1 kOhm to GND.
+  R14/R18/R22/R26 1 kOhm to GND. The follower stops at 3V3_A - VCE(sat) (0.4 V max, TPS601A(F)
+  p2), below VREF+ = 3V3_A, so neither the lit nor the dark reading leaves the ADC's range: ambient
+  light only takes up the receiver's headroom, which the firmware watches (a dark reading above
+  80 % of full scale is a blind sensor, MicrasFirmware wall_sensors_config). The datasheet rates
+  IL at 0.1 mW/cm2 of 2870 K tungsten light, about 17 lux of it: 100 uA min, up to 1.2 mA in rank
+  C (p2). Through the receiver's 10 degree lobe (p4) a white wall lit by 500 lux of halogen light
+  (the All Japan contest's heats, 400-500 lux; NTF 2005) gives 0.37 mA typical, 11 % of full scale,
+  and 1.7 mA for a rank C part; 1500 lux, its spot-lit final, 1.4 mA typical (41 %), and a rank C
+  part saturates; 1500 lux of LED or fluorescent light 0.11-0.49 mA; a window or a lamp in the
+  line of sight saturates any part (research/next-revision/calculations/emitter/ambient_light.py).
+- 3V3_A during a pulse: the emitters are on 3V3_D, so only a receiver's current (2.9 mA at most,
+  the follower's ceiling) and U12's gate drive step on 3V3_A. ADP7142 Rev K Figure 38 (VOUT 3.3 V,
+  COUT 2.2 uF) reads 44 mV for a 1-200 mA step, so under 5 mA VDDA moves by at most 1.1 mV, 0.03 %
+  of the ADC reference (C81 leaves 4.4 uF effective, which halves it again). ngspice has no ADP7142
+  model to run: the bound is the datasheet's.
 - C26-C29 1 uF on 3V3_D next to each emitter resistor.
 
 Encoder slots EC1 (right wheel) and EC2 (left wheel), as on the main board: the AS5047U encoder
@@ -89,11 +144,11 @@ load("@stdlib/interfaces.zen", "Spi")
 load(
     "./passives.zen",
     "C_100N_0402",
-    "C_10N_0402",
     "C_1N_0402_C0G",
     "C_1U_0402",
     "C_220N_0402",
     "R_100_0402",
+    "R_150_0402",
     "R_1K_0402",
     "R_1R2_0603_0P1",
     "R_200K_0402",
@@ -185,7 +240,7 @@ Capacitor(name="C25", P1=GND, P2=V3V3_D, **C_100N_0402)
 
 
 # Motor current amplifiers.
-def current_amplifier(side, amp, c_vs, c_ref, r_iso, c_f, sense_p, sense_n, adc):
+def current_amplifier(side, amp, c_vs, r_iso, c_f, sense_p, sense_n, adc):
     out = Net("CURRENT_{}_AMP".format(side))
     INA241A2(
         name=amp,
@@ -198,13 +253,12 @@ def current_amplifier(side, amp, c_vs, c_ref, r_iso, c_f, sense_p, sense_n, adc)
         OUT=out,
     )
     Capacitor(name=c_vs, P1=GND, P2=V3V3_A, **C_100N_0402)
-    Capacitor(name=c_ref, P1=GND, P2=V3V3_A, **C_10N_0402)
-    Resistor(name=r_iso, P1=out, P2=adc, **R_100_0402)
+    Resistor(name=r_iso, P1=out, P2=adc, **R_150_0402)
     Capacitor(name=c_f, P1=GND, P2=adc, **C_1N_0402_C0G)
 
 
-current_amplifier("R", "U10", "C100", "C101", "R78", "C102", MOTOR_R_SENSE_P, MOTOR_R_SENSE_N, Current_Sensor_Right)
-current_amplifier("L", "U11", "C103", "C104", "R79", "C105", MOTOR_L_SENSE_P, MOTOR_L_SENSE_N, Current_Sensor_Left)
+current_amplifier("R", "U10", "C100", "R78", "C102", MOTOR_R_SENSE_P, MOTOR_R_SENSE_N, Current_Sensor_Right)
+current_amplifier("L", "U11", "C103", "R79", "C105", MOTOR_L_SENSE_P, MOTOR_L_SENSE_N, Current_Sensor_Left)
 
 # Emitter current sink.
 TLV9001(name="U12", VCC=V3V3_A, GND=GND, IN_P=SINK_SET, IN_N=SINK_FB, OUT=SINK_OUT)

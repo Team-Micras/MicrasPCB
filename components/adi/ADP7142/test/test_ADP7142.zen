@@ -14,8 +14,8 @@ ABS_MAX = 44.0
 C_MIN = 2.2e-6
 # Thermal (Eq. 10, p17): research/next-revision power tree, worst case 22.5 mA at the highest VIN;
 # ground current 190 uA max at 10 mA (Table 1). RthJA 182.8 C/W is Table 6's smallest copper
-# (25 mm^2); TJ must stay at or below 125 C (p17). TA 50 C is this bench's assumption, not a
-# measured enclosure temperature (TODO: the board's ambient).
+# (25 mm^2); TJ must stay at or below 125 C (p17). TA 50 C is this generic bench's case; each
+# board checks its own ambient and copper (boards/main2: test_power.zen analog_ldo_dissipation, 85 C).
 LOAD = 0.0225
 IGND = 190e-6
 RTH_JA = 182.8

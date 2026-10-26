@@ -1,0 +1,18 @@
+1. WS2812C-2020-V6 on TIM17_CH1, PSC = 0, timer clock 275 MHz
+   ARR = 355 (period 1294.5 ns, 772.5 kHz)
+   CCR1 = 93 for a 0 (T0H 338.2 ns, T0L 956.4 ns)
+   CCR1 = 171 for a 1 (T1H 621.8 ns, T1L 672.7 ns)
+   smallest margin to a datasheet limit: 41.8 ns (12 ticks)
+   2 LEDs x 24 bits: 62.1 us of data, then CCR1 = 0 for >= 280 us (217 periods, or stop the DMA with CCR1 = 0)
+
+2. TIM1/TIM8 centre-aligned, PSC = 0
+   ARR = 1375: 100.00 kHz, one duty step = 0.073 % (3.64 ns)
+
+3. DAC1 channel 2 trigger timer (TIM4 or TIM23), PSC = 0
+   ARR = 13749 (50.000 us per trigger)
+   DMA buffer, one entry per 50 us, 20 entries per 1 ms frame: c0, c0, c0, 0, c1, c1, c1, 0, c2, c2, c2, 0, c3, c3, c3, 0, 0, 0, 0, 0
+   DAC step after its grid edge: 3 dac_pclk (RM0468 31.4.7) + a few timer clocks of slave resynchronisation, about 36 ns; the 5 us lead or trail Sensors.zen allows is 138 x that
+
+4. LED frame against the emitter schedule
+   free window after each lit slot's scan: 59 us; the dark slot: 200 us + 59 us
+   the 2-LED frame (62.1 us) fits the dark slot, not the gap after a lit slot

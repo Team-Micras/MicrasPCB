@@ -17,14 +17,15 @@ B5819W(name="D2", A=VBAT, K=VSYS)
 | 2 | A (anode) |
 
 Ratings (datasheet p.1-2): VRRM 40 V; IO 1 A; IFSM 9 A; Pd 500 mW, RthJA 200 C/W; TJ 125 C max.
-Reverse current is 1 mA max at 40 V and 25 C; typical at 17 V: about 12 uA (25 C), 0.12 mA
-(75 C), 1.2 mA (100 C).
+Reverse current is 1 mA max at 40 V and 25 C; typical at 17 V: about 12 uA (25 C), 0.11 mA
+(75 C), 0.92 mA (100 C); at 1-5 V: 5-6 uA, 55-64 uA, 0.42-0.59 mA.
 
 Integration note: in the VBAT/VBUS OR-ing the diode blocks only while USB powers VSYS and the
-pack is off or missing (VR near 5 V). Its leakage then flows into the switched VBAT node, which
-holds the bridges and the battery-voltage divider: about 6 uA at 25 C into the 120 kOhm
-R44/R45 divider reads as up to 0.7 V of phantom battery voltage on USB alone, more when the board
-is warm (inference from the typical curve; the bridges' sleep current lowers it).
+pack is off or missing (VR under 5.5 V). Its leakage then flows into the VBAT node, which nothing
+else drives: about 140 uA at 85 C. main2 holds VBAT down with a 12 kOhm battery divider
+(R44/R45 10 kOhm / 2 kOhm), about 2 V at 85 C with Q6's leakage added, so the P-FET whose gate
+follows VBAT stays on (boards/main2/Regulators.zen, battery measurement); a 120 kOhm divider
+would let VBAT rise towards VSYS above about 50-60 C.
 
 ## Footprint
 

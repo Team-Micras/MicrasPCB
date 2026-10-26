@@ -1,0 +1,24 @@
+=== Opening current (A) at each time ===
+rating      100s       30s       10s        3s        1s      0.1s     0.01s    0.001s
+10A         25.2      26.5      28.0      30.1      32.2      38.6      54.3      97.4
+12A         28.2      29.7      31.4      33.9      36.8      46.9      66.8     135.8
+15A         31.7      34.7      36.9      40.0      44.8      60.0      94.3     198.2
+20A         40.0      43.5      47.1      52.2      59.9      79.3     140.5     292.5
+
+=== Opening time (s) at each current (inf: does not open within 100 s) ===
+rating       25A       28A       30A       35A       40A       50A       60A       80A      100A      150A
+10A          inf     10.21     3.149    0.2755   0.07646   0.01685  0.005662  0.002018 0.0009215 0.0003474
+12A          inf       inf     24.07     1.922    0.3901   0.06305   0.01914  0.004588  0.002249 0.0007805
+15A          inf       inf       inf     26.11     3.027    0.4145    0.1003   0.01856  0.008199  0.002317
+20A          inf       inf       inf       inf     99.47     4.679    0.9925   0.09465   0.03205   0.00811
+
+=== I2t along each curve (A2s) at 1 ms (the table's melting I2t: 10.385 / 20.341 / 39.700 / 86.360) ===
+10A 9.5
+12A 18.4
+15A 39.3
+20A 85.6
+
+=== F1 (12 A) against the board's budgets (boards/main2/test/test_power.zen battery_fuse) ===
+opens in 100 s at 28.2 A, 24.0 A at 75 C (re-rating 0.85); a 10.1 A burst as a
+repeated pulse uses (10.1 / 24.0)^2 = 18 % of the melting I2t at that
+duration, within the 22 % that withstands 100,000 pulses (Littelfuse Fuseholder Rerating, Chart II).

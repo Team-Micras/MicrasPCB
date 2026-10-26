@@ -5,10 +5,12 @@ schematic (the netlist KiCad exports) and Zener's BOM; tests/test_main2_layout.p
 layout-wide checks of tests/test_layout.py take its layout.
 """
 
+import re
 import shutil
 
 import pytest
-from micras_pcb import firmware
+from micras_pcb import firmware, jlc
+from micras_pcb.paths import ROOT
 
 from .conftest import needs_kicad
 from .design import design, function
@@ -125,8 +127,13 @@ def test_bridges_only_on_vbat(d):
             problems.append(f"{ref} VS is on {d.net(ref, 'VS')}, not VBAT")
     vsys = d.net("IC7", "VIN")
     active = sorted({r for r, _, _ in d.on(vsys) if d.kind(r) not in ("capacitor", "resistor")})
-    if active != sorted(["IC7", "D14", "Q8"]):
-        problems.append(f"VSYS carries {active}: only the power path and the 3V3_D buck (the LDO through R58)")
+    # D16 is the power path's own gate clamp (Regulators.zen: BZT52C10S from Q8's gate to its source,
+    # VSYS), so it belongs on VSYS as long as its anode is Q8's gate
+    clamp = [r for r in d.refs("BZT52C10S") if d.net(r, "K") == vsys and d.net(r, "A") == d.net("Q8", "G")]
+    if active != sorted(["IC7", "D14", "Q8", *clamp]) or len(clamp) != 1:
+        problems.append(
+            f"VSYS carries {active}: only the power path (with its gate clamp) and the 3V3_D buck (the LDO through R58)"
+        )
     assert len(d.refs("DRV8874")) == 2 and len(d.refs("STSPIN958")) == 1
     assert not problems, "\n".join(problems)
 
@@ -244,3 +251,146 @@ def test_battery_divider_matches_the_firmware(d):
     ratio = (d.value(up[0], "resistance") + d.value(down[0], "resistance")) / d.value(down[0], "resistance")
     assert FW["battery"]["channel"] == "pin"
     assert abs(FW["battery"]["divider"] / ratio - 1) < 0.01, f"firmware {FW['battery']['divider']}, board {ratio}"
+
+
+# research/next-revision/calculations/current_sense/ina241_riso_out.txt, section 4: the sampling time
+# from which the ADC kickback error stays under 1 mA, per (R_iso, C_f), in every corner of TI's
+# INA241A2 model (C_f +-5 %, ADC switch resistance 50-1000 Ohm, 2-10 pF on the pin, VCM 0-16.8 V, the
+# model's output impedance and Figure 6-24's). The INA241's output impedance (about 55 Ohm at 1 MHz)
+# makes the pin ring, so R_iso x C_f alone does not give it; another pair needs a rerun of
+# ina241_riso.py. The table is for 0.2 V/A (INA241A2, 20 V/V, on 10 mOhm).
+KICKBACK_SETTLED = {(100.0, 1e-9): 0.87e-6, (150.0, 1e-9): 0.64e-6}
+INA241A2_GAIN = 20.0  # SBOSA30D: the A2 gain, V/V
+
+
+def test_current_sampling_time_settles_the_adc_kickback(d):
+    # The wall sensors and the battery share ADC1/ADC2 with the motor currents, so the 4 pF sample
+    # capacitor (DS13311 Table 84) arrives charged to another channel's voltage and kicks C_f; the
+    # firmware's minimum sampling time must cover the simulated settling of the board's R_iso + C_f.
+    t_s = FW["adc"]["current_sampling_time_min_us"] * 1e-6
+    problems = []
+    for amp in d.refs("INA241"):
+        out = d.net(amp, "OUT")
+        iso = [r for r in d.bom if d.kind(r) == "resistor" and out in d.nets_of(r).values() and _fitted(d, r)]
+        assert len(iso) == 1, f"{amp} OUT: expected one R_iso, found {iso}"
+        pin = next(n for n in d.nets_of(iso[0]).values() if n != out)
+        caps = [c for c in d.two_terminal("capacitor", pin, "GND") if _fitted(d, c)]
+        assert len(caps) == 1, f"{pin}: expected one C_f, found {caps}"
+        shunt = next(r for r in d.refs("WSK2512") if d.net(r, "E1") == d.net(amp, "IN+"))
+        volts_per_amp = INA241A2_GAIN * d.value(shunt, "resistance")
+        assert abs(volts_per_amp - 0.2) < 1e-6, f"{amp}: {volts_per_amp} V/A, the kickback table is for 0.2 V/A"
+        r_iso, c_f = d.value(iso[0], "resistance"), d.value(caps[0], "capacitance")
+        key = next((k for k in KICKBACK_SETTLED if abs(k[0] - r_iso) < 0.5 and abs(k[1] / c_f - 1) < 0.01), None)
+        if key is None:
+            problems.append(
+                f"{pin} ({iso[0]} {r_iso:g} Ohm, {caps[0]} {c_f * 1e9:g} nF): not simulated (ina241_riso.py)"
+            )
+        elif t_s < KICKBACK_SETTLED[key]:
+            problems.append(
+                f"{pin} ({iso[0]} {r_iso:g} Ohm, {caps[0]} {c_f * 1e9:g} nF): {t_s * 1e6:g} us of sampling, the kickback "
+                f"settles under 1 mA only from {KICKBACK_SETTLED[key] * 1e6:g} us"
+            )
+    assert len(d.refs("INA241")) == 2
+    assert not problems, "\n".join(problems)
+
+
+# Firmware rules the hardware does not enforce (behaviour key -> words it must name).
+FIRMWARE_RULES = {
+    # a debug halt: the timers freeze and the drive enables drop (Drivers.zen, R49 covers reset only)
+    "debug_halt": ["TIM1", "TIM8", "TIM12", "Motors_Enable", "Fan_Enable"],
+    # the IMU shares SPI_SCK/SPI_MOSI with the encoders and decodes them as I2C while deselected
+    "imu_interface": ["I2C_I3C_disable", "IF_CFG"],
+    # Wall_Emitter_Set runs beside LED_ARGB and the encoder chip selects (Sensors.zen)
+    "emitter_slot_quiet": ["LED_ARGB", "SPI_SCK", "Encoder_Right_CSn", "Encoder_Left_CSn"],
+    # the current channels share ADC1/ADC2 with the walls and the battery
+    "current_sampling_time": ["adc.current_sampling_time_min_us"],
+}
+
+
+def test_firmware_contract_names_the_rules_the_hardware_leaves_open():
+    missing = [
+        f"behaviour.{key}: missing, or does not name {[w for w in words if w not in FW['behaviour'].get(key, '')]}"
+        for key, words in FIRMWARE_RULES.items()
+        if any(w not in FW["behaviour"].get(key, "") for w in words)
+    ]
+    assert not missing, "\n".join(missing)
+
+
+# --- sourcing: every extended passive is a stated decision ----------------------------------------
+
+
+def _fitted_lines():
+    return [[m for m in line["members"] if not m.get("dnp")] for line in jlc.design_bom(BOARD)]
+
+
+def test_extended_passives_say_why():
+    # JLCPCB charges a loading fee per extended part and order; a resistor or capacitor has a basic
+    # part in most values, so an extended one carries why_extended in parts/jlc.toml.
+    db = jlc.parts_db()
+    missing = sorted(
+        {
+            f"{m['mpn']} ({', '.join(x['designator'] for x in members)})"
+            for members in _fitted_lines()
+            if members
+            for m in members[:1]
+            if m.get("component_type") in ("Resistor", "Capacitor")
+            and db.get(m["mpn"], {}).get("type") == "extended"
+            and not db[m["mpn"]].get("why_extended")
+        }
+    )
+    assert not missing, "extended passives without why_extended in parts/jlc.toml:\n" + "\n".join(missing)
+
+
+# Parts whose MPNs differ only by package or vendor do one job: one MPN per board (MPN prefix).
+FAMILIES = ["1N4148W"]
+
+
+def _rating(m: dict) -> tuple:
+    """What a passive is to the circuit: its kind, value, package and the ratings that matter."""
+
+    def nominal(q):
+        return float(m[q]["nominal"]) if m.get(q) else None
+
+    if m.get("component_type") == "Resistor":
+        return ("R", nominal("resistance"), m.get("package"), m["resistance"]["min"], nominal("power"))
+    return ("C", nominal("capacitance"), m.get("package"), nominal("voltage"), m.get("dielectric"))
+
+
+def test_no_duplicate_function_mpns():
+    # One MPN per function on the board: two MPNs with the same value, package and ratings, or two
+    # members of one part family, are two reels (and possibly two fees) for one job.
+    first = [members[0] for members in _fitted_lines() if members]
+    problems = []
+    seen: dict[tuple, str] = {}
+    for m in first:
+        if m.get("component_type") not in ("Resistor", "Capacitor"):
+            continue
+        key = _rating(m)
+        if key in seen and seen[key] != m["mpn"]:
+            problems.append(f"{seen[key]} and {m['mpn']} are both {key}")
+        seen.setdefault(key, m["mpn"])
+    for prefix in FAMILIES:
+        mpns = sorted({m["mpn"] for m in first if (m.get("mpn") or "").startswith(prefix)})
+        if len(mpns) > 1:
+            problems.append(f"{prefix} family on the board as {mpns}")
+    assert not problems, "\n".join(problems)
+
+
+# --- documentation names only parts the board has --------------------------------------------------
+
+RESEARCH = ROOT / "research" / "next-revision" / "README.md"
+# A designator as the board's prefixes write it, standing alone (not in a path, a link anchor or a
+# part number); "H7..." is the MCU family (STM32H7, H725), not a mounting hole.
+DESIGNATOR = re.compile(r"(?<![\w./-])(R|C|L|D|Q|U|IC|J|M|SW|F|BZ|W|EC|H|TP|SWD)(\d{1,3})(?![\w])")
+
+
+def test_research_names_only_parts_on_the_board(d):
+    # research/next-revision/README.md describes main2 as built: a designator it names must be a
+    # part of the board's netlist, so a removed or renamed part cannot linger in the description.
+    absent = {}
+    for n, line in enumerate(RESEARCH.read_text().splitlines(), 1):
+        for m in DESIGNATOR.finditer(line):
+            ref = m.group(0)
+            if not ref.startswith("H7") and ref not in d.nl.parts:
+                absent.setdefault(ref, []).append(n)
+    assert not absent, "\n".join(f"{ref}: line {', '.join(map(str, lines))}" for ref, lines in sorted(absent.items()))

@@ -20,6 +20,13 @@ Recommended land pattern: 1.18 x 4.70 mm pads at 3.31 mm centre pitch, the same 
 (Coilcraft XAL50xx drawing). The bar on the top marks the start (short) lead: "Connect high
 dv/dt here for lowest EMI".
 
+Under DC bias (Coilcraft's saturation SPICE model of the part, XGL5030-472_sat: L 4.4984 uH, Is
+13.0461 A, a 0.7097) the incremental inductance keeps 92 / 87 / 81 / 77 / 66 % of its zero-current
+value at 2 / 3 / 4 / 4.8 / 6.7 A, slightly below the datasheet's 10 / 20 / 30 % points. AC (core)
+loss from Coilcraft's power-inductor loss tool for this part: 71.6 mW x dIpp^1.99 at 0.408 MHz,
+independent of the DC current and linear in frequency; part temperature rise 25.3 K/W (same
+tool; research calculations/fan/fan_choke_check.py).
+
 The `current` property is the lower of the 40 C-rise Irms and the 30 %-drop Isat, as for the
 other inductor packages in this registry.
 """

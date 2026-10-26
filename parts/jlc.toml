@@ -5,6 +5,8 @@
 # rotation           degrees added to KiCad's rotation in the CPL; check each part once in JLC's
 #                    placement preview, then set rotation_verified = true
 # source             where the mapping was checked
+# why_extended       an extended resistor or capacitor on main2: why no basic part does (a value
+#                    or rating the datasheet fixes, a tolerance, a package); tests/test_main2.py
 #
 # `micras-pcb parts` fails when a board uses an MPN missing here; `--online` adds stock and type.
 
@@ -28,6 +30,7 @@ type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-15: extended, 1065 in stock; 1 nF 50 V C0G 0402"
+why_extended = "C0G for the ADC filter and the sink integrator (no DC-bias or temperature drift on a 1 nF that sets a time constant); JLCPCB's basic 1 nF 0402 parts are X7R"
 
 [parts."0402WGF0000TCE"]
 lcsc = "C17168"
@@ -42,6 +45,14 @@ type = "basic"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: basic, 8.6 M in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+
+[parts."0402WGF1500TCE"]
+lcsc = "C25082"
+type = "extended"
+rotation = 0
+rotation_verified = false
+source = "jlcpcb.com parts search 2026-10-25: extended, 995 k in stock; 150 Ohm 1 % 0402 (UNI-ROYAL)"
+why_extended = "R_iso of the INA241A2 outputs (R78/R79): 150 Ohm damps the ring of the amplifier's inductive output impedance with C_f 1 nF, so the ADC kickback settles under 1 mA from 0.64 us in every corner of TI's model; with the basic 100 Ohm part it takes 0.87 us and still leaves 1.24 mA at 0.8 us (research/next-revision/calculations/current_sense/ina241_riso_out.txt)"
 
 [parts."0402WGF1001TCE"]
 lcsc = "C11702"
@@ -147,6 +158,14 @@ type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: extended, 191 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+why_extended = "a Preferred Extended part (no fee on Economic PCBA), and 39 kOhm is DS14341 Table 12's REN, which sets the STSPIN958's EN/nFAULT timing with CEN 10 nF; no basic 39 kOhm 0402"
+
+[parts."0402WGF4701TCE"]
+lcsc = "C25900"
+type = "basic"
+rotation = 0
+rotation_verified = false
+source = "jlcpcb.com parts search 2026-10-22: basic, 14.9 M in stock; 4.7 kOhm 1 % 0402"
 
 [parts."0402WGF5101TCE"]
 lcsc = "C25905"
@@ -174,7 +193,8 @@ lcsc = "C25130"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 0 in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+source = "jlcpcb.com parts search 2026-10-22: extended (Preferred), 358 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+why_extended = "a Preferred Extended part (no fee on Economic PCBA); the basic 1 kOhm would run the yellow NCD0603Y2 at 0.7 mA at its 2.6 V VF maximum"
 
 [parts."0402WGF6802TCE"]
 lcsc = "C36871"
@@ -204,12 +224,12 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-15: extended, 135 k in stock; 9.1 kOhm 1 % 0402"
 
-[parts."0501020.WR1"]
-lcsc = "C207007"
+[parts."0501012.WR1"]
+lcsc = "C207005"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-22: extended, 1380 in stock"
+source = "jlcpcb.com parts search 2026-10-22: extended, 798 in stock; Littelfuse 501 series 12 A 1206"
 
 [parts."0603WAF1001T5E"]
 lcsc = "C21190"
@@ -238,6 +258,7 @@ type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-15: extended, 268 k in stock; 3.3 Ohm 1 % 0603"
+why_extended = "the emitter resistor limits a failed sink's current within the SFH 4550 pulse rating (Sensors.zen): the basic 2.2 Ohm lets 0.44 A through, above the 0.38 A rating, and the basic 4.7 Ohm leaves the selector 0.41 V; no basic 3.3 Ohm"
 
 [parts."0603WAF6800T5E"]
 lcsc = "C23228"
@@ -274,12 +295,6 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: basic, 2.8 M in stock"
 
-[parts."25121WJ0000T4E"]
-lcsc = "C25469"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-15: extended, 242 k in stock; 0 Ohm 2512 1 W"
 
 [parts."918-118A2021Y40006"]
 lcsc = "C399938"
@@ -357,6 +372,13 @@ type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-15: C160391 BM05B-SRSS-TB(LF)(SN) JST, extended, 39306 in stock"
+
+[parts."BZT52C10S-7-F"]
+lcsc = "C260895"
+type = "extended"
+rotation = 0
+rotation_verified = false
+source = "jlcpcb.com parts search 2026-10-22: extended, 8.4 k in stock; Diodes Incorporated 10 V zener SOD-323"
 
 [parts."C2012X5R1V226MT000E"]
 lcsc = "C338080"
@@ -456,6 +478,13 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: basic, 2.5 M in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
 
+[parts."CL21B105KBFNNNE"]
+lcsc = "C28323"
+type = "basic"
+rotation = 0
+rotation_verified = false
+source = "jlcpcb.com parts search 2026-10-22: basic, 2.1 M in stock; 1 uF 50 V X7R 0805"
+
 [parts."CL21B224KBFNNNE"]
 lcsc = "C5378"
 type = "basic"
@@ -463,12 +492,20 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: basic, 763 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
 
+[parts."CL21B474KBFNNNE"]
+lcsc = "C13967"
+type = "basic"
+rotation = 0
+rotation_verified = false
+source = "jlcpcb.com parts search 2026-10-22: basic, 400 k in stock; 470 nF 50 V X7R 0805"
+
 [parts."CL31B106KBHNNNE"]
 lcsc = "C89632"
 type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-15: extended, 192 k in stock; 10 uF 50 V X7R 1206"
+why_extended = "10 uF 50 V X7R on VBAT (17.4 V, 24.2 V while the TVS clamps), with a Samsung DC-bias curve cited in passives.zen; the basic 10 uF 50 V 1206 is X5R, without a DC-bias figure, next to the bridges' thermal pads"
 
 [parts."CL32B106KBJNNNE"]
 lcsc = "C138687"
@@ -476,6 +513,7 @@ type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-17: extended, 79 k in stock; 10 uF 50 V X7R 1210"
+why_extended = "10 uF 50 V X7R 1210 on VBAT: twice the 1206's capacitance at 16.8 V (Samsung DC-bias curves, passives.zen); no basic 10 uF 50 V X7R"
 
 [parts."DRV8874PWPR"]
 lcsc = "C1855818"
@@ -553,6 +591,7 @@ type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-15: extended, 3604 in stock; 25 mOhm 1 % 1 W 1206 alloy"
+why_extended = "25 mOhm 1 W current sense (the STSPIN958's RSNS, DS14341 Eq. 1); no basic part of this value and rating"
 
 [parts."HoLLR2512-3W-50mR-1%"]
 lcsc = "C2994645"
@@ -651,6 +690,7 @@ type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-15: extended, 4315 in stock; Yageo RT0603 1.2 Ohm 0.1 % 25 ppm/C thin film"
+why_extended = "1.2 Ohm is fixed by the emitter sink's scaling and no basic 1.2 Ohm exists, so the fee is paid either way and the 0.1 % 25 ppm/C thin film costs nothing more (passives.zen)"
 
 [parts."SK-12D29-G060"]
 lcsc = "C2848877"
@@ -672,6 +712,13 @@ type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: extended, 357 in stock; LCSC number from the MicrasBluetoothModule SchDoc"
+
+[parts."SP1005-01ETG"]
+lcsc = "C126835"
+type = "extended"
+rotation = 0
+rotation_verified = false
+source = "jlcpcb.com parts search 2026-10-22: extended, 17.8 k in stock; Littelfuse SP1005 6 V bidirectional TVS, SOD882"
 
 [parts."STM32H725RGV6"]
 lcsc = "C5271073"
@@ -770,6 +817,7 @@ type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-15: extended, 4955 in stock"
+why_extended = "a true 4-terminal (Kelvin) 10 mOhm shunt for the INA241 (Drivers.zen); no basic equivalent"
 
 [parts."XAL6030-102MEB"]
 lcsc = "C2938919"

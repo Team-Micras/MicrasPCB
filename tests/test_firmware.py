@@ -207,7 +207,7 @@ def test_battery_voltage_is_measurable(d):
     assert FW["battery"]["channel"] == "pin", f"the firmware reads the {FW['battery']['channel']} channel, not a pin"
     pin, _, ratio = found[0]
     assert pin in FW["pins"], f"the battery divider is on {pin}, which the firmware does not configure"
-    # The divider's tap is a high-impedance node (100 kOhm || 27 kOhm): a GPIO pull on the pin
+    # The divider's tap is a high-impedance node (10 kOhm || 2 kOhm, 1.7 kOhm): a GPIO pull on the pin
     # (RPU/RPD 30-50 kOhm, DS13311 Table 55 p160) loads it and shifts the reading.
     pull = FW["pins"][pin].get("pull", "none")
     assert pull == "none", f"{pin} carries the battery divider, but the firmware sets a pull-{pull} on it"

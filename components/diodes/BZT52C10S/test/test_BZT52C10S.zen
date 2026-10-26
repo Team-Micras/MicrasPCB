@@ -1,0 +1,31 @@
+"""BZT52C10S-7-F package facts (Diodes DS30093 Rev. 20 - 2): pinout, sourcing, the 10 V row."""
+
+Zener = Module("../BZT52C10S.zen")
+
+
+def clamp_orientation(module, inputs):
+    # A P-MOSFET gate clamp: anode on the gate, cathode on the source.
+    got = {}
+    for net, ports in module.nets().items():
+        for path, pin in ports:
+            if path.endswith(".D"):
+                got[pin] = net
+    check(got == {"A": "GATE", "K": "SOURCE"}, "pinout changed: " + str(got))
+
+
+def datasheet_row(module, inputs):
+    d = [c for path, c in module.components().items() if path.endswith("D")][0]
+    check(d.mpn == "BZT52C10S-7-F", "MPN")
+    check(d.manufacturer == "Diodes Incorporated", "manufacturer")
+    check(d.prefix == "D", "reference prefix D")
+    check(d.type == "zener", "type")
+    check(d.properties["zener_voltage_min"] == 9.4, "VZ min 9.4 V")
+    check(d.properties["zener_voltage_max"] == 10.6, "VZ max 10.6 V")
+
+
+TestBench(
+    name="BZT52C10S_gate_clamp",
+    module=Zener,
+    test_cases={"default": {"A": Net("GATE"), "K": Net("SOURCE")}},
+    checks=[clamp_orientation, datasheet_row],
+)

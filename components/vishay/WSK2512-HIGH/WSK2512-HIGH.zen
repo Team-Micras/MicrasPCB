@@ -24,6 +24,10 @@ Ratings (Standard Electrical Specifications, Technical Specifications):
 - TCR +-35 ppm/C for 0.005 to 0.2 Ohm (+-75 ppm/C at 3-4.9 mOhm, +-250 ppm/C at 1-2.9 mOhm).
 - Tolerance 1 % from 0.0005 Ohm, 0.5 % from 0.001 Ohm, 0.1 % from 0.01 Ohm.
 - Operating temperature -65 to +170 C; inductance 0.5 to 5 nH (Features); AEC-Q200.
+- Thermal EMF: doc 30108 gives none; Vishay's Power Metal Strip product overview (VMN-PL0407-1703,
+  2017, p7), which lists the WSK2512, states that the series "utilize resistance materials that
+  have low thermal EMF characteristics (below 3 uV/C)". With a Kelvin part the EMFs of the two
+  ends cancel but for their temperature difference: 3 uV/C x 2 C is 0.6 mA at 10 mOhm.
 - Stability (Performance table): load life, 1000 h at rated power and 70 C, +-(1.0 % + 0.5 mOhm);
   thermal shock +-(0.5 % + 0.5 mOhm).
 

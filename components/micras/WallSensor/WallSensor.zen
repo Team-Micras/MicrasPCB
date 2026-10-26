@@ -42,8 +42,17 @@ Version 1.9, 2022-08-09, "SFH-DS"):
 - Characteristics (p.5): VF 1.5 V typ, 1.7 V max at 100 mA (tp = 20 ms);
   2.4 V typ, 2.9 V max at 1 A (tp = 100 us); half angle +/-3 deg;
   tr = tf = 12 ns; RthJA 450 K/W.
-- Pulse handling: "Permissible Pulse Handling Capability" chart (p.8) gives the
-  allowed pulse current against tp and duty cycle.
+- Pulse handling: the "Permissible Pulse Handling Capability" charts give the
+  allowed pulse current against tp with the duty cycle D as parameter (read from
+  Version 1.8, 2021-11-18, p.6: OHF05438 at TA = 25 C, OHF05587 at 85 C; the
+  v1.9 copy of the page was not retrieved). At tp = 150 us: 0.59 A at D = 0.1
+  and 0.38 A at D = 0.2 (25 C); about 0.12 A and 0.07 A (85 C). The DC limit on
+  the same page falls linearly from 100 mA at 25 C to 0 at 100 C (OHR00880).
+  `emitter_pulse_current` is the D = 0.2 point at 25 C, the conservative bound
+  for any duty up to 0.2 and any tp up to 150 us (the curves fall with both).
+  Inference, not a datasheet value: the 85 C points are the 25 C ones scaled by
+  (100 C - TA) / 75 K, so a pulse current I at D = 0.2 holds up to about
+  TA = 100 C - 75 K x I / 0.38 A.
 
 TPS601A(F), NPN phototransistor, TO-18 metal can (Toshiba TPS601A(F) datasheet,
 2004-02-06, "TPS-DS"):
@@ -53,6 +62,12 @@ TPS601A(F), NPN phototransistor, TO-18 metal can (Toshiba TPS601A(F) datasheet,
   100 uA min (no rank), A 100-300 uA, B 200-600 uA, C 400-1200 uA;
   VCE(sat) 0.4 V max at IC = 30 uA; tr = tf = 2 us typ at VCC = 5 V,
   IC = 10 mA, RL = 100 ohm; peak sensitivity 800 nm; half angle +/-10 deg.
+- Curves (p3-4, typ, read): IL-E about 0.26 mA at 0.1 mW/cm2 and 4 mA at
+  1 mW/cm2 (2870 K, IL grows as E^1.2); spectral response 9 % at 500 nm,
+  47 % at 600 nm, 87 % at 700 nm, 100 % at 800 nm, 92 % at 850 nm, 25 % at
+  1000 nm, 1.5 % at 1100 nm; directional sensitivity near zero beyond 20 deg.
+  The unranked TPS601A(F) has no IL maximum; rank C's 1.2 mA is the largest
+  listed.
 - Lead forming (p.2, Precaution 2): bend at least 2 mm from the body, before
   soldering.
 
@@ -64,6 +79,8 @@ from Toshiba) and hand-soldered after the leads are formed, so the component is
 excluded from the JLCPCB BOM and placement file (skip_bom). Each fitted sensor
 takes one SFH 4550 and one TPS601A(F).
 """
+
+load("@stdlib/units.zen", "Current")
 
 LED_A = io(Net)
 LED_K = io(Net)
@@ -85,6 +102,8 @@ Component(
         "emitter": "SFH 4550 (ams-OSRAM)",
         "detector": "TPS601A(F) (Toshiba)",
         "assembly": "hand-soldered, leads formed",
+        # SFH 4550 v1.8 p.6, OHF05438: TA = 25 C, D <= 0.2, tp <= 150 us.
+        "emitter_pulse_current": Current("380mA"),
     },
     skip_bom=True,
 )

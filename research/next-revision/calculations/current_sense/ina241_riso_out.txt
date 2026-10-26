@@ -1,0 +1,52 @@
+== 1. Small signal, VSENSE -> OUT and -> ADC pin (5 pF pin), VS 3.3 V, VCM 8 V
+  no load           : DC 26.02 dB; peaking OUT +0.00 dB, pin +0.00 dB; -3 dB OUT  1.35 MHz, pin  1.35 MHz; pin delay 197 ns (100 kHz)
+  direct + 1 nF     : DC 26.02 dB; peaking OUT +4.24 dB, pin +4.24 dB; -3 dB OUT  2.21 MHz, pin  2.21 MHz; pin delay 198 ns (100 kHz)
+  100 Ohm + 1 nF    : DC 26.02 dB; peaking OUT +0.04 dB, pin +0.00 dB; -3 dB OUT  1.59 MHz, pin  1.25 MHz; pin delay 299 ns (100 kHz)
+  120 Ohm + 1 nF    : DC 26.02 dB; peaking OUT +0.02 dB, pin +0.00 dB; -3 dB OUT  1.54 MHz, pin  1.10 MHz; pin delay 319 ns (100 kHz)
+  150 Ohm + 1 nF    : DC 26.02 dB; peaking OUT +0.01 dB, pin +0.00 dB; -3 dB OUT  1.48 MHz, pin  0.93 MHz; pin delay 349 ns (100 kHz)
+  180 Ohm + 1 nF    : DC 26.02 dB; peaking OUT +0.00 dB, pin -0.00 dB; -3 dB OUT  1.44 MHz, pin  0.80 MHz; pin delay 379 ns (100 kHz)
+  220 Ohm + 1 nF    : DC 26.02 dB; peaking OUT +0.00 dB, pin -0.00 dB; -3 dB OUT  1.40 MHz, pin  0.67 MHz; pin delay 418 ns (100 kHz)
+  150 Ohm + 0.68 nF : DC 26.02 dB; peaking OUT +0.00 dB, pin +0.00 dB; -3 dB OUT  1.57 MHz, pin  1.15 MHz; pin delay 301 ns (100 kHz)
+  220 Ohm + 0.47 nF : DC 26.02 dB; peaking OUT +0.00 dB, pin +0.00 dB; -3 dB OUT  1.53 MHz, pin  1.08 MHz; pin delay 302 ns (100 kHz)
+  100 Ohm + 2.2 nF  : DC 26.02 dB; peaking OUT +0.32 dB, pin -0.00 dB; -3 dB OUT  1.35 MHz, pin  0.75 MHz; pin delay 420 ns (100 kHz)
+
+== 2. Step VSENSE 0 -> 5 mV (OUT +0.1 V): overshoot
+  no load           : overshoot OUT   0.0 %, pin   0.0 %
+  direct + 1 nF     : overshoot OUT  26.1 %, pin  26.1 %
+  100 Ohm + 1 nF    : overshoot OUT   7.8 %, pin   3.2 %
+  120 Ohm + 1 nF    : overshoot OUT   6.6 %, pin   1.5 %
+  150 Ohm + 1 nF    : overshoot OUT   5.3 %, pin   0.0 %
+  180 Ohm + 1 nF    : overshoot OUT   4.3 %, pin   0.0 %
+  220 Ohm + 1 nF    : overshoot OUT   3.4 %, pin   0.0 %
+  150 Ohm + 0.68 nF : overshoot OUT   4.3 %, pin   0.8 %
+  220 Ohm + 0.47 nF : overshoot OUT   2.2 %, pin   0.0 %
+  100 Ohm + 2.2 nF  : overshoot OUT   8.7 %, pin   0.0 %
+
+== 3. ADC kickback: CADC arrives 3.3 V below the pin (the worst case; linear, so +3.3 V mirrors it)
+   error CADC holds after each sampling time, mA of motor current at 0.2 V/A; RADC 200 Ohm, VCM 8 V;
+   'settled' = from when on the error stays under 1 mA. TI's model, then with Figure 6-24's
+   output impedance (zfig)
+                          0.30us 0.35us 0.40us 0.45us 0.50us 0.55us 0.60us 0.70us 0.80us 1.00us  settled
+  model 100 Ohm + 1 nF    +2.55  +4.67  +4.96  +4.15  +2.87  +1.55  +0.46  -0.73  -0.81  -0.08   0.57 us
+  model 120 Ohm + 1 nF    -1.59  +1.28  +2.50  +2.62  +2.16  +1.46  +0.78  -0.16  -0.44  -0.15   0.58 us
+  model 150 Ohm + 1 nF    -7.02  -3.46  -1.32  -0.19  +0.28  +0.38  +0.28  -0.02  -0.19  -0.12   0.41 us
+  model 180 Ohm + 1 nF   -11.67  -7.73  -5.02  -3.21  -2.08  -1.37  -0.95  -0.55  -0.38  -0.16   0.59 us
+  model 220 Ohm + 1 nF   -16.88 -12.71  -9.56  -7.20  -5.45  -4.17  -3.21  -1.95  -1.21  -0.47   0.84 us
+  model 150 Ohm + 0.68 nF  +1.07  +3.17  +3.39  +2.66  +1.64  +0.70  +0.01  -0.55  -0.46  -0.02   0.53 us
+  model 220 Ohm + 0.47 nF  -1.74  +0.92  +1.57  +1.28  +0.71  +0.17  -0.20  -0.43  -0.30  -0.02   0.48 us
+  model 100 Ohm + 2.2 nF  -8.34  -5.87  -3.97  -2.55  -1.55  -0.89  -0.47  -0.09  -0.03  -0.08   0.54 us
+  zfig  100 Ohm + 1 nF    +2.70  +5.75  +6.67  +6.14  +4.82  +3.20  +1.67  -0.43  -1.08  -0.35   0.86 us
+  zfig  120 Ohm + 1 nF    -1.65  +1.96  +3.68  +4.09  +3.66  +2.82  +1.86  +0.31  -0.43  -0.32   0.65 us
+  zfig  150 Ohm + 1 nF    -7.25  -3.17  -0.63  +0.74  +1.30  +1.36  +1.15  +0.51  +0.04  -0.16   0.62 us
+  zfig  180 Ohm + 1 nF   -11.97  -7.65  -4.63  -2.63  -1.38  -0.66  -0.28  -0.05  -0.08  -0.09   0.52 us
+  zfig  220 Ohm + 1 nF   -17.22 -12.78  -9.40  -6.88  -5.03  -3.70  -2.74  -1.55  -0.92  -0.35   0.78 us
+  zfig  150 Ohm + 0.68 nF  +1.91  +4.71  +5.23  +4.45  +3.14  +1.79  +0.69  -0.50  -0.65  -0.09   0.58 us
+  zfig  220 Ohm + 0.47 nF  -0.52  +2.57  +3.27  +2.77  +1.84  +0.93  +0.24  -0.39  -0.38  -0.04   0.55 us
+  zfig  100 Ohm + 2.2 nF  -9.00  -6.33  -4.18  -2.54  -1.34  -0.50  +0.03  +0.47  +0.46  +0.13   0.52 us
+
+== 4. Tolerance corners, both output impedances: C_f +-5 % (C0G), RADC 50 / 1000 Ohm (not
+   published), pin + trace 2 / 10 pF, VCM 0 / 16.8 V; worst error at each sampling time, worst settling
+  100 Ohm + 1 nF           4.16   6.88   7.38   6.60   5.01   3.56   2.16   0.93   1.24   0.45   0.87 us
+  150 Ohm + 1 nF           8.87   4.72   2.31   1.45   1.78   1.68   1.34   0.55   0.22   0.19   0.64 us
+
+   at the firmware's 0.7 us: 0.93 mA with 100 Ohm, 0.55 mA with 150 Ohm (budget 1 mA)

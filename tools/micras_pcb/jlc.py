@@ -43,18 +43,24 @@ def design_bom(board: str) -> list[dict]:
 
 
 def jlc_bom(board: str) -> tuple[list[dict], list[str]]:
+    """The assembler's BOM: every fitted part, one row per BOM line. DNP members stay out (the CPL
+    leaves them out too), and a line with no fitted member is dropped."""
     db, rows, errors = parts_db(), [], []
     for line in design_bom(board):
-        member = line["members"][0]
+        fitted = [m for m in line["members"] if not m.get("dnp")]
+        if not fitted:
+            continue
+        member = fitted[0]
+        designators = [m["designator"] for m in fitted]
         mpn = member.get("mpn")
         entry = db.get(mpn) if mpn else None
         if entry is None:
-            errors.append(f"{', '.join(line['designators'])}: MPN {mpn!r} has no entry in parts/jlc.toml")
+            errors.append(f"{', '.join(designators)}: MPN {mpn!r} has no entry in parts/jlc.toml")
             continue
         rows.append(
             {
                 "Comment": member.get("value") or mpn,
-                "Designator": ",".join(line["designators"]),
+                "Designator": ",".join(designators),
                 "Footprint": member.get("package") or entry.get("package", ""),
                 "LCSC Part #": entry["lcsc"],
                 "MPN": mpn,

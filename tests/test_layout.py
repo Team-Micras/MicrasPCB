@@ -11,7 +11,7 @@ import shutil
 import tomllib
 
 import pytest
-from micras_pcb import layout, sexpr, spec
+from micras_pcb import jlc, layout, sexpr, spec
 from micras_pcb.paths import ROOT, board_pcb, layout_boards, layout_dir
 
 from .conftest import needs_kicad
@@ -164,6 +164,128 @@ def decoupling_findings(board: str, pcb: layout.Board) -> list[str]:
 def test_decoupling_sits_at_its_pin(board):
     pcb = _placed(board)
     problems = decoupling_findings(board, pcb)
+    assert not problems, "\n".join(problems)
+
+
+# Bypass capacitors whose loop the datasheet wants on the IC's own layer, with no via between the
+# capacitor and the pin (TI SLVA959B section 5.3.1; DRV8874 SLVSF66A section 10.1 and Figure 37):
+# the capacitor DECOUPLING matches to such a pin has its rail pad joined to the pin by copper of the
+# pin's layer alone (tracks and pours of the rail on that layer, no via).
+DECOUPLING_SAME_LAYER = [("DRV8874", ("VM",))]
+
+
+def _layer_zones(board: str) -> list[tuple[str, list[str], list[tuple[float, float]]]]:
+    """The board's pours (net, layers, outline): rule areas and teardrops left out."""
+    root = sexpr.parse(board_pcb(board).read_text())
+    out = []
+    for z in root.children("zone"):
+        if z.child("keepout") or (z.child("attr") and z.child("attr").child("teardrop")):
+            continue
+        name = z.child("net_name") or z.child("net")
+        layers = (z.child("layers") or z.child("layer")).atoms()
+        pts = [(float(a), float(b)) for a, b in (q.atoms() for q in z.child("polygon").child("pts").children("xy"))]
+        out.append((name.atoms()[-1] if name else "", layers, pts))
+    return out
+
+
+def _in_poly(p: tuple[float, float], poly: list[tuple[float, float]]) -> bool:
+    x, y = p
+    hit = False
+    for (x0, y0), (x1, y1) in zip(poly, poly[1:] + poly[:1], strict=True):
+        if (y0 > y) != (y1 > y) and x < x0 + (y - y0) * (x1 - x0) / (y1 - y0):
+            hit = not hit
+    return hit
+
+
+def _seg_point(p, a, b) -> float:
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    L = dx * dx + dy * dy
+    u = 0.0 if L == 0 else max(0.0, min(1.0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L))
+    return math.dist(p, (a[0] + u * dx, a[1] + u * dy))
+
+
+def same_layer_findings(board: str, pcb: layout.Board) -> list[str]:
+    d = design(board)
+    zones = _layer_zones(board)
+    problems = []
+    for mpn, names in DECOUPLING_SAME_LAYER:
+        for ref in d.refs(mpn):
+            for name in names:
+                for num in d.pads(ref, name):
+                    pin = pcb.footprints[ref].pads_named(num)[0]
+                    layer = next(l_ for l_ in ("F.Cu", "B.Cu") if l_ in pin.layers)
+                    rail = pin.net
+                    # the capacitor of DECOUPLING's value range nearest the pin on the rail
+                    spec_ = next(e for e in DECOUPLING if mpn.startswith(e[0]) and name in e[1])
+                    lo, hi = spec_[3]
+                    caps = [
+                        c
+                        for c in d.two_terminal("capacitor", rail, "GND")
+                        if c in pcb.footprints and lo <= (d.value(c, "capacitance") or 0) <= hi
+                    ]
+                    if not caps:
+                        problems.append(f"{ref}.{num}: no capacitor on {rail}")
+                        continue
+                    cap = min(caps, key=lambda c: min(math.dist(p.xy, pin.xy) for p in pcb.footprints[c].pads))
+                    target = next(p for p in pcb.footprints[cap].pads if p.net == rail)
+                    # items of the rail on the layer: pads (inscribed circle), tracks, pours
+                    items = [
+                        ("pad", p.xy, min(p.size) / 2)
+                        for f in pcb.footprints.values()
+                        for p in f.pads
+                        if p.net == rail and (layer in p.layers or "*.Cu" in p.layers)
+                    ]
+                    items += [
+                        ("track", (t.start, t.end), t.width / 2)
+                        for t in pcb.tracks
+                        if t.net == rail and t.layer == layer
+                    ]
+                    items += [("zone", pts, 0.0) for n, layers, pts in zones if n == rail and layer in layers]
+
+                    def touch(a, b):
+                        (ka, ga, ra), (kb, gb, rb) = a, b
+                        if ka == "zone" and kb == "zone":
+                            return any(_in_poly(q, gb) for q in ga) or any(_in_poly(q, ga) for q in gb)
+                        if kb == "zone":
+                            a, b = b, a
+                            (ka, ga, ra), (kb, gb, rb) = a, b
+                        if ka == "zone":
+                            pts = [gb] if kb == "pad" else list(gb)
+                            return any(_in_poly(q, ga) for q in pts)
+                        if ka == "pad" and kb == "pad":
+                            return math.dist(ga, gb) <= ra + rb
+                        if ka == "track" and kb == "pad":
+                            a, b = b, a
+                            (ka, ga, ra), (kb, gb, rb) = a, b
+                        if ka == "pad":
+                            return _seg_point(ga, *gb) <= ra + rb
+                        return (
+                            min(_seg_point(q, *gb) for q in ga) <= ra + rb
+                            or min(_seg_point(q, *ga) for q in gb) <= ra + rb
+                        )
+
+                    start = next(i for i, it in enumerate(items) if it[0] == "pad" and it[1] == pin.xy)
+                    goal = next(i for i, it in enumerate(items) if it[0] == "pad" and it[1] == target.xy)
+                    seen, todo = {start}, [start]
+                    while todo:
+                        i = todo.pop()
+                        for j in range(len(items)):
+                            if j not in seen and touch(items[i], items[j]):
+                                seen.add(j)
+                                todo.append(j)
+                    if goal not in seen:
+                        problems.append(f"{ref}.{num} ({rail}): {cap} not joined to the pin on {layer} without a via")
+    return problems
+
+
+@needs_kicad
+@needs_pcb
+@pytest.mark.parametrize("board", LAYOUT_BOARDS)
+def test_decoupling_joins_its_pin_on_the_same_layer(board):
+    if not any(design(board).refs(mpn) for mpn, _ in DECOUPLING_SAME_LAYER):
+        pytest.skip(f"{board}: none of {[m for m, _ in DECOUPLING_SAME_LAYER]}")
+    pcb = _placed(board)
+    problems = same_layer_findings(board, pcb)
     assert not problems, "\n".join(problems)
 
 
@@ -455,3 +577,19 @@ def test_jlc_part_data_is_complete():
         if not e.get("source"):
             problems.append(f"{mpn}: no source")
     assert not problems, "\n".join(problems)
+
+
+@needs_kicad
+@needs_pcb
+@pytest.mark.parametrize("board", LAYOUT_BOARDS)
+def test_jlc_bom_excludes_dnp(board, tmp_path):
+    # The assembler's BOM and CPL list the same parts: JLCPCB fits every BOM row, so a DNP part in
+    # the BOM (a 0 Ohm across a choke, a jumper's extended-part fee) would be fitted or charged.
+    rows, errors = jlc.jlc_bom(board)
+    assert not errors, "\n".join(errors)
+    bom = {d for row in rows for d in row["Designator"].split(",")}
+    members = [m for line in jlc.design_bom(board) for m in line["members"]]
+    dnp = sorted(bom & {m["designator"] for m in members if m.get("dnp")})
+    assert not dnp, f"DNP parts in the JLCPCB BOM: {', '.join(dnp)}"
+    placed = {r["Ref"] for r in jlc.positions(board, tmp_path)} & {m["designator"] for m in members}
+    assert bom == placed, f"BOM only: {sorted(bom - placed)}; CPL only: {sorted(placed - bom)}"

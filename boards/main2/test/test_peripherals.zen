@@ -2,7 +2,7 @@
 
 Sources: USB Type-C Cable and Connector Specification Release 2.0, ST AN4879 Rev 12, Espressif
 ESP32-S3-MINI-1 datasheet v1.7 (Tables 6-2, 6-3; section 9, Figure 9-1) and the ESP32-S3
-hardware design guidelines (schematic checklist), Worldsemi WS2812C-2020-V6 V1.0, Fusheng
+hardware design guidelines (schematic checklist), Worldsemi WS2812C-2020-V6 V1.1, Fusheng
 FUET-5030 specification.
 """
 
@@ -53,7 +53,9 @@ def usb_c_sbu_open(module, inputs):
 
 def usb_esd_protection(module, inputs):
     # AN4879 section 2.3: ESD protection at the receptacle on D+, D- and VBUS (Table 11: USBLC6-2
-    # on the data lines). A protection part is a Tvs/Zener or a package of type tvs/esd.
+    # on the data lines). A protection part is a Tvs/Zener or a package of type tvs/esd. The VBUS
+    # clamp's stand-off covers the net's whole declared range (up to Type-C's 5.5 V), so it never
+    # conducts at a legal VBUS.
     b = index(module)
     p = []
     for pin in ["D+", "D-", "VBUS"]:
@@ -65,6 +67,12 @@ def usb_esd_protection(module, inputs):
         ]
         if not clamps:
             p.append("U2 " + pin + " (" + line + ") has no ESD protection to GND")
+        if pin == "VBUS":
+            vmax = b.parts[USBC].pins["VBUS"].voltage.max
+            for r in clamps:
+                standoff = b.parts[r].reverse_standoff_voltage.max
+                if standoff < vmax:
+                    p.append(r + " stands off " + eng(standoff, "V") + ", below " + line + "'s " + eng(vmax, "V"))
     report(p)
 
 
@@ -120,10 +128,11 @@ def esp_supply_and_enable(module, inputs):
 
 
 def esp_vbus_detect(module, inputs):
-    # Table 6-3: VIH 0.75 x VDD, input at most VDD + 0.3 V. The ESP's VBUS divider must read a
-    # 4.4 V VBUS as high and keep a 5.25 V one below 3.6 V.
+    # Table 6-3: VIH 0.75 x VDD, input at most VDD + 0.3 V. The ESP's VBUS divider must read the
+    # lowest VBUS as high and keep the highest below 3.6 V (the +5V net's declared range).
     b = index(module)
     vbus = net(b, USBC, "VBUS")
+    vlo, vhi = b.parts[USBC].pins["VBUS"].voltage.min, b.parts[USBC].pins["VBUS"].voltage.max
     p = []
     found = False
     for pin, n in b.parts[ESP].pins.items():
@@ -132,26 +141,26 @@ def esp_vbus_detect(module, inputs):
         if len(up) == 1 and len(down) == 1:
             found = True
             k = ohms(b, down[0]) / (ohms(b, up[0]) + ohms(b, down[0]))
-            if 5.25 * k > 3.3 + 0.3:
-                p.append(pin + " sees " + eng(5.25 * k, "V") + " at 5.25 V VBUS, above VDD + 0.3 V")
-            if 4.4 * k < 0.75 * 3.3:
-                p.append(pin + " sees " + eng(4.4 * k, "V") + " at 4.4 V VBUS, below VIH")
+            if vhi * k > 3.3 + 0.3:
+                p.append(pin + " sees " + eng(vhi * k, "V") + " at " + eng(vhi, "V") + " VBUS, above VDD + 0.3 V")
+            if vlo * k < 0.75 * 3.3:
+                p.append(pin + " sees " + eng(vlo * k, "V") + " at " + eng(vlo, "V") + " VBUS, below VIH")
     if not found:
         p.append("no ESP32 pin senses VBUS through a divider")
     report(p)
 
 
 def status_leds_on_3v3(module, inputs):
-    # WS2812C-2020-V6 V1.0 p2-3: VDD 3.3-5.3 V, DI VIH 0.55 x VDD, 100 nF on VDD (p5). The research
-    # puts them on 3V3_D (no 5 V rail), driven from PC6.
+    # WS2812C-2020-V6 V1.1 p3: VDD 3.3-5.3 V, DI VIH 0.55 x VDD, 100 nF on VDD (p5). The research
+    # puts them on 3V3_D (no 5 V rail), driven from PB9.
     b = index(module)
     p = []
     vdd = net(b, "IC1", "VDD")
     for led in ["D1", "D2"]:
         if net(b, led, "VDD") != vdd:
             p.append(led + " VDD is on " + net(b, led, "VDD") + ", not 3V3_D")
-    if net(b, "D1", "DI") != net(b, "IC1", "PC6"):
-        p.append("D1 DI is not on PC6")
+    if net(b, "D1", "DI") != net(b, "IC1", "PB9"):
+        p.append("D1 DI is not on PB9")
     if net(b, "D2", "DI") != net(b, "D1", "DO"):
         p.append("D1 DO does not chain to D2 DI")
     if len([r for r in two_terminal(b, "capacitor", vdd, "GND") if abs(farads(b, r) - 100e-9) <= 10e-9]) < 2:

@@ -39,9 +39,11 @@ gain nothing; the OPA313 slews four times slower and drives only 150 pF.
 
 The AO3400A's 630 pF Ciss is above the 500 pF rated drive, and Figure 7-26 gives about 30 deg
 phase margin at 600 pF (G = 1). main2 closes the loop through an integrator (1 kOhm from the sense
-resistor to IN-, 1 nF from OUT to IN-), which a behavioural model settles without overshoot
-(research/next-revision/calculations/emitter/emitter_sink.py). TODO: confirm the step on the bench,
-across the sense resistor.
+resistor to IN-, 1 nF from OUT to IN-). With TI's TLV9002 PSpice model (the dual of the same die,
+SBOMAL2) and an AO3400A fitted to its datasheet the step settles to 1 % in 7.4-13 us without
+overshoot; with a gate of twice the datasheet's capacitance it overshoots to at most 233 mA and
+settles in 18 us, both long before the receivers are read at 75 us
+(research/next-revision/calculations/emitter/emitter_sink.py, emitter_sink_out.txt section 3).
 
 ## Pinout (SBOS833R Figure 6-1, Table 6-1, TLV9001 DBV)
 

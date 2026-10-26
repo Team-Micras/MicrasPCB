@@ -32,10 +32,10 @@ about 2.5 V from 3.3 V, inside the output swing. The VOS limit is +-0.8 % of the
 set-point (+-1.0 % over temperature).
 
 Integrator-owned circuitry: the 100 nF V+ bypass, the set-point divider, the gate resistor and
-any loop compensation. TODO: the AO3400A's 630 pF Ciss sits above the 500 pF drive rating;
-the source follower bootstraps most of Cgs, but the loop's step response with the chosen gate
-resistor must be checked (simulation with the vendor models, or a bench step at the sense
-resistor) before the layout is frozen.
+any loop compensation. The AO3400A's 630 pF Ciss sits above the 500 pF drive rating; the source
+follower bootstraps most of Cgs, and main2's integrator loop (1 kOhm, 1 nF, 100 Ohm gate
+resistor) settles without overshoot in TI's TLV9002 model (research/next-revision/calculations/
+emitter/emitter_sink.py, section 3).
 """
 
 # Section 7.3: recommended supply 1.8-5.5 V.

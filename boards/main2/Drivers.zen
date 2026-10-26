@@ -6,50 +6,91 @@ next to its connector (TI SLVSF66A; research/next-revision, Drivetrain and A.1).
 datasheet's netlist rules are checked by components/ti/DRV8874/checks.zen in
 boards/main2/test/test_drivers.zen.
 - PH/EN mode, PMODE on GND (Table 2: <= 0.65 V). The timer PWM goes on EN/IN1 and the direction
-  on PH/IN2: right motor Motor_Right_EN (PA8, TIM1_CH1) and Motor_Right_PH (PA9), left motor
-  Motor_Left_EN (PC7, TIM3_CH2) and Motor_Left_PH (PC9). EN = 0 is the low-side brake (Table 3),
+  on PH/IN2: right motor Motor_Right_EN (PA8, TIM1_CH1) and Motor_Right_PH (PB8), left motor
+  Motor_Left_EN (PC7, TIM8_CH2) and Motor_Left_PH (PC6). EN = 0 is the low-side brake (Table 3),
   so the bridge alternates drive and low-side slow decay at 100 kHz, the fPWM maximum (section
-  6.3) and below the INA241's 125 kHz PWM-rejection limit (SBOSA30D 7.3.1.1).
+  6.3) and below the INA241's 125 kHz PWM-rejection limit (SBOSA30D 7.3.1.1). The datasheet gives
+  no minimum output pulse: both edges are delayed alike (tPD 400 ns) and swing in tRISE/tFALL
+  150 ns, so a pulse under about 0.3 us (3 % duty, 0.5 V at 16.8 V) does not reach full swing.
+  Below that duty the output voltage is not linear in the duty; the firmware either rounds such
+  duties to 0 or lets the current loop on the INA241 close around it (firmware_changes.toml, drive).
+  The INA241 after a bridge edge (characterised only at VS 5 V and a 48 V step, SBOSA30D Figure
+  7-1): its PWM-rejection hold covers 1 us, and in TI's PSpice model (which leaves the hold out) at
+  VS 3.3 V a 0-16.8 V edge leaves the output within 1.2 mV (6 mA) from 1 us on; at the phase centres
+  the residue is the 105 dB AC-CMRR plateau of Figure 6-8, 3.3 mA at D 0.5 and 1.3 mA on the long
+  phase at D 0.2/0.8, cancelling in the duty-weighted mean of the two centres
+  (research calculations/current_sense/ina241_edge.py).
 - IMODE on GND: fixed off-time (25 us, ended by the next input edge, section 7.3.3.2.1) with
   automatic retry, nFAULT on real faults only (Table 6 level 1). Cycle-by-cycle mode would pulse
   nFAULT at every chop (Figure 14).
 - Current regulation: ITRIP x AIPROPI = VREF / RIPROPI (equation 3). RIPROPI 2.0 kOhm 1 % (R61,
-  R71) and VREF from a 5.6 kOhm / 24 kOhm divider on 3V3_D (R63/R64, R73/R74): VREF = 3.3 x
-  24 / 29.6 = 2.68 V, ITRIP = 2.68 V / (2.0 kOhm x 450 uA/A) = 2.97 A typ (the research's
-  2.5-3 A), IPROPI 1.34 mA at ITRIP (<= 3 mA, section 6.3). The OCP (6 A min) stays above it.
+  R71) and VREF from a 4.7 kOhm / 20 kOhm divider on 3V3_D (R63/R64, R73/R74): VREF = 3.3 x
+  20 / 24.7 = 2.67 V, ITRIP = 2.67 V / (2.0 kOhm x 450 uA/A) = 2.97 A typ (the research's
+  2.5-3 A), IPROPI 1.34 mA at ITRIP (<= 3 mA, section 6.3). With 3V3_D's 3.284-3.346 V, 1 %
+  resistors and AERR +-5.5 % (2-4 A) the band is 2.76-3.23 A. The mirror's sensing low side (LS2
+  forward) conducts in drive and in brake, so the sense delay tDELAY never applies (section
+  7.3.3.1) and the comparator follows the current within tBLK 1.1 us + tDEG 0.6 us (typical, no
+  limits published). The OCP (6 A min, 3 us deglitch) stays above the band plus the overshoot
+  (Chokes below).
+  Equation 3 fixes only the ratio; 4.7 kOhm and 20 kOhm are JLCPCB basic parts (the 20 kOhm
+  already on the board), drawing 134 uA from 3V3_D, and VREF is a high-impedance input (the
+  datasheet's design example uses 16 kOhm / 50 kOhm, Table 8).
 - nSLEEP of both bridges on Motors_Enable (PA10) with R49 100 kOhm to GND, so the bridges sleep
   while the MCU is in reset or halted for SWD flashing (its pins float in analog mode, RM0468
   section 11.3.1); the inputs' own 100 kOhm pull-downs (Figure 16) make 50 kOhm in parallel.
 - nFAULT: open drain, both wire-ORed on Motors_nFault (PB2) with R60 10 kOhm to 3V3_D (0.33 mA,
   <= 5 mA, section 6.3).
-- VM on VBAT, all ceramic: C82/C91 100 nF at the pin (CVM1, Table 1), four 10 uF 50 V X7R 1206
-  per bridge (C83-C86, C92-C95) within a few mm, and the bulk (CVM2, VM-rated; section 9.1 leaves
-  its value to the system) as two 10 uF 50 V X7R 1210 per bridge (C87/C111, C96/C112). The board
-  has no electrolytic. At 16.8 V the Samsung DC-bias curves leave 3.2 uF per 1206 and 6.1 uF per
-  1210: 56 uF on VBAT with the fan's two 1206. The input ripple is I x sqrt(D (1 - D)) per bridge
-  (research Drivetrain); with both bridges at 3 A and D = 0.5 in phase (the worst case; 79 mV
-  interleaved 180 degrees at D = 0.25) and the fan at 2.5 A, VBAT ripples 285 mV pp at 100 kHz
-  from a 0.1 Ohm pack on 100 nH leads, inside the 300 mV of the power-tree model's HV case; each
-  1206 then carries 0.20 A rms and each 1210 0.37 A rms (2.6 A for a 10 C rise on the
-  CL31B106KBHNNN's Samsung curve). The pack's own resistance (0.1-0.3 Ohm) damps its lead
+- VM on VBAT, all ceramic: C82/C91 100 nF at the pin (CVM1, Table 1) and four 10 uF 50 V X7R 1210
+  per bridge (CVM2, VM-rated; section 9.1 leaves its value to the system): C83/C84 within a few
+  mm of the pin, C87/C111 and C96/C112 as the bulk beside them (C92/C93 for the left bridge). The
+  board's VBAT bulk is all ceramic on merit (research Power tree: a solid-polymer part would
+  add only bench-supply damping and hold-up the board does not need) and every 10 uF on VBAT is
+  the one 1210 part (a 1206 holds half the
+  capacitance at the pack's voltage, so two of them took a 1210's place). At 16.8 V the Samsung
+  DC-bias curve leaves 6.1 uF per 1210: 61 uF on VBAT with the fan's two. The 1210 is 2.5 mm high:
+  every place it takes is outside the 1.5 mm zones of spec/main2.toml [drive_blocks] (the 1.6 mm
+  1206 did not fit them either). The input ripple is I x sqrt(D (1 - D)) per bridge (research
+  Drivetrain); with both bridges at 3 A and D = 0.5 in phase (the worst case; 77 mV interleaved
+  180 degrees at D = 0.25) and the fan at 2.5 A, VBAT ripples 265 mV pp at 100 kHz from a 0.1 Ohm
+  pack on 100 nH leads, inside the 300 mV of the power-tree model's HV case; each 1210 then
+  carries 0.34 A rms (the 1206 of the same series takes 2.6 A for a 10 C rise on its Samsung
+  curve; the 1210 has the larger body). The pack's own resistance (0.1-0.3 Ohm) damps its lead
   inductance against the ceramics (Q 0.72 at 300 nH); a bench supply on 1 m leads leaves Q about
   4 (research calculations/power_tree/vbat_bulk.py, which compares the polymer and electrolytic
   alternatives). With the pack pulled under braking, the TVS D15 at J1 takes the regenerated
   energy (the battery input on the regulators sheet).
 - VCP: C88/C97 100 nF X7R 50 V to VM (CVCP, 16 V or more). CPH-CPL: C89/C98 22 nF X7R 50 V
   (CFLY, VM-rated).
+- Thermal, per bridge at its hot maximum RDS(on) (research drivers/q4_drivers.py): 0.70 W at the
+  firmware's 1.0 A rms run limit, +18 K over a 60 s run (ZthJA about 26 C/W at 60 s, Figure 25,
+  4-layer, read) and +25 K steady on the JEDEC 36.0 C/W; Figure 21 gives 31-32 C/W for a 4-layer
+  1 oz board with 2-4 cm2 of top copper, and main2's 0.5 oz inner planes sit between the two. A
+  stall held at the band's top, 3.23 A (about 4.2 W), gains +63 K in 1 s and +88 K in 10 s
+  (Figure 25, read) and reaches the 160 C thermal-shutdown minimum from 40 C only after about a
+  minute, so the firmware's rms limit, not the TSD, ends it.
 - Motor path: OUT1 -> 10 mOhm 4-terminal shunt (R65, R75, WSK2512R0100FEA, sensed by the
-  INA241A2 on the sensors sheet) -> choke footprint -> motor connector pin 2; OUT2 -> pin 1.
+  INA241A2 on the sensors sheet) -> choke -> motor connector pin 2; OUT2 -> pin 1.
   Forward (PH = 1, OUT1 high, Table 3) drives current from the bridge into the shunt, the
   INA241's positive direction. The connector keeps the main board's B02B-PASK.
-- Chokes: L4 / L5 XAL7070-473MEC 47 uH (Isat 4.2 A at a 30 % drop, Irms 4.1 A at 40 C rise,
-  DCR 97 mOhm max; Coilcraft Doc 856), above ITRIP plus the 0.41-0.62 A blanking overshoot,
-  about 3.6 A. Each has a 2512 0 Ohm alternative (R66, R76) across the same two nets, DNP: the
-  choke is fitted by default, because the motor's inductance at 100 kHz is unmeasured (maxon:
-  30-80 % of the 1 kHz value) and without a choke at 0.3 L a 3 A ITRIP peaks at about 5.8 A,
-  near the 6 A OCP minimum, with 2.1 W of ripple loss against the motor's 1.28 W budget
-  (research Drivetrain). Fit the 0 Ohm instead (and leave the choke off) if the bench shows the
-  motor alone keeps the ripple in budget. No capacitor across the motor: it would resonate with
+- Motors: maxon DCX 10 L 4.5 V, precious-metal brushes with CLL (maxon: the CLL raises the
+  service life at higher loads, and chokes are "strongly recommended" with CLL disks), article
+  DCX10L01EBKL531 (ball bearings) or DCX10L01EBSL531 (sleeve), configured online before ordering:
+  2.9 Ohm, 45.3 uH at 1 kHz, 2710 rpm/V (maxon product pages; catalogue Feb 2025 p100).
+- Chokes: L4 / L5 XAL7070-473MEC 47 uH +-20 % (Isat 4.2 A at a 30 % drop, Irms 4.1 A at 40 C
+  rise, DCR 97 mOhm max; Coilcraft Doc 856). An ironless winding's inductance falls with
+  frequency: 30-80 % of the 1 kHz value at 50-100 kHz (maxon's choke note, which designs with
+  0.3), "as low as 20 %" at 100 kHz (Portescap, 2022). Over 0.2-1.0 x L, the choke at -20 % and
+  biased at 3 A (Coilcraft's saturation model of the part) and VBAT up to 17.4 V, the ripple is
+  at most 1.11 A pp, 0.30 W in the motor against its 1.28 W budget, and in a full-speed reversal
+  the current overshoots the band's 3.23 A top by at most 2.25 A within 1.5 x (tBLK + tDEG) with
+  the motor's inductance left out: 5.48 A, under the 6 A OCP minimum, which also needs 3 us above
+  it, and inside the INA241's +7.25 A; the choke keeps 60 % of its inductance there (soft
+  saturation). At the datasheet timing and maxon's 0.3 the overshoot is 0.94 A, 4.17 A, within
+  the 4.2 A Isat. Choke heat at the 1.0 A rms run limit: 105 mW in the DCR plus at most 467 mW of
+  core loss (Coilcraft's loss-tool data for the XAL7070 series scaled to 47 uH, doubled), +15 K
+  at 26.5 K/W. Height 7.0 mm (7.13 mm with unreflowed terminations), within the 8.0 mm open
+  height of spec/main2.toml and the 7.2 mm of the left_tail zone (research
+  calculations/drivetrain/choke_check.py). No capacitor across the motor: it would resonate with
   the choke (research, Series choke downsides).
 
 Fan, IC6 (STSPIN958, DS14341 Rev 1), driving connector M3 at 400 kHz (research Fan and A.5):
@@ -57,45 +98,78 @@ Fan, IC6 (STSPIN958, DS14341 Rev 1), driving connector M3 at 400 kHz (research F
   OUT1/OUT2 and LSS1/LSS2 tied (section 5.4.3). PWM2/PH on GND: the load between OUT and LSS,
   low-side recirculation on limit (sections 5.6.1.2, 5.6.2.2, Figures 11 and 14). OFFSET low.
 - R31 25 mOhm 1 W 1206 (HoLLR1206-1W-25mR-1%) from LSS to GND, Kelvin to the pins.
-- REF from R28 22 kOhm / R29 9.1 kOhm on 3V3_D (the research's example): 3.3 x 9.1 / 31.1 =
-  0.966 V; Eq. 1 (section 5.6), I_peak = VREF / (RSNS x 10) = 3.86 A, about 1.5 x a 2.5 A
-  running current. The limiter is also the soft start: a locked rotor draws 13-50 A from 16.8 V
-  (fan study). TODO: set REF to 1.5 x the chosen motor's running current once it is chosen.
+- REF from R28 4.7 kOhm / R29 2.0 kOhm on 3V3_D (both JLCPCB basic parts, the 2.0 kOhm already
+  on the board): 3.3 x 2.0 / 6.7 = 0.985 V; Eq. 1 (section 5.6), I_peak = VREF / (RSNS x 10) =
+  3.94 A, 3.65-4.31 A over 3V3_D's range, 1 % resistors, ACL 9.5-10.5 and RSNS 1 %, below L6's
+  4.8 A (20 % drop) and the 7 A overcurrent shutdown. The divider's 1.4 kOhm source impedance
+  makes the REF input current negligible. The limiter is also the soft start: a locked rotor
+  draws 13-50 A from 16.8 V (fan study). Rule for the chosen motor, with I_run its running current
+  at the highest duty the fan will use: I_peak = max(1.5 x I_run, (I_run + h) / 0.925), h the
+  ripple half-amplitude at the lowest plausible inductance (1.05 A for a 1S motor, 1.4 A for a
+  2S one), so the ripple peak stays under the bottom of the REF band; VREF = I_peak x 0.25 V/A;
+  R29 = 4.7 kOhm x VREF / (3.3 V - VREF), the next E24 value up. The band's top (x 1.093) stays
+  at or below 4.8 A: I_peak up to 4.39 A, I_run up to 2.9 A (1S) or 2.66 A (2S). 2.0 kOhm suits
+  a 1S motor running at up to 2.5 A; a 2S motor at 2.5 A takes 2.2 kOhm (research
+  calculations/fan/fan_choke_check.py, section 4).
 - SR: R30 1 kOhm, 2 V/ns (Table 7: 1 k / 2.2 k / 5.6 k / 10 kOhm -> 2 / 1.2 / 0.6 / 0.3 V/ns),
   which cuts the switching loss at 400 kHz against the main board's 5.6 kOhm.
 - EN/nFAULT: R27 39 kOhm to 3V3_D and C30 10 nF (Table 12), on Fan_Enable (PB14). TOFF is the
   limiter flag in PWM trimming (section 5.6.2), read on Fan_TOFF (PB13). PWM1 on Fan_PWM (PB15,
-  TIM12_CH2). nSTBY on 3V3_D. V1, V2 unused.
-- VS on VBAT: C34/C35 470 nF 50 V X7R 0603 at the pins (Table 12: CS 470 nF) and C36/C99 10 uF
-  50 V X7R 1206, with the bridges' VBAT bulk (the research's alternative to a >= 25 V C36).
-  VDD on 3V3_D with C31 220 nF; C32 100 nF CP1-CP2 and C33 1 uF VSPUMP-VBOOT (Table 12).
-- Choke footprint L6, XGL5030-472MEC 4.7 uH (Isat 4.8 A at a 20 % drop, 6.7 A at 30 %; DCR
-  24.5 mOhm max; Coilcraft Doc 1576), between FAN_OUT and the motor: a 1S drone motor of about
-  3 uH needs it even at 400 kHz (research Q3 ripple table). A motor that measures above about
-  4 uH can run without it (a wire link across L6's pads). No capacitor across the fan motor.
+  TIM12_CH2). nSTBY on 3V3_D, without Table 12's RSTBY 18 kOhm / CSTBY 1 nF: in Figure 22 that RC
+  only delays the pin behind VDD at power-up, and the device stays in UVLO until VBOOT rises
+  anyway, then needs tWAKE + tBOOT (section 5.5); the firmware never uses standby (no MCU pin
+  left), and EN/nFAULT keeps its REN/CEN delay and PWM1 its internal pull-down. V1, V2 unused.
+- VS on VBAT: C34/C35 470 nF 50 V X7R 0805 at the pins (Table 12: CS 470 nF; 35 % of the rating
+  at 17.4 V, a JLCPCB basic part; the 0603 50 V X7R is an extended line) and C36/C99 10 uF
+  50 V X7R 1210, the bridges' VBAT bulk part (the research's alternative to a >= 25 V C36).
+  VDD on 3V3_D with C31 220 nF; C32 100 nF CP1-CP2 and C33 1 uF VSPUMP-VBOOT (Table 12: CBOOT
+  1 uF rated 16 V). C33 is X7R (0805 50 V, a JLCPCB basic part, 125 C): it sits at the
+  STSPIN958, the board's hottest part, where an X5R's 85 C rating may be exceeded.
+- STSPIN958 heat at 400 kHz and 17.4 V. DS14341 publishes RDS(on) at 25 C only, and no dead time
+  or operating supply current; the bounds are the silicon mobility law for RDS(on) (1.95 x at
+  125 C), 300 ns of body-diode conduction per edge and 10 mA from VS, on 45 C/W (the typical case:
+  the DRV8874's +25 % at 125 C, 100 ns, 7 mA, the 35.8 C/W of Table 4). From 40 C: at 2.5 A,
+  1.1 W typical (Tj 80 C) and 2.0 W bound (Tj 132 C); at the 4.31 A top of the REF band held
+  continuously, a stall, 2.7 W (Tj 137 C) typical and the thermal shutdown (150 C) in the bound,
+  which the firmware ends first from Fan_TOFF. The board at the pad stays about P x RthJB
+  (17.4 C/W) below the junction, 97 C at the 2.5 A bound, so C33 stays inside its X7R range
+  (-15 % at most there: 0.85 uF for the gate-drive reservoir) while the driver runs (research
+  calculations/fan/fan_choke_check.py, section 3).
+- Choke L6, XGL5030-472MEC 4.7 uH +-20 % (Isat 4.8 A at a 20 % drop, 6.7 A at 30 %; DCR
+  24.5 mOhm max; Coilcraft Doc 1576), between FAN_OUT and the motor. No drone motor publishes its
+  inductance; the makers that do bound it: scaled by L ~ 1/kv^2 to 13,000-20,000 rpm/V, the DCX
+  10 L 1.5 V and Faulhaber 1024/0816/0615 windings give 0.6-14 uH at 1 kHz, and the ironless
+  drop at the PWM frequency (0.2-1.0) leaves 0.12-14 uH at 400 kHz (a 2S motor about 4 x more).
+  Over that range, with L6 at -20 % and DC-biased (Coilcraft's saturation model), R 0.2-1.2 Ohm
+  and VBAT 17.4 V, the ripple at 400 kHz stays within 2.1 A pp for a 1S motor and 2.8 A pp for a
+  2S one, the motor's ripple heat at most 0.76 W and L6's core loss at most 0.53 W (Coilcraft's
+  loss tool for this part), +17 K with the DCR at 2.5 A. A locked rotor at 400 kHz defeats the
+  cycle-by-cycle limiter for a low-resistance motor: the on-time cannot fall below the limiter's
+  blanking (unpublished; 280-500 ns, the minimum pulse and above), so a 0.2-0.5 Ohm stall averages
+  5-13 A and may trip the 7 A overcurrent shutdown. At 50 kHz the same on-time is an eighth of the
+  duty and every case up to 500 ns of blanking stays below 7 A (peaks 4.8-5.7 A, L6 keeping 72 %
+  of its inductance): the firmware starts the fan at 50 kHz and moves to 400 kHz once it spins
+  (firmware_changes.toml, fan; research calculations/fan/fan_choke_check.py, sections 1-2). No
+  capacitor across the fan motor.
 """
 
 load(
     "./passives.zen",
     "C_100N_0402",
     "C_10N_0402",
-    "C_10U_1206_50V",
     "C_10U_1210_50V",
-    "C_1U_0402",
+    "C_1U_0805_50V",
     "C_220N_0402",
     "C_22N_0402",
-    "C_470N_0603_50V",
-    "R_0_2512",
+    "C_470N_0805_50V",
     "R_100K_0402",
     "R_10K_0402",
     "R_1K_0402",
-    "R_22K_0402",
-    "R_24K_0402",
     "R_25M_1206",
+    "R_20K_0402",
     "R_2K_0402",
     "R_39K_0402",
-    "R_5K6_0402",
-    "R_9K1_0402",
+    "R_4K7_0402",
 )
 
 Capacitor = Module("@stdlib/generics/Capacitor.zen")
@@ -147,7 +221,7 @@ def bridge(side, ic, en, ph, sense_p, sense_n, motor, refs):
     """One DRV8874 with its supply, charge pump, current setting, shunt, choke and connector.
 
     refs: designators (cvm1, cvm2 list, bulk list, cvcp, cfly, ripropi, vref_top, vref_bottom,
-    shunt, choke, choke_link).
+    shunt, choke).
     """
     vcp = Net("MOTOR_{}_VCP".format(side))
     cph = Net("MOTOR_{}_CPH".format(side))
@@ -178,17 +252,16 @@ def bridge(side, ic, en, ph, sense_p, sense_n, motor, refs):
     )
     Capacitor(name=refs["cvm1"], P1=GND, P2=VBAT, **C_100N_0402)
     for c in refs["cvm2"]:
-        Capacitor(name=c, P1=GND, P2=VBAT, **C_10U_1206_50V)
+        Capacitor(name=c, P1=GND, P2=VBAT, **C_10U_1210_50V)
     for c in refs["bulk"]:
         Capacitor(name=c, P1=GND, P2=VBAT, **C_10U_1210_50V)
     Capacitor(name=refs["cvcp"], P1=vcp, P2=VBAT, **C_100N_0402)
     Capacitor(name=refs["cfly"], P1=cph, P2=cpl, **C_22N_0402)
     Resistor(name=refs["ripropi"], P1=ipropi, P2=GND, **R_2K_0402)
-    Resistor(name=refs["vref_top"], P1=V3V3_D, P2=vref, **R_5K6_0402)
-    Resistor(name=refs["vref_bottom"], P1=vref, P2=GND, **R_24K_0402)
+    Resistor(name=refs["vref_top"], P1=V3V3_D, P2=vref, **R_4K7_0402)
+    Resistor(name=refs["vref_bottom"], P1=vref, P2=GND, **R_20K_0402)
     WSK2512_HIGH(name=refs["shunt"], P1=out1, S1=sense_p, S2=sense_n, P2=shunt_out)
     XAL7070_473(name=refs["choke"], P1=shunt_out, P2=terminal)
-    Resistor(name=refs["choke_link"], P1=shunt_out, P2=terminal, dnp=True, **R_0_2512)
     B02B_PASK(name=motor, prefix="M", P1=out2, P2=terminal)
 
 
@@ -202,7 +275,7 @@ bridge(
     "M2",
     {
         "cvm1": "C82",
-        "cvm2": ["C83", "C84", "C85", "C86"],
+        "cvm2": ["C83", "C84"],
         "bulk": ["C87", "C111"],
         "cvcp": "C88",
         "cfly": "C89",
@@ -211,7 +284,6 @@ bridge(
         "vref_bottom": "R64",
         "shunt": "R65",
         "choke": "L4",
-        "choke_link": "R66",
     },
 )
 bridge(
@@ -224,7 +296,7 @@ bridge(
     "M1",
     {
         "cvm1": "C91",
-        "cvm2": ["C92", "C93", "C94", "C95"],
+        "cvm2": ["C92", "C93"],
         "bulk": ["C96", "C112"],
         "cvcp": "C97",
         "cfly": "C98",
@@ -233,7 +305,6 @@ bridge(
         "vref_bottom": "R74",
         "shunt": "R75",
         "choke": "L5",
-        "choke_link": "R76",
     },
 )
 Resistor(name="R49", P1=GND, P2=Motors_Enable, **R_100K_0402)
@@ -242,6 +313,7 @@ Resistor(name="R60", P1=V3V3_D, P2=Motors_nFault, **R_10K_0402)
 # Fan driver.
 STSPIN958(
     name="IC6",
+    paste="split",  # open thermal vias in the exposed pad: its paste in windows round them
     VS=VBAT,
     VDD=V3V3_D,
     GND=GND,
@@ -267,17 +339,17 @@ STSPIN958(
     TOFF=Fan_TOFF,
     SR=FAN_SR,
 )
-Capacitor(name="C34", P1=VBAT, P2=GND, **C_470N_0603_50V)
-Capacitor(name="C35", P1=VBAT, P2=GND, **C_470N_0603_50V)
-Capacitor(name="C36", P1=VBAT, P2=GND, **C_10U_1206_50V)
-Capacitor(name="C99", P1=VBAT, P2=GND, **C_10U_1206_50V)
+Capacitor(name="C34", P1=VBAT, P2=GND, **C_470N_0805_50V)
+Capacitor(name="C35", P1=VBAT, P2=GND, **C_470N_0805_50V)
+Capacitor(name="C36", P1=VBAT, P2=GND, **C_10U_1210_50V)
+Capacitor(name="C99", P1=VBAT, P2=GND, **C_10U_1210_50V)
 Capacitor(name="C31", P1=GND, P2=V3V3_D, **C_220N_0402)
 Capacitor(name="C32", P1=FAN_CP1, P2=FAN_CP2, **C_100N_0402)
-Capacitor(name="C33", P1=FAN_VSPUMP, P2=FAN_VBOOT, **C_1U_0402)
+Capacitor(name="C33", P1=FAN_VSPUMP, P2=FAN_VBOOT, **C_1U_0805_50V)
 Resistor(name="R27", P1=V3V3_D, P2=Fan_Enable, **R_39K_0402)
 Capacitor(name="C30", P1=GND, P2=Fan_Enable, **C_10N_0402)
-Resistor(name="R28", P1=V3V3_D, P2=FAN_REF, **R_22K_0402)
-Resistor(name="R29", P1=GND, P2=FAN_REF, **R_9K1_0402)
+Resistor(name="R28", P1=V3V3_D, P2=FAN_REF, **R_4K7_0402)
+Resistor(name="R29", P1=GND, P2=FAN_REF, **R_2K_0402)
 Resistor(name="R30", P1=GND, P2=FAN_SR, **R_1K_0402)
 Resistor(name="R31", P1=FAN_LSS, P2=GND, **R_25M_1206)
 XGL5030_472(name="L6", P1=FAN_OUT, P2=FAN_MOTOR)

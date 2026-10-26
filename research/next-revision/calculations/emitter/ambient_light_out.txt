@@ -1,0 +1,26 @@
+== 1. The datasheet's light: 2870 K tungsten
+   luminous efficacy 16.9 lm/W of total radiation: 0.1 mW/cm2 = 16.9 lux
+   share of its power the TPS601A sees (spectral response weighted): 17.0 %
+
+== 2. Tungsten-equivalent irradiance per 1000 lux of each source
+   tungsten 2870 K               :  5.930 mW/cm2 per 1000 lux
+   halogen 3200 K                :  4.630 mW/cm2 per 1000 lux
+   daylight (5800 K blackbody)   :  1.919 mW/cm2 per 1000 lux
+   white LED / fluorescent-like  :  0.479 mW/cm2 per 1000 lux
+
+   field of view: Gaussian lobe 0.138 sr, 0.2 sr used
+
+== 3. Ambient current on the receiver (typ part / rank C maximum), and as % of the ADC full scale
+   heats, 500 lux on a white wall (rho 0.9)    :     143 cd/m2 -> 132.65 uW/cm2 eq; 0.365 / 1.684 mA, 11.1 / 51.0 % FS
+   final, 1500 lux on a white wall             :     430 cd/m2 -> 397.94 uW/cm2 eq; 1.364 / 6.295 mA, 41.3 / 190.7 % FS
+   3000 lux spotlit wall (2x the final)        :     859 cd/m2 -> 795.89 uW/cm2 eq; 3.133 / 14.461 mA, 94.9 / 438.2 % FS
+   10000 lux daylit wall by a window           :    2865 cd/m2 -> 1099.67 uW/cm2 eq; 4.618 / 21.315 mA, 140.0 / 645.9 % FS
+   overcast sky through a window (5000 cd/m2)  :    5000 cd/m2 -> 1919.28 uW/cm2 eq; 9.010 / 41.586 mA, 273.0 / 1260.2 % FS
+   clear sky through a window (10000 cd/m2)    :   10000 cd/m2 -> 3838.57 uW/cm2 eq; 20.700 / 95.540 mA, 627.3 / 2895.1 % FS
+   1500 lux LED lighting on a white wall       :     430 cd/m2 ->  41.15 uW/cm2 eq; 0.107 / 0.494 mA,  3.2 / 15.0 % FS
+
+== 4. Luminance in the field of view that makes a rank C receiver read 80 % dark (blind)
+   halogen 3200 K                :      208 cd/m2 (a white wall lit at      727 lux)
+   daylight (5800 K blackbody)   :      503 cd/m2 (a white wall lit at     1754 lux)
+
+   receiver ceiling 2.9 mA (3V3_A - VCE(sat) max over 1 kOhm), 88 % FS

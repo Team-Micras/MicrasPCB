@@ -88,3 +88,9 @@ outline is on User.13 (Altium mechanical layer).
 
 Courtyard: an F.CrtYd rectangle around the body outline (User.13) and the pads, 0.25 mm, the
 IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).
+
+`paste` (config, default `"whole"`): `"split"` takes
+`QFN-68-1EP_8x8mm_P0.4mm_EP6.5x6.5mm_SplitPaste.kicad_mod`, the same land (DS13311 Rev 5 Figure 73
+gives the 6.40 mm pad without a stencil) with the exposed pad's paste in four 2.6 mm windows
+(64 % of the pad) round a 0.6 mm cross that holds four via sites, 0.2 mm circles on Cmts.User,
+where the layout places its vias (TI SLUA271C (QFN and SON PCB Attachment) section 4.4: exposed-pad paste in windows covering 50-70 % of the pad, which lets it outgas; section 3.4.1: a smaller via loses less solder, and tenting a pad's via from the back traps air).

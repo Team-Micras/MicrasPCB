@@ -21,8 +21,9 @@ Reference prefix: `SW`. Properties `voltage` (24 V) and `current` (1 A), the DC 
 | (unnumbered) | | | two frame legs, mechanical |
 
 Rating: DC 24 V 1.0 A; contact resistance 50 mOhm max; 100 MOhm at DC 250 V; AC 250 V for 1 min;
--25 to +70 C; 10,000 cycles. Which lever position joins pin 2 to pin 1 is not on the drawing
-(TODO: check on a sample before the silkscreen marks ON).
+-25 to +70 C; 10,000 cycles. The lever joins pin 2 to the outer pin on its own side: at the
+pin 3 end, COM to B; at the pin 1 end, COM to A (the slider's contact rides under the lever; the
+drawing's end view and SCHEMATIC show the same pairing, see the docstring).
 
 ## Why this part
 

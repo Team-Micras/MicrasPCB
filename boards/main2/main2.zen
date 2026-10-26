@@ -44,20 +44,49 @@ lines, Motors_nFault (both DRV8874 nFAULT wire-ORed) and ESP_Flow (the ESP32's f
 Layout pin swaps (owner, 2026-10-20): the DIP switch sits on the STM32's right and rear, so
 Switch_1-3 take the plain inputs on the right-facing pin rows, PH1, PC15 and PC14 (reduced-drive
 pins, fine for inputs with pull-ups), and the lines bound for the rear-left leave from the
-left-facing rows: ESP_Flow on PB0, Motors_nFault on PB2 (EXTI2), Encoder_Right_CSn on PB10; on
-the main board's pins every one of them circled the chip. The ESP32 takes the SWD pins
-(PA13/PA14), NRST and UART4 (PA11 = UART4_RX, PA12 = UART4_TX), so it costs no new pin. BOOT0 is
-held low by R42: the MCU always starts from its flash. The motor pins keep their timers: right motor EN/PH on PA8/PA9 (TIM1),
-left on PC7/PC9 (TIM3). The ADC lines are swapped for the routing: Current_Sensor_Left on PB1,
-Wall_Sensor_0 on PA4, Wall_Sensor_3 on PC0, Current_Sensor_Right still on PC1. Each pin keeps an
-ADC1 and an ADC2 input, which the currents' dual injected-simultaneous sampling needs (STM32CubeMX
-MCU database, STM32H725RGVx: PB1 ADC1/2_INP5, PC1 ADC1/2/3_INP11, PA4 ADC1/2_INP18, PC0
-ADC1/2/3_INP10), and PB1 is a fast channel (DS13311 Table 85; research Current sensing), so the
-left current takes half of the research's fast-ADC swap. TODO: the whole ADC set-up (injected and
-regular groups on these channels) is not yet checked in CubeMX.
+left-facing rows: Motors_nFault on PB2 (EXTI2); on the main board's pins every one of them circled
+the chip. The ESP32 takes the SWD pins (PA13/PA14), NRST and UART4 (PA11 = UART4_RX, PA12 =
+UART4_TX), so it costs no new pin. BOOT0 is held low by R42: the MCU always starts from its flash.
+Layout pin swaps (owner, 2026-10-24), so that no line crosses the STM32's rear tip, where the VCORE
+island leaves In2.Cu no room: the four wall-emitter selectors move from TIM4 (PB6-PB9, all on the
+rear-right row) to TIM3, whose channels reach both sides: Wall_Sensor_PWM_0 on PC9 (TIM3_CH4) and
+Wall_Sensor_PWM_1 on PB0 (TIM3_CH3) on the left rows, by their emitters, Wall_Sensor_PWM_2 on PB4
+(TIM3_CH1) and Wall_Sensor_PWM_3 on PB5 (TIM3_CH2) on the rear-right row (PB4 leaves its reset
+function NJTRST: the debug port is SWD only; out of reset PB4 is NJTRST with its pull-up, RM0468 Rev
+3 section 11.3.1, which lifts Wall_Sensor_PWM_2's AC-coupled gate for a few ms while the emitter
+set-point is 0, so no emitter lights). The left motor's EN stays on PC7 but takes TIM8_CH2, slaved
+to TIM1 over ITR0 (RM0468 Table 350: TIM8 ITR0 = tim1_trgo) in gated mode; its PH (a GPIO) moves
+to PC6. LED_ARGB leaves TIM8_CH1 for PB9 (TIM17_CH1, its CCR1 written by DMA on tim17_up, DMAMUX1
+input 112, RM0468 Table 118). The rest are GPIOs: Motor_Right_PH on PB8, by the right bridge's
+lines, IMU_INT2 on PB6, Encoder_Right_CSn on PB7 beside the SPI pins toward its slot (EC1, on the
+right), IMU_INT1 on PB10, and ESP_Flow on PA9 on the rear-left row, toward the ESP32. The motor
+timers: right motor EN/PH on PA8 (TIM1_CH1) and PB8, left on PC7 (TIM8_CH2) and PC6. The ADC lines
+are swapped for the routing: Current_Sensor_Left on PB1, Wall_Sensor_0 on PA4, Wall_Sensor_3 on PC0,
+Current_Sensor_Right still on PC1. Each pin keeps an ADC1 and an ADC2 input, which the currents'
+dual injected-simultaneous sampling needs (PB1 ADC1/2_INP5, PC1 ADC1/2/3_INP11, PA4 ADC1/2_INP18,
+PC0 ADC1/2/3_INP10), and PB1 is a fast channel (DS13311 Table 85; research Current sensing), so the
+left current takes half of the research's fast-ADC swap.
+Pin map check: the 46 I/Os of the VFQFPN68 are each assigned once, every alternate function exists
+on its pin (STMicroelectronics STM32_open_pin_data, the STM32CubeMX MCU database: STM32H725RGVx.xml
+and GPIO-STM32H72_gpio_v1_0_Modes.xml; PC9/PB0/PB4/PB5 TIM3_CH4/CH3/CH1/CH2 AF2, PC7 TIM8_CH2 AF3,
+PB9 TIM17_CH1 AF1, PA8 TIM1_CH1 AF1, PA0/PA1 TIM5 AF2, PA15/PB3 TIM2 AF1, PA2 TIM15_CH1 AF4, PB15
+TIM12_CH2 AF2, PC10-PC12 SPI3 AF6, PA11/PA12 UART4 AF6), and each timer serves one function (TIM1,
+TIM8 motors; TIM2, TIM5 encoders; TIM3 selectors; TIM12 fan; TIM15 buzzer; TIM17 LEDs; TIM4 spare,
+the emitter DAC's trigger). The timer, DMA, DAC and ADC set-up, with the RM0468 Rev 3 and ES0491
+Rev 9 numbers, is boards/main2/firmware_changes.toml (drive, current, emitters, leds). STM32CubeMX
+6.18.1 (MCU database DB.6.0.181, STM32Cube FW_H7 V1.13.0) loads that whole set-up as a project
+built from the firmware's micras_v1.ioc with these pins, and generates its code without a
+conflict: every pin's alternate function as above, TIM8 gated on ITR0 and TIM4 gated on ITR2,
+TIM1 TRGO = enable and TRGO2 = update, ADC1/ADC2 dual injected simultaneous on channels 5 and 11
+triggered by TIM1 TRGO2 with ADC1's regular group, DAC1 channel 2 on PA5 triggered by TIM4 TRGO
+with its buffer off, channel 1 on-chip only beside PA4's ADC input, and the DMA requests of
+ADC1, UART4, SPI3, TIM17_UP and DAC1 channel 2, at the firmware's 550 MHz clock tree (275 MHz
+timer clocks).
 - PA5 is DAC1_OUT2, Wall_Emitter_Set, the wall emitters' current set-point (SENSORS sheet). PA4
   (DAC1_OUT1) and PA5 are the package's only DAC outputs (STM32CubeMX MCU database,
-  STM32H725RGVx; DS13311 Table 8), and PA4 carries Wall_Sensor_0.
+  STM32H725RGVx; DS13311 Table 8), and PA4 carries Wall_Sensor_0: DAC channel 1 stays disabled
+  and off the PA4 pad (DAC_MCR MODE1 = 011, RM0468 Table 266), and the ADC reaches PA4 through
+  the pin's analog switch (ADC_PCSEL bit 18, RM0468 section 28.4.12).
 - PC5 reads the battery voltage from its divider (REGULATORS sheet): ADC12_INP8, a slow channel
   (DS13311 Table 85 notes 4-5: on PC5 only the INN input is fast), on a TT_ha pin (Table 8) that
   the divider keeps below VDDA.
@@ -111,14 +140,17 @@ BAT_P = Power("BAT_P", voltage="12V to 17.4V")
 VBAT = Power("VBAT", voltage="12V to 17.4V")
 # OR(VBAT, VBUS): VBAT less the B5819W's drop, or VBUS less the P-FET (research Power tree).
 VSYS = Power("VSYS", voltage="4.3V to 17.4V")
-# L6981C33 fixed output (DS13554 Table 6 p6: 3.284-3.346 V).
-V3V3_D = Power("3V3_D", voltage="3.3V")
+# L6981C33 fixed output (DS13554 Table 6 p6: 3.284-3.346 V, TJ -40 to 125 C).
+V3V3_D = Power("3V3_D", voltage="3.284V to 3.346V")
 # ADP7142ACPZN3.3 fixed output (Rev H Table 1: 3.24-3.36 V over load, line and temperature).
-V3V3_A = Power("3V3_A", voltage="3.3V")
+V3V3_A = Power("3V3_A", voltage="3.24V to 3.36V")
 # The ADC and analog supply, 3V3_A through the 0 Ohm R67.
-VDDA = Power("VDDA", voltage="3.3V")
-# USB VBUS from the USB-C receptacle: 4.75-5.25 V at the host, 4.4 V minimum at a device.
-V5V = Power("+5V", voltage="4.4V to 5.25V")
+VDDA = Power("VDDA", voltage="3.24V to 3.36V")
+# USB VBUS from the USB-C receptacle: 4.4 V minimum at a device (USB 2.0 section 7.2.2 and
+# Table 7-7: a low-power port supplies 4.40-5.25 V, and every device must enumerate at 4.40 V at
+# its connector), up to 5.5 V from a Type-C source (vSafe5V, 4.75-5.5 V: USB PD R3.2 V1.2
+# Table 4.8, the definition the Type-C specification R2.5 takes in its terms table, section 1.5).
+V5V = Power("+5V", voltage="4.4V to 5.5V")
 # STM32 core supply from the on-chip SMPS: VOS3 to VOS0 (DS13311 Table 13 p117).
 VCORE = Power("VCORE", voltage="0.95V to 1.40V")
 # SMPS switching node; AN5419 Table 2 gives its range as VCORE in the Direct SMPS supply.
@@ -190,6 +222,7 @@ BATTERY_VOLTAGE = Net("Battery_Voltage")
 # MCU.
 STM32H725RGV6(
     name="IC1",
+    paste="split",  # open thermal vias in the exposed pad: its paste in windows round them
     VDD=V3V3_D,
     VDDSMPS=V3V3_D,
     VDDA=VDDA,
@@ -211,24 +244,24 @@ STM32H725RGV6(
     PA6=WALL_SENSOR_2,
     PA7=BUTTON,
     PA8=MOTOR_RIGHT_EN,
-    PA9=MOTOR_RIGHT_PH,
+    PA9=ESP_FLOW,
     PA10=MOTORS_ENABLE,
     PA11=UART4_RX,
     PA12=UART4_TX,
     PA13=SWDIO,
     PA14=SWCLK,
     PA15=ENCODER_RIGHT_ABI_B,
-    PB0=ESP_FLOW,
+    PB0=WALL_SENSOR_PWM_1,
     PB1=CURRENT_SENSOR_LEFT,
     PB2=MOTORS_NFAULT,
     PB3=ENCODER_RIGHT_ABI_A,
-    PB4=IMU_INT2,
-    PB5=IMU_INT1,
-    PB6=WALL_SENSOR_PWM_0,
-    PB7=WALL_SENSOR_PWM_1,
-    PB8=WALL_SENSOR_PWM_2,
-    PB9=WALL_SENSOR_PWM_3,
-    PB10=ENCODER_RIGHT_SPI.CS,
+    PB4=WALL_SENSOR_PWM_2,
+    PB5=WALL_SENSOR_PWM_3,
+    PB6=IMU_INT2,
+    PB7=ENCODER_RIGHT_SPI.CS,
+    PB8=MOTOR_RIGHT_PH,
+    PB9=LED_ARGB,
+    PB10=IMU_INT1,
     PB12=LED_RED,
     PB13=FAN_TOFF,
     PB14=FAN_ENABLE,
@@ -237,9 +270,9 @@ STM32H725RGV6(
     PC1=CURRENT_SENSOR_RIGHT,
     PC4=WALL_SENSOR_1,
     PC5=BATTERY_VOLTAGE,
-    PC6=LED_ARGB,
+    PC6=MOTOR_LEFT_PH,
     PC7=MOTOR_LEFT_EN,
-    PC9=MOTOR_LEFT_PH,
+    PC9=WALL_SENSOR_PWM_0,
     PC10=SPI_SCK,
     PC11=SPI_MISO,
     PC12=SPI_MOSI,

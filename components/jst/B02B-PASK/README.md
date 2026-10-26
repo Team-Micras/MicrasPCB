@@ -20,8 +20,8 @@ B02B(name="M1", prefix="M", P1=OUT_A, P2=OUT_B)
 | 1 | Pin_1 | `P1` | round |
 | 2 | Pin_2 | `P2` | square |
 
-Ratings (LCSC C158050 listing): 3 A, 250 V, -25 to +85 C. TODO: confirm against the JST PA
-catalogue.
+Ratings (JST PA catalogue, epa0125): 3 A AC/DC with AWG #22, 250 V, contact resistance 10 mOhm
+max, -25 to +85 C including the temperature rise from the current.
 
 Footprint `JST_PA_B02B-PASK_1x02_P2.00mm_Vertical.kicad_mod`: 1.2 mm pads on 0.7 mm holes at
 2.00 mm pitch, pad 1 at the origin and pad 2 at x = -2.00 mm, from the Micras Altium library

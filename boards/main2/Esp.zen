@@ -7,27 +7,51 @@ USB and over Wi-Fi), and relays Wi-Fi and Bluetooth LE telemetry. The root sheet
 takes an ST-Link instead when the ESP32 cannot reach the MCU. The
 S3 is the Wi-Fi/BLE ESP32 with a general-purpose USB OTG controller (ESP32-S3 datasheet section
 4.2.1.7), so the one USB-C port can be a CMSIS-DAP v2 probe, a CDC serial port and a mass-storage
-drive at once (research Q2). Fallback, same footprint family: the ESP32-S3-MINI-1U-N8 (LCSC
-C2980299) with an external antenna, if the PCB antenna's overhang is rejected (TODO: the antenna
-bench test in the chassis decides; research ESP32 form factor).
+drive at once (research Q2).
 
-Placement (a layout decision for the owner): the rear-left corner with the PCB antenna 5.05 mm
-beyond the rear edge, its feed end at the corner; it needs the screw hole M1 moved, the corner
-squared and the left drive block about 1 mm forward. Keep the antenna area free of copper on
-every layer (the footprint carries the keep-out), the module away from the bridges and the
-USB/UART lines, and dense GND vias along the antenna edge.
+MINI-1 (PCB antenna) rather than MINI-1U (external antenna), on the evidence (research ESP32 form
+factor): every metal part of the robot is 19 mm or more from the antenna (drive blocks 19 mm, left
+motor 25 mm, the M2 screw H3 25 mm, the LiPo pack 35 mm; MicrasHardware params.py, spec/main2.toml),
+beyond Espressif's 15 mm clearance (ESP32-S3 Hardware Design Guidelines, Positioning a Module on a
+Base Board) and Silicon Labs' 10 mm (BGM220P datasheet section 7.2); the exceptions are the
+USB-C shell (U2, 4.4 mm from the feed end) and the dielectric floor 2.2-3 mm below. No published
+measurement quantifies that detuning, so the link is sized for it: at 20 m, 18 dBm (the lowest
+802.11g power, Table 7-2) arrives at -48.2 dBm (66.2 dB free-space loss at 2.44 GHz, 0 dBi
+antennas) against -90.8 dBm sensitivity at 12 Mbit/s (Table 7-4): 42.6 dB of margin
+(research/next-revision/calculations/esp/link_budget.py), so 10 dB of detuning and 20 dB of
+obstruction still carry the 2 Mbit/s telemetry. The MINI-1U adds a cable and an antenna mount on a
+robot that crashes, and holds fewer certificates (no FCC ID or ISED number of its own; the MINI-1
+is FCC 2AC7Z-ESPS3MINI1 and ISED 21098-ESPS3MINI1; neither module is homologated by Anatel). The
+MINI-1U-N8 (LCSC C2980299) has the same land pattern (Figures 11-1 and 11-2), so it can be fitted
+at assembly without a board change.
+
+Placement (spec/main2.toml [u13], [antenna_notch]): the rear-left corner, the module at 180 degrees
+with its antenna area over a notch cut out of the board under it and beside it, its pads on the
+board; the antenna's feed end (the pin-1 end, Figures 3-1 and 10-1) faces the board centre and the
+USB-C, its open end the corner. Espressif places the feed end at a board edge, with the antenna
+beyond the edge or the board cut away under and beside it (Hardware Design Guidelines, Positioning
+a Module on a Base Board). Keep the module away from the bridges and the USB/UART lines, and dense
+GND vias along the module's ground edge and the notch.
 
 Supply (Table 6-2: 3.0-3.6 V, at least 0.5 A; Wi-Fi TX peaks 355 mA, Table 6-4): 3V3_D from the
-L6981C33 (1.5 A), with C107 10 uF and C108 100 nF at the module and C109 22 uF DNP (Figure 9-1
-shows 22 uF + 0.1 uF; with C109 fitted 3V3_D carries about 104 uF, inside the buck's
-30.5-145 uF window, boards/main2/test/test_power.zen). The EPAD is on GND.
+L6981C33 (1.5 A), with C109 22 uF beside the module's 3V3 pin and C108 100 nF and C107 10 uF on
+its 3V3_D feed beside U6, off the antenna notch (Figure 9-1 shows 22 uF + 0.1 uF; the module
+decouples its chip itself with 10 uF, 1 uF and 0.1 uF, Figure 8-1; 3V3_D then
+carries about 104 uF, inside the buck's 30.5-145 uF window, boards/main2/test/test_power.zen). The
+EPAD is on GND.
 
 EN: R89 10 kOhm to 3V3_D and C110 1 uF to GND, the RC delay of section 9 ("usually R = 10 kOhm
 and C = 1 uF"), so EN rises after 3V3_D. The ESP_EN pad pulls it to GND (reset).
-GPIO0 (strapping: low at reset enters ROM download, Table 4-1): R90 10 kOhm to 3V3_D (the
+GPIO0 (strapping: GPIO0 low with GPIO46 at its default low selects Joint Download Boot, Tables
+4-1 and 4-3, held at least tH = 3 ms past EN's rise, Table 4-2): R90 10 kOhm to 3V3_D (the
 schematic checklist recommends a pull-up) and the ESP_BOOT pad to GND. Recovery: a crashed USB
 OTG application leaves the PC no USB device; hold ESP_BOOT to GND and pulse ESP_EN (research,
-Recovery). Pads rather than buttons: recovery is rare, and the rear-left corner is tight.
+Recovery). That always recovers the USB port: an OTG application moves the shared USB PHY away
+from USB-Serial/JTAG with RTC_CNTL_RTC_USB_CONF_REG (ESP32-S3 Technical Reference Manual v1.8,
+register 10.56), which a software reset or a core or CPU watchdog reset keeps (core and CPU resets
+leave the RTC registers, TRM section 7.1 and Table 7.1-1), but EN (CHIP_PU) low powers the chip
+down, and its release is a power-on chip reset, which clears it and re-latches the strapping pins; only burned eFuses (DIS_DOWNLOAD_MODE, DIS_USB_SERIAL_JTAG, USB_PHY_SEL)
+would defeat it. Pads rather than buttons: recovery is rare, and the rear-left corner is tight.
 The other strapping pins, GPIO3, GPIO45 and GPIO46, are left open (their defaults, Table 4-1).
 
 USB: USBD_P/USBD_N from the USB-C receptacle (through the USBLC6 U6, peripherals sheet) to
@@ -38,14 +62,20 @@ away from the antenna.
 Links to the MCU (A.6). Host lines stay off the strapping pins:
 - SWD: GPIO11 to SWDIO (PA13); GPIO12, SPI-capable for SWD acceleration, to SWCLK (PA14) through
   R86 22 Ohm (checklist, SPI: a series resistor on the clock trace).
-- NRST: GPIO13 to Reset, driven open-drain by the firmware (NRST has its 30-50 kOhm pull-up, SW3
-  and C21; DS13311 Table 61).
+- NRST: GPIO21 to Reset, driven open-drain by the firmware (NRST has its 30-50 kOhm pull-up, SW3
+  and C21; DS13311 Table 61). GPIO21 has no pull at or after reset (ESP32-S3 datasheet v2.2
+  Table 2-1; TRM v1.8 Table 6.12-1: input and output off, no pull), no power-up glitch and no IO
+  MUX peripheral function; GPIO1-20 glitch for about 60 us while the chip powers up (low on
+  GPIO1-17, GPIO15/16 as XTAL_32K_P/N; low then high on GPIO18/19; a pull-down then high on GPIO20;
+  Table 2-2), which on NRST would reset the MCU a second time. It is high-Z while EN is low, so the
+  ESP never holds the MCU in reset before its firmware runs.
 - UART (UART1, IO MUX pins of Table 3-1, not UART0, which carries the ROM messages): GPIO17
   U1TXD through R88 100 Ohm (checklist, UART: a series resistor on TX) to UART4_RX (PA11),
   GPIO18 U1RXD from UART4_TX (PA12). Up to 5 Mbaud (research H7 data link).
-- GPIO21 to ESP_Flow (PB0), the flow-control line toward the MCU.
+- GPIO13 to ESP_Flow (PA9), the flow-control line toward the MCU: its power-up glitch (low,
+  60 us, Table 2-2) reads as "hold off", and PA9 has its pull-down.
 VBUS detect: R91 22 kOhm / R92 33 kOhm from +5V into ESP_VBUS_Sense (GPIO7, ADC1_CH6):
-5.25 V x 33 / 55 = 3.15 V at most (below VDD + 0.3 V) and 4.4 V x 0.6 = 2.64 V at least (above
+5.5 V x 33 / 55 = 3.30 V at most (below VDD + 0.3 V) and 4.4 V x 0.6 = 2.64 V at least (above
 VIH 0.75 x VDD = 2.48 V; Table 6-3). The ESP reports USB power to the MCU over UART4, which
 has no VBUS sense of its own (boards/main2/firmware_changes.toml, esp).
 """
@@ -114,13 +144,13 @@ ESP32_S3_MINI_1(
     IO10=NC(),
     IO11=SWDIO,
     IO12=ESP_SWCLK,
-    IO13=Reset,
+    IO13=ESP_Flow,
     IO14=NC(),
     IO15=NC(),
     IO16=NC(),
     IO17=ESP_TXD,
     IO18=UART4_TX,
-    IO21=ESP_Flow,
+    IO21=Reset,
     IO26=NC(),
     IO33=NC(),
     IO34=NC(),
@@ -143,7 +173,7 @@ ESP32_S3_MINI_1(
 # Supply.
 Capacitor(name="C107", P1=GND, P2=V3V3_D, **C_10U_0603)
 Capacitor(name="C108", P1=GND, P2=V3V3_D, **C_100N_0402)
-Capacitor(name="C109", P1=GND, P2=V3V3_D, dnp=True, **C_22U_0805_25V)
+Capacitor(name="C109", P1=GND, P2=V3V3_D, **C_22U_0805_25V)
 
 # EN and GPIO0: RC delay, pull-up, recovery pads.
 Resistor(name="R89", P1=V3V3_D, P2=ESP_EN, **R_10K_0402)

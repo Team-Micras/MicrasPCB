@@ -7,13 +7,16 @@ Supply: VDD +3.3 to +5.3 V (WS-DS p.2, maximum ratings table, "电源电压"); t
 5 V and the driving voltage must never exceed 7 V; a reversed supply does not damage it; static
 current below 1 uA; "stable supply down to 3.3 V" (p.1 features). The electrical, switching and
 LED tables are given at VDD = 5 V only: 3.3 V appears only in the feature text and the ratings
-range, so brightness and colour at the bottom of a 3.3 V rail are not specified (TODO: bench
-check of blue and green at 3.2-3.3 V). VDD is declared with the 3.3-5.3 V range, so a rail whose
+range. Datasheet V1.1 p5 (Chinese edition, the "VF" curve) shows each channel's constant-current
+sink holding 4.95-4.99 mA from 0.4 V across it, so a channel keeps its full current while its
+LED's VF is at most VDD - 0.4 V; at 3.3 V that is the knee for green (boards/main2 Peripherals.zen
+works it out for its rail). VDD is declared with the 3.3-5.3 V range, so a rail whose
 declared range dips below 3.3 V raises a build warning.
 
 Data (WS-DS p.3, VDD = 5 V): DI VIH 0.55 x VDD min (1.82 V at 3.3 V), VIL 0.7 V max, input
 range -0.3 V to VDD + 0.7 V (p.2), input current +-1 uA, input capacitance 15 pF max; DI to DO
-delay 300 ns max. DI and DO are interchangeable ("输入输出信号任意对调，不分方向", p.2 pin table).
+delay 300 ns max. V1.0 calls DI and DO interchangeable ("输入输出信号任意对调，不分方向", p.2 pin table); V1.1 drops
+that wording, so wire DI to DO.
 Bit timing (p.3-4): T0H 220-380 ns, T1H 580 ns-1 us, T0L 580 ns-1 us, T1L 580 ns-1 us (the
 low times are capped at 1 us, unlike the WS2815C's 5 us), reset (RES) low >= 280 us; up to
 800 kbit/s; 24 bits per LED, GRB order, MSB first. DO re-shapes and forwards the data.

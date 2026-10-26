@@ -1,13 +1,14 @@
 """Wall-emitter drive: the AC-coupled selectors Q2-Q5 and the shared sink U12/Q9 with its DAC
 set-point.
 
-Sources: ams-OSRAM SFH 4550 v1.9 (p4: IF 100 mA DC max), AOS AO3400A Rev 3.1 (p2), TI SBOS833R
+Sources: ams-OSRAM SFH 4550 v1.9 (p4: IF 100 mA DC max) and v1.8 (p.6: pulse handling), AOS AO3400A Rev 3.1 (p2), TI SBOS833R
 (TLV9001, section 7.10), ST DS13311 Rev 5 (Table 90, DAC); the model
 research/next-revision/calculations/emitter/emitter_sink.py (emitter_sink_out.txt).
 """
 
 load(
     "./helpers.zen",
+    "eng",
     "farads",
     "index",
     "net",
@@ -23,8 +24,9 @@ MCU = "IC1"
 SINK_AMP = "U12"
 SINK_FET = "Q9"
 SENSE = "R83"
-# Emitter n's selector is driven from TIM4 channel n+1 (boards/main/firmware.toml).
-CHANNELS = [("W1", "PB6"), ("W2", "PB7"), ("W3", "PB8"), ("W4", "PB9")]
+# Emitter n's selector is driven from a TIM3 channel (boards/main2/firmware_changes.toml, emitters):
+# PC9 CH4, PB0 CH3, PB4 CH1, PB5 CH2.
+CHANNELS = [("W1", "PC9"), ("W2", "PB0"), ("W3", "PB4"), ("W4", "PB5")]
 # A pin held high must let the gate fall below VGS(th) min 0.65 V (AO3400A p2) in milliseconds, so
 # the emitter never carries the sink's current as DC (SFH 4550 p4: 100 mA); and the gate may fall
 # at most 5 % over the firmware's 150 us pulse (the model's margin, emitter_sink_out.txt section 1).
@@ -34,6 +36,24 @@ TAU_MAX = 10e-3
 RO = [10.3e3, 16e3]
 VREF = 3.3
 VOS_MAX = 2e-3  # TLV9001 input offset, -40 to 125 C (SBOS833R 7.10)
+# VDDA (= VREF+) and 3V3_D extremes: ADP7142 Rev H Table 1 (3.36 V max), L6981C33 DS13554 Table 6
+# (3.346 V max); 3V3_D at an emitter pulse, 3.229 V: its 3.284 V minimum less the emitter droop and
+# an ESP32 dip (Sensors.zen, research power-tree study section 6).
+VDDA_MAX = 3.36
+V3V3_D_MAX = 3.346
+V3V3_D_PULSE_MIN = 3.229
+# SFH 4550 (WallSensor.zen): VF max 1.79 V at 175 mA (between the p5 maximum points); the chord
+# through the typical points 1.5 V at 100 mA and 2.4 V at 1 A, VF = 1.4 V + 1 Ohm x I, lies below
+# the (concave) VF curve, so it overstates a fault current.
+VF_MAX_SET = 1.79
+I_SET = 0.175
+VF0, RF = 1.4, 1.0
+# The sink's drain at the set current: the 0.21 V across R83 plus Q9 at RDS(on) 48 mOhm max (AO3400A
+# p2). What is left is the selector's: a source follower whose gate ends a pulse at 2.50 V, so the
+# headroom is its margin against VGS(175 mA) (emitter_sink_out.txt section 1 models it); 0.5 V is
+# the floor this check holds.
+SINK_FLOOR = 0.21 + I_SET * 0.048
+HEADROOM_MIN = 0.5
 
 
 def _selector(b, sensor):
@@ -118,6 +138,63 @@ def emitter_sink_set_point_from_the_dac(module, inputs):
     report(p)
 
 
+def emitter_pulse_within_rating(module, inputs):
+    # SFH 4550 pulse handling (WallSensor.zen, emitter_pulse_current: tp <= 150 us, D <= 0.2, 25 C;
+    # the firmware lights each emitter 150 us per 1 ms frame, boards/main2/firmware_changes.toml):
+    # - the DAC's full scale (code 4095, VREF+ at VDDA max, RO at its 10.3 kOhm minimum) stays within it;
+    # - so does a failed sink (Q9 shorted or U12 stuck high), which leaves only the emitter resistor and
+    #   R83 to limit the current, at 3V3_D max;
+    # - and the emitter resistor leaves the selector its headroom at VF max and 3V3_D at its minimum.
+    b = index(module)
+    p = []
+    inp, inn = net(b, SINK_AMP, "+"), net(b, SINK_AMP, "-")
+    dac, sense, va = net(b, MCU, "PA5"), net(b, SINK_FET, "S"), net(b, SINK_AMP, "V+")
+    top, bottom = two_terminal(b, "resistor", dac, inp), two_terminal(b, "resistor", inp, "GND")
+    fb, bias = two_terminal(b, "resistor", sense, inn), two_terminal(b, "resistor", va, inn)
+    if len(top) != 1 or len(bottom) != 1 or len(fb) != 1 or len(bias) != 1:
+        report(["the sink's set-point divider or feedback is not where emitter_sink_set_point_from_the_dac expects"])
+        return
+    rf, rb, rs = ohms(b, fb[0]), ohms(b, bias[0]), ohms(b, SENSE)
+    k = ohms(b, bottom[0]) / (ohms(b, top[0]) + ohms(b, bottom[0]) + RO[0])
+    full = VDDA_MAX * (k * (1 + rf / rb) - rf / rb) / rs
+    for sensor, pin in CHANNELS:
+        rating = b.parts[sensor].emitter_pulse_current.value
+        r_em = two_terminal(b, "resistor", net(b, sensor, "LED_A"), net(b, MCU, "VDD"))
+        if len(r_em) != 1:
+            p.append(sensor + ": expected one emitter resistor from 3V3_D to LED_A, found " + str(r_em))
+            continue
+        re = ohms(b, r_em[0])
+        if full > rating:
+            p.append(
+                sensor
+                + ": full-scale sink current "
+                + eng(full, "A")
+                + " above the "
+                + eng(rating, "A")
+                + " pulse rating"
+            )
+        fault = (V3V3_D_MAX - VF0) / (re + rs + RF)
+        if fault > rating:
+            p.append(
+                sensor
+                + ": a failed sink lets "
+                + eng(fault, "A")
+                + " through "
+                + r_em[0]
+                + " "
+                + eng(re, "Ohm")
+                + " and "
+                + SENSE
+                + ", above the "
+                + eng(rating, "A")
+                + " pulse rating"
+            )
+        headroom = V3V3_D_PULSE_MIN - VF_MAX_SET - I_SET * re - SINK_FLOOR
+        if headroom < HEADROOM_MIN:
+            p.append(sensor + ": " + r_em[0] + " leaves the selector " + eng(headroom, "V") + ", below 0.5 V")
+    report(p)
+
+
 TestBench(
     name="main2_sensors",
     module=MAIN2,
@@ -125,5 +202,6 @@ TestBench(
     checks=[
         wall_selector_gates_are_ac_coupled,
         emitter_sink_set_point_from_the_dac,
+        emitter_pulse_within_rating,
     ],
 )

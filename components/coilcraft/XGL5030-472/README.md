@@ -63,12 +63,12 @@ check`: OK.
 The top bar marks the start (short) lead, "Connect high dv/dt here for lowest EMI": put that end
 on the STSPIN958 output when placing.
 
-## 0 Ohm option
+## DC bias and losses
 
-The choke is fitted only if the chosen fan motor measures below about 4 uH. A 1206 (or 1210) 0 Ohm
-jumper lands on the same two pads as an either/or population: KiCad's 1206 pads (1.125 mm wide,
-centres at +-1.46 mm) sit inside the choke pads (1.065-2.245 mm from the centre) except 0.17 mm
-on the inner edge. A 2512 does not fit (its pads are wider apart than the 4.49 mm outer span).
-Draw a DNP 1206 footprint sharing the choke's pads, or solder the jumper on them; never fit both.
-Rate the jumper for the fan current limit (up to 5 A): one 1206 jumper is usually rated below
-that, so check its datasheet or use two in parallel on a dedicated footprint.
+Coilcraft's saturation SPICE model of the part (XGL5030-472_sat: L 4.4984 uH, Is 13.0461 A,
+a 0.7097) keeps 92 / 87 / 81 / 77 / 66 % of the zero-current inductance at 2 / 3 / 4 / 4.8 / 6.7 A,
+slightly below the datasheet's 10 / 20 / 30 % points. Core loss from Coilcraft's power-inductor
+loss tool for this part: 71.6 mW x dIpp^1.99 at 0.408 MHz, independent of the DC current and
+linear in frequency; part temperature rise 25.3 K/W. On main2 (drone fan at 400 kHz): at most
+2.8 A pp of ripple and 0.53 W of core loss, +17 K with the DCR at 2.5 A
+(`research/next-revision/calculations/fan/fan_choke_check.py`).

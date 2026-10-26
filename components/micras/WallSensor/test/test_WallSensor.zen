@@ -19,6 +19,8 @@ def hand_assembled(module, inputs):
     check(wall.prefix == "W", "the wall sensor keeps the W reference prefix")
     check("SFH 4550" in wall.properties["emitter"], "emitter is an SFH 4550")
     check("TPS601A" in wall.properties["detector"], "detector is a TPS601A")
+    # SFH 4550 v1.8 p.6: between the 100 mA DC rating and the 1 A single-pulse rating.
+    check(wall.emitter_pulse_current.value == 0.38, "the emitter's pulse rating at D 0.2, 150 us, 25 C is 0.38 A")
 
 
 TestBench(

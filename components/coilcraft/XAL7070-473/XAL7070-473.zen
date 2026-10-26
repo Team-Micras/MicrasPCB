@@ -20,6 +20,15 @@ before mounting for tin-silver terminations); bottom terminals 1.45 +-0.10 mm wi
 apart, 6.0 mm long typ. Recommended land pattern: 1.92 x 6.50 mm pads at 4.82 mm centre pitch.
 The bar on the top marks the start (short) lead: "Connect high dv/dt here for lowest EMI".
 
+Under DC bias (Coilcraft's saturation SPICE model of the part, XAL7070-473_sat: flux = L Is
+tanh((I/Is)^a)^(1/a), L 41.781 uH, Is 9.6419 A, a 0.6669) the incremental inductance keeps 95 / 87
+/ 79 / 69 / 57 % of its zero-current value at 1 / 2 / 3 / 4.2 / 6 A: a soft saturation, the 30 %
+drop at the datasheet's Isat. AC (core) loss: Coilcraft's power-inductor loss tool gives, for the
+XAL7070-102 to -682, P = C x f(MHz) x dIpp^2.1 mW independent of the DC current below 0.5 MHz, with
+C / L(uH)^1.05 = 24-33; for this part C is 1400-1900 (extrapolated; research
+calculations/drivetrain/choke_check.py doubles it). Part temperature rise about 24-26.5 K/W
+(the 40 C rise at Irms with the DCR at 65 C; the tool's value for the series).
+
 The `current` property is the lower of the 40 C-rise Irms and Isat, as for the other inductor
 packages in this registry.
 """

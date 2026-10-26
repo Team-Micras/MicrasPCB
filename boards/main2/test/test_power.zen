@@ -1,10 +1,14 @@
 """Power stage: battery fuse F1 and switch Q6, the VSYS power path D14/Q8, the 3V3_D buck IC7,
 the 3V3_A LDO U8, the battery divider, capacitor ratings.
 
-Sources: ST DS13554 Rev 3 (L6981), ADI ADP7142 Rev H, Littelfuse 501 Series (revised 08/20/15), JCET B5817W-B5819W,
-AOS AO3401A, Huashuo HSBB3072 Ver 3.0, ST DS14341 Rev 1 (STSPIN958 dVS/dt), ST DS13311 Rev 5,
-research/next-revision (Power tree; A.3, A.4). Net voltage ranges are main2.zen's (4S pack
-12.0-17.4 V).
+Sources: ST DS13554 Rev 3 (L6981), ADI ADP7142 Rev K, Littelfuse 501 Series (Revised 12/14/17) and
+Littelfuse "Fuseholder Rerating" (Chart II, pulse cycle withstand), JCET B5817W-B5819W, AOS
+AO3401A Rev 3.1, Huashuo HSBB3072 Ver 3.0, Diodes DS30093 Rev. 20-2 (BZT52C10S), ST DS14341 Rev 1
+(STSPIN958 dVS/dt), ST DS13311 Rev 5, TI SLVSF66A (DRV8874), USB 2.0 section 7.2.4.1, NASA GSFC
+PD-ED-1201 Table 1 (capacitor derating), Samsung's DC-bias curves (passives.zen DC_BIAS), small
+LiPo cell resistances (Takeyuta Lab, neophile.hatenablog.com/entry/2023/08/19/143147),
+research/next-revision (Power tree; A.3, A.4) and its calculations/power_tree/vbat_bulk.py. Net
+voltage ranges are main2.zen's (4S pack 12.0-17.4 V).
 """
 
 load(
@@ -20,6 +24,7 @@ load(
     "total",
     "two_terminal",
 )
+load("../passives.zen", "DC_BIAS")
 
 MAIN2 = Module("../main2.zen")
 
@@ -28,23 +33,43 @@ LDO = "U8"
 FUSE = "F1"
 MCU = "IC1"
 
+# VBAT while D15 clamps: the pack pulled under braking, or a bench supply hot-plugged on long leads,
+# at D15's 22.1 V VBR maximum (Regulators.zen; research calculations/power_tree/vbat_bulk.py
+# sections 4 and 7).
+VBAT_CLAMP = 24.2
+
+
+def effective_farads(b, ref, volts):
+    """Capacitance of `ref` at a DC bias, from passives.zen DC_BIAS (the fraction at the lowest
+    tabulated voltage at or above `volts`); 0 F for a part with no curve in hand, or above it."""
+    c = b.parts[ref]
+    points = DC_BIAS.get(str(c.mpn), [])
+    for v, fraction in points:
+        if v >= volts - 1e-9:
+            return farads(b, ref) * fraction
+    return 0.0
+
 
 def buck_output_capacitance(module, inputs):
     # DS13554 section 8.4.3 p28: the internal compensation is stable for COUT between Eq. 42,
-    # 4.02 / ((fSW / 10) x VOUT), and Eq. 43, 0.48e-3 / VOUT; fSW 400 kHz (Table 6). Every
-    # capacitor on the output net counts, the DNP options too (C109 at the ESP32 may be fitted).
+    # 4.02 / ((fSW / 10) x VOUT), and Eq. 43, 0.48e-3 / VOUT; fSW 400 kHz (Table 6). The upper
+    # bound takes every capacitor on the output net, the DNP options too, at its nominal value plus
+    # 20 % (the widest tolerance there); the lower bound takes the fitted ones at their effective
+    # capacitance at 3V3_D's maximum (DC_BIAS, Samsung curves; a part with no curve counts 0 F),
+    # less 20 % tolerance and 15 % for temperature (Samsung TCC within -12 % over -40 to 85 C).
     b = index(module)
     out = net(b, BUCK, "VOUT/FB")
     lo, hi = 4.02 / (40e3 * 3.3), 0.48e-3 / 3.3
-    fitted = total([farads(b, r) for r in two_terminal(b, "capacitor", out, "GND")])
-    options = total([farads(b, r) for r in all_two_terminal(b, "capacitor", out, "GND")])
+    vmax = b.parts[BUCK].pins["VOUT/FB"].voltage.max
+    fitted = total([effective_farads(b, r, vmax) for r in two_terminal(b, "capacitor", out, "GND")]) * 0.8 * 0.85
+    options = total([farads(b, r) for r in all_two_terminal(b, "capacitor", out, "GND")]) * 1.2
     p = []
     if options > hi:
         p.append(
             out + " carries up to " + eng(options, "F") + " with its DNP options, above " + eng(hi, "F") + " (Eq. 43)"
         )
     if fitted < lo:
-        p.append(out + " carries " + eng(fitted, "F") + ", below " + eng(lo, "F") + " (Eq. 42)")
+        p.append(out + " keeps " + eng(fitted, "F") + " effective, below " + eng(lo, "F") + " (Eq. 42)")
     report(p)
 
 
@@ -69,6 +94,56 @@ def buck_inductor_current(module, inputs):
     report(p)
 
 
+def buck_input_capacitance(module, inputs):
+    # DS13554 Eq. 35: CIN,min = IOUT / (4 x VPP,max x fSW) at the D = 0.5 worst case, with VPP
+    # "in the order of 5 % VINMAX" (section 8.4.1); IOUT 1.5 A, fSW 360 kHz minimum (Table 6).
+    # The capacitance is the effective one at VSYS's maximum (DC_BIAS), less 10 % tolerance.
+    b = index(module)
+    vin = net(b, BUCK, "VIN")
+    vmax = b.parts[BUCK].pins["VIN"].voltage.max
+    need = 1.5 / (4 * 0.05 * vmax * 360e3)
+    ceff = total([effective_farads(b, r, vmax) for r in two_terminal(b, "capacitor", vin, "GND")]) * 0.9
+    report(
+        []
+        if ceff >= need
+        else [BUCK + " CIN keeps " + eng(ceff, "F") + " at " + eng(vmax, "V") + ", Eq. 35 asks " + eng(need, "F")]
+    )
+
+
+def buck_slope_compensation(module, inputs):
+    # DS13554 section 7.1: QP = 1 / (pi x (mC x (1 - D) - 0.5)) (Eq. 13), mC = 1 + Se / Sn,
+    # Se = ISLOPE x fSW with ISLOPE = 1 A (Eq. 11), Sn = (VIN - VOUT) / L; Eq. 38 asks
+    # 0.4 <= QP <= 1.33. Taken literally this gives QP 0.33-0.39 for L3 22 uH over the 12-17.4 V
+    # pack and 0.18 at 4.3 V (USB), below 0.4; the datasheet's own Table 2 design (33 uH) gives
+    # lower still (0.30 at 17.4 V, 0.28 at 12 V), and its "full slope contribution" peak current
+    # limit (1.55 A against 2.0 A, Table 6) implies a ramp of about 0.45 A, not 1 A, and ST's own
+    # 3.3 V curves (section 10, Fig. 40-45) use 22 uH. So the lower bound is not applied as
+    # written; the current loop is sub-harmonically stable for any ISLOPE above 0.12 A (research
+    # calculations/power_tree/l6981_slope.py). What is checked: QP never exceeds 1.33 (no sub-harmonic oscillation, the
+    # bound that a small inductor breaks), and L3 is no larger than Table 2's 33 uH, so its QP is
+    # never below the datasheet's typical application at the same input.
+    b = index(module)
+    sw, out = net(b, BUCK, "SW"), net(b, BUCK, "VOUT/FB")
+    coils = two_terminal(b, "inductor", sw, out)
+    if len(coils) != 1:
+        report(["expected one inductor from SW to " + out])
+        return
+    l = b.parts[coils[0]].inductance.value
+    vin = b.parts[BUCK].pins["VIN"].voltage
+    p = []
+    for fsw in [360e3, 440e3]:
+        for v in [vin.min, 12.0, vin.max]:
+            d = 3.3 / v
+            mc = 1 + 1.0 * fsw / ((v - 3.3) / l)
+            x = mc * (1 - d) - 0.5
+            qp = 1 / (3.14159265 * x) if x > 0 else 1e9
+            if qp > 1.33:
+                p.append(coils[0] + " QP " + str(qp) + " at " + eng(v, "V") + " above 1.33 (Eq. 38)")
+    if l > 33e-6 * 1.001:
+        p.append(coils[0] + " " + eng(l, "H") + " above Table 2's 33 uH")
+    report(p)
+
+
 def vsys_power_path(module, inputs):
     # Research Power tree and A.4: VSYS = OR(VBAT, VBUS) through a 40 V Schottky from VBAT and a
     # P-MOSFET from VBUS (drain on VBUS, source on VSYS: its body diode conducts VBUS -> VSYS),
@@ -87,7 +162,7 @@ def vsys_power_path(module, inputs):
     downs = [r for r in two_terminal(b, "resistor", gate, "GND") if ohms(b, r) >= 470e3]
     if not downs:
         p.append("Q8's gate has no high-value pull-down to GND (the FET must turn on without the pack)")
-    loads = sorted([r for r in refs_on(b, vsys) if b.parts[r].type not in ["capacitor", "resistor"]])
+    loads = sorted([r for r in refs_on(b, vsys) if b.parts[r].type not in ["capacitor", "resistor", "zener"]])
     if loads != sorted(["D14", "IC7", "Q8"]):
         p.append(vsys + " loads: " + str(loads) + "; only IC7 (and U8 through its input resistor) belong there")
     report(p)
@@ -119,6 +194,60 @@ def battery_wins_over_usb(module, inputs):
     report(p)
 
 
+def q8_gate_clamp(module, inputs):
+    # AO3401A VGS +-12 V (p1). When VBAT falls faster than VSYS (a VBAT short, the pack pulled or
+    # SW4 opened under load), Q8's gate follows VBAT down while C52/C53/C80 hold VSYS: without a
+    # clamp VGS reaches -14 to -16 V (vbat_bulk.py section 9). A zener from gate (anode) to source
+    # (cathode) holds it at VZ: its maximum (10.6 V at 5 mA, BZT52C10S) stays inside 12 V and its
+    # minimum (9.4 V) above the USB-only VGS (-VBUS, up to 5.5 V), where it must not conduct.
+    b = index(module)
+    gate, src = net(b, "Q8", "G"), net(b, "Q8", "S")
+    z = [r for r in refs_on(b, gate) if b.parts[r].type == "zener" and net(b, r, "A") == gate and net(b, r, "K") == src]
+    if len(z) != 1:
+        report(["Q8 needs one zener from its gate (anode) to its source " + src + " (cathode)"])
+        return
+    c = b.parts[z[0]]
+    vbus = b.parts["Q8"].pins["D"].voltage.max
+    p = []
+    if c.properties["zener_voltage_max"] > 12.0:
+        p.append(z[0] + " clamps Q8 up to " + str(c.properties["zener_voltage_max"]) + " V, above its 12 V VGS")
+    if c.properties["zener_voltage_min"] < vbus + 1.0:
+        p.append(
+            z[0] + " VZ min " + str(c.properties["zener_voltage_min"]) + " V is within 1 V of VBUS " + eng(vbus, "V")
+        )
+    report(p)
+
+
+def plug_in_keeps_q6_off(module, inputs):
+    # At plug-in the pack's edge lands on Q6's drain (the board's GND, held to VBAT by the bulk)
+    # and couples to its gate through the gate-drain capacitance; the gate-source capacitance holds
+    # it down. Q6 must stay below VGS(th) min, 1.0 V at 25 C (HSBB3072 p2), so that it turns on only
+    # through SW4, slewed (STSPIN958 dVS/dt 0.5 V/us, DS14341 Table 1). Worst case: the drain rings
+    # up to the D15 clamp (24.2 V), the external gate-drain capacitors at +tolerance, the
+    # gate-source ones at -tolerance. Q6's own Crss is nonlinear: the charge it passes from 0 to
+    # 24.2 V is 10.7 nC (Fig. 7, integrated: 1600 pF at 0 V to 125 pF at 25 V); Cgs is Ciss - Crss,
+    # 2.63 nF (p2: 2860 - 229 pF at 15 V). Also at the hottest board, VGS(th) falls to 0.75 x
+    # (Fig. 5 at 85 C): the 17.4 V pack must stay below 0.75 V there.
+    b = index(module)
+    gate, drain, source = net(b, "Q6", "G"), net(b, "Q6", "D"), net(b, "Q6", "S")
+    cgd = [r for r in two_terminal(b, "capacitor", gate, drain)]
+    cgs = [r for r in two_terminal(b, "capacitor", gate, source)]
+
+    cgd_max = total([farads(b, r) * (1 + 0.1) for r in cgd])
+    cgs_min = total([farads(b, r) * (1 - 0.1) for r in cgs])
+    p = []
+    for v, qrss, vth, case in [
+        (VBAT_CLAMP, 10.7e-9, 1.0, "the 24.2 V clamp at 25 C"),
+        (17.4, 9.7e-9, 0.75, "the 17.4 V pack at 85 C"),
+    ]:
+        vg = (cgd_max * v + qrss) / (cgs_min + 2.63e-9 + cgd_max + 0.13e-9)
+        if vg >= vth:
+            p.append("Q6's gate reaches " + eng(vg, "V") + " at " + case + ", above VGS(th) min " + eng(vth, "V"))
+    if not cgs:
+        p.append("Q6 has no gate-source capacitor")
+    report(p)
+
+
 def analog_ldo(module, inputs):
     # ADP7142 Rev H: VIN from VSYS through 22 Ohm + 10 uF (research A.4); input and output
     # capacitors >= 2.2 uF, the input at least the output (Table 2, Capacitor Selection); EN on
@@ -137,6 +266,17 @@ def analog_ldo(module, inputs):
         p.append(LDO + " needs >= 2.2 uF on VIN and VOUT (Table 2): " + eng(cin, "F") + " / " + eng(cout, "F"))
     if cin < cout * 0.99:
         p.append(LDO + " input capacitance " + eng(cin, "F") + " below the output's " + eng(cout, "F"))
+    # Eq. 4: CEFF = CBIAS x (1 - TEMPCO) x (1 - TOL) >= 1.5 uF, TEMPCO 15 % (X5R/X7R), TOL 10 %,
+    # CBIAS at the highest input voltage (DC_BIAS; a part with no curve counts 0 F).
+    vmax = b.parts[LDO].pins["VIN"].voltage.max
+    ceff = total([effective_farads(b, r, vmax) for r in two_terminal(b, "capacitor", vin, "GND")]) * 0.85 * 0.9
+    if ceff < 1.5e-6:
+        p.append(LDO + " input keeps " + eng(ceff, "F") + " effective at " + eng(vmax, "V") + ", below 1.5 uF (Eq. 4)")
+    # The output the same way at 3V3_A's maximum, with 20 % tolerance (C81 is an M part).
+    vout_max = b.parts[LDO].pins["VOUT"].voltage.max
+    coeff = total([effective_farads(b, r, vout_max) for r in two_terminal(b, "capacitor", vout, "GND")])
+    if coeff * 0.85 * 0.8 < 1.5e-6:
+        p.append(LDO + " output keeps " + eng(coeff * 0.85 * 0.8, "F") + " effective, below 1.5 uF (Table 2)")
     if net(b, LDO, "EN") != net(b, MCU, "VDD"):
         p.append(LDO + " EN must be on the MCU's VDD (3V3_D) so VDDA follows VDD")
     ss = b.parts[LDO].pins["SS"]
@@ -149,13 +289,15 @@ def analog_ldo(module, inputs):
 
 
 def analog_ldo_dissipation(module, inputs):
-    # ADP7142 Eq. 10: PD = (VIN - VOUT) x ILOAD + VIN x IGND, IGND 190 uA max at 10 mA (Table 1),
-    # with the research's 22.5 mA worst-case 3V3_A load; TJ = TA + PD x 72.1 C/W (LFCSP, Table 4)
-    # must stay at or below 125 C at an 85 C ambient.
+    # ADP7142 Rev K Eq. 10: PD = (VIN - VOUT) x ILOAD + VIN x IGND, IGND 190 uA max at 10 mA
+    # (Table 1), with the research's 22.5 mA worst-case 3V3_A load; TJ = TA + PD x RthJA must stay
+    # at or below 125 C (p17) at an 85 C ambient. RthJA 83.9 C/W: Table 6's 500 mm2 copper row, less
+    # than the exposed pad has on the layout (the F.Cu GND pour and two vias to the In1/In2 GND
+    # planes; Table 4's JEDEC 4-layer board gives 72.1 C/W).
     b = index(module)
     vin = b.parts[LDO].pins["VIN"].voltage.max
     pd = (vin - 3.24) * 22.5e-3 + vin * 190e-6
-    tj = 85 + pd * 72.1
+    tj = 85 + pd * 83.9
     report([] if tj <= 125 else [LDO + " reaches TJ " + eng(tj, "C") + " (" + eng(pd, "W") + ") at 85 C ambient"])
 
 
@@ -184,12 +326,67 @@ def battery_divider(module, inputs):
     report(p)
 
 
+# Leakage into VBAT on USB alone (pack absent, or fitted with SW4 off), at an 85 C board: D14
+# from VSYS, 140 uA at 1-5 V reverse (JCET B5817W-B5819W p2 Reverse Characteristics: 55-64 uA at
+# 75 C and 0.42-0.59 mA at 100 C, log-interpolated), and Q6 from the floating pack, 25 uA (HSBB3072
+# p2: IDSS 1 uA at 25 C and 5 uA at 55 C max, at VDS 24 V, extrapolated at that rate).
+D14_LEAK_85C = 140e-6
+Q6_IDSS_85C = 25e-6
+
+
+def usb_only_vbat_float(module, inputs):
+    # With no pack driving it, VBAT sits at the leakage times its resistance to GND (the battery
+    # divider and Q8's gate divider). Q8's gate follows it, so it must stay low enough that Q8's
+    # VGS reaches 0.5 V beyond its -1.3 V maximum threshold (AO3401A p2) at the 4.4 V minimum VBUS;
+    # otherwise Q8 turns off and USB feeds VSYS through its body diode, 0.7 V lower.
+    b = index(module)
+    tap = net(b, MCU, "PC5")
+    up = [
+        r
+        for r in refs_on(b, tap)
+        if b.parts[r].type == "resistor" and net(b, r, "1") != "GND" and net(b, r, "2") != "GND"
+    ]
+    down = two_terminal(b, "resistor", tap, "GND")
+    gate, vbat = net(b, "Q8", "G"), net(b, "D14", "A")
+    rg, rpd = two_terminal(b, "resistor", gate, vbat), two_terminal(b, "resistor", gate, "GND")
+    if len(up) != 1 or len(down) != 1 or len(rg) != 1 or len(rpd) != 1:
+        report(["VBAT's dividers not found"])
+        return
+    r_div = ohms(b, up[0]) + ohms(b, down[0])
+    r_gate = ohms(b, rg[0]) + ohms(b, rpd[0])
+    r_sink = 1 / (1 / r_div + 1 / r_gate)
+    v = (D14_LEAK_85C + Q6_IDSS_85C) * r_sink
+    vgs = v * ohms(b, rpd[0]) / r_gate - b.parts["Q8"].pins["D"].voltage.min
+    report(
+        []
+        if vgs <= -1.8
+        else ["on USB alone VBAT floats to " + eng(v, "V") + " at 85 C, Q8's VGS only " + eng(vgs, "V")]
+    )
+
+
+# Battery current budgets (research/next-revision Drivetrain and Power tree): 3-4 A rms on the
+# battery path; the summed peak limits, both bridges at their 2.97 A ITRIP and the fan at its
+# 3.94 A limit (Drivers.zen) with about 0.2 A for the 3V3 rails, 10.1 A, held during stall bursts.
+# The largest pulse F1 sees at plug-in or SW4 turning on: 5.7 mA2s (vbat_bulk.py section 8, the
+# board's gate network, a 24 V bench supply on 1 m leads; 4.0 mA2s from a pack); 0.01 A2s here.
+BATTERY_RMS = 4.0
+BATTERY_PEAK = 10.1
+PLUG_IN_I2T = 0.01
+# The pack's short-circuit current: series cells carry one current, so a 4S pack shorts at
+# VCELL / RCELL, 4.35 V (a full HV cell) over the lowest ohmic resistance published for cells of
+# its class, 52.8 mOhm (a 1S 180 mAh cell; Takeyuta Lab, AC meter), before the leads, J1 and F1.
+PACK_SHORT = 4.35 / 52.8e-3
+
+
 def battery_fuse(module, inputs):
-    # The fuse carries the whole battery current from J1 to VBAT, and nothing else sits ahead of
-    # it. Its continuous current at 75 C, the rating times its continuous derating times the
-    # re-rating curve's 0.85 (Littelfuse 501 Series notes and example), covers the worst-case load:
-    # both bridges at their 2.97 A ITRIP and the fan at its 3.86 A limit (drivers sheet) with the
-    # 3V3 rails, about 10 A. Its interrupting rating holds up to its voltage rating, above the pack.
+    # F1 carries the whole battery current from J1 to VBAT, and nothing else sits ahead of it.
+    # Littelfuse 501 (notes, Temperature Re-rating Curve): continuously 80 % of the rating times
+    # 0.85 at 75 C covers the rms budget; at 100 % of the rating (4 h minimum) times 0.85 it holds
+    # the summed peak limits even if they lasted. Average Time Current Curves: a stall burst of the
+    # summed peak opens nothing (the 100 s opening current, times 0.85 at 75 C, is far above it),
+    # and as a repeated pulse its (I / I_open)^2 stays within 22 % (Littelfuse Fuseholder Rerating,
+    # Chart II: 100,000 pulses at 22 % of the melting I2t). The plug-in pulse stays within 22 % of
+    # the melting I2t. The interrupting rating holds up to the 32 V rating, above the pack.
     b = index(module)
     p = []
     f = b.parts[FUSE]
@@ -198,9 +395,46 @@ def battery_fuse(module, inputs):
     ahead = sorted([r for r in refs_on(b, net(b, "J1", "Pin_1")) if r not in ["J1", FUSE]])
     if ahead:
         p.append("ahead of " + FUSE + " on the pack's +: " + str(ahead))
-    hot = f.properties["current_rating"].value * f.properties["continuous_derating"] * 0.85
-    if hot < 10.0:
-        p.append(FUSE + " carries " + eng(hot, "A") + " at 75 C, below the 10 A load")
+    rating = f.properties["current_rating"].value
+    hot = rating * f.properties["continuous_derating"] * 0.85
+    if hot < BATTERY_RMS:
+        p.append(
+            FUSE
+            + " carries "
+            + eng(hot, "A")
+            + " continuously at 75 C, below the "
+            + eng(BATTERY_RMS, "A")
+            + " rms budget"
+        )
+    if rating * 0.85 < BATTERY_PEAK:
+        p.append(
+            FUSE
+            + " holds "
+            + eng(rating * 0.85, "A")
+            + " at 75 C, below the "
+            + eng(BATTERY_PEAK, "A")
+            + " summed peak limits"
+        )
+    i_open = f.properties["opening_current_100s"] * 0.85
+    if (BATTERY_PEAK / i_open) * (BATTERY_PEAK / i_open) > 0.22:
+        p.append(FUSE + ": a " + eng(BATTERY_PEAK, "A") + " burst is above 22 % of the 100 s melting I2t at 75 C")
+    if PLUG_IN_I2T > 0.22 * f.properties["melting_i2t"]:
+        p.append(
+            FUSE
+            + " melting I2t "
+            + str(f.properties["melting_i2t"])
+            + " A2s against a "
+            + str(PLUG_IN_I2T)
+            + " A2s plug-in pulse"
+        )
+    if PACK_SHORT > f.properties["interrupting_current"].value:
+        p.append(
+            FUSE
+            + " interrupts "
+            + eng(f.properties["interrupting_current"].value, "A")
+            + "; the pack can short at "
+            + eng(PACK_SHORT, "A")
+        )
     pack = f.pins["1"].voltage.max
     if pack > f.properties["voltage_rating"].value:
         p.append(
@@ -240,8 +474,11 @@ def battery_switch_rating(module, inputs):
 
 
 def ceramic_capacitors_only(module, inputs):
-    # The owner's decision for main2: no electrolytic capacitors (too big). Every capacitor is a
-    # stdlib ceramic with a dielectric (VBAT bulk: research calculations/power_tree/vbat_bulk.py).
+    # The board as designed is all ceramic, a choice on merit (research Power tree, VBAT
+    # capacitance; calculations/power_tree/vbat_bulk.py): the ceramics meet every VBAT job, and a
+    # 35 V solid-polymer aluminium bulk would only trim margins that already hold, for a 6.3 mm
+    # can. Liquid electrolytics stay out (the owner's rule; solid polymer would be allowed). Every
+    # capacitor is a stdlib ceramic with a dielectric.
     b = index(module)
     p = []
     for ref, c in b.parts.items():
@@ -297,6 +534,100 @@ def capacitor_voltage_ratings(module, inputs):
     report(p)
 
 
+def capacitor_voltage_derating(module, inputs):
+    # NASA GSFC PD-ED-1201 Table 1: a ceramic capacitor at most at 60 % of its rated voltage in
+    # steady state, from the declared ranges of the nets it joins. Exceptions, each argued:
+    # none today.
+    b = index(module)
+    p = []
+    for ref, c in b.parts.items():
+        if c.type != "capacitor" or not hasattr(c, "voltage") or not c.voltage:
+            continue
+        vs = [n.voltage for n in c.pins.values()]
+        if len(vs) != 2 or not vs[0] or not vs[1]:
+            continue
+        worst = max(abs(vs[0].max - vs[1].min), abs(vs[1].max - vs[0].min))
+        if worst > 0.6 * c.voltage.value + 1e-9:
+            p.append(ref + " at " + eng(worst, "V") + " is above 60 % of its " + eng(c.voltage.value, "V"))
+    report(p)
+
+
+# Absolute maxima of the parts on VBAT and VSYS (their datasheets, as cited in each package):
+# HSBB3072 VDS 30 V (p1); AO3401A VDS -30 V (p1); B5819W VRRM 40 V (p1); L6981 VIN 42 V (Table 3);
+# ADP7142 VIN 44 V (Table 3); DRV8874 VM 40 V (6.1); STSPIN958 VS 62 V (Table 1); Littelfuse 501
+# 32 V; SK-12D29-G060 withstands AC 250 V for 1 min (its DC 24 V is the rating for switching
+# 1 A; it carries 87 uA and does not switch during a clamp).
+ABS_MAX = {
+    "HSBB3072": 30.0,
+    "AO3401A": 30.0,
+    "B5819W": 40.0,
+    "L6981C33DR": 42.0,
+    "ADP7142ACPZN3.3-R7": 44.0,
+    "DRV8874PWPR": 40.0,
+    "STSPIN958TR": 62.0,
+    "0501012.WR1": 32.0,
+    "SK-12D29-G060": 250.0,
+}
+
+
+def abs_max_under_clamp(module, inputs):
+    # Every part on VBAT, VSYS or LDO_IN holds VBAT_CLAMP (24.2 V): capacitors by their rated
+    # voltage, the semiconductors, the fuse and the switch by ABS_MAX. Resistors are 50 V and up.
+    b = index(module)
+    nets = [net(b, "IC8", "VM"), net(b, BUCK, "VIN"), net(b, LDO, "VIN")]
+    p = []
+    seen = []
+    for n in nets:
+        for ref in refs_on(b, n):
+            c = b.parts[ref]
+            # D16 sits across Q8's gate and source (q8_gate_clamp), D15 is the clamp itself.
+            if ref in seen or c.type in ["resistor", "tvs", "zener"] or c.dnp:
+                continue
+            seen.append(ref)
+            if c.type == "capacitor":
+                rated = c.voltage.value
+            elif str(c.mpn) in ABS_MAX:
+                rated = ABS_MAX[str(c.mpn)]
+            else:
+                p.append(ref + " (" + str(c.mpn) + ") has no absolute maximum listed for the clamp check")
+                continue
+            if rated < VBAT_CLAMP:
+                p.append(ref + " rated " + eng(rated, "V") + " under the " + eng(VBAT_CLAMP, "V") + " clamp")
+    report(p)
+
+
+def regulator_outputs_are_ranges(module, inputs):
+    # Each regulated rail is declared with its regulator's tolerance (min != max), so the build's
+    # range check catches a part whose supply range it leaves: 3V3_D (DS13554 Table 6), 3V3_A and
+    # VDDA (ADP7142 Rev H Table 1).
+    b = index(module)
+    p = []
+    for ref, pin in [(BUCK, "VOUT/FB"), (LDO, "VOUT"), (MCU, "VDDA")]:
+        v = b.parts[ref].pins[pin].voltage
+        if not v or v.max - v.min < 1e-3:
+            p.append(net(b, ref, pin) + " is declared at a single voltage")
+    report(p)
+
+
+def usb_attach_capacitance(module, inputs):
+    # USB 2.0 section 7.2.4.1: a device presents at most 10 uF (in parallel with 44 Ohm) at attach.
+    # On VBUS itself sits only C63; VSYS's capacitors (C52, C53, and C80 behind R58) charge through
+    # Q8's body diode too, an accepted excess (Regulators.zen): bounded here at 25 uF nominal.
+    b = index(module)
+    vbus, vsys = net(b, "Q8", "D"), net(b, "Q8", "S")
+    direct = total([farads(b, r) for r in two_terminal(b, "capacitor", vbus, "GND")])
+    behind = total([farads(b, r) for r in two_terminal(b, "capacitor", vsys, "GND")])
+    for r in [r for r in refs_on(b, vsys) if b.parts[r].type == "resistor" and ohms(b, r) <= 50]:
+        other = [n for n in [net(b, r, "1"), net(b, r, "2")] if n != vsys][0]
+        behind += total([farads(b, c) for c in two_terminal(b, "capacitor", other, "GND")])
+    p = []
+    if direct > 10e-6:
+        p.append(vbus + " carries " + eng(direct, "F") + ", above USB 2.0's 10 uF")
+    if direct + behind > 25e-6:
+        p.append("USB attach capacitance " + eng(direct + behind, "F") + " above the accepted 25 uF")
+    report(p)
+
+
 TestBench(
     name="main2_power",
     module=MAIN2,
@@ -304,16 +635,25 @@ TestBench(
     checks=[
         buck_output_capacitance,
         buck_inductor_current,
+        buck_input_capacitance,
+        buck_slope_compensation,
         vsys_power_path,
         battery_wins_over_usb,
+        q8_gate_clamp,
+        plug_in_keeps_q6_off,
         analog_ldo,
         analog_ldo_dissipation,
         battery_divider,
+        usb_only_vbat_float,
         battery_fuse,
         battery_switch_slew,
         battery_switch_rating,
         ceramic_capacitors_only,
         vbat_clamp,
         capacitor_voltage_ratings,
+        capacitor_voltage_derating,
+        abs_max_under_clamp,
+        regulator_outputs_are_ranges,
+        usb_attach_capacitance,
     ],
 )

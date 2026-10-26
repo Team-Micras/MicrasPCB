@@ -8,7 +8,8 @@ gives the same copper. Stackup (boards/main2/main2.zen): F.Cu and B.Cu 1 oz, In1
 
 - In1.Cu and In2.Cu: ground planes over the whole board, so a track on either outer layer has an
   unbroken ground plane next to it for its return current (F.Cu over In1.Cu, B.Cu over In2.Cu);
-  In2.Cu but for the STM32's supplies under and round it, 3V3_D inside VCORE.
+  In2.Cu but for the STM32's supplies under and round it: 3V3_D under it, VCORE in a band round
+  that which reaches its vias and stops either side of the chip's rear tip.
 - B.Cu: VBAT pours over the power entry and the two bridges with their bulk capacitors (no other
   net's track runs there), the lowest-priority ground pour everywhere else.
 - F.Cu: the ground pour over what the tracks leave.
@@ -26,8 +27,13 @@ gives the same copper. Stackup (boards/main2/main2.zen): F.Cu and B.Cu 1 oz, In1
 - KiCad's DRC, under the layout's rules, checks the result: the tracks in an error are removed
   and router.py routes their nets again, narrower, with whatever Freerouting left unconnected.
 
+- After the routing: the outer ground pours; thermal reliefs on the board-wide pours with solid
+  joins where current or heat flows (relief()); a B.Cu ground island under each bridge's exposed
+  pad (heat_islands()); ground stitching vias (stitch()).
+
 The ESP32-S3-MINI-1's antenna keep-out (its footprint's rule area) is fenced with temporary
 copper while router.py runs, which does not read rule areas; Freerouting reads it as a keep-out.
+The board is cut away under the antenna (spec [antenna_notch]).
 """
 
 from __future__ import annotations
@@ -148,34 +154,52 @@ def rect(x0, x1, y0, y1):
 
 BOARD = rect(-47.0, 54.0, -25.5, 25.5)  # the outline clips every pour
 
-# B.Cu VBAT: the battery input (F1, D14, rear right) and the middle, under both bridges and the
-# capacitors behind them (C82-C84, C88, C91, C97): the bridges' supply loop (VM, the bottom pin
-# rows) closes there. It stops at the bridges' logic pins (x > -8.6): their tracks drop to B.Cu
-# there and pass under the OUT1 paths, and B.Cu ahead stays the IMU's and the encoders'. The other
-# bulk capacitors (place.py BULK: C85, C86, C92 at the rear, C87, C93-C96, C111, C112 along the fan
-# hole) take VBAT by track
+# B.Cu VBAT: the battery input (F1's VBAT side and its via field, D14, D15) and the middle, under
+# both bridges and the capacitors behind them (C82-C84, C88, C91, C97): the bridges' supply loop (VM,
+# the bottom pin rows) closes there. It stops at the bridges' logic pins (x > -8.6): their tracks
+# drop to B.Cu there and pass under the OUT1 paths, and B.Cu ahead stays the IMU's and the encoders'.
+# The other bulk capacitors (place.py BULK: C92 by the right wheel cut-out, C87, C93, C111 behind
+# the fan hole, C96 and C112 in front of it) take VBAT by track. The fan driver's feed is a B.Cu
+# pour from the pour's front corner along the left wheel cut-out to the fan's VS strip, outside the
+# fan hole's rim, which the lines to the STM32 keep on both outer layers
 VBAT_POUR = [
     (-8.6, 13.0),  # the middle: bridges, capacitors (x -24.5..-8.6, y -12.5..13)
+    (-11.6, 13.0),  # a notch under R75 (x -13..-11.6, y 8.5..13): Motor_L_Sense+ leaves the shunt's
+    (-11.6, 8.5),  # sense pad on B.Cu there, the OUT1 path and the SHUNT path closing F.Cu round it
+    (-13.0, 8.5),
+    (-13.0, 13.0),
     (-24.5, 13.0),
     (-24.5, -5.0),
-    (-30.5, -5.0),  # D14, C95 (x -30.5..-24.5, y -11..-5)
+    (-30.5, -5.0),  # D14 (x -30.5..-24.5, y -11..-5)
     (-30.5, -11.0),
-    (-28.0, -11.0),
-    (-28.0, -19.5),  # F1, D14 (x -28..-17, y -19.5..-11)
-    (-17.0, -19.5),
-    (-17.0, -12.5),
+    (-28.6, -11.0),
+    (-28.6, -19.0),  # F1's VBAT pad, its vias, D15 (x -28.6..-22.4, y -19..-11)
+    (-22.4, -19.0),
+    (-22.4, -12.5),
     (-8.6, -12.5),
 ]
 
 
 # In2.Cu round the STM32 (IC1): its 3V3_D pins alternate with its VCORE pins on all four sides, and
 # the two nets, as tracks, would ring it on both outer layers and leave its 0.4 mm pitch pins no way
-# out. On In2 they nest instead: 3V3_D under the chip and out past its pin tips, VCORE round that
-# (under the capacitors round the chip); each pin's via, at its tip, lands in its own (owner,
-# 2026-10-18: In2 is ground everywhere else, as on the previous board's power layer)
+# out. On In2 they nest instead: 3V3_D under the chip and out past its pin tips, VCORE round that;
+# each pin's via, at its tip, lands in its own (owner, 2026-10-18: In2 is ground everywhere else, as
+# on the previous board's power layer)
 MCU = "IC1"
 MCU_3V3 = 0.8  # mm past the pin tips: a via at each 3V3_D pin's tip
-MCU_VCORE = 3.0  # mm past that: VCORE's ring
+# VCORE's island (owner, 2026-10-24) is only as big as its job: a band round the 3V3_D island that
+# reaches the vias of VFBSMPS (pin 7) and VCAP1-3 (pins 33, 49, 66; main2.zen, DS13311 pinout), of
+# their capacitors C5-C7 and of the SMPS output (L1, C3, C4), and joins them. Each face goes out to
+# its own reach (mm, in |dx| + |dy| from the chip's centre: the faces run at 45 degrees as the chip
+# sits, place.py) about 1 mm past its furthest VCORE via, and the band stops either side of the
+# rear tip, where no VCORE via sits, so In2.Cu's ground and the digital hops pass between the chip and
+# the fan hole and over the escape rows round it.
+VCORE_REACH = {"rear_left": 10.9, "front_left": 9.8, "front_right": 11.0, "rear_right": 10.5, "right_vertex": 11.63}
+VCORE_TIP = (1.4, -2.5)  # robot y where the rear-left and rear-right arms end
+VCORE_INNER = 7.4  # the band's inner edge (|dx| + |dy|): outside the 3V3_D vias at the pin tips
+# 3V3_D's island (owner, 2026-10-25) is the square under the chip out to its pin tips, with a tab to
+# each 3V3_D pin's via: (mm past the via's edge, mm either side of the pin)
+MCU_3V3_TAB = (0.35, 0.55)
 FANOUT_MAX_OF = {MCU: 2.0}  # a VCORE pin's via, past the 3V3_D island
 
 
@@ -197,11 +221,86 @@ def pin_square(ref: str, grow: float) -> list:
     return [(OY - (cy - u * sa + v * ca), OX - (cx + u * ca + v * sa)) for u, v in corners]
 
 
+def vcore_outline() -> list:
+    """VCORE's In2.Cu island (robot frame): the band VCORE_REACH describes round IC1's centre, from
+    VCORE_INNER (just outside the pin tips' 3V3_D vias) out, open at the rear tip."""
+    f = B.FindFootprintByReference(MCU)
+    kx, ky = xy(f.GetPosition())
+    cx, cy = OY - ky, OX - kx
+    r, (tl, tr), inner = VCORE_REACH, VCORE_TIP, VCORE_INNER
+    rl, fl, fr, rr, rv = r["rear_left"], r["front_left"], r["front_right"], r["rear_right"], r["right_vertex"]
+    d = [
+        (-(rl - tl), tl),  # the rear-left arm's end, on its face
+        (0, rl), (0, fl),  # along the rear-left face to the left vertex, in to the front-left face
+        (fl, 0), (fr, 0),  # to the front vertex, out to the front-right face
+        (0, -fr), (0, -rv),  # to the right vertex, out round C3's via
+        (-(rv - 7.0), -7.0), (-(rr - 7.0), -7.0),  # back along the rear-right face, in
+        (-(rr + tr), tr), (-(inner + tr), tr),  # to the rear-right arm's end, in to the band's inner edge
+        (0, -inner), (inner, 0), (0, inner),  # the inner edge round the front
+        (-(inner - tl), tl),  # back to the rear-left arm's end
+    ]
+    return [(cx + u, cy + v) for u, v in d]
+
+
+def mcu_3v3_outline() -> list:
+    """3V3_D's In2.Cu island (robot frame): the square under IC1 out to its pin tips, with a tab out
+    to each 3V3_D pin's via at the tip (ESCAPE_REACH): VBAT (pin 1), VDDSMPS (pin 6) and VDD (pins 9,
+    22, 35, 51, 68), all on 3V3_D (main2.zen; DS13311 pinout). Built in the chip's frame and turned
+    with it, so the outline is octilinear as the chip sits."""
+    f = B.FindFootprintByReference(MCU)
+    kx, ky = xy(f.GetPosition())
+    a = math.radians(f.GetOrientationDegrees())
+    ca, sa = math.cos(a), math.sin(a)
+    h = 0.0  # the pins' reach from the centre, in the chip's frame (as pin_square())
+    pins = []
+    for p in f.Pads():
+        px, py = xy(p.GetPosition())
+        u, v = (px - kx) * ca - (py - ky) * sa, (px - kx) * sa + (py - ky) * ca
+        if p.GetNetname() == "3V3_D":
+            pins.append((u, v))
+        poly = p.GetEffectivePolygon(F)
+        for i in range(poly.OutlineCount()):
+            o = poly.Outline(i)
+            for k in range(o.PointCount()):
+                x, y = pcbnew.ToMM(o.CPoint(k).x) - kx, pcbnew.ToMM(o.CPoint(k).y) - ky
+                h = max(h, abs(x * ca - y * sa), abs(x * sa + y * ca))
+    out = h + ESCAPE_REACH["3V3_D"][0] + ESCAPE_D / 2 + MCU_3V3_TAB[0]  # the tab's outer edge
+    half = MCU_3V3_TAB[1]
+    shape = pcbnew.SHAPE_POLY_SET()
+
+    def rect(u0, u1, v0, v1):
+        c = pcbnew.SHAPE_LINE_CHAIN()
+        for u, v in ((u0, v0), (u1, v0), (u1, v1), (u0, v1)):
+            c.Append(mm(u), mm(v))
+        c.SetClosed(True)
+        s = pcbnew.SHAPE_POLY_SET()
+        s.AddOutline(c)
+        return s
+
+    shape.Append(rect(-h, h, -h, h))
+    for u, v in pins:
+        if abs(u) >= abs(v):  # a pin on a +-u face: its tab runs out along u
+            s = math.copysign(1, u)
+            tab = rect(min(s * (h - 0.5), s * out), max(s * (h - 0.5), s * out), v - half, v + half)
+        else:
+            s = math.copysign(1, v)
+            tab = rect(u - half, u + half, min(s * (h - 0.5), s * out), max(s * (h - 0.5), s * out))
+        shape.BooleanAdd(tab)
+    shape.Simplify()
+    o = shape.Outline(0)
+    pts = []
+    for k in range(o.PointCount()):
+        u, v = pcbnew.ToMM(o.CPoint(k).x), pcbnew.ToMM(o.CPoint(k).y)
+        x, y = kx + u * ca + v * sa, ky - u * sa + v * ca
+        pts.append((OY - y, OX - x))
+    return pts
+
+
 def planes() -> None:
     zone("GND", "In1", BOARD, 0)
     zone("GND", "In2", BOARD, 0)
-    zone("VCORE", "In2", pin_square(MCU, MCU_3V3 + MCU_VCORE), 1)
-    zone("3V3_D", "In2", pin_square(MCU, MCU_3V3), 2)
+    zone("VCORE", "In2", vcore_outline(), 1)
+    zone("3V3_D", "In2", mcu_3v3_outline(), 2)
     zone("VBAT", "B", VBAT_POUR, 1)
 
 
@@ -357,22 +456,78 @@ THERMAL_EDGE = 0.45  # mm from a via's centre to the exposed pad's edge
 # the STM32's exposed pad is its ground, not its heat path (it dissipates well under 1 W): a 3 x 3 grid
 # leaves B.Cu under it to the tracks leaving its 68 pins
 THERMAL_PITCH_OF = {"IC1": 2.4}
+# The thermal vias are left open on both sides, with no via-in-pad process (spec [pcb] via_in_pad):
+# 0.2 mm holes, TI's PowerPAD via (SLVSF66A land pattern 4223595/B), which lose less solder than
+# larger ones (TI SLUA271C 3.4.1), untented (tenting a pad's via from the back traps air, SLUA271C
+# 3.4.1); the exposed pads' paste is split into windows clear of them. A footprint that draws its
+# via sites (0.2 mm circles on Cmts.User, in the windows' lanes) takes its vias there; any other
+# exposed pad a grid.
+THERMAL_D, THERMAL_HOLE = 0.45, 0.2
+THERMAL_SITE = 0.2  # mm: a Cmts.User circle this wide marks a via site
 
 
-def thermal_vias() -> int:
-    """A grid of vias in every exposed pad on GND (the largest pad of a chip or transistor, over
-    2 mm2), to the ground planes: the DRV8874s' and STSPIN958's PowerPADs carry their heat out
-    this way."""
+def thermal_sites(f: pcbnew.FOOTPRINT) -> list[tuple[float, float]]:
+    """The thermal-via sites the footprint draws, on the board (KiCad mm)."""
+    out = []
+    for g in f.GraphicalItems():
+        circle = g.GetLayer() == pcbnew.Cmts_User and g.GetShape() == pcbnew.SHAPE_T_CIRCLE
+        if circle and abs(pcbnew.ToMM(g.GetRadius()) * 2 - THERMAL_SITE) < 1e-3:
+            out.append(xy(g.GetCenter()))
+    return out
+
+
+def _thermal_via(x: float, y: float) -> pcbnew.PCB_VIA:
+    v = via("GND", round(x, 4), round(y, 4), THERMAL_D, THERMAL_HOLE)
+    v.SetFrontTentingMode(pcbnew.TENTING_MODE_NOT_TENTED)
+    v.SetBackTentingMode(pcbnew.TENTING_MODE_NOT_TENTED)
+    return v
+
+
+THERMAL_GAP = 0.12  # mm, a thermal via's copper to another net's (rules/jlcpcb.kicad_dru: 0.1 mm)
+
+
+def _blocked(c, r: float, gap: float = THERMAL_GAP) -> bool:
+    """A via of radius r at c would come within gap of another net's track, pad or via on any
+    layer, or cut a power path's own pour (a named zone of another net)."""
+    v = pt(*c)
+    for t in near(B.GetTracks(), c, r + gap + 1.0):
+        if t.GetNetname() != "GND" and any(
+            t.IsOnLayer(L) and t.GetEffectiveShape(L).Collide(v, mm(r + gap)) for L in (F, BK, IN1, IN2)
+        ):
+            return True
+    for f in B.GetFootprints():
+        for p in f.Pads():
+            on = [L for L in (F, BK) if p.IsOnLayer(L)]
+            if on and p.GetNetname() != "GND" and p.GetEffectivePolygon(on[0]).Collide(v, mm(r + gap)):
+                return True
+    return any(
+        z.GetZoneName() and not z.GetIsRuleArea() and z.GetNetname() != "GND" and z.Outline().Collide(v, mm(r + gap))
+        for z in B.Zones()
+        if not z.IsTeardropArea()
+    )
+
+
+def thermal_vias(only: set[str] | None = None) -> int:
+    """Vias in every exposed pad on GND (the largest pad of a chip or transistor, over 2 mm2), to the
+    ground planes: the DRV8874s' and STSPIN958's PowerPADs carry their heat out this way. At the
+    footprint's via sites (those clear of other nets' copper), else on a grid."""
     n = 0
     for f in B.GetFootprints():
-        if not f.GetReference().startswith(("IC", "U", "Q")):
+        if not f.GetReference().startswith(("IC", "U", "Q")) or (only is not None and f.GetReference() not in only):
             continue
+        sites = thermal_sites(f)
         for p in f.Pads():
             if p.GetNetname() != "GND" or p.HasHole():
                 continue
             bb = p.GetBoundingBox()
             (x0, y0), (x1, y1) = xy(bb.GetOrigin()), xy(bb.GetEnd())
             if (x1 - x0) * (y1 - y0) < 2.0:
+                continue
+            if sites:
+                for x, y in sites:
+                    if p.HitTest(pt(x, y)) and not _blocked((x, y), THERMAL_D / 2):
+                        _thermal_via(x, y)
+                        n += 1
                 continue
             pitch = THERMAL_PITCH_OF.get(f.GetReference(), THERMAL_PITCH)
             cols = []
@@ -383,9 +538,30 @@ def thermal_vias() -> int:
             for x in cols[0]:
                 for y in cols[1]:
                     if p.HitTest(pt(x, y)):
-                        via("GND", round(x, 3), round(y, 3))
+                        _thermal_via(x, y)
                         n += 1
     return n
+
+
+def rethermal() -> tuple[int, int]:
+    """Replace the vias in the exposed pads by thermal_vias() (after a footprint changes its sites):
+    returns (removed, placed)."""
+    gone, refs = 0, set()
+    for f in B.GetFootprints():
+        if not thermal_sites(f):
+            continue
+        refs.add(f.GetReference())
+        for p in f.Pads():
+            if p.GetNetname() != "GND" or p.HasHole():
+                continue
+            shape = p.GetEffectivePolygon(F)
+            if shape.Area() / 1e12 < 2.0:
+                continue
+            for t in list(B.GetTracks()):
+                if t.GetClass() == "PCB_VIA" and t.GetNetname() == "GND" and shape.Contains(t.GetPosition()):
+                    remove(t)
+                    gone += 1
+    return gone, thermal_vias(refs)
 
 
 # (ref, pad): the ground pins ep_ground() joined to their exposed pad, the STM32's pins mcu_escape() led out
@@ -700,9 +876,10 @@ def necks() -> int:
 BRIDGES = ("IC8", "IC9")
 BRIDGE_LOGIC = ("1", "2", "3", "4", "5", "6")
 BRIDGE_ROWS = (0.4, 0.75)  # mm from the pin tip to the via's centre
-# The fan driver's PWM pin (STSPIN958 pin 11) sits between its 3V3_D and GND pins, with C31 just
-# past their tips: it drops to B.Cu by a via of its own, the same way
-DROPS = {**{ref: (BRIDGE_LOGIC, BRIDGE_ROWS) for ref in BRIDGES}, "IC6": (("11",), (0.35, 0.55, 0.75))}
+# The fan driver's logic pins (STSPIN958 11 PWM, 14 EN, 15 REF, 16 TOFF) face the fan hole between its
+# 3V3_D and GND pins: they drop to B.Cu by vias of their own, the same way, so that VDD and nSTBY
+# reach C31 under them on F.Cu
+DROPS = {**{ref: (BRIDGE_LOGIC, BRIDGE_ROWS) for ref in BRIDGES}, "IC6": (("11", "14", "15", "16"), (0.5, 0.75))}
 
 
 def bridge_escape() -> list[str]:
@@ -1380,11 +1557,12 @@ def drc() -> dict:
 
 
 def _bridge_stub(t) -> bool:
-    """t ends at the centre of a bridge's pin (its escape stub): the DRV8874 puts VREF and IPROPI (pins 5, 6) two pins from OUT1
-    (pin 8, SLVSF66A pinout), so its escape stub cannot keep ANALOG_GAP from OUT1's path (the
+    """t ends at the centre of a pin of a part that puts a switching and an analog pin side by side
+    (nets.STUB_PARTS: the DRV8874s' VREF and IPROPI two pins from OUT1, SLVSF66A pinout; the INA241s'
+    Kelvin input beside VS; the shunts' sense pads): its escape stub cannot keep ANALOG_GAP (the
     owner's exemption, as in tests/test_main2_layout.py)."""
     ends = (xy(t.GetStart()), xy(t.GetEnd()))
-    for ref in BRIDGES:
+    for ref in nets.STUB_PARTS:
         f = B.FindFootprintByReference(ref)
         if any(math.dist(e, xy(p.GetPosition())) < 0.01 for p in f.Pads() for e in ends):
             return True
@@ -1393,9 +1571,9 @@ def _bridge_stub(t) -> bool:
 
 def _near_switching() -> list:
     """The analog nets' tracks less than ANALOG_GAP from a switching node's track on their layer
-    (but for a bridge's escape stubs, _bridge_stub())."""
+    (but for the escape stubs of either, _bridge_stub())."""
     tracks = [t for t in B.GetTracks() if t.GetClass() == "PCB_TRACK"]
-    sw = [t for t in tracks if t.GetNetname() in nets.SWITCHING]
+    sw = [t for t in tracks if t.GetNetname() in nets.SWITCHING and not _bridge_stub(t)]
     out = []
     for a in (t for t in tracks if t.GetNetname() in nets.ANALOG and not _bridge_stub(t)):
         shape = a.GetEffectiveShape(a.GetLayer())
@@ -1550,6 +1728,485 @@ def square_corners() -> int:
     return made
 
 
+# ---------------------------------------------------------------------------------------------
+# after the routing: pad connections, the bridges' heat islands, ground stitching
+
+# Pads in the board-wide pours (the ground pours and planes, the B.Cu VBAT pour) join them by thermal
+# reliefs, so the pour end of a small part heats as fast as its track end in reflow (no tombstoning)
+# and a through-hole pad can be soldered by hand (reports/main2-review/routing.md R14: 0.10-0.20 mm
+# spokes for SMD, 0.30-0.50 mm for through-hole; the JLCPCB thermal relief design guide). The pads
+# that carry current or heat join solid (a pad override): every SMD pad of RELIEF_SOLID_AREA and
+# more (exposed pads, the bulk capacitors, the large passives), every ground pin of the power stages
+# (POWER_STAGES) and every pad inside one of the power paths' own pours (the named zones, solid
+# throughout), and the pads the pour reaches from one side only (RELIEF_STARVED: no room for two
+# spokes, KiCad's minimum).
+RELIEF_GAP = 0.25  # mm
+SMD_SPOKE = 0.2  # mm
+THT_SPOKE = 0.4  # mm
+RELIEF_SOLID_AREA = 1.2  # mm2: an 0805 pad (1.0 x 1.45 mm) and larger
+POWER_STAGES = ("IC6", "IC7", "IC8", "IC9", "Q6")  # fan driver, buck, bridges, battery switch
+RELIEF_STARVED = {"C8.1", "C29.1", "C30.1", "C63.1", "D4.1", "D8.1", "IC1.4", "R2.1", "R12.1", "R30.1", "R57.1", "R92.1", "SWD1.1"}
+GROUND_LAYERS = {F: "F", BK: "B", IN1: "In1", IN2: "In2"}
+
+
+def board_pours() -> list:
+    """The board-wide pours and planes: the unnamed zones (ground on every layer, VBAT on B.Cu)."""
+    return [z for z in B.Zones() if not z.GetIsRuleArea() and not z.IsTeardropArea() and not z.GetZoneName()]
+
+
+def _in_named_pour(p: pcbnew.PAD) -> bool:
+    for z in B.Zones():
+        if z.GetIsRuleArea() or z.IsTeardropArea() or not z.GetZoneName() or z.GetNetCode() != p.GetNetCode():
+            continue
+        for layer in (F, BK):
+            if p.IsOnLayer(layer) and z.IsOnLayer(layer) and z.Outline().Contains(p.GetPosition()):
+                return True
+    return False
+
+
+def solid_pad(p: pcbnew.PAD) -> bool:
+    """An SMD pad that joins the board-wide pours solid."""
+    if p.GetAttribute() != pcbnew.PAD_ATTRIB_SMD:
+        return False
+    ref = p.GetParentFootprint().GetReference()
+    if ref in POWER_STAGES or f"{ref}.{p.GetNumber()}" in RELIEF_STARVED or _in_named_pour(p):
+        return True
+    return p.GetEffectivePolygon(F if p.IsOnLayer(F) else BK).Area() / 1e12 >= RELIEF_SOLID_AREA
+
+
+def relief() -> int:
+    """Thermal reliefs on the board-wide pours and planes, a solid override on the pads that need
+    it; returns the pads joined solid."""
+    pours = board_pours()
+    for z in pours:
+        z.SetPadConnection(pcbnew.ZONE_CONNECTION_THERMAL)
+        z.SetThermalReliefGap(mm(RELIEF_GAP))
+        z.SetThermalReliefSpokeWidth(mm(THT_SPOKE if z.GetLayer() in (IN1, IN2) or z.GetNetname() != "GND" else SMD_SPOKE))
+    nets_poured = {z.GetNetCode() for z in pours}
+    solid = 0
+    for f in B.GetFootprints():
+        for p in f.Pads():
+            if p.GetNetCode() not in nets_poured:
+                continue
+            if p.GetAttribute() == pcbnew.PAD_ATTRIB_PTH:
+                starved = f"{f.GetReference()}.{p.GetNumber()}" in RELIEF_STARVED
+                p.SetLocalZoneConnection(pcbnew.ZONE_CONNECTION_FULL if starved else pcbnew.ZONE_CONNECTION_THERMAL)
+                p.SetLocalThermalSpokeWidthOverride(mm(THT_SPOKE))
+            elif p.GetAttribute() == pcbnew.PAD_ATTRIB_SMD:
+                full = solid_pad(p)
+                p.SetLocalZoneConnection(pcbnew.ZONE_CONNECTION_FULL if full else pcbnew.ZONE_CONNECTION_THERMAL)
+                solid += full
+    return solid
+
+
+# The bridges' exposed pads (DRV8874, GND) reach B.Cu through their thermal vias: a ground island
+# there, cut out of the VBAT pour, spreads their heat on the bottom copper as TI's 4-layer thermal
+# model has it (SLVSF66A section 10.1: maximize the copper attached to the thermal pad; routing
+# review F15). The VBAT pour flows round it to the VM vias by pin 11.
+HEAT_GROW = 0.3  # mm round the exposed pad
+
+
+def heat_islands() -> list[str]:
+    made = []
+    for z in list(B.Zones()):
+        if z.GetZoneName().startswith("heat "):
+            remove(z)
+    for ref in BRIDGES:
+        f = B.FindFootprintByReference(ref)
+        ep = max((p for p in f.Pads() if p.GetNetname() == "GND"), key=lambda p: p.GetEffectivePolygon(F).Area())
+        bb = ep.GetEffectivePolygon(F).BBox()
+        (x0, y0), (x1, y1) = xy(bb.GetOrigin()), xy(bb.GetEnd())
+        g = HEAT_GROW
+        z = pcbnew.ZONE(B)
+        z.SetLayer(BK)
+        z.SetNet(net("GND"))
+        o = z.Outline()
+        o.NewOutline()
+        for x, y in ((x0 - g, y0 - g), (x1 + g, y0 - g), (x1 + g, y1 + g), (x0 - g, y1 + g)):
+            o.Append(mm(x), mm(y))
+        z.SetZoneName(f"heat {ref}")
+        z.SetAssignedPriority(2)  # over the VBAT pour (1)
+        z.SetLocalClearance(mm(0.2))
+        z.SetMinThickness(mm(0.25))
+        z.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
+        z.SetIslandRemovalMode(pcbnew.ISLAND_REMOVAL_MODE_ALWAYS)
+        B.Add(z)
+        made.append(ref)
+    return made
+
+
+# Ground stitching (routing review F10, R12): every point where both outer layers are poured with
+# ground within STITCH_REACH of a ground via or through-hole ground pad, which at 2.4 GHz is a
+# twentieth of a wavelength (TI SZZA009 section 2.4.2: lambda/20 for a stitching pitch), and every
+# island of outer ground pour with at least two. A stitching via goes where all four layers are
+# ground round it (its pad inside the ground fill of each), so it cuts no other net's pour or plane,
+# In2.Cu's islands and hops included, and keeps clear of every pad and hole; an island of F.Cu
+# ground over the B.Cu VBAT pour, which has no such spot, takes its two through that pour. The antenna notch (spec [antenna_notch])
+# gets a fence along its wall by the USB-C (ESP32-S3 Hardware Design Guidelines: dense ground vias
+# near the antenna); the module's ground edge carries its pads' via row.
+STITCH_REACH = 3.0  # mm
+STITCH_STEP = 0.25  # mm between candidate spots
+STITCH_SAMPLE = 0.5  # mm between the pours' sample points
+STITCH_HOLE_GAP = 0.45  # mm from a stitching via's hole to a pad's hole (JLC hole to hole 0.45 mm)
+STITCH_VIA_GAP = 0.25  # mm from a stitching via's hole to another via's (rules/jlcpcb.kicad_dru 0.2 mm)
+STITCH_PAD_GAP = 0.05  # mm from a stitching via's hole to a ground pad: never a via in a pad
+STITCH_ISLAND = 2.0  # mm2: smaller islands are left as they are
+NOTCH_FENCE = [(-45.8, 5.45), (-44.4, 5.45), (-43.0, 5.45), (-41.7, 5.45)]  # robot frame
+
+
+def _ground_fill(layer) -> pcbnew.SHAPE_POLY_SET:
+    s = pcbnew.SHAPE_POLY_SET()
+    for z in B.Zones():
+        if z.GetNetname() == "GND" and not z.GetIsRuleArea() and z.IsOnLayer(layer):
+            s.BooleanAdd(z.GetFilledPolysList(layer))
+    s.Simplify()
+    return s
+
+
+def _parts(s: pcbnew.SHAPE_POLY_SET) -> list:
+    """Each outline of s with its holes, and its bounding box (mm)."""
+    out = []
+    for i in range(s.OutlineCount()):
+        one = pcbnew.SHAPE_POLY_SET()
+        one.AddOutline(s.Outline(i))
+        for h in range(s.HoleCount(i)):
+            one.AddHole(s.CHole(i, h))
+        bb = one.BBox()
+        out.append((one, (*xy(bb.GetOrigin()), *xy(bb.GetEnd())), one.Area() / 1e12))
+    return out
+
+
+def _find(parts: list, c) -> int | None:
+    v = pt(*c)
+    for k, (one, (x0, y0, x1, y1), _a) in enumerate(parts):
+        if x0 <= c[0] <= x1 and y0 <= c[1] <= y1 and one.Contains(v):
+            return k
+    return None
+
+
+def _disk(c, r: float) -> pcbnew.SHAPE_POLY_SET:
+    s = pcbnew.SHAPE_POLY_SET()
+    s.NewOutline()
+    for k in range(24):
+        a = 2 * math.pi * k / 24
+        s.Append(mm(c[0] + r * math.cos(a) / math.cos(math.pi / 24)), mm(c[1] + r * math.sin(a) / math.cos(math.pi / 24)))
+    return s
+
+
+def stitch() -> tuple[int, list[str]]:
+    """Ground stitching vias, the power vias' size first, then the signals' where those do not fit;
+    returns how many were added and the points and islands left short."""
+    n, _ = _stitch(VIA_D, VIA_HOLE)
+    m, short = _stitch(ESCAPE_D, ESCAPE_HOLE)
+    return n + m, short
+
+
+def _stitch(d: float, hole: float) -> tuple[int, list[str]]:
+    import heapq
+    from collections import defaultdict
+
+    # the fills KiCad's DRC leaves (kicad-cli, under the .kicad_dru) when the board carries them:
+    # pcbnew's own filler drops islands it cannot see joined through a pad's relief
+    if not all(z.IsFilled() for z in B.Zones() if not z.GetIsRuleArea()):
+        B.BuildConnectivity()
+        pcbnew.ZONE_FILLER(B).Fill(B.Zones())
+    r = d / 2
+    fills = {L: _ground_fill(L) for L in (F, BK, IN1, IN2)}
+    vbat = pcbnew.SHAPE_POLY_SET()  # the board-wide VBAT pour on B.Cu, as `keep` reaches round it
+    vbat_pours = [z for z in board_pours() if z.GetNetname() == "VBAT"]
+
+    # where a via of this size keeps CU_GAP from every other net's copper on every layer, inside the
+    # board's edge clearance; `loose` also lets it through the B.Cu VBAT pour
+    err = mm(0.005)
+    keep = mm(r + CU_GAP)
+    other = pcbnew.SHAPE_POLY_SET()
+    for t in B.GetTracks():
+        if t.GetNetname() != "GND":
+            for L in (F, BK, IN1, IN2):
+                if t.IsOnLayer(L):
+                    t.TransformShapeToPolygon(other, L, keep, err, pcbnew.ERROR_OUTSIDE)
+    for f in B.GetFootprints():
+        for p in f.Pads():
+            if p.GetNetname() != "GND":
+                for L in (F, BK, IN1, IN2):
+                    if p.IsOnLayer(L) and p.FlashLayer(L):
+                        p.TransformShapeToPolygon(other, L, keep, err, pcbnew.ERROR_OUTSIDE)
+    pour = pcbnew.SHAPE_POLY_SET()
+    for z in B.Zones():
+        if z.GetIsRuleArea() or z.GetNetname() == "GND":
+            continue
+        for L in (F, BK, IN1, IN2):
+            if z.IsOnLayer(L):
+                s = z.GetFilledPolysList(L).CloneDropTriangulation()
+                s.Inflate(keep, pcbnew.CORNER_STRATEGY_ROUND_ALL_CORNERS, err)
+                (vbat if z in vbat_pours else pour).BooleanAdd(s)
+    loose = board_outline().CloneDropTriangulation()
+    loose.Deflate(mm(r + 0.2), pcbnew.CORNER_STRATEGY_ROUND_ALL_CORNERS, err)
+    loose.BooleanSubtract(other)
+    loose.BooleanSubtract(pour)
+    legal = loose.CloneDropTriangulation()
+    legal.BooleanSubtract(vbat)
+    forbid = pcbnew.SHAPE_POLY_SET()  # the ground pads, and every hole's reach
+    anchors = []
+    for f in B.GetFootprints():
+        for p in f.Pads():
+            for L in (F, BK):
+                if p.IsOnLayer(L) and p.GetNetname() == "GND":
+                    g = p.GetEffectivePolygon(L).CloneDropTriangulation()
+                    g.Inflate(mm(hole / 2 + STITCH_PAD_GAP), pcbnew.CORNER_STRATEGY_ROUND_ALL_CORNERS, err)
+                    forbid.BooleanAdd(g)
+            if p.GetAttribute() in (pcbnew.PAD_ATTRIB_PTH, pcbnew.PAD_ATTRIB_NPTH):
+                dh = max(p.GetDrillSize().x, p.GetDrillSize().y) / 2e6
+                forbid.BooleanAdd(_disk(xy(p.GetPosition()), dh + STITCH_HOLE_GAP + hole / 2))
+                if p.GetNetname() == "GND" and p.GetAttribute() == pcbnew.PAD_ATTRIB_PTH:
+                    anchors.append(xy(p.GetPosition()))
+    for t in B.GetTracks():
+        if t.GetClass() == "PCB_VIA":
+            forbid.BooleanAdd(_disk(xy(t.GetPosition()), t.GetDrillValue() / 2e6 + STITCH_VIA_GAP + hole / 2))
+            if t.GetNetname() == "GND":
+                anchors.append(xy(t.GetPosition()))
+    legal.BooleanSubtract(forbid)
+    loose.BooleanSubtract(forbid)
+    spots = _parts(legal)
+
+    def ok(c) -> bool:
+        return _find(spots, c) is not None
+
+    isl = {L: _parts(fills[L]) for L in (F, BK)}
+    points = []  # (x, y, layer, island)
+    for L in (F, BK):
+        for k, (one, (x0, y0, x1, y1), area) in enumerate(isl[L]):
+            if area < STITCH_ISLAND:
+                continue
+            x = x0
+            while x <= x1:
+                y = y0
+                while y <= y1:
+                    v = pt(x, y)
+                    if one.Contains(v) and fills[BK if L == F else F].Contains(v):
+                        points.append((x, y, L, k))
+                    y += STITCH_SAMPLE
+                x += STITCH_SAMPLE
+    def grid(parts):
+        out = []  # (x, y, F island, B island)
+        for one, (x0, y0, x1, y1), _a in parts:
+            x = math.ceil(x0 / STITCH_STEP) * STITCH_STEP
+            while x <= x1:
+                y = math.ceil(y0 / STITCH_STEP) * STITCH_STEP
+                while y <= y1:
+                    if one.Contains(pt(x, y)):
+                        out.append((x, y, _find(isl[F], (x, y)), _find(isl[BK], (x, y))))
+                    y += STITCH_STEP
+                x += STITCH_STEP
+        return out
+
+    cands = grid(spots)
+    n_strict = len(cands)
+    cands += [c for c in grid(_parts(loose)) if c[3] is None]  # over the VBAT pour: islands' second via only
+
+    anchor_of = {F: defaultdict(list), BK: defaultdict(list)}
+
+    def anchor(c, kf=None, kb=None):
+        for L, k in ((F, kf), (BK, kb)):
+            k = _find(isl[L], c) if k is None else k
+            if k is not None:
+                anchor_of[L][k].append(c)
+
+    for a in anchors:
+        anchor(a)
+    placed = []
+    dead = set()
+
+    def add(j):
+        x, y, kf, kb = cands[j]
+        via("GND", x, y, d, hole)
+        placed.append((x, y))
+        anchor((x, y), kf, kb)
+        for i in near_c[(int(x // cell), int(y // cell))]:
+            if math.dist(cands[i][:2], (x, y)) < hole + STITCH_VIA_GAP:
+                dead.add(i)
+
+    cell = STITCH_REACH
+    near_c = defaultdict(list)
+    for j, c in enumerate(cands):
+        bx, by = int(c[0] // cell), int(c[1] // cell)
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                near_c[(bx + dx, by + dy)].append(j)
+    # the fence first
+    for q in NOTCH_FENCE:
+        c = robot(*q)
+        j = min(range(len(cands)), key=lambda i: math.dist(cands[i][:2], c), default=None)
+        if j is not None and math.dist(cands[j][:2], c) < 0.2 and j not in dead:
+            add(j)
+
+    def covered(p) -> bool:
+        return any(math.dist(p[:2], a) <= STITCH_REACH for a in anchor_of[p[2]][p[3]])
+
+    open_ = {i for i, p in enumerate(points) if not covered(p)}
+    reach = defaultdict(list)  # candidate -> open points it covers
+    by_point = defaultdict(list)
+    for i in open_:
+        x, y, L, k = points[i]
+        for j in near_c[(int(x // cell), int(y // cell))]:
+            c = cands[j]
+            if j < n_strict and (c[2] if L == F else c[3]) == k and math.dist(c[:2], (x, y)) <= STITCH_REACH:
+                reach[j].append(i)
+                by_point[i].append(j)
+    count = {j: len(v) for j, v in reach.items()}
+    heap = [(-n, j) for j, n in count.items()]
+    heapq.heapify(heap)
+    while heap:
+        n, j = heapq.heappop(heap)
+        if j in dead or -n != count[j]:
+            if j not in dead and count[j] > 0:
+                heapq.heappush(heap, (-count[j], j))
+            continue
+        if count[j] == 0:
+            break
+        add(j)
+        for i in reach[j]:
+            if i in open_:
+                open_.discard(i)
+                for j2 in by_point[i]:
+                    count[j2] -= 1
+    # at least two per island; one in any smaller pocket that joins a ground pad or track, which the
+    # pour reached through a pad's relief or not at all
+    joins = {L: set() for L in (F, BK)}
+    for L in (F, BK):
+        for f in B.GetFootprints():
+            for p in f.Pads():
+                if p.GetNetname() == "GND" and p.IsOnLayer(L):
+                    g = p.GetEffectivePolygon(L)
+                    joins[L].update(k for k, (one, _bb, _a) in enumerate(isl[L]) if one.Collide(g))
+        for t in B.GetTracks():
+            if t.GetNetname() == "GND" and t.GetClass() != "PCB_VIA" and t.GetLayer() == L:
+                for c in (t.GetStart(), t.GetEnd()):
+                    k = _find(isl[L], xy(c))
+                    if k is not None:
+                        joins[L].add(k)
+    for L in (F, BK):
+        for k, (_one, _bb, area) in enumerate(isl[L]):
+            need = 2 if area >= STITCH_ISLAND else (1 if k in joins[L] else 0)
+            while len(anchor_of[L][k]) < need:
+                mine = [j for j, c in enumerate(cands) if j not in dead and (c[2] if L == F else c[3]) == k]
+                if not mine:
+                    break
+                have = anchor_of[L][k]
+                add(max(mine, key=lambda j: min((math.dist(cands[j][:2], a) for a in have), default=0)))
+    left = [f"{GROUND_LAYERS[points[i][2]]} ({OY - points[i][1]:.1f}, {OX - points[i][0]:.1f})" for i in sorted(open_)]
+    short = [
+        f"{GROUND_LAYERS[L]} island at ({OY - (bb[1] + bb[3]) / 2:.1f}, {OX - (bb[0] + bb[2]) / 2:.1f}), "
+        f"{area:.1f} mm2: {len(anchor_of[L][k])} via(s)"
+        for L in (F, BK)
+        for k, (_one, bb, area) in enumerate(isl[L])
+        if area >= STITCH_ISLAND and len(anchor_of[L][k]) < 2
+    ]
+    return len(placed), left + short
+
+
+# What stitching cannot reach goes (routing review F10: remove the islands that cannot take their
+# vias): an island of outer ground pour that takes fewer than two vias, and the part of an island,
+# where both outer layers are ground, farther than STITCH_PRUNE from every via, are cut out by a
+# pour keep-out on that layer; in the latter the pour round each ground pad and track stays, and
+# none is cut where it is a pad's only way to ground (PRUNE_SPARE). A single-via island 12-15 mm long resonates
+# near 2.4 GHz.
+STITCH_PRUNE = 3.8  # mm: under the layout test's 4.0 mm
+PRUNE_MIN = 0.1  # mm2: smaller slivers are left to the fill's own minimum width
+PRUNED = "no pour: unstitched"
+# ground pads whose only way to ground is pour that pruning would cut (robot frame): the pour within
+# PRUNE_SPARE_R of them stays
+PRUNE_SPARE = {"C72.1": (-2.28, 9.3)}
+PRUNE_SPARE_R = 4.5  # mm
+PRUNE_RING = 0.6  # mm of pour kept round each ground pad and track: its relief or solid join
+
+
+def _keepout(layer, piece: pcbnew.SHAPE_POLY_SET) -> None:
+    z = pcbnew.ZONE(B)
+    z.SetIsRuleArea(True)
+    z.SetLayer(layer)
+    z.SetDoNotAllowZoneFills(True)
+    z.SetDoNotAllowTracks(False)
+    z.SetDoNotAllowVias(False)
+    z.SetDoNotAllowPads(False)
+    z.SetDoNotAllowFootprints(False)
+    z.SetZoneName(PRUNED)
+    o = z.Outline()
+    for i in range(piece.OutlineCount()):
+        o.NewOutline()
+        c = piece.Outline(i)
+        for k in range(c.PointCount()):
+            o.Append(c.CPoint(k).x, c.CPoint(k).y)
+    B.Add(z)
+
+
+def unprune() -> int:
+    """Remove the pour keep-outs prune() made (before stitching again on fresh fills)."""
+    gone = [z for z in B.Zones() if z.GetIsRuleArea() and z.GetZoneName() == PRUNED]
+    for z in gone:
+        remove(z)
+    return len(gone)
+
+
+def prune() -> int:
+    """Pour keep-outs over the ground KiCad's fills leave unstitched; returns how many were added
+    (the board must carry KiCad's fills: run after `kicad-cli pcb drc --refill-zones --save-board`)."""
+    anchors = [t.GetPosition() for t in B.GetTracks() if t.GetClass() == "PCB_VIA" and t.GetNetname() == "GND"]
+    anchors += [
+        p.GetPosition()
+        for f in B.GetFootprints()
+        for p in f.Pads()
+        if p.GetNetname() == "GND" and p.GetAttribute() == pcbnew.PAD_ATTRIB_PTH
+    ]
+    fills = {L: _ground_fill(L) for L in (F, BK)}
+    joins = {L: pcbnew.SHAPE_POLY_SET() for L in (F, BK)}  # a ground pad's or track's own copper
+    for L in (F, BK):
+        for f in B.GetFootprints():
+            for p in f.Pads():
+                if p.GetNetname() == "GND" and p.IsOnLayer(L):
+                    joins[L].BooleanAdd(p.GetEffectivePolygon(L))
+        for t in B.GetTracks():
+            if t.GetNetname() == "GND" and t.GetClass() != "PCB_VIA" and t.GetLayer() == L:
+                t.TransformShapeToPolygon(joins[L], L, 0, mm(0.005), pcbnew.ERROR_OUTSIDE)
+        joins[L].Inflate(mm(PRUNE_RING), pcbnew.CORNER_STRATEGY_ROUND_ALL_CORNERS, mm(0.005))
+    made = 0
+    for L, other in ((F, BK), (BK, F)):
+        for one, _bb, area in _parts(fills[L]):
+            if area < STITCH_ISLAND:
+                continue
+            mine = [a for a in anchors if one.Contains(a)]
+            cut = one.CloneDropTriangulation()
+            if len(mine) >= 2:
+                cut.BooleanIntersection(fills[other])
+                for a in mine:
+                    cut.BooleanSubtract(_disk(xy(a), STITCH_PRUNE))
+                cut.BooleanSubtract(joins[L])  # the pour round each ground pad and track stays
+            for q in PRUNE_SPARE.values():
+                cut.BooleanSubtract(_disk(robot(*q), PRUNE_SPARE_R))
+            cut.Simplify()
+            for piece, _b, a in _parts(cut):
+                if a >= PRUNE_MIN:
+                    piece.Inflate(mm(0.05), pcbnew.CORNER_STRATEGY_ROUND_ALL_CORNERS, mm(0.005))
+                    _keepout(L, piece)
+                    made += 1
+    return made
+
+
+def teardrops() -> int:
+    """Teardrops enabled on every pad and via; KiCad draws them when it refills the zones
+    (`kicad-cli pcb drc --refill-zones --save-board`). Returns the items enabled."""
+    n = 0
+    for t in B.GetTracks():
+        if t.GetClass() == "PCB_VIA":
+            t.SetTeardropsEnabled(True)
+            n += 1
+    for f in B.GetFootprints():
+        for p in f.Pads():
+            p.SetTeardropsEnabled(True)
+            n += 1
+    return n
+
+
 def clear() -> None:
     for t in list(B.GetTracks()):
         remove(t)
@@ -1602,6 +2259,13 @@ def main() -> int:
     )
     print("nets not routed:", *nets_left, sep="\n  ", flush=True)
     pours()
+    print(f"pads joined solid: {relief()}", flush=True)
+    print("heat islands under:", *heat_islands(), flush=True)
+    n, short = stitch()
+    print(f"stitching vias: {n}", *short, sep="\n  ", flush=True)
+    pcbnew.ZONE_FILLER(B).Fill(B.Zones())
+    print(f"unstitched pour cut out: {prune()}", flush=True)
+    print(f"teardrops enabled on: {teardrops()} pads and vias", flush=True)
     pcbnew.ZONE_FILLER(B).Fill(B.Zones())
     B.Save(str(PCB))
     return 0

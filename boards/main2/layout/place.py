@@ -3,20 +3,24 @@
     /usr/bin/python3 boards/main2/layout/place.py      # KiCad's Python (pcbnew), from the repo root
 
 Every part goes on the top side (the board rides 1.2 mm off the floor, MicrasHardware
-Board.bottom_z). The spec places what mates with the robot (spec/main2.toml: screw holes, encoder
-slots, battery switch, USB-C, wall sensors); `ANCHORS` place the other large parts by function:
+Board.bottom_z). The spec places what mates with the robot or the outline (spec/main2.toml: screw
+holes, encoder slots, battery switch, USB-C, ESP32 module, wall sensors); `ANCHORS` place the other large parts by function:
 
-- rear, open up to the battery: the ESP32-S3-MINI-1 in the rear-left corner with its antenna on the
-  rear edge (research/next-revision/README.md, ESP placement), the USB-C in the middle of the rear
+- rear, open up to the battery: the ESP32-S3-MINI-1 in the rear-left corner (spec [u13]), its
+  antenna over the board's notch there (spec [antenna_notch]), the USB-C in the middle of the rear
   edge, the battery input (J1, F1, D15, Q6) and the 3V3_D buck in the rear-right corner by SW4;
-- behind the drive blocks (the only room for 7 mm parts near the motors): both motor chokes with
-  their 0 Ohm options and the motor connectors;
+- behind the drive blocks (the only room for 7 mm parts near the motors): both motor chokes and
+  the motor connectors;
 - under the left motor (spec [drive_blocks] left_motor, parts up to 2.7 mm) the left bridge, inboard
   of the right block the right bridge, each with its bulk capacitors; the shunts on the blocks'
   bodies (parts up to 1.5 mm);
 - the IMU between the encoder slots, on the axle;
 - the nose: the MCU, the wall-sensor channels and emitter sink, the LEDs, the buttons; beside the
   fan hole, the fan driver (left) and the DIP switch, buzzer and 3V3_A LDO (right).
+
+`HAND` fixes the parts the routing placed round the power copper (the battery path, the bridges'
+VM islands, the fan driver) and the USB pair (the series resistors over U6, the ESP32's capacitors
+beside them), as ANCHORS fix theirs.
 
 Every other part is packed next to the pins it serves (`NEAR`, else the placed pads it shares a
 signal net with): the nearest free spot, in any of the four rotations, whose courtyard overlaps no
@@ -72,7 +76,7 @@ MCU_LANE_HALF = 0.45  # mm each side of the pin's axis
 # The bridges' bulk capacitors pack behind the bridges' logic pins (robot x < BULK_X), the VBAT
 # pour's side: ahead lie the IMU and the encoders' connectors, whose signals their VBAT tracks
 # would cut and whose ground their ripple current would share (owner, 2026-10-19)
-BULK = {"C83", "C84", "C85", "C86", "C87", "C111", "C92", "C93", "C94", "C95", "C96", "C112"}
+BULK = {"C83", "C84", "C87", "C111", "C92", "C93", "C96", "C112"}
 BULK_X = -8.6  # mm, robot frame: route.py's VBAT pour edge
 # those that find no room there go anywhere but this near the IMU and the encoders' connectors
 BULK_AWAY = ("IC2", "EC1", "EC2")
@@ -80,24 +84,21 @@ BULK_GAP = 5.0  # mm
 
 # Floorplan: reference -> (x, y, KiCad rotation), robot frame (x forward, y left, mm).
 ANCHORS = {
-    # rear-left: ESP32 module, antenna rearwards on the rear edge (rotation 180)
-    "U13": (-33.2, 16.6, 180),
-    # behind the blocks: chokes, their 0 Ohm options, motor connectors
-    "L5": (-21.4, 4.1, 0),
+    # behind the blocks: chokes, motor connectors
+    "L5": (-21.7, 4.1, 0),
     "L4": (-21.4, -4.6, 0),
-    "R76": (-21.2, 11.25, 90),
-    "R66": (-21.5, -11.0, 90),
-    "M1": (-29.6, 3.9, 0),
+    "M1": (-29.9, 3.9, 0),
     "M2": (-29.6, -4.4, 0),
     # rear middle: the USB-C's ESD array, between the connector and the ESP32
     "U6": (-35.8, 4.4, 0),
     # the battery path's diode to VSYS, by the input
     "D14": (-29.3, -12.0, 180),
-    # rear-right: battery input and the 3V3_D buck
-    "J1": (-31.5, -21.6, 90),
-    "D15": (-31.5, -16.2, 90),
-    "Q6": (-25.6, -21.6, 0),
-    "F1": (-23.0, -15.5, 90),
+    # rear-right: battery input and the 3V3_D buck; J1 turned so its GND_BAT pin faces Q6's
+    # sources and its BAT_P pin F1 (the battery path's pours cross nowhere)
+    "J1": (-33.5, -21.4, 270),
+    "D15": (-24.4, -16.65, 0),
+    "Q6": (-20.35, -21.6, 0),
+    "F1": (-29.0, -17.1, 90),
     "IC7": (-43.4, -10.6, 0),
     "L3": (-36.0, -9.6, 0),
     # under the left motor: left bridge; inboard of the right block: right bridge
@@ -124,13 +125,81 @@ ANCHORS = {
     "SW3": (33.2, -11.9, 180),
     "U12": (45.3, -1.85, 90),
     "Q9": (45.3, 1.95, 90),
-    # beside the fan hole: fan driver (left); DIP switch, buzzer, analog LDO (right)
-    "M3": (22.0, 20.6, 0),
-    "L6": (14.0, 20.4, 0),
-    "IC6": (16.8, 12.4, 0),
+    # beside the fan hole: fan driver (left); DIP switch, buzzer, analog LDO (right). The fan driver
+    # turned so its power side (OUT1, VS, OUT2) faces the board's edge and its logic pins the fan
+    # hole: the lines to the STM32 pass along the hole's rim, the power copper lies outside them
+    # (DS14341 Fig. 23); its choke behind it, its connector in front
+    "M3": (23.05, 22.4, 180),
+    "L6": (11.7, 20.65, 270),
+    "IC6": (16.8, 14.3, 90),
     "SW1": (25.0, -20.5, 90),
     "BZ1": (14.2, -20.5, 0),
     "U8": (25.0, -12.0, 0),
+}
+
+# Parts the routing placed by hand round the power copper (layout/README.md, Power copper): the
+# battery path's gate network and the USB power path, the resized capacitors, each DRV8874's VM
+# island (CVM1 in line with pin 11, the charge pump below), the fan driver after DS14341 Fig. 23; and
+# the USB series resistors side by side over U6's ESP32-side pins; the ESP32's 3V3_D capacitors off
+# the antenna notch, the 22 uF beside U13.3, the 100 nF and 10 uF on its 3V3_D feed beside U6 (the
+# module decouples its chip itself: 10 uF, 1 uF, 0.1 uF, datasheet Figure 8-1). Fixed as ANCHORS
+# are.
+HAND = {
+    "C107": (-34.45, 0.7, 180),
+    "C108": (-33.85, 7.6, 180),
+    "C109": (-39.05, 7.55, 90),
+    "C114": (-19.0, -24.25, 270),
+    "C29": (28.524, -16.122, 90),
+    "C30": (27.079, 5.693, 90),
+    "C31": (19.6, 10.45, 270),
+    "C32": (13.05, 13.8, 0),
+    "C33": (11.5, 13.4, 0),
+    "C34": (15.75, 19.5, 180),
+    "C35": (18.45, 19.5, 180),
+    "C36": (8.0, -4.0, 90),
+    "C52": (-34.0, -15.35, 90),
+    "C53": (-42.6, -15.45, 270),
+    "C57": (-27.0, -10.9, 0),
+    "C58": (-24.2, -23.5, 0),
+    "C63": (-29.564, -8.736, 90),
+    "C73": (27.917, 19.505, 90),
+    "C80": (28.6, -14.0, 270),
+    "C82": (-15.5, -2.2, 90),
+    "C83": (-15.4, -8.3, 180),
+    "C84": (10.35, -11.0, 270),
+    "C88": (-16.3, -3.7, 0),
+    "C89": (-15.1, -4.05, 0),
+    "C91": (-15.44, 5.35, 90),
+    "C92": (9.65, -15.2, 180),
+    "C93": (8.2, 0.1, 180),
+    "C97": (-16.9, 4.0, 0),
+    "C98": (-15.4, 3.2, 0),
+    "C96": (28.5, 9.6, 180),
+    "C99": (17.1, 23.2, 90),
+    "C112": (24.5, 10.5, 90),
+    "D16": (-20.25, -17.987, 90),
+    "D3": (10.1, -20.9, 0),
+    "D4": (30.975, 9.23, 0),
+    "Q2": (27.75, 17.0, 0),
+    "Q8": (-20.2, -15.0, 0),
+    "R11": (29.262, 6.351, 90),
+    "R12": (26.477, 19.95, 0),
+    "R23": (30.229, -11.759, 90),
+    "R25": (24.837, -9.514, 90),
+    "R27": (27.338, 6.671, 90),
+    "R28": (21.0, 12.8, 90),
+    "R29": (21.0, 11.7, 90),
+    "R30": (21.0, 13.9, 90),
+    "R31": (22.6, 15.8, 90),
+    "R41": (-23.1, -23.5, 0),
+    "R43": (-25.9, -24.2, 90),
+    "R56": (-29.6, -7.6, 90),
+    "R57": (-28.133, -7.977, 0),
+    "R58": (16.246, -15.75, 90),
+    "R84": (-34.85, 7.35, 180),
+    "R85": (-36.75, 7.35, 180),
+    "R91": (-31.163, -14.011, 0),
+    "R92": (-31.494, -9.041, 90),
 }
 
 # Parts packed next to a given pad: reference -> (reference, pad number).
@@ -166,8 +235,6 @@ NEAR = {
     "C35": ("IC6", "29"),
     "C31": ("IC6", "13"),
     "C106": ("U12", "5"),
-    "C101": ("U10", "7"),
-    "C104": ("U11", "7"),
     # ADP7142 input and output (Rev H Table 2)
     "C80": ("U8", "6"),
     "C81": ("U8", "1"),
@@ -186,14 +253,10 @@ NEAR = {
     "C84": ("IC8", "11"),
     "C87": ("IC8", "11"),
     "C111": ("IC8", "11"),
-    "C85": ("IC8", "11"),
-    "C86": ("IC8", "11"),
     "C92": ("IC9", "11"),
     "C93": ("IC9", "11"),
     "C96": ("IC9", "11"),
     "C112": ("IC9", "11"),
-    "C94": ("IC9", "11"),
-    "C95": ("IC9", "11"),
     "C36": ("IC6", "27"),
     "C99": ("IC6", "30"),
     # buck (DS13554: input capacitors at VIN, output at the inductor)
@@ -221,9 +284,6 @@ NEAR = {
     "C28": ("R21", None),
     "C29": ("R25", None),
     # ESP, IMU, encoders, LEDs, others
-    "C108": ("U13", "3"),
-    "C107": ("U13", "3"),
-    "C109": ("U13", "3"),
     "C69": ("EC1", None),
     "C70": ("EC1", None),
     "C71": ("EC2", None),
@@ -516,6 +576,7 @@ def main():
     for path, (x, y) in mech.slots(S).items():
         placed[by_path[path].GetReference()] = (x, y, 0)
     placed.update(ANCHORS)
+    placed.update(HAND)
 
     for f in fps.values():
         if f.IsFlipped():

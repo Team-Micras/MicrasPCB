@@ -2,7 +2,7 @@
 #
 # The spec owns this board's whole Edge.Cuts outline (`micras-pcb mech main2` draws it), the
 # aux/grid origin, and the footprints it places (screw holes, battery switch, USB-C receptacle,
-# wall sensors: written locked). It also holds the zones the drive blocks of MicrasHardware take
+# ESP32 module, wall sensors: written locked). It also holds the zones the drive blocks of MicrasHardware take
 # on the board, which the layout tests check. `micras-pcb mech main2` exports
 # build/main2/main2_mech.json for MicrasHardware, micras-simulation and the firmware.
 #
@@ -22,6 +22,7 @@
 [pcb]
 thickness = { value = 1.0412, source = "boards/main2/main2.zen Board() stackup: boards/main's 4-layer 1.0 mm JLCPCB stackup" }
 copper_layers = { value = 4, source = "boards/main2/main2.zen Board(layers = 4)" }
+via_in_pad = { value = "open", source = "the owner (2026-10-25): no via-in-pad process (JLCPCB PCB Capabilities, accessed 2026-10-25: its Via-in-Pad Process fills vias with epoxy or copper paste and plates them over, the default only from 6 layers). The exposed pads' thermal vias are 0.2 mm holes (TI SLVSF66A land pattern 4223595/B; a smaller via loses less solder, TI SLUA271C 3.4.1) left open on both sides (tenting a pad's via from the back traps air, SLUA271C 3.4.1), and the pads' paste is split into windows clear of them (the footprints; 50-70 % coverage, SLUA271C 4.4)" }
 
 [kicad]
 origin_x = { value = 148.5011, source = "spec/main.toml [kicad] origin_x: the same sheet position as boards/main" }
@@ -38,7 +39,6 @@ nose_half_width = { value = 15.0, source = "boards/main Edge.Cuts: the front edg
 nose_shoulder_x = { value = 33.5, source = "boards/main Edge.Cuts: the nose chamfer meets the side y = +-25 at x = 33.5 (slope 1/2)" }
 front_corner_radius = { value = 2.5, source = "boards/main Edge.Cuts: R2.5 arcs centred at (51.0, +-13.455)" }
 shoulder_radius = { value = 5.0, source = "boards/main Edge.Cuts: R5 arcs centred at (32.32, +-20.0)" }
-rear_corner_radius = { value = 2.0, source = "boards/main Edge.Cuts rear corners (R2 at (-34.5, 23.0)); the ESP32-S3-MINI-1 antenna sits in the rear-left corner" }
 
 [holes]
 # M2 screws of the drive blocks, as on boards/main.
@@ -100,6 +100,23 @@ x = { value = -37.85, source = "rear + [switch_notch] depth + 2.65 mm: the body'
 y = { value = -19.75, source = "-25 + 0.2 mm copper to edge + 0.9 mm leg pad radius + 4.15 mm leg offset (SW-TH_SK-12D29-G060.kicad_mod)" }
 rotation = { value = 0, source = "lever along -x into the switch notch" }
 path = { value = "REGULATORS.SW4.SK-12D29-G060", source = "boards/main2/Regulators.zen instance path" }
+
+[antenna_notch]
+# The rear-left corner, cut away under and beside the antenna of the ESP32-S3-MINI-1 (U13):
+# Espressif puts the antenna beyond the board's edge, or, where it cannot, cuts the board away below
+# it and on both sides of it, with ground copper and dense ground vias along the cut (ESP32-S3
+# Hardware Design Guidelines, General Principles of PCB Layout for Modules). The module's pads stay
+# on the board; its antenna end overhangs the notch.
+depth = { value = 5.6, source = "[u13] x - 7.7 mm - [outline] rear: the notch's inner edge on the module's antenna boundary, the 5.05 mm antenna area beyond its 15.4 mm square of pads (ESP32-S3-MINI-1 datasheet v1.7 Figures 10-1 and 11-1; the footprint's keep-out ends 7.7 mm from the centre). The ground pads reach 7.4 mm from the centre: 0.3 mm to the edge (rules/jlcpcb.kicad_dru: 0.2 mm)" }
+width = { value = 19.0, source = "[outline] width / 2 - 6.0 mm: from the left edge past the antenna's feed end ([u13] y - 7.7 mm = 8.9) by 2.9 mm, more than the 2 mm Espressif's keep-out figure leaves between the feed side and the board's edge (Hardware Design Guidelines, Keepout Zone for the Module's Antenna); it stops 1.2 mm clear of U2's shell pads (y 4.82), the room of a ground via fence" }
+corner_radius = { value = 0.8, source = "as [switch_notch] corner_radius (boards/main's notch arcs, R0.8); U13's corner pad 65 keeps 0.26 mm from the outer corner's arc" }
+
+[u13]
+# ESP32-S3-MINI-1, antenna rearwards (KiCad rotation 180) over the [antenna_notch].
+x = { value = -33.2, source = "[outline] rear + 12.8 mm + 0.5 mm: the module's antenna end (12.8 mm behind its centre, footprint F.Fab/F.SilkS; 20.5 mm module, Figure 10-1) 0.5 mm inside the rear edge's line" }
+y = { value = 16.6, source = "[outline] width / 2 - 7.7 mm - 0.7 mm: the module's side (15.4 mm wide, Figure 10-1) 0.7 mm inside the left edge, its antenna's open end at the corner" }
+rotation = { value = 180, source = "antenna along -x; its feed end (pin 1, Figures 3-1 and 10-1) toward the board centre" }
+path = { value = "ESP.U13.ESP32-S3-MINI-1", source = "boards/main2/Esp.zen instance path" }
 
 [usb]
 # USB-C receptacle of the ESP32, its mouth on the rear edge (no Bluetooth module plugs into it).
@@ -169,6 +186,6 @@ tail_right = { value = [-22.0, -12.75, -25.0, -13.5, 1.5], source = "MicrasHardw
 notch_left = { value = [-12.75, -8.5, 17.25, 25.0, 1.5], source = "MicrasHardware model: block_L beside the wheel notch's rear corner, 1.8 mm level" }
 notch_right = { value = [-12.75, -8.5, -25.0, -17.25, 1.5], source = "MicrasHardware model: block_R beside the wheel notch's rear corner" }
 left_motor = { value = [-17.0, -3.5, 0.0, 9.0, 2.7], source = "MicrasHardware model: the left motor's ring over the left side, 3.0 mm level" }
-left_motor_can = { value = [-17.0, -3.5, -6.0, 0.0, 3.7], source = "MicrasHardware model: the left motor's can past the centre line, 4.0 mm level" }
+left_motor_can = { value = [-17.0, -3.5, -13.1, 0.0, 3.7], source = "MicrasHardware model: the left motor's can past the centre line, 4.0 mm level; lengthened for the maxon DCX 10 L (catalogue p100 drawing: 25.2 mm can from the flange, 1.95 mm terminals, against the model's 20 + 2 mm): the can's rear moves from y -5.6 to -10.8 and its terminals reach -12.8, plus Layout.clearance 0.3 mm. MicrasHardware still models the 20 mm motor; the owner reshapes the chassis" }
 magnet_right = { value = [-3.5, -0.75, -12.0, -9.0, 1.5], source = "MicrasHardware model: block_R and the right magnet cup beside the encoder slot, 1.8 mm level" }
 left_tail = { value = [-22.0, -17.0, 0.0, 9.0, 7.2], source = "MicrasHardware model: block_L behind its motor ring, 7.5 mm level" }

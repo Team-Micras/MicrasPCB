@@ -1,0 +1,59 @@
+Wheel choke check: DCX 10 L 4.5 V (R 2.9 ohm, L 45.3 uH at 1 kHz) + XAL7070-473, DRV8874 at 100 kHz
+Choke model: L at -20 % = 37.6 uH at 0 A; incremental L relative to 0 A:
+  1.0 A 95 %, 2.0 A 87 %, 3.0 A 79 %, 3.6 A 74 %, 4.2 A 69 %, 5.0 A 64 %, 6.0 A 57 %
+
+1. Ripple at D = 0.5 (worst), 100 kHz; motor ripple loss Irms^2 x 2.9 ohm; choke AC loss
+   choke corners: 'nom' = 47 uH at 0 A, 'min' = -20 % and biased at 3 A (ITRIP)
+       V    k choke L tot uH  dIpp A  motor W choke AC mW
+    12.0  0.2   nom     56.1   0.536    0.069       100.5
+    12.0  0.2   min     38.7   0.768    0.143       213.9
+    12.0  0.3   nom     60.6   0.493    0.059        84.3
+    12.0  0.3   min     43.3   0.690    0.115       170.8
+    12.0  0.5   nom     69.7   0.429    0.045        63.1
+    12.0  0.5   min     52.3   0.573    0.079       115.8
+    12.0  0.8   nom     83.2   0.359    0.031        43.5
+    12.0  0.8   min     65.9   0.453    0.050        70.8
+    12.0  1.0   nom     92.3   0.324    0.025        35.0
+    12.0  1.0   min     75.0   0.399    0.039        54.1
+    16.8  0.2   nom     56.1   0.750    0.135       203.7
+    16.8  0.2   min     38.7   1.075    0.280       433.7
+    16.8  0.3   nom     60.6   0.690    0.115       170.9
+    16.8  0.3   min     43.3   0.966    0.225       346.2
+    16.8  0.5   nom     69.7   0.601    0.087       127.8
+    16.8  0.5   min     52.3   0.802    0.155       234.7
+    16.8  0.8   nom     83.2   0.503    0.061        88.1
+    16.8  0.8   min     65.9   0.635    0.098       143.5
+    16.8  1.0   nom     92.3   0.454    0.050        71.0
+    16.8  1.0   min     75.0   0.559    0.076       109.7
+    17.4  0.2   nom     56.1   0.777    0.145       219.2
+    17.4  0.2   min     38.7   1.113    0.301       466.8
+    17.4  0.3   nom     60.6   0.715    0.124       184.0
+    17.4  0.3   min     43.3   1.000    0.242       372.6
+    17.4  0.5   nom     69.7   0.622    0.094       137.6
+    17.4  0.5   min     52.3   0.831    0.166       252.6
+    17.4  0.8   nom     83.2   0.521    0.066        94.9
+    17.4  0.8   min     65.9   0.657    0.105       154.4
+    17.4  1.0   nom     92.3   0.470    0.054        76.4
+    17.4  1.0   min     75.0   0.578    0.081       118.1
+   worst: 1.113 A pp, 0.301 W in the motor, 467 mW choke AC loss (V 17.4, k 0.2, min)
+   against the DCX 10 L's continuous loss budget of about 1.28 W (extra.py): 23 % at the worst corner;
+   ripple rms 0.32 A. maxon's no-choke-needed rule (Ipp < 1.5 x IN = 0.97 A, p7) holds at every point but V 17.4, k 0.2, 'min'
+
+2. Choke temperature (Rth 26.5 K/W), DCR at 97.07 mOhm max + 0.393 %/K copper
+   run limit 1.0 A rms (60 s)        : DC   105 mW + AC 467 mW -> +15.1 K
+   run limit 0.86 A rms (120 s)      : DC    77 mW + AC 467 mW -> +14.4 K
+   2.5 A rms (beyond the run limits) : DC   692 mW + AC 467 mW -> +30.7 K
+
+3. ITRIP band (equation 3, tolerances, AERR -5.5/+5.5 %): 2.76 / 2.97 / 3.23 A
+   Overshoot above ITRIP during a full-speed reversal at 17.4 V (V + E = 22.7 V), current at ITRIP max when the pulse starts:
+      k | t 1.70 us | t 1.85 us | t 2.55 us   (t = tBLK + tDEG; + tFALL; x 1.5)
+    0.0 | 1.44 -> 4.67 A | 1.57 -> 4.80 A | 2.25 -> 5.48 A
+    0.2 | 1.06 -> 4.29 A | 1.15 -> 4.38 A | 1.62 -> 4.85 A
+    0.3 | 0.94 -> 4.17 A | 1.02 -> 4.25 A | 1.43 -> 4.66 A
+    0.5 | 0.76 -> 3.99 A | 0.83 -> 4.06 A | 1.16 -> 4.39 A
+    0.8 | 0.60 -> 3.83 A | 0.65 -> 3.88 A | 0.91 -> 4.14 A
+    1.0 | 0.52 -> 3.75 A | 0.57 -> 3.80 A | 0.79 -> 4.02 A
+   worst peak 5.48 A: 0.52 A below the 6 A OCP minimum (which also needs 3 us above
+   it, tOCP); inside the INA241's +7.25 / -8.15 A; the choke keeps 60 % of its inductance
+   there (soft saturation; the datasheet Isat is the 70 % point, 4.2 A)
+   at the datasheet timing (1.7 us) and the maxon factor 0.3: 0.94 A; at the typical ITRIP, 16.8 V, nominal choke at 0 A bias: 0.62 A

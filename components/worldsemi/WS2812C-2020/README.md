@@ -22,14 +22,15 @@ WS2812C(name="D2", VDD=V3V3, GND=GND, DI=D1_TO_D2, DO=NotConnected())
 Integration notes (WS2812C-2020-V6 V1.0):
 
 - `VDD` is declared 3.3-5.3 V (p.2). The datasheet gives 3.3 V only as the bottom of that range
-  and in the feature text; its tables are at 5 V. Brightness of blue and green on a 3.3 V rail
-  that dips to 3.2 V needs a bench check (TODO).
+  and in the feature text; its tables are at 5 V. V1.1 p5's curve keeps each channel's 5 mA
+  sink at full current from 0.4 V across it, so a channel holds full current while its LED's VF
+  is at most VDD - 0.4 V: at 3.3 V that is the knee for green (boards/main2 Peripherals.zen).
 - A 100 nF capacitor on VDD per LED (p.5 typical application) is the board's.
 - DI needs VIH = 0.55 x VDD (1.82 V at 3.3 V), so a 3.3 V MCU on the same rail drives it directly.
 - Bit timing (p.3-4): T0H 220-380 ns, T1H 580 ns-1 us, T0L and T1L 580 ns-1 us, reset >= 280 us;
   GRB order, MSB first. The low times are capped at 1 us, tighter than the WS2815C's 5 us: the
   firmware's bit period must stay within 0.8-2 us.
-- DI and DO are interchangeable (p.2 pin table).
+- V1.0 calls DI and DO interchangeable (p.2 pin table); V1.1 drops that wording, so wire DI to DO.
 - Moisture sensitivity level 5a: bake before reflow as p.8 describes.
 
 ## Footprint
