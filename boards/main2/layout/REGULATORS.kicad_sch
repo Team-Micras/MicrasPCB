@@ -856,6 +856,9 @@
 			(embedded_fonts no)
 		)
 		(symbol "B5819W"
+			(pin_names
+				(hide yes)
+			)
 			(exclude_from_sim yes)
 			(in_bom yes)
 			(on_board yes)
@@ -926,21 +929,46 @@
 				)
 			)
 			(symbol "B5819W_0_1"
-				(rectangle
-					(start -5.08 2.54)
-					(end 5.08 -2.54)
+				(polyline
+					(pts
+						(xy -1.27 1.27) (xy -1.27 -1.27) (xy 1.27 0) (xy -1.27 1.27)
+					)
 					(stroke
 						(width 0.254)
 						(type default)
 					)
 					(fill
-						(type background)
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.27 0) (xy 1.27 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.905 0.635) (xy 1.905 1.27) (xy 1.27 1.27) (xy 1.27 -1.27) (xy 0.635 -1.27) (xy 0.635 -0.635)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
 					)
 				)
 			)
 			(symbol "B5819W_1_1"
 				(pin passive line
-					(at 7.62 0 180)
+					(at 3.81 0 180)
 					(length 2.54)
 					(name "K"
 						(effects
@@ -958,7 +986,7 @@
 					)
 				)
 				(pin passive line
-					(at -7.62 0 0)
+					(at -3.81 0 0)
 					(length 2.54)
 					(name "A"
 						(effects
@@ -4793,7 +4821,7 @@
 		(dnp no)
 		(uuid "d4a0c100-4da5-514f-9639-7d52d0eafd3c")
 		(property "Reference" "D14"
-			(at 114.3 112.395 0)
+			(at 114.6175 113.665 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -4803,7 +4831,7 @@
 			)
 		)
 		(property "Value" "B5819W"
-			(at 114.3 114.935 0)
+			(at 114.6175 116.205 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6043,7 +6071,7 @@
 	)
 	(wire
 		(pts
-			(xy 106.68 119.38) (xy 101.6 119.38)
+			(xy 110.49 119.38) (xy 101.6 119.38)
 		)
 		(stroke
 			(width 0)
@@ -6063,7 +6091,7 @@
 	)
 	(wire
 		(pts
-			(xy 121.92 119.38) (xy 139.7 119.38)
+			(xy 118.11 119.38) (xy 139.7 119.38)
 		)
 		(stroke
 			(width 0)

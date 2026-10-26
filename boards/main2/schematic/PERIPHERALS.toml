@@ -46,15 +46,15 @@ taps = ["R6.2", "R7.2"]
 title = "Buzzer: FUET-5030, low-side switch Q1"
 at = [143, 10]
 size = [80, 52]
-parts.D3 = { at = [38, 16], rot = 90, fields = "left" }
-parts.BZ1 = [60, 22]
+parts.D3 = { at = [38, 19], rot = 90, fields = "left" }
+parts.BZ1 = [60, 20]
 parts.R3 = { at = [38, 26], rot = 180, fields = "left" }
 parts.Q1 = [36, 38]
 parts.R1 = { at = [16, 38], rot = 270, fields = "bottom" }
 parts.R2 = { at = [24, 42], rot = 180 }
 wires = [
     ["D3.K", [38, 6]],
-    ["BZ1.1", [50, 20], [50, 8], [38, 8]],
+    ["BZ1.1", [50, 18], [50, 8], [38, 8]],
     ["BZ1.2", "D3.A"],
     ["D3.A", "R3.2"],
     [[46, 22], [46, 28], { label = "right" }],

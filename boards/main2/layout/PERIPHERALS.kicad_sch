@@ -10,6 +10,9 @@
 	)
 	(lib_symbols
 		(symbol "1N4148WS"
+			(pin_names
+				(hide yes)
+			)
 			(exclude_from_sim yes)
 			(in_bom yes)
 			(on_board yes)
@@ -80,21 +83,46 @@
 				)
 			)
 			(symbol "1N4148WS_0_1"
-				(rectangle
-					(start -5.08 2.54)
-					(end 5.08 -2.54)
+				(polyline
+					(pts
+						(xy -1.27 1.27) (xy -1.27 -1.27) (xy 1.27 0) (xy -1.27 1.27)
+					)
 					(stroke
 						(width 0.254)
 						(type default)
 					)
 					(fill
-						(type background)
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.27 0) (xy 1.27 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 1.27) (xy 1.27 -1.27)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
 					)
 				)
 			)
 			(symbol "1N4148WS_1_1"
 				(pin passive line
-					(at 7.62 0 180)
+					(at 3.81 0 180)
 					(length 2.54)
 					(name "K"
 						(effects
@@ -112,7 +140,7 @@
 					)
 				)
 				(pin passive line
-					(at -7.62 0 0)
+					(at -3.81 0 0)
 					(length 2.54)
 					(name "A"
 						(effects
@@ -998,13 +1026,16 @@
 			(embedded_fonts no)
 		)
 		(symbol "FUET-5030"
+			(pin_names
+				(hide yes)
+			)
 			(exclude_from_sim yes)
 			(in_bom yes)
 			(on_board yes)
 			(in_pos_files yes)
 			(duplicate_pin_numbers_are_jumpers no)
 			(property "Reference" "BZ"
-				(at 0 6.35 0)
+				(at 0 5.08 0)
 				(show_name no)
 				(do_not_autoplace no)
 				(effects
@@ -1014,7 +1045,7 @@
 				)
 			)
 			(property "Value" "FUET-5030"
-				(at 0 -3.81 0)
+				(at 0 -5.08 0)
 				(show_name no)
 				(do_not_autoplace no)
 				(effects
@@ -1068,21 +1099,58 @@
 				)
 			)
 			(symbol "FUET-5030_0_1"
-				(rectangle
-					(start -5.08 5.08)
-					(end 5.08 -2.54)
+				(polyline
+					(pts
+						(xy -1.651 1.905) (xy -1.143 1.905)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.397 2.159) (xy -1.397 1.651)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 3.175) (xy 0 -3.175)
+					)
 					(stroke
 						(width 0.254)
 						(type default)
 					)
 					(fill
-						(type background)
+						(type none)
+					)
+				)
+				(arc
+					(start 0 3.175)
+					(mid 3.175 0)
+					(end 0 -3.175)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
 					)
 				)
 			)
 			(symbol "FUET-5030_1_1"
 				(pin passive line
-					(at -7.62 2.54 0)
+					(at -2.54 2.54 0)
 					(length 2.54)
 					(name "+"
 						(effects
@@ -1100,7 +1168,7 @@
 					)
 				)
 				(pin passive line
-					(at -7.62 0 0)
+					(at -2.54 -2.54 0)
 					(length 2.54)
 					(name "-"
 						(effects
@@ -1118,8 +1186,8 @@
 					)
 				)
 				(pin no_connect line
-					(at 7.62 2.54 180)
-					(length 2.54)
+					(at 5.08 0 180)
+					(length 1.905)
 					(name "NC"
 						(effects
 							(font
@@ -1796,6 +1864,210 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "LED_Small_Filled_Blue"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0.254)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "D"
+				(at -1.27 3.175 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "LED_Small_Filled_Blue"
+				(at -4.445 -2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 90)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 90)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Light emitting diode, small symbol, filled shape"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Sim.Pins" "1=K 2=A"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "LED diode light-emitting-diode"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "LED* LED_SMD:* LED_THT:*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "LED_Small_Filled_Blue_0_1"
+				(polyline
+					(pts
+						(xy -0.762 -1.016) (xy -0.762 1.016)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0.762) (xy -0.508 1.27) (xy -0.254 1.27) (xy -0.508 1.27) (xy -0.508 1.016)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.508 1.27) (xy 0 1.778) (xy 0.254 1.778) (xy 0 1.778) (xy 0 1.524)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.762 -1.016) (xy -0.762 0) (xy 0.762 1.016) (xy 0.762 -1.016)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type color)
+						(color 37 99 235 1)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.016 0) (xy 0.762 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "LED_Small_Filled_Blue_1_1"
+				(pin passive line
+					(at -2.54 0 0)
+					(length 1.778)
+					(name "K"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 2.54 0 180)
+					(length 1.778)
+					(name "A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "LED_Small_Filled_Red"
 			(pin_numbers
 				(hide yes)
@@ -1961,210 +2233,6 @@
 				)
 			)
 			(symbol "LED_Small_Filled_Red_1_1"
-				(pin passive line
-					(at -2.54 0 0)
-					(length 1.778)
-					(name "K"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 2.54 0 180)
-					(length 1.778)
-					(name "A"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
-		(symbol "LED_Small_Filled_Yellow"
-			(pin_numbers
-				(hide yes)
-			)
-			(pin_names
-				(offset 0.254)
-				(hide yes)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "D"
-				(at -1.27 3.175 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Value" "LED_Small_Filled_Yellow"
-				(at -4.445 -2.54 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 90)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Datasheet" ""
-				(at 0 0 90)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" "Light emitting diode, small symbol, filled shape"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Sim.Pins" "1=K 2=A"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "LED diode light-emitting-diode"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_fp_filters" "LED* LED_SMD:* LED_THT:*"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "LED_Small_Filled_Yellow_0_1"
-				(polyline
-					(pts
-						(xy -0.762 -1.016) (xy -0.762 1.016)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0 0.762) (xy -0.508 1.27) (xy -0.254 1.27) (xy -0.508 1.27) (xy -0.508 1.016)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0.508 1.27) (xy 0 1.778) (xy 0.254 1.778) (xy 0 1.778) (xy 0 1.524)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0.762 -1.016) (xy -0.762 0) (xy 0.762 1.016) (xy 0.762 -1.016)
-					)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type color)
-						(color 234 179 8 1)
-					)
-				)
-				(polyline
-					(pts
-						(xy 1.016 0) (xy 0.762 0)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "LED_Small_Filled_Yellow_1_1"
 				(pin passive line
 					(at -2.54 0 0)
 					(length 1.778)
@@ -3057,7 +3125,7 @@
 	)
 	(symbol
 		(lib_id "FUET-5030")
-		(at 257.81 40.64 0)
+		(at 257.81 38.1 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -3067,7 +3135,7 @@
 		(dnp no)
 		(uuid "12ef3adb-1458-57f2-94a8-b55cc33c88e8")
 		(property "Reference" "BZ1"
-			(at 252.73 31.115 0)
+			(at 256.159 30.48 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -3078,7 +3146,7 @@
 			)
 		)
 		(property "Value" "FUET-5030"
-			(at 252.73 33.655 0)
+			(at 256.159 33.02 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -3089,7 +3157,7 @@
 			)
 		)
 		(property "Footprint" "Team-Micras_MicrasPCB_components_fuet_FUET-5030:BUZ-SMD_FST-5030"
-			(at 257.81 40.64 0)
+			(at 257.81 38.1 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -3100,7 +3168,7 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/product-detail/C391031.html"
-			(at 257.81 40.64 0)
+			(at 257.81 38.1 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -3111,7 +3179,7 @@
 			)
 		)
 		(property "Description" "4 kHz passive electromagnetic buzzer, 3 Vo-p rated, 12 ohm coil, 5 x 5 x 3 mm SMD (pad 3 mechanical, no electrical function stated)"
-			(at 257.81 40.64 0)
+			(at 257.81 38.1 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -3122,7 +3190,7 @@
 			)
 		)
 		(property "Path" "PERIPHERALS.BZ1.BUZZER"
-			(at 257.81 40.64 0)
+			(at 257.81 38.1 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -3561,7 +3629,7 @@
 		)
 	)
 	(symbol
-		(lib_id "LED_Small_Filled_Yellow")
+		(lib_id "LED_Small_Filled_Blue")
 		(at 104.14 144.78 90)
 		(unit 1)
 		(body_style 1)
@@ -3582,7 +3650,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "LED YELLOW"
+		(property "Value" "LED BLUE"
 			(at 106.426 146.05 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -3615,7 +3683,7 @@
 				)
 			)
 		)
-		(property "Description" "LED YELLOW"
+		(property "Description" "LED BLUE"
 			(at 104.14 144.78 90)
 			(hide yes)
 			(show_name no)
@@ -3766,7 +3834,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "680 1%"
+		(property "Value" "100 1%"
 			(at 106.172 135.89 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -3799,7 +3867,7 @@
 				)
 			)
 		)
-		(property "Description" "680 1%"
+		(property "Description" "100 1%"
 			(at 104.14 134.62 0)
 			(hide yes)
 			(show_name no)
@@ -3838,7 +3906,7 @@
 	)
 	(symbol
 		(lib_id "1N4148WS")
-		(at 229.87 33.02 90)
+		(at 229.87 36.83 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -3848,7 +3916,7 @@
 		(dnp no)
 		(uuid "7718e4d9-e724-5a2e-ae9c-8dcbf56e5970")
 		(property "Reference" "D3"
-			(at 226.06 31.75 90)
+			(at 227.33 35.56 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -3859,7 +3927,7 @@
 			)
 		)
 		(property "Value" "1N4148WS"
-			(at 226.06 34.29 90)
+			(at 227.33 38.1 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -3870,7 +3938,7 @@
 			)
 		)
 		(property "Footprint" "Team-Micras_MicrasPCB_components_cj_1N4148WS:D_SOD-323"
-			(at 229.87 33.02 90)
+			(at 229.87 36.83 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -3881,7 +3949,7 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_1810101110_Jiangsu-Changjing-Electronics-Technology-Co---Ltd--1N4148WS_C2128.pdf"
-			(at 229.87 33.02 90)
+			(at 229.87 36.83 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -3892,7 +3960,7 @@
 			)
 		)
 		(property "Description" "Fast switching diode, 100 V, 150 mA, trr 4 ns, SOD-323 (pad 1 cathode, pad 2 anode)"
-			(at 229.87 33.02 90)
+			(at 229.87 36.83 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -3903,7 +3971,7 @@
 			)
 		)
 		(property "Path" "PERIPHERALS.D3.D"
-			(at 229.87 33.02 90)
+			(at 229.87 36.83 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5626,7 +5694,7 @@
 		(uuid "add47ea8-c32f-5701-b17a-82ce296a5c4c")
 	)
 	(no_connect
-		(at 265.43 38.1)
+		(at 262.89 38.1)
 		(uuid "031a899a-f49c-5991-abf6-968743101eec")
 	)
 	(no_connect
@@ -6103,7 +6171,7 @@
 	)
 	(wire
 		(pts
-			(xy 229.87 25.4) (xy 229.87 22.86)
+			(xy 229.87 33.02) (xy 229.87 22.86)
 		)
 		(stroke
 			(width 0)
@@ -6123,7 +6191,7 @@
 	)
 	(wire
 		(pts
-			(xy 250.19 38.1) (xy 245.11 38.1)
+			(xy 255.27 35.56) (xy 245.11 35.56)
 		)
 		(stroke
 			(width 0)
@@ -6133,7 +6201,7 @@
 	)
 	(wire
 		(pts
-			(xy 245.11 38.1) (xy 245.11 22.86)
+			(xy 245.11 35.56) (xy 245.11 22.86)
 		)
 		(stroke
 			(width 0)
@@ -6153,7 +6221,7 @@
 	)
 	(wire
 		(pts
-			(xy 250.19 40.64) (xy 240.03 40.64)
+			(xy 255.27 40.64) (xy 240.03 40.64)
 		)
 		(stroke
 			(width 0)
@@ -7339,7 +7407,7 @@
 		)
 		(uuid "96bd438b-0661-54d7-84b1-d8ee3501e3b9")
 	)
-	(label "PERIPHERALS.LED_YELLOW_A"
+	(label "PERIPHERALS.LED_BLUE_A"
 		(at 106.68 139.7 0)
 		(effects
 			(font

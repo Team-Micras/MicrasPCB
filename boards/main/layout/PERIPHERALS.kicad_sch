@@ -1433,13 +1433,16 @@
 			(embedded_fonts no)
 		)
 		(symbol "FUET-5030"
+			(pin_names
+				(hide yes)
+			)
 			(exclude_from_sim yes)
 			(in_bom yes)
 			(on_board yes)
 			(in_pos_files yes)
 			(duplicate_pin_numbers_are_jumpers no)
 			(property "Reference" "BZ"
-				(at 0 6.35 0)
+				(at 0 5.08 0)
 				(show_name no)
 				(do_not_autoplace no)
 				(effects
@@ -1449,7 +1452,7 @@
 				)
 			)
 			(property "Value" "FUET-5030"
-				(at 0 -3.81 0)
+				(at 0 -5.08 0)
 				(show_name no)
 				(do_not_autoplace no)
 				(effects
@@ -1503,21 +1506,58 @@
 				)
 			)
 			(symbol "FUET-5030_0_1"
-				(rectangle
-					(start -5.08 5.08)
-					(end 5.08 -2.54)
+				(polyline
+					(pts
+						(xy -1.651 1.905) (xy -1.143 1.905)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.397 2.159) (xy -1.397 1.651)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 3.175) (xy 0 -3.175)
+					)
 					(stroke
 						(width 0.254)
 						(type default)
 					)
 					(fill
-						(type background)
+						(type none)
+					)
+				)
+				(arc
+					(start 0 3.175)
+					(mid 3.175 0)
+					(end 0 -3.175)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
 					)
 				)
 			)
 			(symbol "FUET-5030_1_1"
 				(pin passive line
-					(at -7.62 2.54 0)
+					(at -2.54 2.54 0)
 					(length 2.54)
 					(name "+"
 						(effects
@@ -1535,7 +1575,7 @@
 					)
 				)
 				(pin passive line
-					(at -7.62 0 0)
+					(at -2.54 -2.54 0)
 					(length 2.54)
 					(name "-"
 						(effects
@@ -1553,8 +1593,8 @@
 					)
 				)
 				(pin no_connect line
-					(at 7.62 2.54 180)
-					(length 2.54)
+					(at 5.08 0 180)
+					(length 1.905)
 					(name "NC"
 						(effects
 							(font
@@ -4027,7 +4067,7 @@
 		(dnp no)
 		(uuid "12ef3adb-1458-57f2-94a8-b55cc33c88e8")
 		(property "Reference" "BZ1"
-			(at 251.46 28.575 0)
+			(at 254.889 30.48 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -4038,7 +4078,7 @@
 			)
 		)
 		(property "Value" "FUET-5030"
-			(at 251.46 31.115 0)
+			(at 254.889 33.02 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7934,7 +7974,7 @@
 		(uuid "c0125ba3-8a65-51aa-b8d1-2b126c8ea40e")
 	)
 	(no_connect
-		(at 264.16 35.56)
+		(at 261.62 38.1)
 		(uuid "7e2d0e6c-559d-5f97-bfb1-3e4ddbcdd726")
 	)
 	(no_connect
@@ -8743,7 +8783,7 @@
 	)
 	(wire
 		(pts
-			(xy 243.84 35.56) (xy 248.92 35.56)
+			(xy 243.84 35.56) (xy 254 35.56)
 		)
 		(stroke
 			(width 0)
@@ -8763,7 +8803,7 @@
 	)
 	(wire
 		(pts
-			(xy 248.92 38.1) (xy 246.38 38.1)
+			(xy 254 40.64) (xy 246.38 40.64)
 		)
 		(stroke
 			(width 0)
@@ -8773,7 +8813,7 @@
 	)
 	(wire
 		(pts
-			(xy 246.38 38.1) (xy 246.38 45.72)
+			(xy 246.38 40.64) (xy 246.38 45.72)
 		)
 		(stroke
 			(width 0)

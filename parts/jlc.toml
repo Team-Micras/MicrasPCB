@@ -194,7 +194,7 @@ type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-22: extended (Preferred), 358 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
-why_extended = "a Preferred Extended part (no fee on Economic PCBA); the basic 1 kOhm would run the yellow NCD0603Y2 at 0.7 mA at its 2.6 V VF maximum"
+why_extended = "a Preferred Extended part (no fee on Economic PCBA); R5 of the red power LED D5: the basic 1 kOhm would run the KT-0603R at 0.9 mA at its 2.4 V VF maximum on the 3.284 V rail minimum"
 
 [parts."0402WGF6802TCE"]
 lcsc = "C36871"
@@ -620,6 +620,13 @@ type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: extended, 16 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+
+[parts."KT-0603B"]
+lcsc = "C2288"
+type = "extended"
+rotation = 0
+rotation_verified = false
+source = "jlcpcb.com parts search 2026-10-25: extended (not Preferred), 174 k in stock; JLCPCB's six basic LEDs are red, white, yellow and green, none blue; datasheet https://www.lcsc.com/datasheet/lcsc_datasheet_1810220913_Hubei-KENTO-Elec-KT-0603B_C2288.pdf"
 
 [parts."KT-0603R"]
 lcsc = "C2286"

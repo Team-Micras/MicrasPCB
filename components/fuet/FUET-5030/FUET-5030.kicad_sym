@@ -3,13 +3,16 @@
 	(generator "micras")
 	(generator_version "10.0")
 	(symbol "FUET-5030"
+		(pin_names
+			(hide yes)
+		)
 		(exclude_from_sim yes)
 		(in_bom yes)
 		(on_board yes)
 		(in_pos_files yes)
 		(duplicate_pin_numbers_are_jumpers no)
 		(property "Reference" "BZ"
-			(at 0 6.35 0)
+			(at 0 5.08 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17,7 +20,7 @@
 			)
 		)
 		(property "Value" "FUET-5030"
-			(at 0 -3.81 0)
+			(at 0 -5.08 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -61,21 +64,58 @@
 			)
 		)
 		(symbol "FUET-5030_0_1"
-			(rectangle
-				(start -5.08 5.08)
-				(end 5.08 -2.54)
+			(polyline
+				(pts
+					(xy -1.651 1.905) (xy -1.143 1.905)
+				)
+				(stroke
+					(width 0)
+					(type default)
+				)
+				(fill
+					(type none)
+				)
+			)
+			(polyline
+				(pts
+					(xy -1.397 2.159) (xy -1.397 1.651)
+				)
+				(stroke
+					(width 0)
+					(type default)
+				)
+				(fill
+					(type none)
+				)
+			)
+			(arc
+				(start 0 3.175)
+				(mid 3.175 0)
+				(end 0 -3.175)
 				(stroke
 					(width 0.254)
 					(type default)
 				)
 				(fill
-					(type background)
+					(type none)
+				)
+			)
+			(polyline
+				(pts
+					(xy 0 3.175) (xy 0 -3.175)
+				)
+				(stroke
+					(width 0.254)
+					(type default)
+				)
+				(fill
+					(type none)
 				)
 			)
 		)
 		(symbol "FUET-5030_1_1"
 			(pin passive line
-				(at -7.62 2.54 0)
+				(at -2.54 2.54 0)
 				(length 2.54)
 				(name "+"
 					(effects
@@ -93,7 +133,7 @@
 				)
 			)
 			(pin passive line
-				(at -7.62 0 0)
+				(at -2.54 -2.54 0)
 				(length 2.54)
 				(name "-"
 					(effects
@@ -111,8 +151,8 @@
 				)
 			)
 			(pin no_connect line
-				(at 7.62 2.54 180)
-				(length 2.54)
+				(at 5.08 0 180)
+				(length 1.905)
 				(name "NC"
 					(effects
 						(font
