@@ -7,6 +7,7 @@ schematic-only board (no layout file, Project(layout = False)) is not listed at 
 
 import json
 import math
+import re
 import shutil
 import tomllib
 
@@ -577,6 +578,19 @@ def test_jlc_part_data_is_complete():
         if not e.get("source"):
             problems.append(f"{mpn}: no source")
     assert not problems, "\n".join(problems)
+
+
+@pytest.mark.parametrize("board", LAYOUT_BOARDS)
+def test_gerbers_cover_every_copper_layer(board):
+    # The fab zip must hold one gerber per copper layer: a 4-layer board exported with only F/B
+    # copper is built without its inner ground and supply planes.
+    pcb = board_pcb(board).read_text()
+    head = pcb[: pcb.index("(setup")]
+    declared = set(re.findall(r'\(\d+ "((?:F|B|In\d+)\.Cu)" (?:signal|power|mixed|jumper)\b', head))
+    exported = jlc.gerber_layers(board)
+    assert declared == {name for name in exported if name.endswith(".Cu")}
+    stackup = re.findall(r'\(layer "((?:F|B|In\d+)\.Cu)"\s*\(type "copper"\)', pcb)
+    assert declared == set(stackup), f"layer table {sorted(declared)} vs stackup {sorted(stackup)}"
 
 
 @needs_kicad

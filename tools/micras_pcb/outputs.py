@@ -2,7 +2,7 @@
 
 build/<board>/review/:
   <board>-schematic.pdf / .svg   generated schematic
-  <board>-<layer>.svg            copper, mask and silk layers, page fitted to the board
+  <board>-<layer>.svg            top and bottom (copper, mask, silk) and each inner copper layer, fitted to the board
   <board>-top.png / -bottom.png / -iso.png   3D renders
   <board>.glb / <board>.step     3D models in the spec frame (drill origin = spec origin)
 
@@ -14,6 +14,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 
+from .jlc import copper_layers
 from .paths import SCHEMATIC_ONLY, board_pcb, board_sch, build_dir, has_layout
 from .tools import kicad_cli
 
@@ -40,7 +41,8 @@ def run(board: str) -> int:
         print(f"{board}: layer SVGs, renders and 3D models skipped: {SCHEMATIC_ONLY}")
         _list(board, out)
         return 0
-    for name, layers in LAYER_SVGS.items():
+    inner = {n[:-3].lower(): f"{n},Edge.Cuts" for n in copper_layers(board) if n.startswith("In")}
+    for name, layers in {**LAYER_SVGS, **inner}.items():
         k(
             "pcb",
             "export",

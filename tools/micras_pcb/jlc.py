@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 import shutil
 import subprocess
 import tomllib
@@ -23,7 +24,21 @@ from .paths import ROOT, SCHEMATIC_ONLY, board_pcb, board_zen, boards, build_dir
 from .tools import kicad_cli, pcb
 
 PARTS_FILE = ROOT / "parts" / "jlc.toml"
-GERBER_LAYERS = ["F.Cu", "B.Cu", "F.Paste", "B.Paste", "F.Silkscreen", "B.Silkscreen", "F.Mask", "B.Mask", "Edge.Cuts"]
+NON_COPPER_LAYERS = ["F.Paste", "B.Paste", "F.Silkscreen", "B.Silkscreen", "F.Mask", "B.Mask", "Edge.Cuts"]
+_COPPER = re.compile(r'^\s*\(\d+ "((?:F|B|In\d+)\.Cu)" (?:signal|power|mixed|jumper)\b', re.M)
+
+
+def copper_layers(board: str) -> list[str]:
+    """The board's copper layers from its layer table, top to bottom (F.Cu, In1.Cu, ..., B.Cu)."""
+    text = board_pcb(board).read_text()
+    found = _COPPER.findall(text[: text.index("(setup")])
+    inner = sorted((name for name in found if name.startswith("In")), key=lambda name: int(name[2:-3]))
+    return ["F.Cu", *inner, "B.Cu"]
+
+
+def gerber_layers(board: str) -> list[str]:
+    """Every layer the fab needs: all copper layers (inner planes included), mask, paste, silk, outline."""
+    return [*copper_layers(board), *NON_COPPER_LAYERS]
 
 
 def parts_db() -> dict[str, dict]:
@@ -144,7 +159,7 @@ def gerbers(board: str, out: Path) -> Path:
             "export",
             "gerbers",
             "-l",
-            ",".join(GERBER_LAYERS),
+            ",".join(gerber_layers(board)),
             "--subtract-soldermask",
             "--use-drill-file-origin",
             "--check-zones",
