@@ -36,9 +36,10 @@ Module's Antenna). Keep the module away from the bridges, and dense GND vias alo
 ground edge and the notch.
 
 Supply (Table 6-2: 3.0-3.6 V, at least 0.6 A; 5 GHz TX peaks 426 mA, Table 6-5): 3V3_D from the
-L6981C33 (1.5 A), with C109 22 uF and C108 100 nF beside the module's 3V3 pin (Figure 9-1: 22 uF +
-0.1 uF) and C107 10 uF on its 3V3_D feed, off the antenna notch; the module decouples its chip
-itself (Figure 8-1). 3V3_D carries about 104 uF in all, inside the buck's 30.5-145 uF window
+L6981C33 (1.5 A), with C109 22 uF and C108 100 nF on the module's 3V3 pin (Figure 9-1: 22 uF +
+0.1 uF) and C107 10 uF on its 3V3_D feed, off the antenna notch; the pin faces the board's edge, so
+the two sit off the module's front-right corner on a 1 mm strap from it (layout README); the module
+decouples its chip itself (Figure 8-1). 3V3_D carries about 104 uF in all, inside the buck's 30.5-145 uF window
 (boards/main2/test/test_power.zen). The EPAD is on GND.
 
 EN: R89 10 kOhm to 3V3_D and C110 1 uF to GND, the RC delay of section 9 ("usually R = 10 kOhm and

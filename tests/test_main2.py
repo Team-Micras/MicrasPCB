@@ -210,7 +210,7 @@ def test_no_usb_and_no_5v_rail(d):
 
 def test_listed_decoupling_is_on_the_schematic(d):
     problems = []
-    for mpn, names, count, (lo, hi), source in DECOUPLING:
+    for mpn, names, count, (lo, hi), source, *_ in DECOUPLING:
         for ref in d.refs(mpn):
             pads = [p for name in names for p in d.pads(ref, name)]
             if not pads:

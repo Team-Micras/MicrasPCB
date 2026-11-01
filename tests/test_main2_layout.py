@@ -26,7 +26,7 @@ def _robot_box(box: tuple[float, float, float, float]) -> tuple[float, float, fl
 
 
 def _spec_placed() -> set[str]:
-    """The footprints the spec places (screw holes, slots, switch, USB-C, wall sensors)."""
+    """The footprints the spec places (screw holes, slots, switch, ESP32 module, wall sensors)."""
     from micras_pcb import sexpr
 
     paths = set(mech.placements(S)) | set(mech.slots(S))
@@ -221,11 +221,11 @@ def test_3v3d_island_is_minimal():
 # run under another slow digital line's B.Cu track for at most nets.IN2_PARALLEL_MAX along each of its
 # segments (nets.SLOW_DIGITAL: both ends switch rarely and slowly, so the coupling is harmless).
 IN2_UNDER = 0.25  # mm
-SUPPLIES = {"GND", "3V3_D", "3V3_A", "VCORE", "VDDA", "VBAT", "VSYS", "+5V"}
+SUPPLIES = {"GND", "3V3_D", "3V3_A", "VCORE", "VDDA", "VBAT", "VSYS", "5V_IN"}
 # the battery-side supplies, which carry the bridges' and the fan's ripple, are never above a hop;
 # the digital supplies (3V3_D, VCORE) are crossed square like any digital line (3V3_A and VDDA are
 # analog, nets.ANALOG)
-POWER = {"VBAT", "VSYS", "+5V", "BAT_P", "GND_BAT", "REGULATORS.LDO_IN"}
+POWER = {"VBAT", "VSYS", "5V_IN", "BAT_P", "GND_BAT", "REGULATORS.LDO_IN"}
 
 
 def _angle(a, b) -> float:
@@ -335,6 +335,109 @@ def test_switching_nodes_keep_clear_of_analog_tracks():
             if a.layer == s.layer and _gap(a, s) < nets.ANALOG_GAP
         }
     )
+    assert not problems, "\n".join(problems)
+
+
+def _pad_gap(p, pad, node) -> float:
+    """Distance (mm) from point p to the pad's copper: its rectangle in its own orientation, the
+    corners rounded as drawn (a circle or oval all round)."""
+    at = node.child("at").atoms()
+    a = math.radians(float(at[2]) if len(at) > 2 else 0.0)
+    dx, dy = p[0] - pad.xy[0], p[1] - pad.xy[1]
+    u, v = dx * math.cos(a) - dy * math.sin(a), dx * math.sin(a) + dy * math.cos(a)
+    shape = node.atoms()[2]
+    rr = node.child("roundrect_rratio")
+    rc = float(rr.atoms()[0]) * min(pad.size) if rr and shape == "roundrect" else 0.0
+    if shape in ("circle", "oval"):
+        rc = min(pad.size) / 2
+    hu, hv = pad.size[0] / 2 - rc, pad.size[1] / 2 - rc
+    return math.hypot(max(abs(u) - hu, 0.0), max(abs(v) - hv, 0.0)) - rc
+
+
+def _poly_gap(p, poly) -> float:
+    """Distance (mm) from point p to a filled polygon (0 inside)."""
+    if _inside(p, poly):
+        return 0.0
+    return min(_seg_dist(p, a, b) for a, b in zip(poly, poly[1:] + poly[:1], strict=True))
+
+
+def _on(pad, layer: str) -> bool:
+    return layer in pad.layers or "*.Cu" in pad.layers
+
+
+# Where analog copper still runs within ANALOG_GAP of a switching node's pad or pour: the gap it may
+# not shrink below (mm). Keys: (analog net, switching pad "REF.PAD" or "NET pour") for an analog track,
+# (analog pad's net, switching net) for a switching track by an analog pad. Open item in the layout
+# README; each is a pin pair the parts themselves put side by side, or a nose line beside the
+# emitter sink, whose node moves only at a selector's edges and the DAC's steps, which settle before
+# the receiver scan (firmware_changes.toml emitters: emitter_dac, emitter_slot_quiet).
+SWITCHING_COPPER_EXEMPT: dict[tuple[str, str], float] = {
+    # the INA241 puts IN+ (pin 8, Motor_R_Sense+) beside VS (pin 7, 3V3_A) (SBOSA30D pinout)
+    ("3V3_A", "Motor_R_Sense+ pour"): 0.44,
+    # the DRV8874 puts VREF and IPROPI two pins from OUT1 (SLVSF66A pinout); their resistors at the pins
+    ("DRIVERS.MOTOR_L_IPROPI", "DRIVERS.MOTOR_L_OUT1"): 0.22,
+    ("DRIVERS.MOTOR_R_VREF", "DRIVERS.MOTOR_R_OUT1"): 0.26,
+    # the emitter sink's own loop: its op-amp's set-point and feedback beside Q9 and R83
+    ("SENSORS.SINK_FB", "SENSORS.EMITTER_SINK"): 0.22,
+    ("SENSORS.SINK_SET", "SENSORS.EMITTER_SINK"): 0.24,
+    ("VDDA", "Q9.3"): 0.34,
+    # the nose: receivers, their 3V3_A and the emitters' cathodes in the wall-sensor channels
+    ("3V3_A", "SENSORS.EMITTER_SINK"): 0.29,
+    ("3V3_A", "SENSORS.WALL1_LED_K"): 0.33,
+    ("3V3_A", "W3.2"): 0.24,
+    ("Wall_Sensor_0", "Q3.2"): 0.46,
+    ("Wall_Sensor_0", "SENSORS.EMITTER_SINK"): 0.40,
+    ("Wall_Sensor_1", "SENSORS.EMITTER_SINK"): 0.33,
+    ("Wall_Sensor_1", "SENSORS.WALL1_LED_K"): 0.49,
+    ("Wall_Sensor_2", "SENSORS.EMITTER_SINK"): 0.33,
+    ("Wall_Sensor_2", "W2.2"): 0.34,
+    ("Wall_Sensor_3", "SENSORS.EMITTER_SINK"): 0.18,
+}
+
+
+def test_analog_keeps_clear_of_switching_pads_and_pours():
+    """The rule above for the rest of the switching copper: no analog track within ANALOG_GAP of a
+    switching node's pad or pour on its layer, and no switching track within ANALOG_GAP of an
+    analog pad (ST AN2834 section 4.2.11; reports/main2-review/routing.md F7). The escape stubs at
+    nets.STUB_PARTS and their pads stay out, as above."""
+    pcb = layout.load("main2")
+    pins = [p.xy for ref in nets.STUB_PARTS for p in pcb.footprints[ref].pads]
+    stub = lambda t: any(math.dist(e, q) < 0.01 for e in (t.start, t.end) for q in pins)  # noqa: E731
+    pads = [(ref, node, pad) for ref, node, pad in _pad_nodes() if pad.net and ref not in nets.STUB_PARTS]
+    pours = [(n, layer, poly) for n in nets.SWITCHING for layer in ("F.Cu", "B.Cu") for poly in _fills(layer, n)]
+    near = lambda t, c, r: _seg_dist(c, t.start, t.end) < r  # noqa: E731
+    found: dict[tuple[str, str], tuple[float, str]] = {}
+
+    def note(an: str, sw: str, gap: float, where) -> None:
+        if gap < nets.ANALOG_GAP and gap < found.get((an, sw), (9.0, ""))[0]:
+            found[(an, sw)] = (gap, _xy(where))
+
+    for t in pcb.tracks:
+        if stub(t) or t.net not in nets.ANALOG | nets.SWITCHING:
+            continue
+        other = nets.SWITCHING if t.net in nets.ANALOG else nets.ANALOG
+        samples = list(_samples(t))
+        for ref, node, pad in pads:
+            if pad.net in other and _on(pad, t.layer) and near(t, pad.xy, max(pad.size) + 1.0):
+                gap = min(_pad_gap(p, pad, node) for p in samples) - t.width / 2
+                key = (t.net, f"{ref}.{pad.number}") if t.net in nets.ANALOG else (pad.net, t.net)
+                note(*key, gap, t.start)
+        if t.net in nets.ANALOG:
+            x0, y0, x1, y1 = (
+                min(t.start[0], t.end[0]),
+                min(t.start[1], t.end[1]),
+                max(t.start[0], t.end[0]),
+                max(t.start[1], t.end[1]),
+            )
+            for n, layer, poly in pours:
+                bx0, by0, bx1, by1 = _box(poly)
+                if layer == t.layer and bx0 - 1 < x1 and x0 < bx1 + 1 and by0 - 1 < y1 and y0 < by1 + 1:
+                    note(t.net, f"{n} pour", min(_poly_gap(p, poly) for p in samples) - t.width / 2, t.start)
+    problems = [
+        f"{an} {gap:.2f} mm from {sw} near {where}"
+        for (an, sw), (gap, where) in sorted(found.items())
+        if gap < SWITCHING_COPPER_EXEMPT.get((an, sw), nets.ANALOG_GAP) - 1e-3
+    ]
     assert not problems, "\n".join(problems)
 
 
@@ -533,13 +636,16 @@ def test_switch_nodes_are_compact():
     assert not problems, "\n".join(problems)
 
 
-# --- stubs, detours, USB, analog neighbours, track widths (review A6, A7, B3, C4) ------------------
+# --- stubs, detours, analog neighbours, track widths (review A6, A7, B3, C4) ------------------
 
 # The connections the owner routes by hand (layout README, Open items): their partial routes end open
 # until then, so their dangling ends are not stubs
 HAND_ROUTED = {
-    "UART4_TX",
-    "IMU_INT1",
+    "ESP_SCK",
+    "ESP.ESP_SCK_IO",
+    "ESP_DATA",
+    "ESP_CSn",
+    "IMU_INT",
     "Encoder_Right_CSn",
     "Encoder_Left_ABI_A",
     "SPI_SCK",
@@ -636,50 +742,6 @@ def test_no_detours():
         limit = max(limit, ROUND_ABOUT.get(net, 0.0))
         if length[net] > limit:
             problems.append(f"{net}: {length[net]:.1f} mm routed, at most {limit:.1f}")
-    assert not problems, "\n".join(problems)
-
-
-# The ESP32's USB pair (reports/main2-review/routing.md F5; Espressif ESP32-S3 Hardware Design
-# Guidelines section 1.4.8): 0.25 mm tracks from the series resistors to the module, both 22 Ohm
-# resistors side by side, the two lines' lengths within USB_SKEW of each other, and every USB track
-# USB_CLEAR (same layer) from the switching nodes' tracks and from the buck's inductor L3
-USB = {"+": ("USBD_P", "ESP.ESP_USB_D_P"), "-": ("USBD_N", "ESP.ESP_USB_D_N")}
-USB_W = 0.25
-USB_SKEW = 2.0  # mm
-USB_CLEAR = 1.0  # mm
-
-
-def test_usb_pair():
-    pcb = layout.load("main2")
-    problems = []
-    lengths = {s: sum(math.dist(t.start, t.end) for t in pcb.tracks if t.net in ns) for s, ns in USB.items()}
-    if abs(lengths["+"] - lengths["-"]) > USB_SKEW:
-        problems.append(f"D+ {lengths['+']:.1f} mm, D- {lengths['-']:.1f} mm")
-    problems += [
-        f"{t.net} {t.width:.2f} mm wide near {_xy(t.start)}"
-        for t in pcb.tracks
-        if t.net in ("ESP.ESP_USB_D_P", "ESP.ESP_USB_D_N") and t.width < USB_W - 1e-3
-    ]
-    usb = [t for t in pcb.tracks if t.net in USB["+"] + USB["-"]]
-    sw = [t for t in pcb.tracks if t.net in nets.SWITCHING]
-    problems += sorted(
-        {
-            f"{u.net} {_gap(u, s):.2f} mm from {s.net} near {_xy(u.start)}"
-            for u in usb
-            for s in sw
-            if u.layer == s.layer and _gap(u, s) < USB_CLEAR
-        }
-    )
-    for p in pcb.footprints["L3"].pads:
-        r = max(p.size) / 2
-        problems += [
-            f"{u.net} {_seg_dist(p.xy, u.start, u.end) - r - u.width / 2:.2f} mm from L3.{p.number}"
-            for u in usb
-            if _seg_dist(p.xy, u.start, u.end) - r - u.width / 2 < USB_CLEAR
-        ]
-    d = math.dist(pcb.footprints["R84"].xy, pcb.footprints["R85"].xy)
-    if d > 3.0:
-        problems.append(f"R84 and R85 {d:.1f} mm apart")
     assert not problems, "\n".join(problems)
 
 
@@ -879,17 +941,35 @@ def _board_polygon() -> list[tuple[float, float]]:
     return mech.chain(max(groups, key=len))
 
 
+def _antenna_area() -> list[tuple[float, float]]:
+    """U13's antenna keep-out on the board: the library footprint's rule area (its own frame) where
+    U13 sits."""
+    from micras_pcb import sexpr
+    from micras_pcb.paths import ROOT
+
+    lib = sexpr.parse((ROOT / "components/espressif/ESP32-C5-MINI-1/ESP32-C5-MINI-1.kicad_mod").read_text())
+    local = _pts(next(z for z in lib.children("zone") if z.child("keepout")).child("polygon"))
+    u13 = layout.load("main2").footprints["U13"]
+    return [(u13.xy[0] + dx, u13.xy[1] + dy) for dx, dy in (layout._rotate(x, y, u13.rotation) for x, y in local)]
+
+
 def test_antenna_area_is_copper_free_on_every_layer():
-    """ESP32-S3-MINI-1 datasheet Figure 11-1 and Espressif's hardware design guidelines (General
-    Principles of PCB Layout for Modules): nothing under the antenna on any layer. The board is cut
-    away there (spec [antenna_notch]): no board, track, via, pad or pour inside U13's antenna keep-out."""
+    """ESP32-C5-MINI-1 datasheet v1.4 Figure 11-1 and the ESP32-C5 Hardware Design Guidelines
+    (Positioning a Module on a Base Board): nothing under the antenna on any layer. The board is cut
+    away there (spec [antenna_notch]): no board, track, via, pad or pour inside U13's antenna area,
+    taken from the module's footprint and U13's place; and the rule area U13 carries on the board
+    is that area (the router and the pours keep out of it)."""
+    area = _antenna_area()
     fp = next(f for f in _root().children("footprint") if f.prop("Reference") == "U13")
-    area = _pts(next(z for z in fp.children("zone") if z.child("keepout")).child("polygon"))
+    stored = _pts(next(z for z in fp.children("zone") if z.child("keepout")).child("polygon"))
+    assert sorted((round(x, 2), round(y, 2)) for x, y in stored) == sorted(
+        (round(x, 2), round(y, 2)) for x, y in area
+    ), f"U13's keep-out on the board {stored} is not its antenna area {area}"
     x0, y0, x1, y1 = _box(area)
     grid = [(x0 + (x1 - x0) * i / 30, y0 + (y1 - y0) * j / 10) for i in range(1, 30) for j in range(1, 10)]
     board = _board_polygon()
     assert not [p for p in grid if _inside(p, board)], "the antenna area is on the board"
-    inside = lambda p: x0 < p[0] < x1 and y0 < p[1] < y1  # noqa: E731 (the keep-out is a rectangle)
+    inside = lambda p: _inside(p, area)  # noqa: E731
     pcb = layout.load("main2")
     found = [f"track {t.net} {t.layer}" for t in pcb.tracks for p in _samples(t) if inside(p)]
     found += [f"via {v.net}" for v in pcb.vias if inside(v.xy)]
@@ -917,7 +997,7 @@ STITCH_ISLAND = 2.0  # mm2
 STITCH_RING = 0.6  # mm: route.py PRUNE_RING, the pour round a ground pad or track (its join)
 # route.py PRUNE_SPARE: ground pads boxed in by other nets' tracks, whose only way to ground is the
 # pour round them (no via fits beside them), which pruning leaves within this reach
-STITCH_SPARE = {"C72.1": 4.5}
+STITCH_SPARE = {"C72.1": 4.5, "C8.1": 4.5}
 
 
 def _rings(layer: str) -> set[tuple[int, int]]:
@@ -1036,16 +1116,12 @@ RELIEF_STARVED = {
     "C8.1",
     "C29.1",
     "C30.1",
-    "C63.1",
     "D4.1",
-    "D8.1",
     "IC1.4",
     "R2.1",
     "R12.1",
     "R30.1",
-    "R57.1",
-    "R92.1",
-    "SWD1.1",
+    "SWD1.2",
 }
 ZONE_SOLID, ZONE_THERMAL = "2", "1"  # a pad's zone_connect in the .kicad_pcb
 

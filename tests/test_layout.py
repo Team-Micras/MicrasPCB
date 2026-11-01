@@ -24,6 +24,8 @@ needs_pcb = pytest.mark.skipif(shutil.which("pcb") is None, reason="pcb not inst
 # (MPN prefix, pin names, count, capacitance range in F, source). count None: one capacitor per pad
 # (the STM32's five VDD pads); a number: that many capacitors at the pin group.
 PER_PAD = None
+# reach of the capacitors that cannot sit at their pin (mm, pad centre to pad centre; see below)
+REACH_C109, REACH_C108 = 15.5, 13.5
 DECOUPLING = [
     (
         "STM32H725",
@@ -83,6 +85,40 @@ DECOUPLING = [
         (2.2e-6, 22e-6),
         "ADP7142 Rev H Table 2, p20: >= 2.2 uF output capacitor close to the pins",
     ),
+    (
+        "L6981",
+        ("VIN",),
+        1,
+        (0.9e-6, 11e-6),
+        "DS13554 Rev 3 Table 2 p4: CIN 10 uF; Figure 32 (application board): beside the chip",
+    ),
+    (
+        "L6981",
+        ("VCC",),
+        1,
+        (0.9e-6, 1.1e-6),
+        "DS13554 Rev 3 Table 2 p4: CVCC 1 uF VCC bypass; Figure 32: beside the chip",
+    ),
+    # The module's 3V3 pin (pad 3) faces the board's side edge 1.6 mm away, between the antenna end
+    # and the ground pads: no capacitor fits within reach of it, so its two sit off the module's
+    # front row and a 1 mm B.Cu strap with two vias at each end joins them to the pin (layout README,
+    # ESP32-C5). Their reach is the strap's, not 3 mm; it may not grow.
+    (
+        "ESP32-C5-MINI-1",
+        ("3V3",),
+        1,
+        (20e-6, 24e-6),
+        "ESP32-C5-MINI-1 datasheet Figure 9-1: 22 uF + 0.1 uF on 3V3",
+        REACH_C109,
+    ),
+    (
+        "ESP32-C5-MINI-1",
+        ("3V3",),
+        1,
+        (90e-9, 110e-9),
+        "ESP32-C5-MINI-1 datasheet Figure 9-1: 22 uF + 0.1 uF on 3V3",
+        REACH_C108,
+    ),
 ]
 # Not listed: the AS5047U in 3.3 V mode. Its datasheet (v1-00 p11, Figure 11) asks "close to chip"
 # only for the 1 uF of the 5 V LDO mode; the 3.3 V mode drawing just shows 100 nF on VDD.
@@ -122,13 +158,13 @@ def _match(groups: list[list[str]]) -> dict[int, str]:
 
 
 def decoupling_findings(board: str, pcb: layout.Board) -> list[str]:
-    """Every listed pin (group) gets its own capacitor within MAX_DECOUPLING_MM; one capacitor
-    serves one pin of a part."""
+    """Every listed pin (group) gets its own capacitor within MAX_DECOUPLING_MM (or the entry's own
+    reach); one capacitor serves one pin of a part."""
     d = design(board)
     problems = []
     for ref in sorted({r for mpn, *_ in DECOUPLING for r in d.refs(mpn)}):
-        wants = []  # (description, source, [(distance, cap)] in range on the pin's rail)
-        for mpn, names, count, (lo, hi), source in DECOUPLING:
+        wants = []  # (description, source, [(distance, cap)] in range on the pin's rail, reach)
+        for mpn, names, count, (lo, hi), source, *reach in DECOUPLING:
             if ref not in d.refs(mpn):
                 continue
             numbers = [n for name in names for n in d.pads(ref, name)]
@@ -144,9 +180,10 @@ def decoupling_findings(board: str, pcb: layout.Board) -> list[str]:
                     if value is not None and lo <= value <= hi and cap in pcb.footprints:
                         dist = min(math.dist(a.xy, c.xy) for a in pads for c in pcb.footprints[cap].pads if c.net)
                         options.append((dist, cap))
-                wants.append((f"{ref} {'/'.join(names)} (pad {', '.join(group)}, {rail})", source, sorted(options)))
-        matched = _match([[cap for dist, cap in opts if dist <= MAX_DECOUPLING_MM] for _, _, opts in wants])
-        for i, (where, source, options) in enumerate(wants):
+                where = f"{ref} {'/'.join(names)} (pad {', '.join(group)}, {rail})"
+                wants.append((where, source, sorted(options), reach[0] if reach else MAX_DECOUPLING_MM))
+        matched = _match([[cap for dist, cap in opts if dist <= lim] for _, _, opts, lim in wants])
+        for i, (where, source, options, lim) in enumerate(wants):
             if i in matched:
                 continue
             if not options:
@@ -154,7 +191,7 @@ def decoupling_findings(board: str, pcb: layout.Board) -> list[str]:
             else:
                 dist, cap = options[0]
                 problems.append(
-                    f"{where}: no capacitor of its own within {MAX_DECOUPLING_MM} mm (nearest {cap} at {dist:.1f} mm); {source}"
+                    f"{where}: no capacitor of its own within {lim} mm (nearest {cap} at {dist:.1f} mm); {source}"
                 )
     return problems
 

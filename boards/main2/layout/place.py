@@ -4,11 +4,13 @@
 
 Every part goes on the top side (the board rides 1.2 mm off the floor, MicrasHardware
 Board.bottom_z). The spec places what mates with the robot or the outline (spec/main2.toml: screw
-holes, encoder slots, battery switch, USB-C, ESP32 module, wall sensors); `ANCHORS` place the other large parts by function:
+holes, encoder slots, battery switch, ESP32 module, wall sensors); `ANCHORS` place the other large parts by function:
 
-- rear, open up to the battery: the ESP32-S3-MINI-1 in the rear-left corner (spec [u13]), its
-  antenna over the board's notch there (spec [antenna_notch]), the USB-C in the middle of the rear
-  edge, the battery input (J1, F1, D15, Q6) and the 3V3_D buck in the rear-right corner by SW4;
+- rear, open up to the battery: the ESP32-C5-MINI-1 in the rear-right corner (spec [u13]), its
+  antenna over the board's notch there (spec [antenna_notch]); the battery input (J1, F1, D15, Q6)
+  and the 3V3_D buck in the rear-left corner by SW4, the buck in front of the tab between the two
+  notches; the flashing header J2 in the tab, 17 mm from the antenna's open end, and the 5V_IN
+  diode D17 by the buck;
 - behind the drive blocks (the only room for 7 mm parts near the motors): both motor chokes and
   the motor connectors;
 - under the left motor (spec [drive_blocks] left_motor, parts up to 2.7 mm) the left bridge, inboard
@@ -19,8 +21,7 @@ holes, encoder slots, battery switch, USB-C, ESP32 module, wall sensors); `ANCHO
   fan hole, the fan driver (left) and the DIP switch, buzzer and 3V3_A LDO (right).
 
 `HAND` fixes the parts the routing placed round the power copper (the battery path, the bridges'
-VM islands, the fan driver) and the USB pair (the series resistors over U6, the ESP32's capacitors
-beside them), as ANCHORS fix theirs.
+VM islands, the fan driver) and the ESP32's capacitors, as ANCHORS fix theirs.
 
 Every other part is packed next to the pins it serves (`NEAR`, else the placed pads it shares a
 signal net with): the nearest free spot, in any of the four rotations, whose courtyard overlaps no
@@ -86,21 +87,26 @@ BULK_GAP = 5.0  # mm
 ANCHORS = {
     # behind the blocks: chokes, motor connectors
     "L5": (-21.7, 4.1, 0),
-    "L4": (-21.4, -4.6, 0),
+    "L4": (-21.4, -4.45, 0),
     "M1": (-29.9, 3.9, 0),
     "M2": (-29.6, -4.4, 0),
-    # rear middle: the USB-C's ESD array, between the connector and the ESP32
-    "U6": (-35.8, 4.4, 0),
     # the battery path's diode to VSYS, by the input
-    "D14": (-29.3, -12.0, 180),
-    # rear-right: battery input and the 3V3_D buck; J1 turned so its GND_BAT pin faces Q6's
-    # sources and its BAT_P pin F1 (the battery path's pours cross nowhere)
-    "J1": (-33.5, -21.4, 270),
-    "D15": (-24.4, -16.65, 0),
-    "Q6": (-20.35, -21.6, 0),
-    "F1": (-29.0, -17.1, 90),
-    "IC7": (-43.4, -10.6, 0),
-    "L3": (-36.0, -9.6, 0),
+    "D14": (-29.3, 12.0, 0),
+    # rear-left, beside SW4: battery input and the 3V3_D buck. J1's lead goes back over the low wall
+    # behind the left drive block; its BAT_P pin reaches F1 by a pour on the centre side, its GND_BAT
+    # pin Q6's sources by one along the edge (the pours cross nowhere). Q6's sources and gate face the
+    # board's centre, its drain the edge; the buck in front of the tab, its VIN (pin 7) toward C53
+    # and SW4, SW (pin 1) toward L3 at the module's inner corner
+    "J1": (-33.5, 22.0, 270),
+    "D15": (-24.4, 16.65, 180),
+    "Q6": (-20.35, 21.6, 90),
+    "F1": (-29.0, 17.1, 90),
+    "IC7": (-36.4, 7.87, 180),
+    "L3": (-36.0, -1.36, 0),
+    # the flashing header in the tab between the notches, its pads 17 mm from the antenna's open end
+    # (at least 10), its EN/TX0/RX0 row toward the antenna notch; D17 by the buck
+    "J2": (-43.9, 11.3, 180),
+    "D17": (-32.25, 11.06, 0),
     # under the left motor: left bridge; inboard of the right block: right bridge
     "IC9": (-10.5, 4.5, 270),
     "IC8": (-10.5, -3.0, 270),
@@ -138,17 +144,16 @@ ANCHORS = {
 }
 
 # Parts the routing placed by hand round the power copper (layout/README.md, Power copper): the
-# battery path's gate network and the USB power path, the resized capacitors, each DRV8874's VM
-# island (CVM1 in line with pin 11, the charge pump below), the fan driver after DS14341 Fig. 23; and
-# the USB series resistors side by side over U6's ESP32-side pins; the ESP32's 3V3_D capacitors off
-# the antenna notch, the 22 uF beside U13.3, the 100 nF and 10 uF on its 3V3_D feed beside U6 (the
-# module decouples its chip itself: 10 uF, 1 uF, 0.1 uF, datasheet Figure 8-1). Fixed as ANCHORS
-# are.
+# battery path's gate network (in front of Q6's gate), the buck's capacitors (C53 under its VIN/GND
+# row, C54/C55 at its front end, C56/C57 at L3's output), IC9's bulk C93 on the VBAT pour's left
+# appendage (behind the bridges, BULK), the resized capacitors, each DRV8874's VM island (CVM1 in
+# line with pin 11, the charge pump below), the fan driver after DS14341 Fig. 23; and the ESP32's
+# parts: U13's 3V3 pin lies on its edge row, so the 22 uF and 100 nF sit where its 3V3_D runs out from
+# under the module at the front-right corner, the 10 uF on its feed by J2, the EN RC and the BOOT
+# pull-up by J2, the series resistors of the C5's link pins at its front end but R95 (at PA12, the
+# clock's driver) and the ESP_CSn pull-up R97 on its run past the fan hole (the module decouples
+# its chip itself: 10 uF, 1 uF, 0.1 uF, datasheet Figure 8-1). Fixed as ANCHORS are.
 HAND = {
-    "C107": (-34.45, 0.7, 180),
-    "C108": (-33.85, 7.6, 180),
-    "C109": (-39.05, 7.55, 90),
-    "C114": (-19.0, -24.25, 270),
     "C29": (28.524, -16.122, 90),
     "C30": (27.079, 5.693, 90),
     "C31": (19.6, 10.45, 270),
@@ -157,11 +162,13 @@ HAND = {
     "C34": (15.75, 19.5, 180),
     "C35": (18.45, 19.5, 180),
     "C36": (8.0, -4.0, 90),
-    "C52": (-34.0, -15.35, 90),
-    "C53": (-42.6, -15.45, 270),
-    "C57": (-27.0, -10.9, 0),
-    "C58": (-24.2, -23.5, 0),
-    "C63": (-29.564, -8.736, 90),
+    "C52": (-34.0, 15.35, 90),
+    "C53": (-37.7, 12.68, 90),
+    "C54": (-35.29, 3.58, 270),
+    "C55": (-37.68, 3.58, 270),
+    "C56": (-37.95, -6.51, 90),
+    "C57": (-34.47, -6.51, 270),
+    "C58": (-21.2, 17.2, 90),
     "C73": (27.917, 19.505, 90),
     "C80": (28.6, -14.0, 270),
     "C82": (-15.5, -2.2, 90),
@@ -171,17 +178,20 @@ HAND = {
     "C89": (-15.1, -4.05, 0),
     "C91": (-15.44, 5.35, 90),
     "C92": (9.65, -15.2, 180),
-    "C93": (8.2, 0.1, 180),
+    "C93": (-25.5, 10.72, 180),
+    "C96": (28.5, 9.6, 180),
     "C97": (-16.9, 4.0, 0),
     "C98": (-15.4, 3.2, 0),
-    "C96": (28.5, 9.6, 180),
     "C99": (17.1, 23.2, 90),
+    "C107": (-40.67, 12.15, 0),
+    "C108": (-23.13, -23.5, 270),
+    "C109": (-20.43, -23.85, 270),
+    "C110": (-40.3, 8.68, 90),
     "C112": (24.5, 10.5, 90),
-    "D16": (-20.25, -17.987, 90),
+    "C114": (-19.0, 18.4, 90),
     "D3": (10.1, -20.9, 0),
     "D4": (30.975, 9.23, 0),
     "Q2": (27.75, 17.0, 0),
-    "Q8": (-20.2, -15.0, 0),
     "R11": (29.262, 6.351, 90),
     "R12": (26.477, 19.95, 0),
     "R23": (30.229, -11.759, 90),
@@ -191,15 +201,16 @@ HAND = {
     "R29": (21.0, 11.7, 90),
     "R30": (21.0, 13.9, 90),
     "R31": (22.6, 15.8, 90),
-    "R41": (-23.1, -23.5, 0),
-    "R43": (-25.9, -24.2, 90),
-    "R56": (-29.6, -7.6, 90),
-    "R57": (-28.133, -7.977, 0),
+    "R41": (-21.2, 18.4, 90),
+    "R43": (-19.0, 17.2, 90),
     "R58": (16.246, -15.75, 90),
-    "R84": (-34.85, 7.35, 180),
-    "R85": (-36.75, 7.35, 180),
-    "R91": (-31.163, -14.011, 0),
-    "R92": (-31.494, -9.041, 90),
+    "R86": (-23.2, -21.7, 90),
+    "R88": (-21.7, -18.2, 90),
+    "R89": (-40.3, 9.9, 90),
+    "R90": (-34.6, 13.2, 90),
+    "R95": (25.8, 2.6, 0),
+    "R96": (-23.2, -19.4, 90),
+    "R97": (20.9, 8.4, 0),
 }
 
 # Parts packed next to a given pad: reference -> (reference, pad number).
@@ -292,11 +303,10 @@ NEAR = {
     "R5": ("D5", None),
     "C18": ("D1", None),
     "C19": ("D2", None),
-    "C79": ("SW1", None),
 }
 
 # Placement order of the packed parts that need a spot first (large or tied to one pad).
-FIRST = ["U10", "U11", "Q8", "Q1", "R83", "D3", "R3", "R31"]
+FIRST = ["U10", "U11", "Q1", "R83", "D3", "R3", "R31"]
 
 # Nets that do not pull a part towards a pad: supplies and ground reach everywhere through planes.
 RAILS = {"GND", "GND_BAT", "3V3_D", "3V3_A", "VBAT", "VDDA"}

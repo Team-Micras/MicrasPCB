@@ -31,7 +31,7 @@ gives the same copper. Stackup (boards/main2/main2.zen): F.Cu and B.Cu 1 oz, In1
   joins where current or heat flows (relief()); a B.Cu ground island under each bridge's exposed
   pad (heat_islands()); ground stitching vias (stitch()).
 
-The ESP32-S3-MINI-1's antenna keep-out (its footprint's rule area) is fenced with temporary
+The ESP32-C5-MINI-1's antenna keep-out (its footprint's rule area) is fenced with temporary
 copper while router.py runs, which does not read rule areas; Freerouting reads it as a keep-out.
 The board is cut away under the antenna (spec [antenna_notch]).
 """
@@ -154,28 +154,30 @@ def rect(x0, x1, y0, y1):
 
 BOARD = rect(-47.0, 54.0, -25.5, 25.5)  # the outline clips every pour
 
-# B.Cu VBAT: the battery input (F1's VBAT side and its via field, D14, D15) and the middle, under
-# both bridges and the capacitors behind them (C82-C84, C88, C91, C97): the bridges' supply loop (VM,
-# the bottom pin rows) closes there. It stops at the bridges' logic pins (x > -8.6): their tracks
-# drop to B.Cu there and pass under the OUT1 paths, and B.Cu ahead stays the IMU's and the encoders'.
-# The other bulk capacitors (place.py BULK: C92 by the right wheel cut-out, C87, C93, C111 behind
-# the fan hole, C96 and C112 in front of it) take VBAT by track. The fan driver's feed is a B.Cu
-# pour from the pour's front corner along the left wheel cut-out to the fan's VS strip, outside the
-# fan hole's rim, which the lines to the STM32 keep on both outer layers
+# B.Cu VBAT: the battery input in the rear-left corner (F1's VBAT side and its via field, D14, D15,
+# the bulk C93) and the middle, under both bridges and the capacitors behind them (C82-C84, C88, C91,
+# C97): the bridges' supply loop (VM, the bottom pin rows) closes there. It stops at the bridges'
+# logic pins (x > -8.6): their tracks drop to B.Cu there and pass under the OUT1 paths, and B.Cu
+# ahead stays the IMU's and the encoders'. The battery input's part ends 2 mm short of the GND_BAT
+# pour (y 18 to 20.2): the battery switch's drive line and its VBAT feed pass there on B.Cu. The
+# other bulk capacitors (place.py BULK: C92 by the right wheel cut-out, C87, C111 behind the fan
+# hole, C96 and C112 in front of it) take VBAT by track. The fan driver's feed is a B.Cu pour from
+# the pour's front corner along the left wheel cut-out to the fan's VS strip, outside the fan hole's
+# rim, which the lines to the STM32 keep on both outer layers
 VBAT_POUR = [
     (-8.6, 13.0),  # the middle: bridges, capacitors (x -24.5..-8.6, y -12.5..13)
     (-11.6, 13.0),  # a notch under R75 (x -13..-11.6, y 8.5..13): Motor_L_Sense+ leaves the shunt's
     (-11.6, 8.5),  # sense pad on B.Cu there, the OUT1 path and the SHUNT path closing F.Cu round it
     (-13.0, 8.5),
     (-13.0, 13.0),
-    (-24.5, 13.0),
-    (-24.5, -5.0),
-    (-30.5, -5.0),  # D14 (x -30.5..-24.5, y -11..-5)
-    (-30.5, -11.0),
-    (-28.6, -11.0),
-    (-28.6, -19.0),  # F1's VBAT pad, its vias, D15 (x -28.6..-22.4, y -19..-11)
-    (-22.4, -19.0),
-    (-22.4, -12.5),
+    (-22.4, 13.0),
+    (-22.4, 18.0),  # F1's VBAT pad, its vias, D15 (x -28.6..-22.4, y 11..18)
+    (-28.6, 18.0),
+    (-28.6, 11.0),
+    (-30.5, 11.0),  # D14, C93 (x -30.5..-24.5, y 7..11), behind M1's B.Cu terminal crossing
+    (-30.5, 7.0),
+    (-24.5, 7.0),
+    (-24.5, -12.5),
     (-8.6, -12.5),
 ]
 
@@ -231,12 +233,19 @@ def vcore_outline() -> list:
     rl, fl, fr, rr, rv = r["rear_left"], r["front_left"], r["front_right"], r["rear_right"], r["right_vertex"]
     d = [
         (-(rl - tl), tl),  # the rear-left arm's end, on its face
-        (0, rl), (0, fl),  # along the rear-left face to the left vertex, in to the front-left face
-        (fl, 0), (fr, 0),  # to the front vertex, out to the front-right face
-        (0, -fr), (0, -rv),  # to the right vertex, out round C3's via
-        (-(rv - 7.0), -7.0), (-(rr - 7.0), -7.0),  # back along the rear-right face, in
-        (-(rr + tr), tr), (-(inner + tr), tr),  # to the rear-right arm's end, in to the band's inner edge
-        (0, -inner), (inner, 0), (0, inner),  # the inner edge round the front
+        (0, rl),
+        (0, fl),  # along the rear-left face to the left vertex, in to the front-left face
+        (fl, 0),
+        (fr, 0),  # to the front vertex, out to the front-right face
+        (0, -fr),
+        (0, -rv),  # to the right vertex, out round C3's via
+        (-(rv - 7.0), -7.0),
+        (-(rr - 7.0), -7.0),  # back along the rear-right face, in
+        (-(rr + tr), tr),
+        (-(inner + tr), tr),  # to the rear-right arm's end, in to the band's inner edge
+        (0, -inner),
+        (inner, 0),
+        (0, inner),  # the inner edge round the front
         (-(inner - tl), tl),  # back to the rear-left arm's end
     ]
     return [(cx + u, cy + v) for u, v in d]
@@ -510,12 +519,26 @@ def _blocked(c, r: float, gap: float = THERMAL_GAP) -> bool:
 def thermal_vias(only: set[str] | None = None) -> int:
     """Vias in every exposed pad on GND (the largest pad of a chip or transistor, over 2 mm2), to the
     ground planes: the DRV8874s' and STSPIN958's PowerPADs carry their heat out this way. At the
-    footprint's via sites (those clear of other nets' copper), else on a grid."""
+    footprint's via sites (those clear of other nets' copper), else on a grid. A footprint whose
+    exposed pad is split into ground squares (the ESP32-C5-MINI-1's nine, datasheet Figure 11-1)
+    draws its sites in the gaps between them: a site off every pad that touches two ground pads
+    takes its via there, tented on top."""
     n = 0
     for f in B.GetFootprints():
         if not f.GetReference().startswith(("IC", "U", "Q")) or (only is not None and f.GetReference() not in only):
             continue
         sites = thermal_sites(f)
+        ground = [p for p in f.Pads() if p.GetNetname() == "GND" and not p.HasHole()]
+        for x, y in sites:
+            c = pt(x, y)
+            if any(p.HitTest(c) for p in f.Pads()):
+                continue  # a site in a pad: below
+            touching = [p for p in ground if p.GetEffectiveShape(F).Collide(c, mm(THERMAL_D / 2 + 0.05))]
+            if len(touching) >= 2 and not _blocked((x, y), THERMAL_D / 2):
+                # off the pads, in the solder mask between them: tented on top, so the reflowed
+                # solder of the squares beside it has no open hole to wick into
+                _thermal_via(x, y).SetFrontTentingMode(pcbnew.TENTING_MODE_TENTED)
+                n += 1
         for p in f.Pads():
             if p.GetNetname() != "GND" or p.HasHole():
                 continue
@@ -551,6 +574,15 @@ def rethermal() -> tuple[int, int]:
         if not thermal_sites(f):
             continue
         refs.add(f.GetReference())
+        sites = thermal_sites(f)
+        for t in list(B.GetTracks()):  # the vias at sites between pads
+            if (
+                t.GetClass() == "PCB_VIA"
+                and t.GetNetname() == "GND"
+                and any(math.dist(xy(t.GetPosition()), s) < 0.05 for s in sites)
+            ):
+                remove(t)
+                gone += 1
         for p in f.Pads():
             if p.GetNetname() != "GND" or p.HasHole():
                 continue
@@ -994,7 +1026,7 @@ ROUTES = [
     ("VSYS", 0.5, None),
     ("REGULATORS.BUCK_SW", 0.6, None),
     ("VBAT", 0.6, None),
-    ("+5V", 0.4, None),
+    ("5V_IN", 0.4, None),
     ("SENSORS.EMITTER_SINK", 0.4, None),
     ("3V3_A", 0.3, None),
     ("REGULATORS.LDO_IN", 0.3, None),
@@ -1020,7 +1052,7 @@ def _bar(layer, x0: float, x1: float, y: float) -> pcbnew.PCB_TRACK:
     t.SetEnd(pt(x1, y))
     t.SetWidth(mm(0.6))
     t.SetLayer(layer)
-    t.SetNet(B.FindNet("ESP.U13.NC_ESP32-S3-MINI-1_IO1"))
+    t.SetNet(B.FindNet("ESP.U13.NC_ESP32-C5-MINI-1_IO2"))
     B.Add(t)
     return t
 
@@ -1551,7 +1583,18 @@ def drc() -> dict:
             shutil.copy(PCB.with_suffix(ext), pcb.with_suffix(ext))
         # KiCad refills the zones under the .kicad_dru (as `micras-pcb drc` does): pcbnew's filler
         # reads only the board's 0.20 mm edge minimum, not the pours' 0.21 mm rule
-        cmd = [tools.kicad_cli(), "pcb", "drc", "--refill-zones", "--format", "json", "--severity-error", "-o", str(report), str(pcb)]
+        cmd = [
+            tools.kicad_cli(),
+            "pcb",
+            "drc",
+            "--refill-zones",
+            "--format",
+            "json",
+            "--severity-error",
+            "-o",
+            str(report),
+            str(pcb),
+        ]
         subprocess.run(cmd, check=True, capture_output=True)
         return json.loads(report.read_text())
 
@@ -1745,7 +1788,7 @@ SMD_SPOKE = 0.2  # mm
 THT_SPOKE = 0.4  # mm
 RELIEF_SOLID_AREA = 1.2  # mm2: an 0805 pad (1.0 x 1.45 mm) and larger
 POWER_STAGES = ("IC6", "IC7", "IC8", "IC9", "Q6")  # fan driver, buck, bridges, battery switch
-RELIEF_STARVED = {"C8.1", "C29.1", "C30.1", "C63.1", "D4.1", "D8.1", "IC1.4", "R2.1", "R12.1", "R30.1", "R57.1", "R92.1", "SWD1.1"}
+RELIEF_STARVED = {"C8.1", "C29.1", "C30.1", "D4.1", "IC1.4", "R2.1", "R12.1", "R30.1", "SWD1.2"}
 GROUND_LAYERS = {F: "F", BK: "B", IN1: "In1", IN2: "In2"}
 
 
@@ -1781,7 +1824,9 @@ def relief() -> int:
     for z in pours:
         z.SetPadConnection(pcbnew.ZONE_CONNECTION_THERMAL)
         z.SetThermalReliefGap(mm(RELIEF_GAP))
-        z.SetThermalReliefSpokeWidth(mm(THT_SPOKE if z.GetLayer() in (IN1, IN2) or z.GetNetname() != "GND" else SMD_SPOKE))
+        z.SetThermalReliefSpokeWidth(
+            mm(THT_SPOKE if z.GetLayer() in (IN1, IN2) or z.GetNetname() != "GND" else SMD_SPOKE)
+        )
     nets_poured = {z.GetNetCode() for z in pours}
     solid = 0
     for f in B.GetFootprints():
@@ -1842,8 +1887,10 @@ def heat_islands() -> list[str]:
 # ground round it (its pad inside the ground fill of each), so it cuts no other net's pour or plane,
 # In2.Cu's islands and hops included, and keeps clear of every pad and hole; an island of F.Cu
 # ground over the B.Cu VBAT pour, which has no such spot, takes its two through that pour. The antenna notch (spec [antenna_notch])
-# gets a fence along its wall by the USB-C (ESP32-S3 Hardware Design Guidelines: dense ground vias
-# near the antenna); the module's ground edge carries its pads' via row.
+# gets a fence along its inner walls (ESP32-C5 Hardware Design Guidelines: dense ground vias near
+# the antenna), 0.4 mm from the cut and 1.6-1.75 mm apart: along the inner wall (x -39.7) from in
+# front of the antenna's open end to the tab, and along the tab's wall over the notch (y +6.5); the
+# module's ground edge (pins 46-60, beside the antenna's feed) carries a via under each of its pads.
 STITCH_REACH = 3.0  # mm
 STITCH_STEP = 0.25  # mm between candidate spots
 STITCH_SAMPLE = 0.5  # mm between the pours' sample points
@@ -1851,7 +1898,10 @@ STITCH_HOLE_GAP = 0.45  # mm from a stitching via's hole to a pad's hole (JLC ho
 STITCH_VIA_GAP = 0.25  # mm from a stitching via's hole to another via's (rules/jlcpcb.kicad_dru 0.2 mm)
 STITCH_PAD_GAP = 0.05  # mm from a stitching via's hole to a ground pad: never a via in a pad
 STITCH_ISLAND = 2.0  # mm2: smaller islands are left as they are
-NOTCH_FENCE = [(-45.8, 5.45), (-44.4, 5.45), (-43.0, 5.45), (-41.7, 5.45)]  # robot frame
+NOTCH_FENCE = [  # robot frame
+    *[(-39.7, y) for y in (-8.25, -6.5, -4.75, -3.0, -1.25, 0.5, 2.25, 4.0, 5.65)],
+    *[(x, 6.5) for x in (-45.6, -44.0, -42.4, -40.8)],
+]
 
 
 def _ground_fill(layer) -> pcbnew.SHAPE_POLY_SET:
@@ -1889,7 +1939,9 @@ def _disk(c, r: float) -> pcbnew.SHAPE_POLY_SET:
     s.NewOutline()
     for k in range(24):
         a = 2 * math.pi * k / 24
-        s.Append(mm(c[0] + r * math.cos(a) / math.cos(math.pi / 24)), mm(c[1] + r * math.sin(a) / math.cos(math.pi / 24)))
+        s.Append(
+            mm(c[0] + r * math.cos(a) / math.cos(math.pi / 24)), mm(c[1] + r * math.sin(a) / math.cos(math.pi / 24))
+        )
     return s
 
 
@@ -1987,6 +2039,7 @@ def _stitch(d: float, hole: float) -> tuple[int, list[str]]:
                         points.append((x, y, L, k))
                     y += STITCH_SAMPLE
                 x += STITCH_SAMPLE
+
     def grid(parts):
         out = []  # (x, y, F island, B island)
         for one, (x0, y0, x1, y1), _a in parts:
@@ -2116,7 +2169,7 @@ PRUNE_MIN = 0.1  # mm2: smaller slivers are left to the fill's own minimum width
 PRUNED = "no pour: unstitched"
 # ground pads whose only way to ground is pour that pruning would cut (robot frame): the pour within
 # PRUNE_SPARE_R of them stays
-PRUNE_SPARE = {"C72.1": (-2.28, 9.3)}
+PRUNE_SPARE = {"C72.1": (-2.28, 9.3), "C8.1": (38.64, -6.16)}
 PRUNE_SPARE_R = 4.5  # mm
 PRUNE_RING = 0.6  # mm of pour kept round each ground pad and track: its relief or solid join
 
