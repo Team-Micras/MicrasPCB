@@ -52,13 +52,15 @@ ANALOG = {
 }
 ANALOG_GAP = 0.5  # mm of copper-free gap, same layer (the ground planes shield one outer layer from the other)
 # The STM32's and the ESP32's digital lines with fast edges or clocks: SPI's clock, the addressable
-# LED's 800 kHz data, the encoders' quadrature and SPI lines and the ESP32's USB pair
+# LED's 800 kHz data, the encoders' quadrature and SPI lines and the ESP32-C5 link's clock and data
 FAST_DIGITAL = {
     "SPI_SCK",
     "LED_ARGB",
     *(f"Encoder_{s}_{n}" for s in ("Left", "Right") for n in ("ABI_A", "ABI_B", "CSn")),
-    "ESP.ESP_USB_D_P",
-    "ESP.ESP_USB_D_N",
+    "ESP_SCK",
+    "ESP_DATA",
+    "ESP.ESP_SCK_IO",
+    "ESP.ESP_DATA_IO",
 }
 # Their slow digital lines (control, status, interrupts, UART, SWD, SPI data and chip select,
 # buttons and switches): an In2.Cu hop of one may run under another's B.Cu track for at most
@@ -69,16 +71,17 @@ SLOW_DIGITAL = {
     "Button",
     "Buzzer",
     "ESP.ESP_BOOT",
+    "ESP.ESP_CSn_IO",
     "ESP.ESP_EN",
+    "ESP.ESP_RXD0",
     "ESP.ESP_SWCLK",
-    "ESP.ESP_TXD",
-    "ESP.ESP_VBUS_Sense",
+    "ESP.ESP_TXD0",
+    "ESP_CSn",
     "ESP_Flow",
     "Fan_Enable",
     "Fan_PWM",
     "Fan_TOFF",
-    "IMU_INT1",
-    "IMU_INT2",
+    "IMU_INT",
     "IMU_SPI_CSn",
     "LED_Red",
     *(f"Motor_{s}_{n}" for s in ("Left", "Right") for n in ("EN", "PH")),
@@ -90,8 +93,6 @@ SLOW_DIGITAL = {
     "SWCLK",
     "SWDIO",
     *(f"Switch_{k}" for k in range(4)),
-    "UART4_RX",
-    "UART4_TX",
     *(f"Wall_Sensor_PWM_{k}" for k in range(4)),
 }
 IN2_PARALLEL_MAX = 1.5  # mm (the longest run on the board is 1.0)

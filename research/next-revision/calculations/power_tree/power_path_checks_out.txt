@@ -7,22 +7,25 @@
   BLLRC 150 mAh           90.0 mOhm:  48.3 A bound,  44.4 A with F1, J1 and the leads
   150 A needs RCELL below 29.0 mOhm (no external resistance).
 
-=== 2. VBAT on USB alone (pack absent, or fitted with SW4 off) ===
-  divider 100k/20k: VBAT to GND 107.3 kOhm
-     25 C: leakage    6.5 uA -> VBAT  0.70 V , Q8 VGS  -3.71 V at VBUS 4.4 V: on
-     40 C: leakage   13.4 uA -> VBAT  1.44 V , Q8 VGS  -2.98 V at VBUS 4.4 V: on
-     50 C: leakage   21.7 uA -> VBAT  2.33 V , Q8 VGS  -2.10 V at VBUS 4.4 V: on
-     60 C: leakage   35.1 uA -> VBAT  3.77 V , Q8 VGS  -0.67 V at VBUS 4.4 V: OFF (body diode)
-     70 C: leakage   57.0 uA -> VBAT  4.40 V+, Q8 VGS   0.00 V at VBUS 4.4 V: OFF (body diode)
-     85 C: leakage  160.1 uA -> VBAT  4.40 V+, Q8 VGS   0.00 V at VBUS 4.4 V: OFF (body diode)
-  divider 10k/2k: VBAT to GND 11.9 kOhm
-     25 C: leakage    6.5 uA -> VBAT  0.08 V , Q8 VGS  -4.32 V at VBUS 4.4 V: on
-     40 C: leakage   13.4 uA -> VBAT  0.16 V , Q8 VGS  -4.24 V at VBUS 4.4 V: on
-     50 C: leakage   21.7 uA -> VBAT  0.26 V , Q8 VGS  -4.15 V at VBUS 4.4 V: on
-     60 C: leakage   35.1 uA -> VBAT  0.42 V , Q8 VGS  -3.99 V at VBUS 4.4 V: on
-     70 C: leakage   57.0 uA -> VBAT  0.68 V , Q8 VGS  -3.73 V at VBUS 4.4 V: on
-     85 C: leakage  160.1 uA -> VBAT  1.90 V , Q8 VGS  -2.52 V at VBUS 4.4 V: on
-  Q8 on: VGS at least 0.5 V beyond its -1.3 V maximum threshold (AO3401A p2).
+=== 2. 5V_IN programming power (pack absent) ===
+  L6981 DMAX = 1 - 185 ns x 440 kHz = 0.9186
+  5V_IN at high-power port 4.75 V (USB 2.0 Table 7-7, the minimum at the connector):
+    C5 UART flashing        : 5V_IN  195 mA, D17 0.35 V typ / 0.60 V max -> VSYS 4.40 / 4.15 V; the buck regulates from 3.72 V: margin +0.68 / +0.43 V
+    H7 SWD flashing, C5 RX  : 5V_IN  259 mA, D17 0.37 V typ / 0.60 V max -> VSYS 4.38 / 4.15 V; the buck regulates from 3.74 V: margin +0.63 / +0.41 V
+    C5 TX peak              : 5V_IN  545 mA, D17 0.43 V typ / 0.60 V max -> VSYS 4.32 / 4.15 V; the buck regulates from 3.86 V: margin +0.46 / +0.29 V
+  5V_IN at low-power port 4.40 V (USB 2.0 Table 7-7, the minimum at the connector):
+    C5 UART flashing        : 5V_IN  212 mA, D17 0.36 V typ / 0.60 V max -> VSYS 4.04 / 3.80 V; the buck regulates from 3.72 V: margin +0.32 / +0.08 V
+    H7 SWD flashing, C5 RX  : 5V_IN  281 mA, D17 0.38 V typ / 0.60 V max -> VSYS 4.02 / 3.80 V; the buck regulates from 3.74 V: margin +0.28 / +0.06 V
+    C5 TX peak              : 5V_IN  593 mA, D17 0.44 V typ / 0.60 V max -> VSYS 3.96 / 3.80 V; the buck regulates from 3.86 V: margin +0.10 / -0.06 V
+  ADP7142 typical: VSYS 4.38 V, 9.7 mA -> LDO_IN 4.16 V, dropout 20 mV typ (Figure 22) -> 3V3_A about 3.30 V, not guaranteed below VOUT + 1 V
+  ADP7142 worst: VSYS 3.80 V, 22.5 mA -> LDO_IN 3.30 V, dropout 30 mV typ (Figure 22) -> 3V3_A about 3.27 V, not guaranteed below VOUT + 1 V
+  D17 with the pack in (VSYS 11.4-17.4 V, 24.2 V clamp; 5V_IN 0-5.25 V): VR up to 24.2 V, 61 % of 40 V; reverse current into 5V_IN 25 C 12 uA, 50 C 36 uA, 85 C 257 uA
+  D17 dissipation at the TX peak: 0.24 W against Pd 0.5 W (p1)
+  10k/2k (ratio 6.00, Thevenin 1.67 kOhm, 1.45 mA from the pack): PC5 2.90 V at 17.4 V, 4.10 V at the 24.2 V clamp; VBAT on 5V_IN alone: 25 C 0.07 V, 50 C 0.24 V, 70 C 0.61 V, 85 C 1.87 V
+  100k/20k (ratio 6.00, Thevenin 16.67 kOhm, 0.14 mA from the pack): PC5 2.90 V at 17.4 V, 4.10 V at the 24.2 V clamp; VBAT on 5V_IN alone: 25 C 0.72 V, 50 C 2.35 V, 70 C 4.40 V, 85 C 4.40 V
+  200k/22k (ratio 10.09, Thevenin 19.82 kOhm, 0.08 mA from the pack): PC5 1.72 V at 17.4 V, 2.44 V at the 24.2 V clamp; VBAT on 5V_IN alone: 25 C 1.33 V, 50 C 4.35 V, 70 C 4.40 V, 85 C 4.40 V
+  20k/2k (ratio 11.00, Thevenin 1.82 kOhm, 0.79 mA from the pack): PC5 1.58 V at 17.4 V, 2.24 V at the 24.2 V clamp; VBAT on 5V_IN alone: 25 C 0.13 V, 50 C 0.43 V, 70 C 1.11 V, 85 C 3.42 V
+  20k/2k, pack in, SW4 off, 85 C: D14 3.42 V + Q6 0.5 V (23 uA, allowed) = 3.92 V; the 4.3 V UVLO minimum is reached at 40 uA of Q6 leakage
 
 === 3. ADP7142 junction temperature at the worst case ===
   PD = (17.4 - 3.24) x 22.5 mA + 17.4 x 190 uA = 0.322 W

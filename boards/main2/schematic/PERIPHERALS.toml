@@ -1,50 +1,11 @@
 # Placement of the main2 board's PERIPHERALS sheet (micras-pcb sch; units of 1.27 mm, y down).
 paper = "A4"
-title = "User interface and USB-C"
-ports = { at = [150, 94], rows = 14, title = "Sheet ports" }
-
-[[block]]
-title = "USB-C receptacle (ESP32 USB), CC terminations, ESD"
-at = [8, 10]
-size = [132, 52]
-parts.U2 = [70, 24]
-parts.D8 = { at = [44, 10], rot = 90, fields = "left" }
-parts.R6 = { at = [24, 22], rot = 90, fields = "top" }
-parts.R7 = { at = [30, 28], rot = 90, fields = "top" }
-parts.U6 = { at = [108, 15], mirror = "y" }
-parts.C79 = { at = [116, 28], rot = 180, fields = "left" }
-wires = [
-    # VBUS: +5V and the TVS
-    ["U2.A4B9", [54, 12], [54, 14], "U2.B4A9"],
-    [[54, 12], [54, 6], [38, 6]],
-    ["D8.2", [44, 6]],
-    # CC1 and CC2: Rd to GND
-    ["U2.A5", [50, 18], [50, 22], "R6.2"],
-    ["U2.B5", [54, 20], [54, 28], "R7.2"],
-    # GND and shell
-    ["U2.A1B12", [64, 44], [78, 44], "U2.4"],
-    ["U2.B1A12", [68, 44]],
-    ["U2.1", [72, 44]],
-    ["U2.2", [74, 44]],
-    ["U2.3", [76, 44]],
-    [[70, 44], [70, 46]],
-    # D+ and D- through U6 (in on pins 6/4, out on pins 1/3)
-    ["U2.B6", [86, 14], [86, 12]],
-    ["U2.A6", "U6.6"],
-    ["U2.B7", [86, 18], [86, 16]],
-    ["U2.A7", [90, 16], [90, 14], "U6.4"],
-    ["U6.1", [120, 12]],
-    ["U6.3", [120, 14]],
-    [[96, 12], [96, 8], { label = "left" }],
-    [[96, 14], [96, 20], { label = "left" }],
-    ["U6.5", [116, 18], "C79.2"],
-    [[116, 18], [120, 18], { point = "out" }],
-]
-taps = ["R6.2", "R7.2"]
+title = "User interface"
+ports = { at = [190, 40], rows = 14, title = "Sheet ports" }
 
 [[block]]
 title = "Buzzer: FUET-5030, low-side switch Q1"
-at = [143, 10]
+at = [72, 10]
 size = [80, 52]
 parts.D3 = { at = [38, 19], rot = 90, fields = "left" }
 parts.BZ1 = [60, 20]
@@ -67,7 +28,7 @@ wires = [
 
 [[block]]
 title = "Buttons: user, reset (NRST); BOOT0 pull-down"
-at = [8, 68]
+at = [8, 10]
 size = [60, 54]
 parts.SW2 = [12, 12]
 parts.C20 = { at = [26, 14], rot = 180 }
@@ -93,7 +54,7 @@ wires = [
 
 [[block]]
 title = "Addressable LEDs: WS2812C-2020 chain"
-at = [72, 68]
+at = [8, 68]
 size = [102, 24]
 parts.D1 = [40, 12]
 parts.C19 = { at = [24, 16], rot = 180 }
@@ -109,7 +70,7 @@ wires = [
 
 [[block]]
 title = "Strategy DIP switch"
-at = [178, 68]
+at = [156, 10]
 size = [45, 24]
 parts.SW1 = [24, 13]
 wires = [
@@ -121,7 +82,7 @@ wires = [
 
 [[block]]
 title = "Status LEDs"
-at = [72, 94]
+at = [114, 68]
 size = [66, 28]
 parts.R4 = { at = [10, 12], rot = 180 }
 parts.D4 = { at = [10, 20], rot = 90 }

@@ -1,8 +1,8 @@
 # Main board, second revision: mechanical single source of truth.
 #
 # The spec owns this board's whole Edge.Cuts outline (`micras-pcb mech main2` draws it), the
-# aux/grid origin, and the footprints it places (screw holes, battery switch, USB-C receptacle,
-# ESP32 module, wall sensors: written locked). It also holds the zones the drive blocks of MicrasHardware take
+# aux/grid origin, and the footprints it places (screw holes, battery switch, ESP32 module, wall
+# sensors: written locked). It also holds the zones the drive blocks of MicrasHardware take
 # on the board, which the layout tests check. `micras-pcb mech main2` exports
 # build/main2/main2_mech.json for MicrasHardware, micras-simulation and the firmware.
 #
@@ -87,46 +87,50 @@ half_length = { value = 8.5, source = "spec/main.toml [wheel_notches] half_lengt
 corner_radius = { value = 2.0, source = "spec/main.toml [wheel_notches] corner_radius (inner and outer corners)" }
 
 [switch_notch]
-# The rear-right corner, cut back so SW4's lever lies inside the board's outline and a finger
-# reaches it from the rear and the side, as on boards/main.
+# The rear-left corner, cut back so SW4's lever lies inside the board's outline and a finger
+# reaches it from the rear and the side, as on boards/main (whose notch is in the rear-right
+# corner: main2 takes the mirror image, the rear-right corner holding the ESP32's antenna notch).
+side = { value = "left", source = "the owner (2026-10-31): the antenna notch takes the rear-right corner (the ESP32-C5-MINI-1's antenna ground point at its pin-1 end, [antenna_notch]), so the battery switch and the power input move to the rear-left, mirrored" }
 depth = { value = 6.0, source = "SK-12D29-G060 lever length (components/g-switch/SK-12D29-G060/README.md: 6.0 mm): the lever tip ends on the rear edge's line" }
-width = { value = 8.5, source = "spec/main.toml: boards/main's switch notch (y -16.5 to -25.0); the lever's travel (3.5 mm) plus a fingertip" }
+width = { value = 8.5, source = "spec/main.toml: boards/main's switch notch (y -16.5 to -25.0, here mirrored to +16.5 to +25.0); the lever's travel (3.5 mm) plus a fingertip" }
 corner_radius = { value = 0.8, source = "boards/main Edge.Cuts switch notch arcs (R0.8)" }
 
 [sw4]
 # Battery switch, lever rearwards (KiCad rotation 0 points the footprint's lever along -x): the
-# body's front face on the notch's inner edge, the frame legs' pads 0.2 mm inside the right edge.
+# body's front face on the notch's inner edge, the frame legs' pads 0.2 mm inside the left edge.
+# The footprint is symmetric about the lever's axis (pads 1-3 at -2, 0, +2 mm and the frame legs at
+# +-4.15 mm on the pin row, body, silkscreen and courtyard alike: SW-TH_SK-12D29-G060.kicad_mod), so
+# the same rotation mirrors boards/main's position; pin 3 (B, the ON end) now faces the board's
+# centre line, and the silkscreen's ON follows the lever to that end.
 x = { value = -37.85, source = "rear + [switch_notch] depth + 2.65 mm: the body's lever face is 2.65 mm from the pin row (SW-TH_SK-12D29-G060.kicad_mod F.Fab)" }
-y = { value = -19.75, source = "-25 + 0.2 mm copper to edge + 0.9 mm leg pad radius + 4.15 mm leg offset (SW-TH_SK-12D29-G060.kicad_mod)" }
+y = { value = 19.75, source = "25 - 0.2 mm copper to edge - 0.9 mm leg pad radius - 4.15 mm leg offset (SW-TH_SK-12D29-G060.kicad_mod)" }
 rotation = { value = 0, source = "lever along -x into the switch notch" }
 path = { value = "REGULATORS.SW4.SK-12D29-G060", source = "boards/main2/Regulators.zen instance path" }
 
 [antenna_notch]
-# The rear-left corner, cut away under and beside the antenna of the ESP32-S3-MINI-1 (U13):
-# Espressif puts the antenna beyond the board's edge, or, where it cannot, cuts the board away below
-# it and on both sides of it, with ground copper and dense ground vias along the cut (ESP32-S3
-# Hardware Design Guidelines, General Principles of PCB Layout for Modules). The module's pads stay
-# on the board; its antenna end overhangs the notch.
-depth = { value = 5.6, source = "[u13] x - 7.7 mm - [outline] rear: the notch's inner edge on the module's antenna boundary, the 5.05 mm antenna area beyond its 15.4 mm square of pads (ESP32-S3-MINI-1 datasheet v1.7 Figures 10-1 and 11-1; the footprint's keep-out ends 7.7 mm from the centre). The ground pads reach 7.4 mm from the centre: 0.3 mm to the edge (rules/jlcpcb.kicad_dru: 0.2 mm)" }
-width = { value = 19.0, source = "[outline] width / 2 - 6.0 mm: from the left edge past the antenna's feed end ([u13] y - 7.7 mm = 8.9) by 2.9 mm, more than the 2 mm Espressif's keep-out figure leaves between the feed side and the board's edge (Hardware Design Guidelines, Keepout Zone for the Module's Antenna); it stops 1.2 mm clear of U2's shell pads (y 4.82), the room of a ground via fence" }
-corner_radius = { value = 0.8, source = "as [switch_notch] corner_radius (boards/main's notch arcs, R0.8); U13's corner pad 65 keeps 0.26 mm from the outer corner's arc" }
+# The rear-right corner, cut away under and beside the antenna of the ESP32-C5-MINI-1 (U13). Where
+# the antenna cannot overhang the board's edge, Espressif cuts the board away below it and on both
+# sides of it, with ground copper and dense ground vias along the cut (ESP32-C5 Hardware Design
+# Guidelines, Positioning a Module on a Base Board, and its figure Keepout Zone for ESP32-C5
+# Module's Antenna: at most 2 mm from the antenna's ground-point side to the board's side edge, at
+# least 15 mm cut away beyond the other, open end, the antenna end at most 1 mm inside the board's
+# edge line). The C5-MINI-1's antenna has its ground point at the module's pin-1 end (the pad-62
+# corner) and its open, loaded end at the pin-45 end: Espressif's STEP model (its parts
+# ANT-C5-MINI-1-top and ANT-C5-MINI-1-buttom), the datasheet v1.4 cover image, and the guidelines'
+# "GND Point" figure on the ESP32-C5-WROOM-1's antenna, the same design mirrored. The pin-1 end faces the right edge, the
+# open end the board's centre. The module's pads stay on the board; its antenna end overhangs the
+# notch.
+side = { value = "right", source = "the owner (2026-10-31): the antenna's ground-point (pin-1) end at the right edge, the mirror of the earlier rear-left placement, whose ground point faced the board centre" }
+depth = { value = 6.4, source = "[u13] x - 7.7 mm - [outline] rear: the notch's inner edge on the module's antenna boundary, the 5.85 mm antenna area beyond its 15.45 mm of pads (ESP32-C5-MINI-1 datasheet v1.4 Figures 10-1 and 11-1; the footprint's keep-out ends 7.7 mm from the centre). The ground pads reach 7.4 mm from the centre: 0.3 mm to the edge (rules/jlcpcb.kicad_dru: 0.2 mm)" }
+width = { value = 31.1, source = "[outline] width / 2 + ([u13] y + 7.7 mm) + 15.0 mm: from the right edge (y -25.0) past the antenna's open end ([u13] y + 7.7 mm = -8.9) by the 15 mm of Espressif's keep-out figure (Min 15) to y +6.1; the ground-point side is 0.7 mm from the right edge, within that figure's 2 mm maximum" }
+corner_radius = { value = 0.8, source = "as [switch_notch] corner_radius (boards/main's notch arcs, R0.8); U13's corner pad 62 keeps 0.26 mm from the outer corner's arc" }
 
 [u13]
-# ESP32-S3-MINI-1, antenna rearwards (KiCad rotation 180) over the [antenna_notch].
-x = { value = -33.2, source = "[outline] rear + 12.8 mm + 0.5 mm: the module's antenna end (12.8 mm behind its centre, footprint F.Fab/F.SilkS; 20.5 mm module, Figure 10-1) 0.5 mm inside the rear edge's line" }
-y = { value = 16.6, source = "[outline] width / 2 - 7.7 mm - 0.7 mm: the module's side (15.4 mm wide, Figure 10-1) 0.7 mm inside the left edge, its antenna's open end at the corner" }
-rotation = { value = 180, source = "antenna along -x; its feed end (pin 1, Figures 3-1 and 10-1) toward the board centre" }
-path = { value = "ESP.U13.ESP32-S3-MINI-1", source = "boards/main2/Esp.zen instance path" }
-
-[usb]
-# USB-C receptacle of the ESP32, its mouth on the rear edge (no Bluetooth module plugs into it).
-x = { value = -41.44, source = "rear + 5.06 mm: the receptacle's mouth (GT-USB-7010ASV footprint User.15 outline, y = +5.06) on the rear edge" }
-y = { value = 0.0, source = "the rear edge's centre" }
-rotation = { value = 0, source = "mouth along -x (KiCad rotation 0 points the footprint's +y rearwards)" }
-path = { value = "PERIPHERALS.U2.GT-USB-7010ASV", source = "boards/main2/Peripherals.zen instance path" }
-peg_offset = { value = 2.89, source = "GT-USB-7010ASV recommended layout: housing pegs 5.78 mm apart (components/g-switch/GT-USB-7010ASV/README.md)" }
-peg_x_offset = { value = 1.28, source = "GT-USB-7010ASV recommended layout: pegs at footprint y = -1.28 mm, 1.28 mm forward of the receptacle origin" }
-peg_diameter = { value = 0.65, source = "GT-USB-7010ASV recommended layout: 0.65 mm non-plated peg holes, cut by the outline" }
+# ESP32-C5-MINI-1, antenna rearwards (KiCad rotation 180) over the [antenna_notch].
+x = { value = -32.4, source = "[outline] rear + 13.6 mm + 0.5 mm: the module's antenna end (13.6 mm behind its centre, footprint F.Fab; 21.3 mm module, Figure 10-1) 0.5 mm inside the rear edge's line, within the keep-out figure's 1 mm" }
+y = { value = -16.6, source = "-[outline] width / 2 + 7.7 mm + 0.7 mm: the module's side (15.4 mm wide, Figure 10-1) 0.7 mm inside the right edge, the antenna's ground-point (pin-1) end at the corner" }
+rotation = { value = 180, source = "antenna along -x; its ground-point end (pin 1, the pad-62 corner, Figure 3-1) toward the right edge, its open end (pin 45) toward the board centre" }
+path = { value = "ESP.U13.ESP32-C5-MINI-1", source = "boards/main2/Esp.zen instance path" }
 
 # Wall sensors: boards/main's positions, which MicrasHardware's sensor caps (micras/front.py) and the
 # firmware's sensor geometry use.

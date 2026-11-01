@@ -18,12 +18,13 @@ Pins: pad 1 cathode (K), pad 2 anode (A): KiCad's D_SOD-123 footprint numbers th
 and marks it with its silkscreen bar. The datasheet gives no package drawing or land pattern; the
 footprint is the KiCad library's SOD-123 land.
 
-Application on the next main board (research/next-revision, power path; A.4): VBAT -> VSYS
-OR-ing diode. The 4S pack (17.4 V with HV cells) sits at 44 % of VRRM. Forward: about 0.13 A at
-14.8 V (L6981 and the analog LDO), about 40 mW with VF 0.32 V, +8 K at 200 C/W. Reverse: the
-diode only blocks while VSYS (USB VBUS, <= 5.5 V) is above a missing or switched-off pack, so VR
-stays under 5.5 V; its leakage then lifts the otherwise floating VBAT node, which the board's
-12 kOhm battery divider holds down (boards/main2/Regulators.zen, battery measurement).
+Application on the next main board (research/next-revision, power path; A.4; boards/main2
+Regulators.zen): the OR-ing diodes into VSYS, D14 from VBAT and D17 from 5V_IN (a programmer's 5 V
+pin). The 4S pack (17.4 V with HV cells) sits at 44 % of VRRM. Forward: about 0.13 A at 14.8 V
+(L6981 and the analog LDO), about 40 mW with VF 0.32 V, +8 K at 200 C/W; up to 0.55 A from 5V_IN.
+Reverse: D17 blocks the pack's VSYS (up to the 24.2 V clamp, 61 % of VRRM), D14 blocks 5V_IN's VSYS
+(under 5.25 V) with the pack out; D14's leakage then lifts the otherwise floating VBAT node, which
+the board's 22 kOhm battery divider holds down.
 
 This is the stdlib Rectifier generic's part, packaged because the generic cannot carry an MPN.
 """

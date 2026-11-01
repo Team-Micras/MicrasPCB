@@ -112,20 +112,31 @@ for n, di in (("emitter pulse 170 mA", 0.170), ("ESP32 TX step 95->355 mA", 0.26
 print("  1 oz copper sheet resistance ~0.5 mOhm/square (general; 35 um Cu, 1.72e-8 ohm m)")
 print(f"  -> {1.72e-8/35e-6*1e3:.2f} mOhm/sq")
 
-print("\n=== 6. USB-only power budget (battery absent) ===")
+print("\n=== 6. 5V_IN programming power budget (battery absent; Regulators.zen D17) ===")
+# A USB-serial adapter's or a clone ST-Link's 5 V pin (USB VBUS) on J2 pin 2 or SWD1 pad 4 feeds
+# VSYS through D17 (B5819W). 3V3_D loads, then 5V_IN = 3.3 V x I(3V3_D) / (eta x VSYS) + I(3V3_A).
 mcu = 0.125 + 0.032 + 0.001   # DS13311 Table 24 125 mA typ (SMPS, 550 MHz) + 2 x AS5047U 16 mA + IMU
-esp_pk, esp_rx = 0.355, 0.095  # ESP32-S3-MINI-1 Tables 6-4/6-5 (Wi-Fi TX peak 355 mA; RX ~93-97 mA)
+esp_dl = 0.043                # ESP32-C5-MINI-1 v1.4 Table 6-8: 43 mA, the highest Modem-sleep row (Wi-Fi off)
+esp_rx = 0.113                # Table 6-5: 5 GHz RX 110-113 mA
+esp_pk = 0.426                # Table 6-5: 5 GHz TX peak, 802.11a at 16.5 dBm (rated at 100 % duty)
+power_led = 0.0022            # D5 at most 2.2 mA (Peripherals.zen)
+leds = 2 * 3 * 0.005          # WS2812C-2020-V6: 5 mA a channel (V1.1 p3), two LEDs full white
 emit = I * DUTY_SINK
 ana = ityp
-leds = 2 * 0.012 * 3            # 2 RGB LEDs at ~12 mA/colour full white (assumption pending the LED choice)
-for tag, esp, em in (("flash/debug (no emitters, ESP RX)", esp_rx, 0.0),
-                     ("ESP TX peak, no emitters", esp_pk, 0.0),
-                     ("everything incl. emitters + LEDs white", esp_pk, emit)):
-    i33 = mcu + esp + em + ana + (leds if 'LEDs' in tag else 0)
-    for eta in (0.85,):
-        i5 = 3.3 * i33 / (eta * 4.6)
-        print(f"  {tag:42s}: 3V3 {i33*1e3:5.0f} mA -> VBUS {i5*1e3:5.0f} mA at eta {eta}, VSYS 4.6 V")
-print("  USB 2.0 port: 500 mA after configuration; Type-C 'Default USB Power' = USB 2.0 500 mA / USB 3.x 900 mA")
+ETA = 0.85                    # ASSUMPTION: L6981 efficiency at VIN 3.8-4.6 V and 0.2-0.6 A (DS13554 gives
+#                               curves only at VIN 12 and 24 V, Fig. 40-45: 85-90 % at 3.3 V out there)
+VSYS = 4.39                   # 4.75 V (a high-power port) less D17's 0.36 V at 0.25 A (JCET p2, typical)
+cases = (("C5 UART flashing (C5 Wi-Fi off, H7 running)", esp_dl, 0.0, 0.0),
+         ("H7 SWD flashing, C5 Wi-Fi associated (RX)", esp_rx, 0.0, 0.0),
+         ("C5 5 GHz TX peak", esp_pk, 0.0, 0.0),
+         ("everything: TX peak, emitters, LEDs white", esp_pk, emit, leds))
+for tag, esp, em, led in cases:
+    i33 = mcu + esp + led + power_led
+    i5 = 3.3 * (i33 + em) / (ETA * VSYS) + ana  # the emitters run from 3V3_D
+    print(f"  {tag:44s}: 3V3_D {(i33 + em) * 1e3:5.0f} mA, 3V3_A {ana * 1e3:4.1f} mA -> 5V_IN {i5 * 1e3:5.0f} mA "
+          f"(VSYS {VSYS} V, eta {ETA})")
+print("  USB 2.0: a high-power port supplies 500 mA once configured, 100 mA before (USB 2.0 section 7.2.1);")
+print("  the flashing cases stay inside 500 mA, the C5 transmitting at 5 GHz without pause would exceed it (Table 6-5 rates TX at 100 % duty).")
 
 print("\n=== 7. Noise floors the rail must stay below ===")
 enob = 12.2   # DS13311 Table 86: typical ENOB 12.2 bits single-ended (16-bit ADC, BGA characterisation)

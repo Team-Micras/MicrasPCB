@@ -5,13 +5,16 @@ For each ISLOPE hypothesis, inductor and input voltage:
   - current-loop perturbation factor alpha = (Se - Sf)/(Sn + Se) (sub-harmonic stable iff |alpha| < 1),
     and a 40-cycle cycle-by-cycle iteration of a 10 mA peak-current perturbation as a check
   - phase lag of the sampling term FH (Eq. 12) at 40 kHz (fSW/10, the crossover Eq. 42 assumes)
-  - ripple (Eq. 36) and peak (Eq. 39) at the 0.5 A ESP32-S3 TX load
+  - ripple (Eq. 36) and peak (Eq. 39) at a 0.6 A load (3V3_D with the ESP32-C5 at its 5 GHz TX peak,
+    calc_power_tree.py section 6)
+  - the ISLOPE the loop needs at VIN 3.8 V, over fSW and L3's -20 % tolerance
+VIN 3.8 V is VSYS on 5V_IN at its lowest (Regulators.zen D17; power_path_checks.py section 2).
 """
 import math
 
-VOUT, IOUT = 3.3, 0.5
+VOUT, IOUT = 3.3, 0.6
 FSWS = [360e3, 400e3, 440e3]
-VINS = [4.3, 12.0, 17.4]
+VINS = [3.8, 4.4, 12.0, 17.4]
 LS = [10e-6, 15e-6, 22e-6, 33e-6]
 HYP = {"ISLOPE=1A (Eq. 11 literal)": 1.0, "ramp=0.45A (Table 6 IPK min 2.0-1.55)": 0.45,
        "ramp=0.5A (Table 6 IPK typ 2.3-1.8)": 0.5}
@@ -54,6 +57,14 @@ for vout, vin, L, src in [(3.3, 12, 22e-6, "Fig. 40-42 (MSS1038T-223ML)"), (3.3,
     qp = 1 / (math.pi * (mc * (1 - D) - 0.5))
     print(f"VOUT {vout} VIN {vin} L {L*1e6:.0f}u: QP {qp:.2f}  [{src}]")
 
-print("\n=== ISLOPE needed for sub-harmonic stability (Se > (Sf - Sn)/2), 22 uH, 4.3 V, 440 kHz ===")
-L, vin, fsw = 22e-6, 4.3, 440e3
-print(f"ISLOPE > {((VOUT/L) - (vin-VOUT)/L)/2/fsw:.3f} A")
+print("\n=== ISLOPE needed for sub-harmonic stability (Se > (Sf - Sn)/2) at VSYS 3.8 V (5V_IN) ===")
+# The threshold grows as fSW falls (Se = ISLOPE x fSW) and as L falls: the worst case is fSW's
+# 360 kHz minimum (Table 6) with L3 (YSPIA0645-220M, M = +-20 %) at its lowest.
+vin = 3.8
+worst = 0.0
+for L, tag in [(22e-6, "22 uH"), (22e-6 * 0.8, "22 uH -20 %")]:
+    for fsw in FSWS:
+        need = ((VOUT / L) - (vin - VOUT) / L) / 2 / fsw
+        worst = max(worst, need)
+        print(f"  {tag:12s} {fsw / 1e3:3.0f} kHz: ISLOPE > {need:.3f} A")
+print(f"worst case: ISLOPE > {worst:.3f} A (the readings: 0.45 A ramp, 1 A Eq. 11)")

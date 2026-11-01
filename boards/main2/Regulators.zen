@@ -1,13 +1,17 @@
-"""Battery input, fuse, switch and measurement; the VSYS power path; the 3V3_D buck and the 3V3_A
-analog LDO.
+"""Battery input, fuse, switch and measurement; VSYS; the 3V3_D buck and the 3V3_A analog LDO.
 
 Power tree (research/next-revision, Power tree):
 - Battery (J1, 4S LiPo, 12.0-16.8 V, 17.4 V with HV cells): BAT_P, then the fuse F1 to VBAT.
   VBAT feeds the motor bridges and the fan driver (drivers sheet) and, through D14, VSYS.
-- USB (U2 VBUS, +5V, peripherals sheet): through Q8 to VSYS only. There is no 5 V rail: +5V is
-  the VBUS input of the power path, the TVS, and two VBUS-sense dividers.
-- VSYS = OR(VBAT, VBUS) feeds only the 3V3_D buck IC7 and, through R58, the 3V3_A LDO U8. So the
-  ESP32, the MCU (for SWD flashing) and VDDA all run from USB alone, with the bridges off.
+- VSYS, VBAT behind D14 or 5V_IN behind D17, feeds only the 3V3_D buck IC7 and, through R58, the
+  3V3_A LDO U8.
+- The board has no USB and no 5 V rail. 5V_IN is programming power only: a USB-serial adapter's or
+  a clone ST-Link's 5 V pin on the flashing header J2 (pin 2, ESP sheet) or on SWD1's pad 4 (root
+  sheet) runs the 3V3 rails without the pack, for flashing; the bridges and the fan driver stay
+  unpowered (VBAT). On the bench, a current-limited supply at 12-16.8 V goes into J1 (a lead with
+  the pack's JST PA plug) with SW4 on, and the board starts as from the pack; with the motors and
+  the fan disabled, a current limit just above what the 3V3 rails draw keeps a fault on VBAT from
+  taking the supply's full current. D15 clamps a hot-plugged bench supply (below).
 
 Battery input, fuse and switch. J1 takes the pack: + on BAT_P, - on GND_BAT; the connector keys
 the polarity (Q6's body diode conducts with the pack reversed; research Power tree, Battery
@@ -89,7 +93,7 @@ with SW4 off, through its body diode, whose forward direction is GND_BAT to GND 
 1 A, HSBB3072 p2). VBAT then sits at VBR plus D15's slope, plus the body-diode drop with SW4 off:
 21.2-22.4 V with SW4 on and 21.9-23.1 V off for 0.15-2 A of braking current (simulated at a
 21 V knee; up to 1.1 V more at the 22.1 V VBR maximum): 24.2 V at most, below every rating on
-VBAT, VSYS and LDO_IN (the 50 V MLCCs, Q6's and Q8's 30 V, the 32 V fuse and the 40 V parts;
+VBAT, VSYS and LDO_IN (the 50 V MLCCs, Q6's 30 V, the 32 V fuse and the 40 V parts;
 test_power.zen abs_max_under_clamp). It also clamps Q6's VDS and a bench-supply hot plug (24.2 V unclamped, 23.5 V
 clamped from 17.4 V on 1 m leads). Research calculations/power_tree/vbat_bulk.py.
 SW4's ON position is the lever at the B end (pin 3, x = +2 mm on the footprint). The slider
@@ -103,58 +107,84 @@ silkscreen's ON and OFF: the circuit works in either case and the board shows at
 it is on.
 
 
-Battery measurement: R44 10 kOhm / R45 2 kOhm from VBAT into Battery_Voltage (PC5, ADC12_INP8,
-DS13311 Table 8; a slow channel, Table 85 notes 4-5) with C59 100 nF: 17.4 V x 2 / 12 = 2.90 V at
-the HV pack's top, below VDDA (the main board's 27 kOhm gives 3.70 V, above it); Thevenin
-1.67 kOhm with 100 nF (0.17 ms) holds the pin for the ADC sample and takes the 100 kHz ripple
-(265 mV pp on VBAT) down to 0.4 mV pp at the pin. The firmware divides by 12 / 2 = 6.0
-(boards/main2/firmware_changes.toml). The divider draws 1.45 mA from the pack with SW4 on (none
-with SW4 off: Q6 opens its return); R44 dissipates 21 mW at 17.4 V and 41 mW at the 24.2 V clamp,
-inside the 0402's 62.5 mW. It is this low to hold VBAT down on USB alone: with the pack absent or
-switched off, nothing else ties VBAT to GND, and D14's reverse leakage from VSYS (140 uA at 85 C,
-below) plus Q6's (pack fitted, SW4 off: 1 uA at 25 C and 5 uA at 55 C max, HSBB3072 p2, 25 uA at
-85 C at that rate) lifts it to I x 11.9 kOhm (R44 + R45 with R56 + R57) = 2.0 V, so Q8's gate
-stays 2.5 V below a 4.4 V VBUS (test_power.zen usb_only_vbat_float). With 100 kOhm / 20 kOhm the
-same leakage would lift VBAT towards VSYS above about 50-60 C and turn Q8 off, leaving USB to
-feed VSYS through its body diode, 0.7 V lower.
+Battery measurement: R44 20 kOhm / R45 2 kOhm from VBAT into Battery_Voltage (PC5, ADC12_INP8,
+DS13311 Table 8; a slow channel, Table 85 notes 4-5) with C59 100 nF: 17.4 V x 2 / 22 = 1.58 V at
+the HV pack's top and 2.20 V at the 24.2 V clamp (2.24 V with 1 % parts), below VDDA and below the
+4.0 V absolute maximum of PC5, a TT_ha pin (DS13311 Rev 5 Table 10; positive injection is not
+possible on it, Table 11): a ratio of 6, as 10k/2k or 100k/20k, puts 4.03-4.10 V on it at the
+clamp (research calculations/power_tree/power_path_checks.py section 2). Thevenin 1.82 kOhm with
+100 nF (0.18 ms) holds the pin for the ADC sample and takes the 100 kHz ripple (265 mV pp on VBAT)
+down to 0.2 mV pp at the pin. The firmware divides by 22 / 2 = 11.0
+(boards/main2/firmware_changes.toml). The divider draws 0.79 mA from the pack with SW4 on (none
+with SW4 off: Q6 opens its return); R44 dissipates 13 mW at 17.4 V and 24 mW at the 24.2 V clamp,
+inside the 0402's 62.5 mW. Its 22 kOhm also holds VBAT near 0 V when only 5V_IN powers the board
+(VSYS below).
 
-Power path (research A.4; power-tree study section 8):
+VSYS (research A.4):
 - VBAT -> VSYS: D14, B5819W 40 V 1 A Schottky (JCET B5817W-B5819W p1: VRRM 40 V, VF 0.6 V max at
   1 A). The 17.4 V pack is 44 % of VRRM. Forward (p2 Forward Characteristics, typical): about
   0.32 V at 25 C and 0.23 V at 100 C at the 0.13 A it carries at 14.8 V (40 mW), 0.48 / 0.43 V at
   1 A. Reverse (p2 Reverse Characteristics, typical, read at 1-5 V): 5-6 uA at 25 C, 55-64 uA at
   75 C, 0.42-0.59 mA at 100 C, so about 140 uA at 85 C between those curves; 12 uA / 0.11 mA /
-  0.92 mA at 17 V. It blocks VSYS -> VBAT; its leakage then feeds VBAT (battery measurement above).
-- VBUS -> VSYS: Q8, AO3401A P-MOSFET (Rev 3.1 p1: -30 V VDS, +-12 V VGS absolute maximum), drain
-  on +5V, source on VSYS, so its body diode conducts VBUS -> VSYS and blocks VSYS -> VBUS. The
-  gate follows VBAT through R56 10 kOhm with R57 1 MOhm to GND: with the pack on, the gate sits at
-  0.99 VBAT and VSYS one Schottky drop below VBAT, so VGS = VF - 0.01 VBAT, -0.17 to +0.48 V over
-  any VF from 0 to D14's 0.6 V maximum: off (VGS(th) -0.5 to -1.3 V, p2), whatever D14's forward
-  drop does with temperature; with the pack off or absent, the gate falls towards GND (2.0 V at
-  most, battery measurement above) and VGS is -2.4 to -5.5 V, on. A 4S pack
-  (>= 12 V) is always above VBUS (<= 5.5 V), so the battery always wins and USB never back-feeds
-  VBAT; with the battery on, VSYS never reaches VBUS.
-- D16 (BZT52C10S, 10 V zener, Diodes DS30093: VZ 9.4-10.6 V at 5 mA, IR 0.1 uA at 7 V) from Q8's
-  gate (anode) to VSYS (cathode) clamps VGS. When VBAT falls faster than VSYS (a VBAT short, the
-  pack pulled or SW4 opened under load), the gate follows VBAT down while C52/C53/C80 hold VSYS
-  up: without D16 VGS reaches -15 to -16 V (-11 to -13 V with a 10 uF C63), past the 12 V, until
-  Q8 has dumped VSYS into +5V. With D16 it stays within -10.6 V, at 0.7 mA through R56
-  (vbat_bulk.py section 9). Its 9.4 V minimum is above the -5.5 V of USB-only operation, where it
-  leaks at most 0.1 uA; with the pack on it sits forward-biased by at most 0.48 V, below its
-  forward knee, and draws next to nothing. It thus also bounds VGS at about +0.7 V on the
-  positive side.
-- C63 1 uF on +5V. USB 2.0 (section 7.2.4.1) allows a device 10 uF at attach; VSYS's C52 10 uF
-  and C53 1 uF, and C80 10 uF behind R58, also charge through Q8's body diode: 22 uF nominal in
-  all, an accepted excess (Q8's body diode leaves no inrush limit possible; most hosts tolerate
-  it), bounded by test_power.zen usb_attach_capacitance.
-- VSYS: 4.3-17.4 V (USB-only at 4.4 V minus the FET; the pack minus D14).
-- USB budget: the board reads no Type-C current advertisement (its CC pins carry only the Rd
-  pull-downs), so it takes what a Default-advertising USB 2.0 port gives a configured device,
-  500 mA (Type-C R2.5 sections 2.3.4 and 4.6.2.1; USB 2.0 Table 7-7). USB alone is for flashing,
-  debug and telemetry (222-441 mA, research Power tree); the firmware keeps the emitters, LEDs and
-  motors off or dim there (firmware_changes.toml esp, usb_only). Reading Rp for 1.5 / 3 A would buy
-  only the emitters and LEDs on USB, which a robot on the bench does not need, at the cost of
-  sensing both CC lines (Table 4-36's vRd levels) on two more ADC inputs.
+  0.92 mA at 17 V. It blocks VSYS -> VBAT: 5V_IN (below) reaches VSYS through D17, and nothing on
+  VSYS reaches VBAT, the bridges' bulk, the battery divider or the pack. It also keeps a VBAT
+  driven below GND (D15 forward with a pack forced in reversed, until F1 opens) off the
+  regulators' inputs.
+- 5V_IN -> VSYS: D17, a second B5819W. 5V_IN is a programmer's 5 V pin (USB VBUS, 4.40-5.25 V at
+  the connector, USB 2.0 Table 7-7): the flashing header J2 pin 2 and SWD1 pad 4. Never a 3.3 V
+  pin: 3.3 V on 5V_IN leaves VSYS at about 3.0 V, under the L6981's 3.5 V minimum; the buck may
+  still start (VCC rising threshold VINH 2.3-3.3 V, DS13554 Table 6) and run in dropout, 3V3_D
+  about 2.8-2.9 V, below the ESP32-C5's 3.0 V (ESP32-C5-MINI-1 Table 6-2), so the radio may not
+  run; nothing is damaged. With the pack in and SW4 on, VSYS (11.4-17.4 V, 24.2 V at the clamp)
+  reverses D17 at up to 61 % of its 40 V and it blocks; its reverse current, 12 uA at 25 C and about 0.26 mA
+  at 85 C from the 17 V curve, flows into the programmer's 5 V rail, which its own load takes.
+  Without the pack (research calculations/power_tree/power_path_checks.py section 2):
+  - Load at 5V_IN (calc_power_tree.py section 6, the L6981 at an assumed 85 % efficiency): 0.19 A
+    flashing the ESP32-C5 over J2 (its Wi-Fi off), 0.25 A flashing the MCU over SWD1 with the C5's
+    Wi-Fi associated, 0.53 A at the C5's 5 GHz TX peak (ESP32-C5-MINI-1 Table 6-5, rated at 100 %
+    duty): the flashing cases sit inside a USB port's 500 mA. D17 dissipates 0.24 W at the TX
+    peak against its 0.5 W.
+  - VSYS = 5V_IN less D17: 4.38-4.40 V on a 4.75 V port (D17 0.35-0.37 V typical), 3.80 V at worst
+    (a 4.40 V port, D17 at its 0.6 V maximum), about 5.0 V at most (a 5.25 V port, D17 about
+    0.25 V at a light load, JCET p2 typical). The L6981 regulates while D (Eq. 45, RDSON +20 %, L3's
+    130 mOhm DCR, VOUT 3.346 V) stays under 1 - TOFF_MIN x fSW = 1 - 185 ns x 440 kHz = 0.919
+    (Table 6): from 3.72 V at the 0.2 A flashing load and 3.86 V at the 0.59 A TX peak. Margin on a
+    4.75 V port: 0.41-0.68 V; on a 4.40 V port at D17's maximum 0.06-0.08 V while flashing, and the
+    TX peak 0.06 V short (3V3_D dips by that much, still far above the module's 3.0 V).
+  - The programmer's own losses: its 5 V pin is its USB VBUS behind its own fuse and lead, so pad 4
+    or J2 pin 2 can sit a few hundred mV under the port's minimum. Below the margins above the buck
+    runs at its maximum duty and 3V3_D follows VSYS: at VSYS 3.6 V and 0.27 A, Eq. 45 solved for
+    VOUT (D 0.919, RDSON +20 %, L3's DCR) gives 3.22 V, inside the MCU's 1.62-3.6 V (DS13311
+    Table 13) and the C5's 3.0 V, so flashing still works.
+  - What a programmer's port sees at plug-in: no capacitor sits on 5V_IN itself, but through D17 it
+    charges VSYS's C52 10 uF and C53 1 uF, and C80 10 uF behind R58 22 Ohm (0.22 ms): about 21 uF,
+    against the 10 uF that USB 2.0 section 7.2.4.1 allows a device at attach without inrush
+    limiting. Then the buck's soft start (TSS 1.0-1.6 ms, DS13554 Table 6) charges 3V3_D's 104 uF:
+    about 0.3 A from 5V_IN for that time, under the 500 mA a port supplies (USB 2.0 Table 7-7),
+    so no port or programmer fuse trips: the 21 uF (about 0.1 mC at 5 V) only dips the
+    programmer's VBUS briefly at plug-in. The programmer is already enumerated on its own supply;
+    a dip that resets a programmer is cured by plugging the board in before the programmer's USB.
+  - 3V3_A: LDO_IN is VSYS less 22 Ohm x the analog load, 4.16 V typical: the ADP7142 regulates
+    with about 0.85 V of headroom (its dropout is about 20 mV at 10 mA, Rev K Figure 22, the typical
+    curve for VOUT = 3.3 V; Table 1's dropout limits are specified at VOUT = 5 V), though below the
+    VOUT + 1 V from which Table 1 specifies its +-1.8 %. At the worst corner, VSYS 3.80 V and
+    22.5 mA, LDO_IN is 3.30 V, the output's nominal: Figure 22's typical 30 mV at that load would
+    leave about 3.27 V, but no guaranteed figure covers the 3.3 V part there, so 3V3_A is not
+    guaranteed on 5V_IN. Analog readings in this mode are for checking only; flashing needs none.
+  - VBAT: D14, reversed by VSYS, leaks into VBAT, which only the battery divider's 22 kOhm (and the
+    bridges' 1 uA sleep currents) hold down: 0.13 V at 25 C, 0.43 V at 50 C, 1.1 V at 70 C and
+    3.42 V at 85 C (JCET p2 typical curves at 5 V; power_path_checks.py section 2). With the pack
+    fitted and SW4 off, Q6 opens the pack's return, and its off-state leakage, pack to divider to
+    GND to GND_BAT, adds to D14's: IDSS is specified only at 25 C (1 uA max, HSBB3072 p2), and
+    about 0.5 V (23 uA through 22 kOhm) is allowed for it at 85 C, so VBAT stays at about 3.9 V or
+    less. The DRV8874s stay in UVLO (rising 4.3 V minimum, SLVSF66A 6.5): Q6 may leak up to 40 uA
+    at 85 C before that margin is gone. The STSPIN958's VS turn-on threshold has a 5.05 V maximum
+    and no minimum (DS14341 Table 5), so it is not counted on: the fan stays unpowered because
+    EN/nFAULT low leaves its output Hi-Z and, with EN high, PWM1 held low by its internal pull-down
+    (RPDin 500 kOhm, Table 5) holds the output on its low side, both motor ends at LSS (Table 11),
+    until the firmware runs, which then keeps Fan_Enable low. The firmware reads no pack (its
+    battery reading below the pack's 12 V; firmware_changes.toml battery).
+- VSYS: 11.4-17.4 V on the pack (less D14's 0.6 V maximum drop), 3.8-5.0 V on 5V_IN alone.
 
 3V3_D buck, IC7 (L6981C33DR, fixed 3.3 V, low-consumption mode, DS13554), as on the main board:
 VIN and EN on VSYS. Integrator parts per DS13554 Table 1 p3 and Table 2 p4: C55 100 nF BOOT to
@@ -170,12 +200,14 @@ inductor for VOUT 3.3 V (section 10, Fig. 40-45 at VIN 12 and 24 V, 400 kHz: MSS
 22 uF + 10 uF). Eq. 38's 0.4 <= QP <= 1.33 with ISLOPE = 1 A (Eq. 11, 13) is not met as written by
 any configuration ST publishes (QP 0.33 at 12 V for that 3.3 V design, 0.27-0.38 for the 5 V
 33 uH one), and the "full slope contribution" current limit (1.55 A against 2.0 A, Table 6)
-implies a ramp of about 0.45 A. Either way L3 cannot oscillate sub-harmonically: the current
-loop's perturbation factor (Se - Sf) / (Sn + Se) stays below 1 in magnitude for any ISLOPE above
-0.12 A at the worst point (4.3 V, 440 kHz), and is at most 0.6 at 0.45 A or 1 A; below 12 V the
-duty is under 0.5 and needs no ramp at all. A QP below 0.4 only damps the loop more (27-33 deg of
-sampling lag at 40 kHz on the pack with ISLOPE = 1 A, 20 deg at 0.45 A, 49 deg at 4.3 V, USB
-only). 33 uH is lower in QP everywhere, and about 10 uH would meet Eq. 38 literally at 40-50 %
+implies a ramp of about 0.45 A. Either way L3 cannot oscillate sub-harmonically: on the pack
+(VSYS 11.4-17.4 V) the duty is at most 3.3 / 11.4 = 0.29, under the 0.5 above which a peak-current
+loop needs a ramp at all; on 5V_IN alone (VSYS down to 3.8 V) the duty reaches 0.87 and the loop
+needs ISLOPE above (Sf - Sn) / (2 x fSW) = (2 x 3.3 - 3.8) V / (2 x 22 uH x 360 kHz) = 0.177 A at
+fSW's 360 kHz minimum (Table 6), 0.22 A with L3 at its -20 % tolerance, which both readings give: the perturbation factor (Se - Sf) / (Sn + Se)
+stays at 0.22 or less in magnitude with the 0.45 A ramp (QP 0.41-0.56, inside Eq. 38) and 0.63 or
+less with ISLOPE = 1 A. A QP below 0.4 only damps the loop more (27-33 deg of sampling lag at
+40 kHz on the pack with ISLOPE = 1 A, 20 deg at 0.45 A). 33 uH is lower in QP everywhere, and about 10 uH would meet Eq. 38 literally at 40-50 %
 ripple, above the 20-40 % target (research calculations/power_tree/l6981_slope.py).
 test_power.zen buck_slope_compensation checks the upper bound and L3 <= 33 uH. Every capacitor on 3V3_D must stay inside the
 30.5-145 uF window of Eq. 42/43 (boards/main2/test/test_power.zen). In LCM the buck skips pulses
@@ -185,9 +217,9 @@ reaches the ADC.
 3V3_A analog LDO, U8 (ADP7142ACPZN3.3-R7, fixed 3.3 V, 2.7-40 V input, ADP7142 Rev K), chosen over the TPS7A4901 (fixed output with no feedback
 divider, lower noise, specified EN thresholds; research Open decisions):
 - Input RC: R58 22 Ohm from VSYS to LDO_IN with C80 10 uF 50 V X7R 1210 (research A.4). It keeps the 100 kHz
-  motor ripple out of the LDO (68 dB PSRR at 100 kHz, 50 dB at 1 MHz, Table 1) and leaves
-  headroom on USB alone: 4.3 V - 22 Ohm x 23 mA = 3.8 V, above 3.3 V + 40 mV dropout at 25 mA
-  (Figure 22).
+  motor ripple out of the LDO (68 dB PSRR at 100 kHz, 50 dB at 1 MHz, Table 1); its drop, 22 Ohm
+  x 23 mA = 0.5 V, leaves LDO_IN at 10.9 V or more on the pack (3.3 V or more on 5V_IN alone,
+  VSYS above).
 - C81 10 uF on 3V3_A (Table 2: effective >= 1.5 uF over the operating conditions; with more than
   2.2 uF on the output, the input capacitor matches it: 10 uF each). Eq. 4 (CEFF = CBIAS x
   (1 - TEMPCO) x (1 - TOL), TEMPCO 15 %) with the Samsung DC-bias curves (passives.zen DC_BIAS):
@@ -228,18 +260,15 @@ load(
     "C_1U_0805_50V",
     "C_22U_0805_25V",
     "R_100K_0402",
-    "R_10K_0402",
-    "R_1M_0402",
     "R_22_0402",
+    "R_20K_0402",
     "R_2K_0402",
 )
 
 Capacitor = Module("@stdlib/generics/Capacitor.zen")
 Resistor = Module("@stdlib/generics/Resistor.zen")
 ADP7142 = Module("github.com/Team-Micras/MicrasPCB/components/adi/ADP7142/ADP7142.zen")
-AO3401A = Module("github.com/Team-Micras/MicrasPCB/components/aos/AO3401A/AO3401A.zen")
 B02B_PASK = Module("github.com/Team-Micras/MicrasPCB/components/jst/B02B-PASK/B02B-PASK.zen")
-BZT52C10S = Module("github.com/Team-Micras/MicrasPCB/components/diodes/BZT52C10S/BZT52C10S.zen")
 FUSE_501 = Module("github.com/Team-Micras/MicrasPCB/components/littelfuse/05010xx/05010xx.zen")
 B5819W = Module("github.com/Team-Micras/MicrasPCB/components/cj/B5819W/B5819W.zen")
 HSBB3072 = Module("github.com/Team-Micras/MicrasPCB/components/huashuo/HSBB3072/HSBB3072.zen")
@@ -256,23 +285,22 @@ Project(name="Regulators", path="layout", layout=False)
 # KiCad's ERC flags labels whose names differ only in case (similar_labels).
 BAT_P = io(Power)
 VBAT = io(Power)
+V5V_IN = io(Power)
 VSYS = io(Power)
 V3V3_D = io(Power)
 V3V3_A = io(Power)
-V5V = io(Power)
 GND = io(Ground)
 GND_BAT = io(Ground)
 Battery_Voltage = io(Net)
 
 BAT_SW_DRIVE = Net("BAT_SW_DRIVE")
 BAT_SW_GATE = Net("BAT_SW_GATE")
-PATH_GATE = Net("PATH_GATE")
 BUCK_SW = Net("BUCK_SW")
 BUCK_BOOT = Net("BUCK_BOOT")
 # The L6981 VCC LDO output, 3.3 V typ (DS13554 Table 6 p7).
 BUCK_VCC = Power("BUCK_VCC", voltage="3.0V to 3.6V")
 # The LDO input after R58: VSYS less 22 Ohm x 23 mA at most.
-LDO_IN = Power("LDO_IN", voltage="3.8V to 17.4V")
+LDO_IN = Power("LDO_IN", voltage="3.3V to 17.4V")
 
 # Battery input, fuse and switch.
 B02B_PASK(name="J1", prefix="J", P1=BAT_P, P2=GND_BAT)
@@ -292,17 +320,13 @@ Capacitor(name="C58", P1=GND_BAT, P2=BAT_SW_GATE, **C_100N_0402)
 Capacitor(name="C114", P1=GND, P2=BAT_SW_GATE, **C_1N_0402_C0G)
 
 # Battery measurement.
-Resistor(name="R44", P1=VBAT, P2=Battery_Voltage, **R_10K_0402)
+Resistor(name="R44", P1=VBAT, P2=Battery_Voltage, **R_20K_0402)
 Resistor(name="R45", P1=GND, P2=Battery_Voltage, **R_2K_0402)
 Capacitor(name="C59", P1=GND, P2=Battery_Voltage, **C_100N_0402)
 
-# Power path.
+# VSYS: from the pack, or from a programmer's 5 V pin without it.
 B5819W(name="D14", A=VBAT, K=VSYS)
-AO3401A(name="Q8", G=PATH_GATE, S=VSYS, D=V5V)
-Resistor(name="R56", P1=VBAT, P2=PATH_GATE, **R_10K_0402)
-Resistor(name="R57", P1=GND, P2=PATH_GATE, **R_1M_0402)
-BZT52C10S(name="D16", A=PATH_GATE, K=VSYS)
-Capacitor(name="C63", P1=GND, P2=V5V, **C_1U_0402)
+B5819W(name="D17", A=V5V_IN, K=VSYS)
 
 # 3V3_D buck.
 L6981(

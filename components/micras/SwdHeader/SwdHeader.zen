@@ -1,27 +1,42 @@
-"""SWD header: three bare through-hole pads at 1.27 mm pitch for an ST-Link's SWD lines.
+"""SWD header: bare through-hole pads at 1.27 mm pitch for an ST-Link's SWD lines, and optionally
+its supply pin.
 
-Pads 1 GND, 2 SWDIO, 3 SWCLK: the middle three contacts of boards/main's SWD connector P1
-(1 SWD_VDD, 2 GND, 3 SWDIO, 4 SWCLK, 5 NRST) in the same order, without the probe supply and
-NRST. Footprint: KiCad's PinHeader_1x03_P1.27mm_Vertical (kicad-footprint-generator,
-connector/pin_header_socket) with its 1.0 mm pads grown to 1.05 mm, square pad 1, on 0.65 mm
-drills at 1.27 mm pitch: a 0.2 mm ring against JLCPCB's 0.18 mm PTH minimum and 0.22 mm between
-pads (rules/jlcpcb.kicad_dru). No part is placed: a 1.27 mm pitch header (or the probe's wires) is soldered by hand,
-so the header is excluded from the BOM and the placement file. The footprint embeds KiCad's
-PinHeader_1x03_P1.27mm_Vertical model all the same, so the layout's height checks see the
-soldered header.
+Default: three pads, 1 GND, 2 SWDIO, 3 SWCLK: the middle three contacts of boards/main's SWD
+connector P1 (1 SWD_VDD, 2 GND, 3 SWDIO, 4 SWCLK, 5 NRST) in the same order, without NRST.
+With `supply`: four pads in the 4-pin order of a clone ST-Link's 1.27 mm SWD lead (owner,
+2026-11-01): 1 SWDIO, 2 GND, 3 SWCLK, 4 VDD, VDD taking the probe's 5 V pin into the board (the
+board decides what that pin feeds; main2 takes it through a Schottky diode into its regulators'
+input). The lead plugs on pin 1 to pad 1; turned round, or shifted one pad either way, the probe's
+5 V never lands on the board's GND. The two variants number their pads differently: a board
+switching variants re-routes the header.
+
+Footprints: KiCad's PinHeader_1x03_P1.27mm_Vertical and PinHeader_1x04_P1.27mm_Vertical
+(kicad-footprint-generator, connector/pin_header_socket) with their 1.0 mm pads grown to 1.05 mm,
+square pad 1 with the silkscreen's pin-1 corner beside it, on 0.65 mm drills at 1.27 mm pitch: a
+0.2 mm ring against JLCPCB's 0.18 mm PTH minimum and 0.22 mm between pads (rules/jlcpcb.kicad_dru).
+The pads are numbered along the row; the symbols map the signals onto them. No part is placed: a
+1.27 mm pitch header (or the probe's wires) is soldered by hand, so the header is excluded from the
+BOM and the placement file. Each footprint embeds KiCad's model of its header all the same, so the
+layout's height checks see the soldered header.
 """
 
 prefix = config(str, default="J", help="Reference designator prefix")
+supply = config(bool, default=False, help="four pads in a clone ST-Link's order, 1 SWDIO, 2 GND, 3 SWCLK, 4 VDD")
 
 GND = io(Ground)
 SWDIO = io(Net)
 SWCLK = io(Net)
+VDD = io(Power, optional=True, help="pad 4, with supply = True: the probe's supply pin")
+
+pins = {"GND": GND, "SWDIO": SWDIO, "SWCLK": SWCLK}
+if supply:
+    pins["VDD"] = VDD
 
 Component(
     name="J",
     prefix=prefix,
-    symbol=Symbol(library="SwdHeader.kicad_sym"),
-    pins={"GND": GND, "SWDIO": SWDIO, "SWCLK": SWCLK},
+    symbol=Symbol(library="SwdHeader.kicad_sym", name="SwdHeader4" if supply else "SwdHeader"),
+    pins=pins,
     skip_bom=True,
     skip_pos=True,
 )

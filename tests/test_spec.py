@@ -170,7 +170,7 @@ def test_main_mech_export_is_in_the_robot_frame(main_spec):
 # --- main2: the outline the spec draws, the antenna notch -------------------------------------------
 
 MAIN2 = spec.load("main2")
-U13_FOOTPRINT = ROOT / "components/espressif/ESP32-S3-MINI-1/ESP32-S3-MINI-1.kicad_mod"
+U13_FOOTPRINT = ROOT / "components/espressif/ESP32-C5-MINI-1/ESP32-C5-MINI-1.kicad_mod"
 EDGE_CLEARANCE = 0.2  # mm, copper to board edge (rules/jlcpcb.kicad_dru)
 
 
@@ -248,9 +248,10 @@ def test_main2_outline_is_one_closed_loop():
 
 
 def test_main2_antenna_notch_cuts_the_board_away_under_the_antenna():
-    """ESP32-S3 Hardware Design Guidelines (General Principles of PCB Layout for Modules): no board
-    under the module's antenna; the footprint's keep-out (the 5.05 mm antenna area, Figure 11-1) lies
-    in the notch, the module's pads on the board, at least the edge clearance in."""
+    """ESP32-C5 Hardware Design Guidelines (Positioning a Module on a Base Board): no board under the
+    module's antenna; the footprint's keep-out (the 5.85 mm antenna area, ESP32-C5-MINI-1 datasheet
+    v1.4 Figure 11-1) lies in the notch, the module's pads on the board, at least the edge
+    clearance in."""
     board = _main2_board()
     area, pads = _u13_footprint()
     corners = [_u13_to_robot(u, v) for u, v in area]
@@ -272,13 +273,35 @@ def test_main2_antenna_notch_cuts_the_board_away_under_the_antenna():
 
 
 def test_main2_antenna_notch_keeps_off_the_chassis_zones():
-    o, n = MAIN2["outline"], MAIN2["antenna_notch"]
-    x0, x1, y0, y1 = o["rear"], o["rear"] + n["depth"], o["width"] / 2 - n["width"], o["width"] / 2
+    x0, x1, y0, y1 = mech.notch_box(MAIN2, "antenna_notch")
     for name, (zx0, zx1, zy0, zy1, _h) in mech.keepout_zones(MAIN2):
         assert min(x1, zx1) <= max(x0, zx0) or min(y1, zy1) <= max(y0, zy0), f"the antenna notch cuts into {name}"
-    # and the two rear-corner notches stay apart: the rear edge between them carries the USB-C
-    usb = MAIN2["usb"]
-    assert (
-        y0 > usb["y"] + usb["peg_offset"]
-        and -o["width"] / 2 + MAIN2["switch_notch"]["width"] < usb["y"] - usb["peg_offset"]
-    )
+    # one notch in each rear corner, with rear edge left between them for the power input
+    _, _, sy0, sy1 = mech.notch_box(MAIN2, "switch_notch")
+    assert {MAIN2["antenna_notch"]["side"], MAIN2["switch_notch"]["side"]} == {"left", "right"}
+    assert y1 < sy0 or sy1 < y0, "the antenna and switch notches overlap"
+
+
+def test_main2_antenna_notch_follows_espressifs_keepout_figure():
+    """ESP32-C5 Hardware Design Guidelines, Keepout Zone for ESP32-C5 Module's Antenna: at most 2 mm
+    from the antenna's ground-point side (the C5-MINI-1's pin-1 end, spec [antenna_notch]) to the
+    board's side edge, at least 15 mm of board cut away beyond its open end (the pin-45 end), the
+    antenna end at most 1 mm inside the board's edge line, and the cut as deep as the antenna area
+    (the footprint's keep-out)."""
+    o, u = MAIN2["outline"], MAIN2["u13"]
+    _, x1, y0, y1 = mech.notch_box(MAIN2, "antenna_notch")
+    area, pads = _u13_footprint()
+    corners = [_u13_to_robot(a, b) for a, b in area]
+    xs, ys = [c[0] for c in corners], [c[1] for c in corners]
+    pad = {name: [_u13_to_robot(a, b) for a, b in pts] for name, pts in pads}
+    pin1_y = sum(p[1] for p in pad["1"]) / 4
+    pin45_y = sum(p[1] for p in pad["45"]) / 4
+    edge = -o["width"] / 2 if pin1_y < pin45_y else o["width"] / 2  # the side edge the pin-1 end faces
+    gnd_side, open_side = (min(ys), max(ys)) if edge < 0 else (max(ys), min(ys))
+    assert MAIN2["antenna_notch"]["side"] == ("right" if edge < 0 else "left")
+    assert abs(gnd_side - edge) <= 2.0, "the antenna's ground-point (pin-1) side is more than 2 mm from the edge"
+    beyond = (y1 - open_side) if edge < 0 else (open_side - y0)
+    assert beyond >= 15.0 - 1e-6, f"{beyond:.2f} mm cut away beyond the open (pin-45) end, under 15 mm"
+    assert min(xs) - o["rear"] <= 1.0, "the antenna end is more than 1 mm inside the rear edge"
+    assert x1 >= max(xs) - 1e-6, "the notch is shallower than the antenna area"
+    assert u["rotation"] == 180

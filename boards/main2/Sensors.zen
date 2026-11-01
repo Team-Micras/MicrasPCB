@@ -2,7 +2,12 @@
 the two encoder slots.
 
 IMU, IC2 (LSM6DSV, DS13476 Rev 5) on the shared SPI bus with its own chip select IMU_SPI_CSn;
-INT1/INT2 to the MCU. Mode 1: SDx and SCx grounded, OCS_Aux and SDO_Aux open (Table 2 p10). C24
+INT1 (pin 4) on IMU_INT to PB6 (EXTI6), INT2 (pin 9) unconnected. The firmware routes every
+interrupt it uses to INT1, the INT2 ones through CTRL4 (13h) INT2_on_INT1 (Table 58: the movable
+INT2 interrupts are ORed onto INT1 and not fed to INT2), so one pin drives the line, push-pull and
+active high at its defaults (IF_CFG PP_OD = 0, H_LACTIVE = 0, Tables 28-29), and needs no pull.
+INT2 is an output forced to ground by default (Table 22, Internal pin status), so it is left open.
+Mode 1: SDx and SCx grounded, OCS_Aux and SDO_Aux open (Table 2 p10). C24
 and C25 100 nF on Vdd and Vdd_IO (Table 2 note 1, Figure 27 p44). On 3V3_D, as on the main board
 (the research keeps it there: +0.65 mA on 3V3_A if it moves).
 
@@ -187,8 +192,7 @@ IMU_SPI_CSn = io(Net)
 Encoder_Right_CSn = io(Net)
 Encoder_Left_CSn = io(Net)
 
-IMU_INT1 = io(Net)
-IMU_INT2 = io(Net)
+IMU_INT = io(Net)
 
 MOTOR_L_SENSE_P = io(Net)
 MOTOR_L_SENSE_N = io(Net)
@@ -230,8 +234,8 @@ LSM6DSV(
     VDDIO=V3V3_D,
     GND=GND,
     SPI=IMU_SPI,
-    INT1=IMU_INT1,
-    INT2=IMU_INT2,
+    INT1=IMU_INT,
+    INT2=NotConnected(),
     SDX=GND,
     SCX=GND,
 )

@@ -7,8 +7,9 @@ in the docstring of [`B5819W.zen`](B5819W.zen).
 ```python
 B5819W = Module("github.com/Team-Micras/MicrasPCB/components/cj/B5819W/B5819W.zen")
 
-# VBAT -> VSYS OR-ing diode of the power path.
-B5819W(name="D2", A=VBAT, K=VSYS)
+# OR-ing diodes into VSYS: from the pack, and from a programmer's 5 V pin.
+B5819W(name="D14", A=VBAT, K=VSYS)
+B5819W(name="D17", A=V5V_IN, K=VSYS)
 ```
 
 | Pad | Pin |
@@ -20,12 +21,12 @@ Ratings (datasheet p.1-2): VRRM 40 V; IO 1 A; IFSM 9 A; Pd 500 mW, RthJA 200 C/W
 Reverse current is 1 mA max at 40 V and 25 C; typical at 17 V: about 12 uA (25 C), 0.11 mA
 (75 C), 0.92 mA (100 C); at 1-5 V: 5-6 uA, 55-64 uA, 0.42-0.59 mA.
 
-Integration note: in the VBAT/VBUS OR-ing the diode blocks only while USB powers VSYS and the
-pack is off or missing (VR under 5.5 V). Its leakage then flows into the VBAT node, which nothing
-else drives: about 140 uA at 85 C. main2 holds VBAT down with a 12 kOhm battery divider
-(R44/R45 10 kOhm / 2 kOhm), about 2 V at 85 C with Q6's leakage added, so the P-FET whose gate
-follows VBAT stays on (boards/main2/Regulators.zen, battery measurement); a 120 kOhm divider
-would let VBAT rise towards VSYS above about 50-60 C.
+Integration note: as one of two OR-ing diodes into a rail (main2: D14 from VBAT and D17 from a
+programmer's 5 V pin into VSYS), the diode on the absent source blocks with VR up to the other
+source's voltage. Its leakage then flows into its anode's node; if nothing else drives that node
+(main2's VBAT with only 5V_IN present), size the node's load for it: about 6 uA at 25 C and
+0.14 mA at 85 C at a few volts. main2's 22 kOhm battery divider holds VBAT at 0.13 V at 25 C and
+1.1 V at 70 C (boards/main2/Regulators.zen, VSYS).
 
 ## Footprint
 

@@ -63,7 +63,9 @@ lever tip lands where the MK-12D18-G040's did and less of the body overhangs the
 unnumbered), all on y = 0. The drawing does not dimension the holes: the diameters are scaled from
 it against its 2 mm pitch and fit the 0.3 mm thick pins and legs. F.Fab: the body (y -0.95 to
 2.65 mm) and the lever over its travel (to y 8.65 mm). F.CrtYd 0.25 mm around the pads, the body
-and the lever's travel. Silkscreen on the rear edge and the sides, clear of the pads.
+and the lever's travel. Silkscreen on the rear edge and the sides, clear of the pads, and "ON"
+behind the body at the pin-3 (B) end (x +3.2 mm, y -2.1 mm, beside the reference): the lever at
+that end joins COM to B, so a board wires its "on" circuit to B (main2's SW4 does).
 
 The embedded STEP `SK-12D29-G060.step` was written for this package with CadQuery from the
 drawing's nominal dimensions (body 8.6 x 3.6 x 3.6 mm, lever 1.5 x 1.5 x 6.0 mm at mid-height,

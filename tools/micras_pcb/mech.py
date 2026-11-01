@@ -129,14 +129,31 @@ def _slot(c: tuple[float, float], length: float, width: float) -> list:
     ]
 
 
+def notch_box(s: dict, name: str) -> tuple[float, float, float, float]:
+    """A rear-corner notch of boards/main2 ([switch_notch], [antenna_notch]) in the robot frame:
+    (x_min, x_max, y_min, y_max), on the side its spec names (left: y > 0, right: y < 0)."""
+    o, n = s["outline"], s[name]
+    r, hw = o["rear"], o["width"] / 2
+    if n["side"] == "left":
+        return r, r + n["depth"], hw - n["width"], hw
+    if n["side"] == "right":
+        return r, r + n["depth"], -hw, -hw + n["width"]
+    raise ValueError(f"[{name}] side must be left or right, not {n['side']!r}")
+
+
 def main2_outline(s: dict) -> list:
     """boards/main2's Edge.Cuts in the robot frame: the board (nose, wheel notches, the antenna and
-    switch notches in the rear corners, rounded corners), the encoder slots, the fan hole and the
-    USB-C peg holes."""
-    o, n, sw, an = s["outline"], s["wheel_notches"], s["switch_notch"], s["antenna_notch"]
+    switch notches in the rear corners, rounded corners), the encoder slots and the fan hole."""
+    o, n = s["outline"], s["wheel_notches"]
     f, r, hw = o["front"], o["rear"], o["width"] / 2
     ni, nx, nr = n["inner_y"], n["half_length"], n["corner_radius"]
-    sr, ar = sw["corner_radius"], an["corner_radius"]
+    side = {s[k]["side"]: k for k in ("switch_notch", "antenna_notch")}
+    if sorted(side) != ["left", "right"]:
+        raise ValueError("[switch_notch] and [antenna_notch] must take one rear corner each")
+    left, right = side["left"], side["right"]
+    _, lx, ly, _ = notch_box(s, left)
+    _, rx, _, ry = notch_box(s, right)
+    lr, rr = s[left]["corner_radius"], s[right]["corner_radius"]
     corners = [  # counter-clockwise from the front edge's right end (x forward, y left)
         ((f, -o["nose_half_width"]), o["front_corner_radius"]),
         ((f, o["nose_half_width"]), o["front_corner_radius"]),
@@ -145,12 +162,12 @@ def main2_outline(s: dict) -> list:
         ((nx, ni), nr),
         ((-nx, ni), nr),
         ((-nx, hw), nr),
-        ((r + an["depth"], hw), ar),
-        ((r + an["depth"], hw - an["width"]), ar),
-        ((r, hw - an["width"]), ar),
-        ((r, -hw + sw["width"]), sr),
-        ((r + sw["depth"], -hw + sw["width"]), sr),
-        ((r + sw["depth"], -hw), sr),
+        ((lx, hw), lr),
+        ((lx, ly), lr),
+        ((r, ly), lr),
+        ((r, ry), rr),
+        ((rx, ry), rr),
+        ((rx, -hw), rr),
         ((-nx, -hw), nr),
         ((-nx, -ni), nr),
         ((nx, -ni), nr),
@@ -162,8 +179,6 @@ def main2_outline(s: dict) -> list:
     for c in slots(s).values():
         els += _slot(c, e["length"], e["width"])
     els += _ring((s["fan_hole"]["x"], 0.0), s["fan_hole"]["diameter"] / 2)
-    for c in usb_pegs(s):
-        els += _ring(c, s["usb"]["peg_diameter"] / 2)
     return els
 
 
@@ -171,12 +186,6 @@ def keepout_zones(s: dict) -> list[tuple[str, list[float]]]:
     """boards/main2's zones of the chassis over the board, the drive blocks' and the encoder
     boards': (name, [x_min, x_max, y_min, y_max, max_part_height])."""
     return [*s["drive_blocks"].items(), *((f"encoder_{k}", v) for k, v in s["encoder_boards"].items())]
-
-
-def usb_pegs(s: dict) -> list[tuple[float, float]]:
-    """boards/main2's USB-C housing-peg holes, from the receptacle's spec position (robot frame)."""
-    u = s["usb"]
-    return [(u["x"] + u["peg_x_offset"], u["y"] + side * u["peg_offset"]) for side in (1, -1)]
 
 
 # boards whose Edge.Cuts outline the spec generates: (outline in the spec frame, spec frame to KiCad)
@@ -724,17 +733,17 @@ def main_json(s: dict, root: sexpr.Node) -> dict:
 
 def main2_json(s: dict, root: sexpr.Node) -> dict:
     """The second main board in the robot frame: main_json's fields (the outline from the layout,
-    which the spec draws), plus the antenna and switch notches, the USB-C receptacle, the ESP32
-    module, the wall sensors and the drive blocks' zones."""
+    which the spec draws), plus the antenna and switch notches, the ESP32 module, the wall sensors
+    and the drive blocks' zones."""
     edge = []
     for e in outline_elements(s, root):
         if isinstance(e, Line):
             edge.append({"type": "line", "start": _r(e.a), "end": _r(e.b)})
         else:
             edge.append({"type": "arc", "start": _r(e.a), "mid": _r(e.mid), "end": _r(e.b)})
-    o, sl, n, sw, an, u = (
-        s[k] for k in ("outline", "encoder_slots", "wheel_notches", "switch_notch", "antenna_notch", "usb")
-    )
+    o, sl, n, sw, an = (s[k] for k in ("outline", "encoder_slots", "wheel_notches", "switch_notch", "antenna_notch"))
+    swx0, swx1, swy0, swy1 = notch_box(s, "switch_notch")
+    anx0, anx1, any0, any1 = notch_box(s, "antenna_notch")
     holes = [v for v in s.values() if isinstance(v, dict) and v.get("path", "").startswith("H")]
     walls = [v for k, v in s.items() if k.startswith("w") and isinstance(v, dict) and "path" in v]
     return {
@@ -763,21 +772,18 @@ def main2_json(s: dict, root: sexpr.Node) -> dict:
             "corner_radius": n["corner_radius"],
         },
         "switch_notch": {
-            "x": [o["rear"], o["rear"] + sw["depth"]],
-            "y": [-o["width"] / 2, -o["width"] / 2 + sw["width"]],
+            "side": sw["side"],
+            "x": [swx0, swx1],
+            "y": [swy0, swy1],
             "corner_radius": sw["corner_radius"],
             "switch": {"pos": [s["sw4"]["x"], s["sw4"]["y"]], "lever": "along -x, 6.0 mm from the body's rear face"},
         },
         "antenna_notch": {
-            "x": [o["rear"], o["rear"] + an["depth"]],
-            "y": [o["width"] / 2 - an["width"], o["width"] / 2],
+            "side": an["side"],
+            "x": [anx0, anx1],
+            "y": [any0, any1],
             "corner_radius": an["corner_radius"],
             "module": {"pos": [s["u13"]["x"], s["u13"]["y"]], "antenna": "along -x, over the notch"},
-        },
-        "usb": {
-            "pos": [u["x"], u["y"]],
-            "mouth": "along -x, on the rear edge",
-            "pegs": [{"centre": list(c), "diameter": u["peg_diameter"]} for c in usb_pegs(s)],
         },
         "wall_sensors": [
             {"name": w["path"].split(".")[1], "pos": [w["x"], w["y"]], "kicad_rotation": w["rotation"]} for w in walls

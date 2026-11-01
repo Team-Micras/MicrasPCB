@@ -29,8 +29,8 @@ Fixed by the owner:
 |---|---|
 | Drive motors: maxon **DCX 10 L 4.5 V**, one per wheel | 2.9 Ω, 0.045 mH, kt 3.52 mNm/A, 2710 rpm/V, 0.648 A continuous, 14,300 rpm maximum, τw 3.94 s, 11 g ([maxon p100]) |
 | Battery: **4S LiPo**, bridges straight from the switched pack, **no boost** | Pack 12.0-16.8 V (17.4 V with HV cells); the TPS61178 boost and its parts go |
-| **USB-C connects only to the ESP32**: no USB switch, no H7 USB | The ESP bridges the PC's USB serial data to H7 UART4 (PA11/PA12); the H7 DFU path is gone |
-| The **ESP32 replaces the HM-19 module and the SWD connector** | It flashes the H7 over SWD with NRST, is the wired and Wi-Fi debug probe, and relays Wi-Fi/BLE telemetry |
+| **No USB** on the board | Every rail comes from J1 (a bench supply into J1 on the bench), but for flashing: a programmer's 5 V pin on J2 or SWD1 (5V_IN, through D17) runs the 3V3 rails without the pack; the radio flashes over its UART0 header J2 and over the air; no H7 USB or DFU path |
+| The **ESP32-C5 replaces the HM-19 module and the SWD connector** | It flashes the H7 over SWD with NRST as a Wi-Fi debug probe, carries the H7's link (SPI2, UART4 as a fallback on the same pins) and relays 5 GHz Wi-Fi telemetry; the bare SWD1 pads take an ST-Link |
 | Digital 3V3 from the **L6981C33 buck**; analog 3V3_A from a **battery-side LDO** | No 5 V rail; the status LEDs become a 3.3 V part |
 | Fan: a generic, not yet chosen **drone-class brushed coreless motor** (high rpm, low R), PWM preferably about **400 kHz**, **no buck** | The STSPIN958 stays, reconfigured |
 
@@ -54,51 +54,71 @@ assumed 90 %). The TPS61178 could not stay anyway: recommended VOUT tops out at 
    VBAT ─┬─ DRV8874 (right) ─ WSK2512 10 mΩ ─ XAL7070-473 47 µH ─ DCX 10 L 4.5 V   INA241A2 on the shunt
          ├─ DRV8874 (left)  ─ WSK2512 10 mΩ ─ XAL7070-473 47 µH ─ DCX 10 L 4.5 V   INA241A2 on the shunt
          ├─ STSPIN958, 400 kHz, REF limit ─ XGL5030-472 4.7 µH ─ fan motor
-         ├─ R44/R45 10k/2k ─ PC5 (battery voltage)
-         └─ Schottky 40 V ─┐
-USB VBUS ─ P-FET (gate follows VBAT, 10 V zener G-S) ─┴─ VSYS (4.3-17.4 V)
-                                          ├─ L6981C33 ─ 3V3_D: H7 VDD/VDDSMPS, ESP32-S3-MINI-1, encoders, IMU,
+         ├─ R44/R45 20k/2k ─ PC5 (battery voltage)
+         └─ D14 B5819W Schottky 40 V ─ VSYS (11.4-17.4 V; 3.8-5.0 V on 5V_IN alone)
+   5V_IN (a programmer's 5 V pin: J2 pin 2, SWD1 pad 4) ─ D17 B5819W ─┘
+                                          ├─ L6981C33 ─ 3V3_D: H7 VDD/VDDSMPS, ESP32-C5-MINI-1, encoders, IMU,
                                           │              WS2812C-2020-V6 ×2, IR emitters (3.3 Ω each) → AC-coupled selectors → CC sink
                                           └─ 22 Ω + 10 µF ─ ADP7142ACPZN3.3 (EN = 3V3_D) ─ 3V3_A:
                                                  VDDA (1 µF + 100 nF), INA241A2 VS + REF1, phototransistor collectors,
                                                  emitter-sink op-amp (set-point from the DAC on PA5)
-USB-C D± ─ U6 USBLC6 ─ ESP32-S3 GPIO19/20 (CMSIS-DAP + CDC + MSC)
-ESP32 ─ SWDIO GPIO11 / SWCLK GPIO12 / NRST GPIO21 ─ H7;  ESP UART ─ H7 UART4 PA11/PA12 up to 5 Mbaud;  flow control GPIO13 ─ PA9
+ESP32-C5 ─ SWDIO GPIO0 / SWCLK GPIO1 / NRST GPIO23 ─ H7;  ESP_Flow GPIO24 ─ PA9
+ESP32-C5 ─ SPI2 half-duplex (H7 master): SCK GPIO10 ─ PA12, DATA GPIO8 ─ PB14, CSn GPIO9 ─ PA11  (UART4 fallback on PA11/PA12)
+ESP32-C5 UART0 TX0/RX0, EN, GPIO28, 5V_IN ─ J2 2 × 3 1.27 mm header (ESP-Prog Program interface)
+H7 SWDIO / SWCLK, 5V_IN ─ SWD1 bare 1.27 mm pads (clone ST-Link order: 1 SWDIO, 2 GND, 3 SWCLK, 4 5V)
 DRV8874 nFAULT ×2 wire-OR ─ PB2
 ```
 
 ### Power tree
 
-- **VSYS** is one system node, `OR(VBAT, VBUS)`, ahead of both regulators, so the ESP, the H7 (for
-  SWD flashing) and VDDA all run from USB alone. The battery side and the bridges are never
-  back-fed: the VBAT side blocks VSYS → VBAT, and a 4S pack (≥ 12 V) is always above VBUS.
-  - **Recommended for HV cells:** a 40 V, 1 A Schottky from VBAT to VSYS (loss ≈ 0.4 V × 0.13 A ≈
-    50 mW at 14.8 V, computed) plus a 30 V P-FET (AO3401A class) from VBUS: drain on VBUS, source
-    on VSYS, gate to VBAT through 10 kΩ with 1 MΩ to GND. With the battery present VGS ≈ +0.25 V and
-    the FET is off; with it absent VGS ≈ −4.6 V and the FET is on (power-tree study §8, inference).
-    B5819W (C8598) and SS14 (C2480) are JLC basic parts. The low-loss version is two LM74700-Q1
-    (or MX74700T) ideal-diode controllers with N-FETs (65 V anode rating, POR rising 3.9 V max;
-    SNOSD17G).
-  - **TPS2121 only with non-HV cells:** 17.4 V sits 4.6 V under its 22 V recommended maximum and
-    6.6 V under its 24 V absolute maximum, and no practical TVS clamps below 24 V ([TPS2121]
-    §7.1, §7.3).
-  - **On the board** (Regulators.zen, power path): D14 B5819W and Q8 AO3401A. The AO3401A is
-    ±12 V VGS, −30 V VDS (AOS Rev 3.1 p1); D16 (10 V zener, gate to source) holds VGS within
-    −10.6 V when VBAT falls faster than VSYS (−15 to −16 V without it), and forward-biased at
-    most +0.48 V with the pack on (vbat_bulk.py section 9). With the pack on, Q8's VGS is
-    VF(D14) − 0.01·VBAT, −0.17 to +0.48 V, off for any forward drop. The B5819W's typical curves
-    (JCET p2): VF 0.32 V at 25 °C and 0.23 V at 100 °C at the 0.13 A it carries; reverse 5-6 µA
-    at 25 °C, 55-64 µA at 75 °C, 0.42-0.59 mA at 100 °C at 1-5 V. On USB alone that leakage (with
-    Q6's, if the pack is fitted and SW4 off) is all that drives VBAT, and Q8's gate follows VBAT:
-    the battery divider is 10k/2k so that VBAT stays near 2 V at 85 °C and Q8 on (a 100k/20k
-    divider lets VBAT reach VSYS above about 50-60 °C, and USB then feeds VSYS through Q8's body
-    diode, 0.7 V lower).
-  - **USB budget**: VBUS 4.4-5.5 V (USB 2.0 §7.2.2 and Table 7-7; vSafe5V 4.75-5.5 V, [USB PD]
-    R3.2 Table 4.8, which [USB-C] R2.5 takes as its definition). The board reads no Type-C
-    current advertisement: its CC pins carry only Rd, so it takes the Default 500 mA of a
-    configured USB 2.0 device ([USB-C] §4.6.2.1). USB alone is for flashing, debug and telemetry
-    (USB-only budget below); reading Rp for 1.5/3 A would only light the emitters and LEDs on the
-    bench, for two more ADC inputs on the CC lines.
+- **VSYS** is VBAT behind D14, a B5819W 40 V 1 A Schottky (C8598, JLC basic; loss ≈ 0.32 V ×
+  0.13 A ≈ 40 mW at 14.8 V, JCET B5817W-B5819W p2), ahead of both regulators: 11.4-17.4 V, the
+  pack less D14's 0.6 V maximum drop (p1). D14 blocks VSYS → VBAT, so nothing on VSYS reaches
+  VBAT, the bridges' bulk, the battery divider or the pack. It also keeps a VBAT driven below GND
+  (D15 forward with a pack forced in reversed, until F1 opens) off the regulators' inputs. The
+  B5819W's typical curves (JCET p2): VF 0.32 V at 25 °C and 0.23 V at 100 °C at the 0.13 A it
+  carries; reverse 5-6 µA at 25 °C, 55-64 µA at 75 °C, 0.42-0.59 mA at 100 °C at 1-5 V.
+- **Programming power, 5V_IN**: a USB-serial adapter's or a clone ST-Link's 5 V pin (USB VBUS,
+  4.40-5.25 V, USB 2.0 Table 7-7) on J2 pin 2 or SWD1 pad 4 feeds VSYS through D17, a second
+  B5819W, so the board flashes without the pack; its 3.3 V pin goes nowhere (a 3.3 V pin on 5V_IN
+  leaves VSYS at about 3.0 V, under the L6981's 3.5 V: the buck may still start, its VCC rising
+  threshold being 2.3-3.3 V ([L6981] Table 6), and run in dropout, 3V3_D about 2.8-2.9 V, below the
+  C5's 3.0 V; nothing is damaged). Computed
+  ([power_path_checks.py](calculations/power_tree/power_path_checks.py) section 2,
+  [calc_power_tree.py](calculations/power_tree/calc_power_tree.py) section 6):
+  - 5V_IN draws 0.19 A flashing the C5 over J2 (its Wi-Fi off), 0.25 A flashing the H7 over SWD1
+    with the C5's Wi-Fi associated, 0.53 A at the C5's 5 GHz TX peak (Table 6-5, rated at 100 %
+    duty; the L6981 at an assumed 85 %): the flashing cases sit inside a USB port's 500 mA.
+  - VSYS is 4.38-4.40 V on a 4.75 V port, 3.80 V at worst (a 4.40 V port, D17 at its 0.6 V
+    maximum), about 5.0 V at most (a 5.25 V port, D17 about 0.25 V at a light load). The L6981's
+    duty limit, 1 − 185 ns × 440 kHz = 0.919 ([L6981] Table 6, Eq. 45 with RDSON +20 % and L3's
+    DCR), keeps 3V3_D regulated from 3.72 V at the flashing load and 3.86 V at the TX peak; the
+    current loop needs ISLOPE ≥ 0.177 A at that duty and fSW's 360 kHz minimum, 0.22 A with L3 at
+    −20 %, which it has ([l6981_slope.py](calculations/power_tree/l6981_slope.py)). The ADP7142
+    regulates 3V3_A from LDO_IN 4.16 V typical (about 20 mV typical dropout at 10 mA, [ADP7142]
+    Figure 22, the 3.3 V part's curve; Table 1's dropout limits are for VOUT = 5 V); at the worst
+    corner LDO_IN is 3.30 V and 3V3_A about 3.27 V typical, not guaranteed: analog readings on
+    5V_IN are for checking only.
+  - The programmer's own fuse and lead drop part of its VBUS before the board: below the margins
+    above, the buck runs at its maximum duty and 3V3_D follows VSYS, about 3.2 V at VSYS 3.6 V,
+    still enough to flash (the H7 runs from 1.62 V, the C5 from 3.0 V).
+  - At plug-in the programmer's 5 V charges VSYS's 11 µF and LDO_IN's 10 µF through D17, about
+    21 µF against the 10 µF USB 2.0 §7.2.4.1 allows a device at attach, then the buck's 1.0-1.6 ms
+    soft start ([L6981] Table 6) charges 3V3_D at about 0.3 A from 5V_IN: under a port's 500 mA, so
+    no fuse trips, and the programmer's VBUS only dips briefly.
+  - With the pack in, D17 blocks up to the 24.2 V clamp (61 % of its 40 V); its reverse current
+    (12 µA at 25 °C) goes into the programmer's 5 V rail. Without the pack, D14 leaks into VBAT,
+    which the battery divider's 22 kΩ holds at 0.13 V at 25 °C, 1.1 V at 70 °C and 3.42 V at 85 °C;
+    with the pack in and SW4 off, Q6's off-state leakage adds about 0.5 V (IDSS is specified only
+    at 25 °C), about 3.9 V: the DRV8874s (UVLO 4.3 V min) stay off. The STSPIN958's VS turn-on has
+    a 5.05 V maximum and no minimum, so it is not counted on: its output stays Hi-Z with EN/nFAULT
+    low, or on its low side with PWM1 held low by its internal pull-down ([STSPIN958] Tables 5 and
+    11), and the firmware keeps Fan_Enable low and reads "no pack"
+    (`boards/main2/firmware_changes.toml`, battery).
+- **Bench power without a pack**: a current-limited supply at 12-16.8 V into J1 (a lead with the
+  pack's JST PA plug) with SW4 on; the board starts as from the pack. With the motors and the fan
+  disabled, a limit just above what the 3V3 rails draw keeps a fault on VBAT from taking the
+  supply's full current, and D15 clamps the supply's hot plug (VBAT overvoltage, below).
 - **Battery input** (Regulators.zen): J1 is a JST PA header, 3 A AC/DC with AWG #22 leads, 10 mΩ
   max per contact, −25 to +85 °C including its own rise (JST PA catalogue): the battery path's
   3 A rms firmware limit sits inside it, its 5-6 A peaks last under 1 s. F1 interrupts 150 A at
@@ -113,9 +133,9 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   Miller plateau and 15 % of RDS(on)).
 - **3V3_D**: the L6981C33 stays (1.5 A, 3.5-38 V, output network 30.5-145 µF at 3.3 V; [L6981]
   §8.4.3). Its LCM light-load step (+1.8 %, §6.4.1) no longer reaches the ADC, because the analog
-  loads are on their own rail. The ESP adds up to 355 mA Wi-Fi TX peak and asks for a supply of at
-  least 0.5 A ([ESP32-S3-MINI-1] Tables 6-2, 6-4); 10 µF + optional 22 µF at the module keeps the
-  3V3 total at about 104 µF, inside the 145 µF window.
+  loads are on their own rail. The ESP32-C5 adds up to 426 mA of 5 GHz TX peak and asks for a
+  supply of at least 0.6 A ([ESP32-C5-MINI-1] Tables 6-2, 6-5); 22 µF + 100 nF at the module
+  (Figure 9-1) and 10 µF on its feed keep the 3V3 total at about 104 µF, inside the 145 µF window.
 - **3V3_A**: an HV LDO fed from VSYS through **22 Ω + 10 µF**: the **ADP7142ACPZN3.3** (fixed
   3.3 V, 2.7-40 V, 44 V abs max, 11 µVrms, 68 dB at 100 kHz and 50 dB at 1 MHz, 80 µA ground
   current at 10 mA; LFCSP 72 °C/W, TSOT 170 °C/W, so the LFCSP; [ADP7142] Rev K Tables 1-4) on
@@ -143,9 +163,9 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
     25 to 65 °C and −0.12 % to 85 °C, so the ±0.2 % residual after a room-temperature calibration
     (Q1) holds on the typical part with 2× margin. A guaranteed bound needs the firmware to track
     VDDA with VREFINT (DS13311 Table 21: 70 ppm/°C max, ±0.28 % over a 40 K swing).
-  - **Input filter**: the 22 Ω keeps headroom on USB-only power, where VSYS can be 4.3 V and the LDO
-    needs 3.3 V + dropout at 23 mA (power-tree study §9). The RC also keeps the 100 kHz motor ripple out
-    of the LDO, whose PSRR is lower there than at kHz.
+  - **Input filter**: the 22 Ω drops 0.5 V at the 23 mA worst-case load, leaving the LDO at 10.9 V
+    or more. The RC keeps the 100 kHz motor ripple out of the LDO, whose PSRR is lower there than at
+    kHz (power-tree study §9).
   - **Sequencing**: the LDO EN on 3V3_D, so 3V3_A starts after VDD. While VDD is below VDDmin, VDDA
     must stay below VDD + 300 mV; at power-down VDD may fall below the others only if the energy
     left is below 1 mJ (DS13311 §3.7.1, Figure 2). The ADP7142's EN turns on at 1.30 V at most and off
@@ -178,20 +198,18 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   The model's LDO case used 47 Ω; at ≤ 22 Ω the window spread, which comes from that pre-resistor,
   roughly halves (inference, power-tree study §4). At 10-20 mA the buck saves only 0.06-0.26 W, so the
   LDO is the quieter, smaller and simpler rail.
-- **No 5 V rail**: the ESP is on 3V3_D, the LEDs are 3.3 V parts, the INA241 runs from 2.7 V, the
-  DRV8874 and STSPIN958 regulate internally from VM, and the emitters are on 3V3_D. The `+5V` net
-  shrinks to the VBUS input of the power path.
-- **USB-only budget** (85 % efficiency assumed): flashing and debug 222 mA from VBUS, ESP TX peaks
-  441 mA, everything including emitters and white LEDs 588 mA, against 500 mA from a USB 2.0 port.
-  On USB alone the firmware keeps the emitters and LEDs off or dim and may cap TX power; BLE at
-  9 dBm draws 204 mA against 340 mA at 20 dBm (power-tree study §8, [ESP32-S3-MINI-1] Table 6-5).
+- **No 5 V rail** (5V_IN is a programming input into VSYS, not a rail): the ESP is on 3V3_D, the LEDs are 3.3 V parts, the INA241 runs from 2.7 V, the
+  DRV8874 and STSPIN958 regulate internally from VM, and the emitters are on 3V3_D.
 - **4S ratings**: C36 (16 V) becomes ≥ 25 V; SW4 (MK-12D18-G040, DC 12 V) becomes the G-Switch SK-12D29-G060
   (DC 24 V 1 A, 1.38× the 17.4 V HV pack; the same 8.6 × 3.6 mm body with a 6.0 mm black lever; three
   pins at 2.0 mm pitch and two frame legs, so a new footprint; `components/g-switch/SK-12D29-G060`);
-  R44/R45 (100k/27k gives 3.57-3.70 V, above VDDA) becomes 10k/2k on PC5, 2.90 V at 17.4 V
-  (firmware constant 6.0), low enough to hold VBAT at about 2 V on USB alone at 85 °C against
-  D14's and Q6's leakage, so Q8 stays on (Power path below); 25 V capacitors sit at 67 % of
-  rating on 4S (drivetrain study §4).
+  R44/R45 (100k/27k gives 3.57-3.70 V, above VDDA) becomes 20k/2k on PC5, 1.58 V at 17.4 V and
+  2.20 V at D15's 24.2 V clamp (firmware constant 11.0): a ratio of 6 (10k/2k or 100k/20k) puts
+  4.03-4.10 V on PC5 at the clamp, above the 4.0 V absolute maximum of its TT_ha pad ([DS13311]
+  Tables 10-11), and 22 kΩ holds VBAT near 0 V on 5V_IN alone where 120 kΩ lets it float to VSYS
+  above about 50 °C ([power_path_checks.py](calculations/power_tree/power_path_checks.py) section
+  2); its 1.82 kΩ Thevenin source holds the ADC sample with C59 100 nF;
+  25 V capacitors sit at 67 % of rating on 4S (drivetrain study §4).
 - **Battery switch**: Q6 HSBB3072 stays: VDS 30 V (1.79× margin at 16.8 V), VGS = VBAT/2 = 6-8.4 V,
   0.61-0.97 W at 16 A. It gives **no reverse-polarity protection**: its body diode conducts with
   the pack reversed (driver study Q6); the connector keys the polarity.
@@ -263,8 +281,7 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   stays all ceramic; the polymer rows are in vbat_bulk.py should a bench supply
   on long leads become the normal way to run the robot.
 - **VBAT overvoltage and the TVS** (calculations/power_tree/vbat_bulk.py). The lowest ratings on VBAT
-  and VSYS: Q8 AO3401A (−30 V VDS, VSYS against an absent VBUS; ±12 V VGS, held by its 10 V
-  gate-source zener D16 when VBAT falls faster than VSYS, vbat_bulk.py section 9), Q6 HSBB3072 (30 V VDS, with the pack connected), then 40 V (DRV8874 VM abs max, B5819W),
+  and VSYS: Q6 HSBB3072 (30 V VDS, with the pack connected), then 40 V (DRV8874 VM abs max, B5819W),
   42 V (L6981 VIN), 44 V (ADP7142), 62 V (STSPIN958 VS). Per case:
   - *Hot plug*: none from the pack (VBAT ≤ 17.4 V, Q6 VDS ≤ 3.4 V); 24.2 V from a bench supply on
     1 m leads (23.5 V with D15, the SMAJ18A).
@@ -428,7 +445,8 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
 ### Fan
 
 - **STSPIN958**, parallel half-bridge mode, **400 kHz** on TIM12 (ARR 687), the same three MCU pins
-  as today (Fan_PWM PB15, Fan_Enable PB14, Fan_TOFF PB13). It is the only integrated single-bridge
+  as on the main board but for Fan_Enable (Fan_PWM PB15, Fan_Enable PB10 driven open drain and read back
+  as nFAULT, Fan_TOFF PB13). It is the only integrated single-bridge
   driver found with PWM up to 500 kHz, a cycle-by-cycle current limiter, synchronous freewheeling and
   integrated protection (OC, OT 150 °C, UVLO, EN/nFAULT) ([STSPIN958]; fan study §3).
 - **Load model**: a drone-class coreless motor, R 0.2-1.2 Ω, kv 13-17k rpm/V for 1S, operating at
@@ -517,135 +535,159 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   this size rates a lower supply in its electrical table (SK6805-EC20, XL-2020RGBC-2812B 3.5 V,
   SK6812-EC20 3.7 V), so the WS2812C stays (`boards/main2/Peripherals.zen`).
 
-### ESP32 and USB
+### ESP32 radio
 
-- **ESP32-S3-MINI-1-N8** (15.4 × 20.5 × 2.4 mm, 8 MB flash, 39 GPIOs, pre-certified antenna)
-  ([ESP32-S3-MINI-1] Table 1-1). It is the only Wi-Fi/BLE ESP32 with a general-purpose USB OTG
-  controller ([ESP32-S3] §4.2.1.7), which lets the single USB-C port be a standard CMSIS-DAP v2 probe,
-  a CDC serial port bridged to the H7 and a mass-storage drive at once
-  ([Q2](#q2-the-compromise-of-an-esp32-without-usb-otg)).
-- **USB**: USB-C D± → U6 USBLC6 → ESP GPIO19 (D−) / GPIO20 (D+); CC 5.1 kΩ Rd unchanged; SBU open.
-  VBUS goes only into the power path, the ESP's sense divider and the clamp D8, a Littelfuse
-  SP1005-01ETG whose 6 V stand-off sits above the 5.5 V a Type-C source may hold (the `+5V` net is
-  declared 4.4-5.5 V).
-- **H7 data link**: an ESP UART on the existing UART4 nets (PA11 = UART4_RX, PA12 = UART4_TX) at
-  up to **5 Mbaud**, the ESP UART limit: about 500 kB/s, 40-180× the HM-19's 2.7-11.5 kB/s, enough
-  for the "8 floats at 8 kHz" stream of 256 kB/s (MicrasFirmware `bluetooth_design.md` §7).
-  ESP_Flow (ESP GPIO13 → PA9) carries flow control. With a laptop on Wi-Fi the UART is the bottleneck (S3 TCP about 20 Mbit/s
-  in open air, [ESP-IDF Wi-Fi performance]).
+- **ESP32-C5-MINI-1-N4** (15.4 × 21.3 × 2.4 mm, 4 MB flash, 22 GPIOs, PCB antenna, FCC
+  2AC7Z-ESPC5MINI1 and CE; [ESP32-C5-MINI-1] Table 1-1, Figure 10-1; ESP certificates): Espressif's
+  dual-band (2.4 and 5 GHz, 5180-5885 MHz) Wi-Fi 6 module with a 240 MHz RISC-V core
+  ([ESP32-C5-MINI-1] Features, Table 7-7). On 3V3_D with 22 µF + 100 nF at its 3V3 pin and 10 µF
+  on its feed (Figure 9-1), EN on a 10 kΩ / 1 µF RC (section 9), GPIO28, the boot strap, pulled up
+  by R90 (schematic checklist, Strapping Pins). The other strapping pins (GPIO2, GPIO3, GPIO7,
+  GPIO25-GPIO27) stay open at their defaults (Tables 4-1 to 4-7).
+- **No USB**: the radio flashes over the air and, for recovery, over its UART0 header **J2**
+  (HC-PZ127-7.2L-2x3PS, 2 × 3 1.27 mm SMD) wired as Espressif's ESP-Prog Program interface: 1 EN,
+  2 VDD (5V_IN), 3 TX0 (GPIO11), 4 GND, 5 RX0 (GPIO12), 6 GPIO28 ([ESP-Prog] Program Interface).
+  The module carries the 499 Ω the checklist asks on U0TXD inside its shield (Figure 8-1). Holding
+  pin 6 low and pulsing pin 1 enters the ROM's UART download mode, which only burned eFuses defeat.
+  Pin 2 takes the programmer's 5 V into VSYS through D17, which powers the whole board without the
+  pack and blocks with it (Power tree, programming power); no connector pin reaches 3V3_D.
+- **H7 data link**: SPI2 in half-duplex on three wires, the H7 the master: ESP_SCK on PA12
+  (SPI2_SCK), ESP_DATA on PB14 (the MISO pad with IOSWP = 1, SPI_CFG2 COMM = 11, [RM0468] §55.4.2
+  and §55.4.4), ESP_CSn on PA11 (a GPIO), the C5 an ESP-IDF spi_slave_hd slave in 3-wire and DMA
+  append mode. R95, 22 Ω at PA12, terminates the clock at its driver; R96, 220 Ω at the C5 on the
+  data line, limits the current to 15 mA, under the 20 mA per pin ([DS13311] Table 11), if both ends
+  drive it at a direction change ([RM0468] Figure 643 note 3), which the firmware's turn-around
+  avoids (`boards/main2/firmware_changes.toml`, link); its RC with the line, about 3 ns, is 11 % of
+  the half clock at the 15.6 MHz start and 22 % at 31.25 MHz, the fastest step under the C5's
+  40 MHz slave limit (`boards/main2/Esp.zen`); R97
+  100 kΩ holds ESP_CSn high while neither end drives it. ESP_Flow (GPIO24 → PA9,
+  EXTI9) carries the C5's credits: the H7 starts a transfer only when the C5 has a buffer queued.
+  UART4 is the fallback on the same pins, up to 5 Mbaud (PA12 UART4_TX into the C5's U1RXD on
+  GPIO10, its U1TXD on GPIO9 through R88 100 Ω into PA11 UART4_RX), against the "8 floats at 8 kHz"
+  stream of 256 kB/s (MicrasFirmware `bluetooth_design.md` §7). With a laptop on 5 GHz Wi-Fi the
+  air carries about 20 Mbit/s of TCP ([ESP-IDF Wi-Fi performance]).
+- **Pins**: every H7 line lands on a C5 GPIO free of any restriction (no strapping, pad-JTAG, UART0,
+  USB or flash role; [ESP32-C5] §2.3.5, priority 2): SWDIO GPIO0, SWCLK GPIO1 (through R86 22 Ω),
+  ESP_DATA GPIO8, ESP_CSn GPIO9, ESP_SCK GPIO10, NRST GPIO23 (open drain), ESP_Flow GPIO24. At reset
+  each has its input and output off and no pull ([ESP32-C5 TRM] Table 8.13-1), and neither the
+  datasheet nor the TRM lists a power-up glitch on any C5 pin, so none drives NRST or a link line
+  before the firmware does (`boards/main2/Esp.zen`).
 - **Flashing**: SWD with connect-under-reset (NRST), no system bootloader and no BOOT0. The H725's
   bootloader UART/SPI/I²C pins all carry motors, the buzzer, sensors or the sensor bus, and PA10 is
-  Motors_Enable ([AN2606] Table 133). The H7 flash is a single 1 MB bank of eight 128 kB sectors, so
-  the A/B images live in the ESP's 8 MB. The 164 kB image takes about 2.2 s to erase and 0.67 s to
-  program (typical; [DS13311] Table 48), so a flash takes about 3-4 s (computed). BOOT0 stays low
-  through R42, and SW3 is the manual reset. The ESP drives NRST open-drain from GPIO21, which has no
-  pull and no power-up glitch; GPIO1-20 glitch for about 60 µs while the ESP powers up ([ESP32-S3]
-  v2.2 Table 2-2), which on NRST would reset the H7 a second time. GPIO13, which glitches low, carries
-  ESP_Flow, where a low only means "hold off".
-- **Debug probe**: CMSIS-DAP (ST-Link is proprietary). Base firmware espressif/esp-usb-bridge
-  (CMSIS-DAP v2 bulk + CDC + MSC on S3) plus the Wi-Fi CMSIS-DAP-TCP server from
-  bkuschak/cmsis_dap_tcp_esp32 ("Tested with ESP32 S3, C3, and C6 ... several STM32 development
-  boards", up to 200 KB/s SRAM, ~6 MHz SWD). OpenOCD's `cmsis-dap backend tcp` is in master only (last
-  tag v0.12.0, 2023). The H725 accepts SWCLK up to 71 MHz ([DS13311] Table 124). STM32CubeProgrammer
-  has no path (no CMSIS-DAP support found, and no H7 USB for DFU), so `make flash` moves to OpenOCD or probe-rs;
-  CubeIDE works through an external OpenOCD GDB server. The host runs the H7 flash algorithm
-  (OpenOCD `stm32h7x`, probe-rs STM32H725), so the ESP carries no STM32 code; esp-usb-bridge's
-  CMSIS-DAP nRESET is an empty stub (`DAP_config.h`), which the probe firmware fills with GPIO21
-  (`boards/main2/firmware_changes.toml`, flash). The robust fallback stays the SWD1 pads for an
-  ST-Link.
-- **Recovery**: on the S3 the OTG app takes the shared PHY away from USB-Serial/JTAG
-  (RTC_CNTL_RTC_USB_CONF_REG, [ESP32-S3 TRM] v1.8 register 10.56), and software, core and CPU
-  resets keep that setting (TRM Table 7.1-1). EN low powers the chip down; its release is a
-  power-on chip reset that clears the PHY selection and re-latches GPIO0, so GPIO0 held low plus an
-  EN pulse always recovers a chip with default eFuses. The board has an **ESP_BOOT and an ESP_EN
-  pad** for it (non-OTG study Q2.3).
+  Motors_Enable ([AN2606] Table 133). The H7 flash is a single 1 MB bank of eight 128 kB sectors;
+  the radio's 4 MB holds two OTA slots of about 1.4 MB with a staged H7 image beside them. The 164 kB
+  image takes about 2.2 s to erase and 0.67 s to program (typical; [DS13311] Table 48), so a flash
+  takes about 3-4 s (computed). BOOT0 stays low through R42, and SW3 is the manual reset.
+- **Flashing and recovery by wire** (no pack needed, 5V_IN powers the board):
+  - The C5: any USB-serial adapter with 3.3 V logic on J2 (TX0 pin 3, RX0 pin 5, GND pin 4, its
+    5 V pin, never its 3.3 V one, on pin 2), or an ESP-Prog with its PROG PWR SEL jumper at 5 V on
+    the 1.27 mm Program cable. Boot: GPIO28 (pin 6) low and a pulse on EN (pin 1), which the
+    ESP-Prog's DTR/RTS do for esptool; with a plain adapter, hold pin 6 to GND by hand, tap pin 1
+    to GND, and tell esptool not to reset. Then `idf.py flash` or `esptool write_flash`.
+  - The H7: a clone ST-Link on SWD1, whose pads follow the clone's 1.27 mm 4-pin lead: 1 SWDIO,
+    2 GND, 3 SWCLK, 4 its 5 V pin (never its 3.3 V pin), so the lead plugs on pin 1 to pad 1 (the
+    square pad); turned round or shifted one pad, its 5 V never lands on GND, and nothing else
+    protects the header (the owner's choice). OpenOCD (`interface/stlink.cfg`,
+    `target/stm32h7x.cfg`) or STM32CubeProgrammer flashes it. SWD1 carries no NRST: if the running firmware keeps the core from
+    answering, hold SW3 (reset) while the probe connects and release it (connect under reset by
+    hand).
+- **Debug probe**: over Wi-Fi only, CMSIS-DAP over TCP (bkuschak/cmsis_dap_tcp_esp32, "Tested with
+  ESP32 S3, C3, and C6", up to 200 KB/s SRAM, ~6 MHz SWD; its GPIO code is ESP-IDF's portable
+  layer, so a C5 port is small work, inference) for OpenOCD's `cmsis-dap backend tcp` (master only,
+  last tag v0.12.0, 2023), or a Black Magic Probe port for the C5 (BareMetalTestLab/blackmagic-esp32-c5,
+  GDB on TCP). The H725 accepts SWCLK up to 71 MHz ([DS13311] Table 124). STM32CubeProgrammer has no
+  path, so `make flash` moves to OpenOCD or GDB; the host runs the H7 flash algorithm, so the radio
+  carries no STM32 code (`boards/main2/firmware_changes.toml`, flash). The SWD1 pads take an
+  ST-Link when the radio cannot reach the H7, or at a venue without Wi-Fi.
 - **Contests**: All Japan (NTF), UKMARS and Minos, IEEE Regions 1 and 2, APEC and Portugal (UTAD)
   forbid control or assistance into a running mouse and ask it to be autonomous or self-contained;
   none names transmit-only telemetry, but judges may read the wording strictly, and RoboCore
   (Brazil) and RoboChallenge allow only a remote start. The firmware therefore has a contest mode
   with the radio fully off for the whole maze allocation, telemetry logged on board
-  (`boards/main2/firmware_changes.toml`, contest).
-- **Placement**: the rear-left corner, the antenna area toward the rear edge inside the outline
-  (`boards/main2/Esp.zen`); see [ESP32 form factor](#esp32-form-factor). Espressif asks for the
-  feed end at a board edge with the antenna beyond it or the board cut away under it, 15 mm
-  clearance in all directions, away from the bridges and the USB/UART lines ([ESP layout]).
-- **Removed**: the main board's SWD connector P1 and its SWD_VDD OR-ing (the bare SWD1 pads remain
-  for an ST-Link), the SBU supply chain for the HM-19 (its switch, fuse, diode, capacitors, resistors
-  and regulator), and the HM-19 board on the USB-C (the `bluetooth` board). The ESP takes about 316 mm², roughly
-  offset by what goes (ESP study Q6).
+  (`boards/main2/firmware_changes.toml`, contest). Outside it the radio runs 5 GHz only on channels
+  36-48, the only DFS-free channels in every target country.
+- **Placement**: the rear-right corner, the antenna area over a notch in the rear edge
+  (`boards/main2/Esp.zen`, `spec/main2.toml`); see [ESP32 form factor](#esp32-form-factor). Keep
+  the UART lines, J2 and its header pins away from the antenna, with ground copper and vias round
+  them ([ESP layout]).
+- **Not on the board**: the main board's SWD connector P1 and its SWD_VDD OR-ing (the bare SWD1
+  pads remain for an ST-Link), the SBU supply chain for the HM-19 and the HM-19 board itself (the
+  `bluetooth` board), and the USB-C receptacle with its ESD, CC and VBUS parts.
 
 ### ESP32 form factor
 
-**Solder the module, not the bare chip: ESP32-S3-MINI-1-N8 in the rear-left corner, its PCB antenna
-overhanging the rear edge by 5.05 mm.** The module is a shielded, certified radio that needs no RF
-design; the price is mechanical (a 5 mm overhang, M1 moved, the left drive block 1 mm shorter). The
-SiP and chip-down options fit the same corner without mechanical change, but their antenna match
-needs a VNA on the finished robot, and they have no shield and no certificate (form-factor study).
+**Solder the module, not the bare chip: ESP32-C5-MINI-1-N4 in the rear-right corner, its PCB antenna
+over a notch cut out of the rear edge.** The module is a shielded, certified radio that needs no RF
+design. A chip-down C5 needs its crystal capacitors and every RF matching value tuned on the
+finished board with RF instruments ([ESP schematic], Clock Source, RF Tuning), and loses the
+module's certificates.
 
-| | S3-MINI-1-N8 | S3-MINI-1U-N8 | S3-WROOM-1 / -1U | S3-PICO-1-N8R2 (SiP) | ESP32-S3FN8 chip-down | C5-MINI-1-N4 / -1U |
-|---|---|---|---|---|---|---|
-| Size (mm) | 15.4 × 20.5 × 2.4, antenna 5.05 | 15.4 × 15.4 × 2.4 + W.FL/MHF III | 18 × 25.5 × 3.1 / 18 × 19.2 × 3.2 | LGA56 7 × 7 × 0.96 | QFN56 7 × 7 × 0.85 | 15.4 × 21.3 × 2.4 (antenna 5.85) / 15.4 × 15.4 |
-| Inside | chip, 40 MHz crystal, flash, match, antenna, shield | same, connector | same | crystal, 8 MB flash, 2 MB PSRAM, decoupling, chip-side match | 8 MB flash | as MINI-1 |
-| Board adds | 10 µF + 0.1 µF, EN RC | + antenna, cable | as MINI-1 | 22 µF + 0.1 µF, EN RC, antenna π (values TBD), 50 Ω line, antenna | crystal ±10 ppm + 24 nH + load caps, 0201 CLC match + stub, antenna + CLC, about 20 passives | as MINI-1 |
-| Board area | 238 mm² + 78 mm² overhang (about 430 mm² with the antenna inside and Espressif's cut-out) | 237 mm² | 459 / 346 mm² | about 110 mm² + antenna keep-out | about 170 mm² + antenna keep-out | 328 / 237 mm² |
-| GPIO (need about 17) | 39 | 39 | 36 | about 38 | 45 less flash pins | 22 |
-| RF certificates | FCC 2AC7Z-ESPS3MINI1, CE, IC 21098-ESPS3MINI1, MIC, SRRC, KC; no Anatel | CE, SRRC; no FCC ID or IC number of its own, no Anatel | FCC, CE, IC, MIC, SRRC, KC | none | none | FCC 2AC7Z-ESPC5MINI1, CE / none |
-| JLCPCB (all Extended), stock, qty 1 | C2913206, 3754, $4.72 | C2980299, 1139, $4.89 | C2913198, 555, $4.91 / C2980297, 1176, $4.81 | C7558093, 0, $5.01 | C2913196, 1959, $3.34 + parts | C50346179, 0, $12.54 / not listed |
-| Fits this board | rear-left, with a 5 mm overhang | rear-left, no overhang | **no** (18 mm wide) | rear-left, no change | rear-left, no change | as MINI-1 / -1U |
-| Design effort, RF risk | lowest; chassis detuning only | low + antenna mount; antenna can sit in open air | – | medium; untuned match | high; crystal and match too | as MINI-1; dual band |
+| | C5-MINI-1-N4 | C5-MINI-1U-N4 | C5-WROOM-1 / -1U | ESP32-C5HF4 chip-down |
+|---|---|---|---|---|
+| Size (mm) | 15.4 × 21.3 × 2.4, antenna area 5.85 | 15.4 × 15.4 × 2.4 + antenna connector | 18.0 × 27.5 × 3.3, antenna area 6.5 / 18.0 × 21.2 | QFN48 6 × 6 |
+| Inside | chip, 48 MHz crystal, 4 MB flash, diplexer, match, antenna, shield | same, connector | same, 4-32 MB flash, up to 8 MB PSRAM | chip and 4 MB flash |
+| Board adds | 22 µF + 0.1 µF, EN RC | + antenna, cable | as MINI-1 | crystal and load capacitors, two CLC matches, a diplexer, about 30 passives, antenna |
+| GPIO (the board uses 10) | 22 | 22 | up to 22 | 29 less flash pins |
+| RF certificates (ESP certificates) | FCC 2AC7Z-ESPC5MINI1, CE | none listed | FCC 2AC7Z-ESPC5WROOM1, IC 21098-ESPC5WROOM1, CE, MIC, KC, Anatel (WROOM-1) | none |
+| JLCPCB (Extended), qty 1, read 2026-10-31 | C54951860, 0 in stock | not listed | WROOM-1-N16R8 C54951859; WROOM-1U-N8R8 C54951858 | C54951939 |
+| Fits this board | rear-right, over the notch | rear-right | only with the rear motor connectors and the buck moved | rear-right, plus an antenna keep-out |
 
-Sources: [ESP32-S3-MINI-1] Table 1-1, Figures 10-1/10-2; [ESP32-S3-WROOM-1] Tables 1-1/1-2, Figure
-10-1; [ESP32-S3-PICO-1] Overview, Figures 4-1, 5-1, 6-1; [ESP32-S3] Table 1-1, Figure 7-1;
-[ESP32-C5-MINI-1] Tables 1-1/1-2, Figure 10-1; [ESP schematic] crystal and RF sections; Espressif
-certificate listing; JLCPCB parts library, read 2026-10-15. There is no C5 SiP with an integrated
-crystal; a chip-down C5 is a dual-band RF design.
+Sources: [ESP32-C5-MINI-1] Tables 1-1, 1-2, Figures 8-1, 10-1, 10-2; [ESP32-C5-WROOM-1] Tables
+1-1, 1-2, Figure 10-1; [ESP32-C5] Table 1-1; [ESP schematic]; Espressif certificate listing;
+JLCPCB parts library.
 
-**Placement on this board** (main-board-fixes layout and MicrasHardware, projected;
-[calculations/esp/placement.png](calculations/esp/placement.png)):
+**Placement on this board** (`spec/main2.toml` [u13], [antenna_notch]):
 
 ```text
-          front: wall sensors + H7 (analog front end; 7 mm between W2 and W3)
+          front: wall sensors + H7 (analog front end)
          ┌───────────────────────┐
          │ C2      fan Ø27 ring  │   sides: wheels, drive motors 4.6 mm from the edge,
-  wheel  │▒▒▒▒ drive blocks ▒▒▒▒▒│   battery cells overhanging 27-38 mm above;
-         │▒▒▒▒ (parts ≤ 1.5 mm)▒▒│   only a PICO-1 or a QFN fits under the blocks
-         │[ESP] M1  U2   J1  SW4 │   rear zone x < −23: open sky, ≥ 18 mm from motors and battery
-         └═══────────────────────┘
-          ═══ MINI-1 antenna, x −41.55…−36.5, y 9.0…24.4
+  wheel  │▒▒▒▒ drive blocks ▒▒▒▒▒│   battery cells overhanging 27-38 mm above
+         │▒▒▒▒ (parts ≤ 1.5 mm)▒▒│
+         │SW4  J1  IC7  M2  [ESP]│   rear zone x < −23: open sky, ≥ 18 mm from motors and battery
+         └────────────────────   ┘
+          notch x −46.5…−40.1, y −25…6.1: the antenna area x −46.0…−40.15, y −24.3…−8.9
 ```
 
 - The robot has no top cover, so height never decides; the drive blocks (parts ≤ 1.5 mm over
-  x −21.9…13.5) and the fan's Ø27 part-free ring do. No edge meets Espressif's 15 mm keep-out in
-  place: the nose is the wall-sensor front end, the sides carry the wheels, motors and battery.
-- **Rear-left corner** (the L6205D's, freed): metal-free for 18 mm, open sky, 5-6 mm from the USB-C.
-  A MINI-1 body at x −36.5…−21.05, y 9.0…24.4 with the antenna beyond the rear edge (its feed, the
-  pin-1 end, [ESP32-S3-MINI-1] Figures 3-1 and 10-1, toward the board centre) needs M1 moved (2.8 mm overlap), the left drive block's
-  rear face ≥ 1 mm forward of x = −21.9, and the corner squared (0.4 mm). The in-place turning
-  envelope does not grow: 48.2 mm against the nose's 55.2 mm. The MINI-1U fits the same rectangle
-  without the overhang; a PICO-1 plus chip antenna fits beside M1 with no change at all.
-- **Left side ahead of the wheel** (P1/U5, freed): no module fits between the edge and the fan ring
-  (11.5 mm deep); a PICO-1 with a chip antenna does (C2 in the plot), 8-10 mm from the W1 can.
-- Keep the DRV8874 bridges out of the rear-left corner; WROOM modules fit nowhere (18 mm wide).
+  x −22…13.5) and the fan's Ø27 part-free ring do.
+- **Rear-right corner**: metal-free for 18.1 mm, open sky. The module sits at x −32.4, y −16.6,
+  turned 180°, its pads from x −40.1 to −24.7 on the board, its 5.85 mm antenna area beyond them
+  over the notch, its antenna end 0.5 mm inside the rear edge's line. The C5-MINI-1's antenna has
+  its ground point at the module's pin-1 end (the pad-62 corner) and its open, loaded end at the
+  pin-45 end (Espressif's STEP model, parts ANT-C5-MINI-1-top and ANT-C5-MINI-1-buttom; the
+  datasheet v1.4 cover image; the [ESP layout] "GND Point" figure on the ESP32-C5-WROOM-1's
+  antenna, the same design mirrored): the pin-1 end faces the right edge 0.7 mm away, the open end
+  the board centre. Espressif's keep-out figure asks for at most 2 mm from the ground-point side to
+  the board's side edge, at least 15 mm of board cut away beyond the open end and the antenna end
+  at most 1 mm inside the board's edge line ([ESP layout], Keepout Zone for ESP32-C5 Module's
+  Antenna): the notch is 6.4 mm deep and 31.1 mm wide, from the right edge to y +6.1, 15 mm past
+  the module's inner side. Dense ground vias run along the module's ground edge and the notch.
+- The battery switch SW4 and its notch take the rear-left corner (boards/main's notch, mirrored),
+  and the power input (J1, F1, D15, Q6) and the 3V3_D buck move beside it; the chassis's rear zones
+  are mirror images (`spec/main2.toml` [drive_blocks] tail_left/tail_right, rear bosses), and the
+  battery basket's wire slots sit at the rear of both side walls (MicrasHardware `frame.py`), so
+  the pack's leads reach J1 on either side.
+- Keep the DRV8874 bridges out of the rear-right corner; the WROOM modules fit only with the rear
+  motor connectors and the buck moved.
 
-If the 5 mm overhang is rejected, the MINI-1U-N8 in the same corner with an antenna in the open rear
-zone is the fallback; the PICO-1 only if someone can tune the antenna with a VNA. The C5 alternative
-of [Q2](#q2-the-compromise-of-an-esp32-without-usb-otg) is a C5-MINI-1 in the same place, but it is
-not stocked at JLCPCB today and its -1U has no certificate.
-
-**MINI-1 rather than MINI-1U, on the evidence** (no bench test): every metal part sits 19 mm or
-more from the antenna (drive blocks 19 mm, left motor 25 mm, H3 25 mm, LiPo 35 mm), beyond
-Espressif's 15 mm and Silicon Labs' 10 mm (BGM220P datasheet §7.2); only the USB-C shell (4.4 mm)
-and the floor (2.2-3 mm below) are closer, and no published measurement quantifies that detuning.
-The link has room for it: at 20 m the lowest 802.11g power, 18 dBm, arrives at −48.2 dBm against
-−90.8 dBm sensitivity at 12 Mbit/s, 42.6 dB of margin
-([esp/link_budget.py](calculations/esp/link_budget.py); [ESP32-S3-MINI-1] Tables 7-2 and 7-4).
-The MINI-1U adds a cable and a mount on a robot that crashes and holds fewer certificates; it
-shares the MINI-1's land pattern (Figures 11-1 and 11-2), so it can be fitted at assembly.
+**MINI-1 rather than MINI-1U, on the evidence** (no bench test): every metal part sits 18.1 mm or
+more from the antenna (drive blocks 18.1 mm, the left motor's can, past the centre line, 23 mm,
+H4 25 mm, LiPo 35 mm), beyond
+Espressif's 15 mm ([ESP layout]) and Silicon Labs' 10 mm (BGM220P datasheet §7.2); only the floor
+(2.2-3 mm below) is closer, and no published measurement quantifies that detuning. At 5 GHz the
+same distances are 0.33-0.64 wavelengths, so metal detunes it less than at 2.4 GHz (inference).
+The link has room for the floor: at 20 m the lowest 802.11a power, 15.5 dBm at 54 Mbit/s, arrives
+at 5.825 GHz at −58.3 dBm against −90.5 dBm sensitivity at 12 Mbit/s, 32.2 dB of margin, 27.2 dB at
+24 Mbit/s ([esp/link_budget.py](calculations/esp/link_budget.py); [ESP32-C5-MINI-1] Tables 7-8 and
+7-10). The MINI-1U adds a cable and a mount on a robot that crashes and lists no certificate.
 
 ### H7 pin budget
 
-The H725 VFQFPN68 uses every GPIO. The ESP costs no new pin: it takes SWD (PA13/PA14), NRST and
-UART4 (PA11/PA12). The DIP switch sits on PH0, PH1, PC15 and PC14 (plain inputs with the internal
+The H725 VFQFPN68 uses every GPIO. The ESP32-C5 takes SWD (PA13/PA14), NRST and the link on PA11,
+PA12 and PB14 (SPI2, UART4 as the fallback), and ESP_Flow on PA9. PB14 leaves Fan_Enable for the
+link: Fan_Enable moves to PB10, the IMU's INT1 input, and the IMU's INT1 alone drives one line,
+IMU_INT on PB6 (INT2 unconnected, its interrupts moved onto INT1). The DIP switch sits on PH0, PH1, PC15 and PC14 (plain inputs with the internal
 pull-ups; no HSE or LSE crystal), and the PH/EN bridges need one PWM pin each instead of two,
 which frees the pins of the two new lines, Motors_nFault (PB2) and ESP_Flow (PA9). Every pin's
 alternate function, and the one-function-per-timer split, checks against ST's STM32_open_pin_data
@@ -654,11 +696,13 @@ without a conflict (`boards/main2/main2.zen`, pin map check).
 
 | Need | Pins | Resolution |
 |---|---|---|
-| ESP ↔ H7 flow control | 1 | PA9 (ESP_Flow, from the ESP's GPIO13, internal pull-down). ESP → H7 attention travels in-band over UART4 (inference) |
+| ESP ↔ H7 link | 3 | PA12 SPI2_SCK (AF5), PB14 SPI2_MISO pad as the half-duplex data line (AF5, IOSWP = 1), PA11 ESP_CSn (GPIO); UART4_TX/RX (AF6) on PA12/PA11 as the fallback; DMAMUX1 inputs 39/40 (spi2_rx_dma, spi2_tx_dma, [RM0468] Table 118) |
+| ESP ↔ H7 flow control | 1 | PA9 (ESP_Flow, EXTI9, from the C5's GPIO24, internal pull-down): the C5's credits |
+| Fan enable | 1, moved | PB10, open drain with R27 39 kΩ / C30 10 nF, read back as the STSPIN958's nFAULT |
+| IMU interrupts | 1 for two | PB6 (IMU_INT, EXTI6, no pull): INT1 alone, push-pull and active high at its defaults; INT2 unconnected (an output forced to ground, DS13476 Rev 5 Table 22), its interrupts moved onto INT1 with CTRL4 INT2_on_INT1 (Table 58) |
 | Motor fault | 1 | PB2 (Motors_nFault, EXTI2), both DRV8874 nFAULT wire-ORed (open drain; IMODE = GND so it does not chatter) |
 | Current inputs | 2, by swapping | No direct channel is free. Current_Sensor_Left on PB1 (ADC1/2 INP5, a fast channel), Current_Sensor_Right on PC1 (ADC1/2 INP11, slow; one conversion per centre still fits); Wall_Sensor_0 on PA4 and Wall_Sensor_3 on PC0. Each keeps an ADC1 and an ADC2 input: ADC1 converts PB1 and ADC2 PC1 in dual injected-simultaneous mode on TIM1 TRGO2, the walls and the battery run on ADC1's regular group ([RM0468] §28.4.32, Table 227; `boards/main2/firmware_changes.toml`, current) |
 | IPROPI | 0 | ITRIP only |
-| ESP VBUS detect | 0 on the H7 | its own divider on an ESP GPIO; the ESP reports USB power over UART4, so the H7 has no VBUS divider |
 | Emitter set-point DAC | 1 | PA5 (DAC1_OUT2; PA4, DAC1_OUT1, carries Wall_Sensor_0, so DAC channel 1 stays off the pad, MODE1 = 011, [RM0468] Table 266). TIM4, freed by the selectors' move to TIM3, triggers the DAC in step with TIM3 (the DAC has no TIM3 trigger, [RM0468] Tables 264 and 355). The battery divider moves to PC5 (ADC12_INP8, slow channel, DS13311 Table 85) and Switch_0 to PH0 (a plain FT input with the internal pull-up; no HSE crystal) |
 
 An LQFP100 package (STM32H725VG) would relieve this budget and bring out VREF+, but its I/O and
@@ -671,10 +715,10 @@ New or changed parts; JLC numbers and prices as queried on 2026-10-15 (stock is 
 | Block | Part | Change | Key data | Source |
 |---|---|---|---|---|
 | Motors | maxon DCX 10 L 4.5 V × 2, CLL, DCX10L01EBKL531 (ball) / DCX10L01EBSL531 (sleeve), configured online | new; 25.2 mm max flange to rear + 1.95 mm terminals, 5.2 mm longer than MicrasHardware's `Motor.body_l` = 20 ([Drivetrain](#drivetrain)) | 2.9 Ω, 45.3 µH, kt 3.52 mNm/A, 0.648 A cont., 14,300 rpm, 11 g | [maxon p100], [maxon DCX10L01EBKL531] |
-| Battery | 4S 150-300 mAh: four 1S 300 mAh cells (~28 g) or a 4S pack (22-36 g) | new; IR unmeasured | non-HV charging keeps the TPS2121 option open | drivetrain study §4-§5 |
+| Battery | 4S 150-300 mAh: four 1S 300 mAh cells (~28 g) or a 4S pack (22-36 g) | new; IR unmeasured | HV or non-HV cells | drivetrain study §4-§5 |
 | Battery switch | HSBB3072 (Q6) | keep | 30 V VDS, VGS = VBAT/2 | repo `components/huashuo/HSBB3072` |
 | Reverse polarity, TVS | none (the connector keys the polarity); TVS D15 SMAJ18A from VBAT to GND_BAT, behind F1 | new | VR 18 V, VBR 20-22.1 V, VC 29.2 V at 13.7 A; C148219 $0.11 | [VBAT overvoltage](#power-tree) |
-| Power path | 40 V 1 A Schottky + AO3401A-class P-FET, or 2 × LM74700-Q1/MX74700T + N-FETs; TPS2121 with non-HV cells only | replaces the TPS2121 mux for HV cells | B5819W C8598 basic; LM74700QDDFRQ1 C3236229 $1.32; MX74700T C22468156 $0.41 | power-tree study §8 |
+| VSYS diode | B5819W 40 V 1 A Schottky (D14), VBAT → VSYS | replaces the TPS2121 mux | VF 0.6 V max at 1 A; blocks the J2 back-feed into VBAT; C8598 basic | [Power tree](#power-tree) |
 | Digital 3V3 | L6981C33 | keep | 1.5 A, 3.5-38 V, 30.5-145 µF window; C5268096 shows 1 in stock | [L6981] |
 | Analog 3V3_A | ADP7142ACPZN3.3 (LFCSP) or TPS7A4901DGNR, behind 22 Ω + 10 µF | new | 40 V / 36 V, 11 / 15.4 µVrms; C659360 $2.88 / C16430 $1.26 | [ADP7142] Rev K; [TPS7A49] |
 | Analog 3V3_A, alternative | TPS560430X3FDBVR + 12 µH + damped LC | documented alternative | forced PWM 1.1 MHz, 4-36 V; C2071721 $1.19 | [TPS560430] |
@@ -689,10 +733,12 @@ New or changed parts; JLC numbers and prices as queried on 2026-10-15 (stock is 
 | Fan fallback | TPS28225DR + 2 × CSD17578Q3A + TLV3201/TLV7031 + shunt | only above ~3 A | TPS28225DR C52897 $0.85; CSD17578Q3A $0.42 | fan study §3 |
 | Emitter drive | TLV9001 + AO3400A + 1.2 Ω 0.1 % sense; 3.3 Ω per emitter; AC-coupled selector gates (220 nF, 22 kΩ, 1N4148WS) | new | 175 mA (DAC set-point on PA5, 223 mA full scale) | power-tree study §6; emitter/emitter_sink.py |
 | Status LEDs | WS2812C-2020-V6 × 2 | replaces WS2815C-2020 (needs 9.5-13.5 V) | 3.3-5.3 V, 5 mA per colour; C55109522 | [WS2812C-2020-V6] |
-| Radio / probe | ESP32-S3-MINI-1-N8, rear-left corner, antenna beyond the rear edge (MINI-1U-N8 fallback) | replaces HM-19 and P1 | 355 mA TX peak, ≥ 0.5 A supply; C2913206, 3754 stock, $4.72 (-1U C2980299, $4.89) | [ESP32-S3-MINI-1], [ESP32 form factor](#esp32-form-factor) |
-| Switches, divider | SW4 → SK-12D29-G060 (DC 24 V 1 A, 6.0 mm lever, new footprint; ON with the lever at pin 3, B); R44/R45 10k/2k | modify | C2848877, 531 stock, $0.13; firmware constant 6.0 | drivetrain study §4; `components/g-switch/SK-12D29-G060` |
+| Radio / probe | ESP32-C5-MINI-1-N4, rear-right corner, antenna over the rear-right notch | replaces HM-19 and P1 | 2.4 + 5 GHz Wi-Fi 6, 426 mA TX peak, ≥ 0.6 A supply; C54951860, 0 stock (read 2026-10-31) | [ESP32-C5-MINI-1], [ESP32 form factor](#esp32-form-factor) |
+| Radio header | J2 HC-PZ127-7.2L-2x3PS, 2 × 3 1.27 mm SMD, ESP-Prog Program interface | new | 5.5 mm over the board; C27985144 | [ESP-Prog]; `components/hong-cheng/HC-PZ127-7.2L-2x3PS` |
+| Link resistors | R95 22 Ω 0402 at PA12 (SPI clock), R96 220 Ω 0402 at the C5 (data line), R97 100 kΩ ESP_CSn pull-up | new | 0402WGF220JTCE C25092, 0402WGF2200TCE C25091, 0402WGF1003TCE C25741, basic | [RM0468] Figure 643 note 3, [DS13311] Table 11 |
+| Switches, divider | SW4 → SK-12D29-G060 (DC 24 V 1 A, 6.0 mm lever, new footprint; ON with the lever at pin 3, B); R44/R45 20k/2k | modify | C2848877, 531 stock, $0.13; firmware constant 11.0 | drivetrain study §4; `components/g-switch/SK-12D29-G060` |
 | VDDA filter | FB1 → 0 Ω or ≤ 50 mΩ bead | modify | – | power-tree study §9 |
-| Removed | TPS61178 + 1 µH + 7 capacitors; L6205D and its parts; 2 × TSC2020; 2 × 40 mΩ shunts; the SWD connector P1 and its SWD_VDD OR-ing; the HM-19's SBU supply chain; WS2815C ×2 | remove | – | – |
+| Removed | TPS61178 + 1 µH + 7 capacitors; L6205D and its parts; 2 × TSC2020; 2 × 40 mΩ shunts; the SWD connector P1 and its SWD_VDD OR-ing; the HM-19's SBU supply chain; the USB-C receptacle and its ESD, CC and VBUS parts; WS2815C ×2 | remove | – | – |
 
 ## The owner's questions
 
@@ -754,36 +800,18 @@ Error at the period-mean current, ΔT = 40 K, shared VDDA term included (±1.5 %
 
 ### Q2. The compromise of an ESP32 without USB OTG
 
-**Short answer: without OTG the ESP cannot be a standard USB debug probe, and the one cable gives one
-serial port instead of a probe + console + drive; keep the ESP32-S3, which has OTG.** The chips
-without OTG (C3, C5, C6) have only the fixed-function USB-Serial/JTAG (USJ): one CDC serial port with
-fixed descriptors (`303a:1001`) plus a JTAG interface for the ESP's own CPU (non-OTG study Q2.1).
+**Short answer: the board has no USB, so OTG buys nothing; the ESP32-C5 does every job over Wi-Fi
+and its UART0 header.** OTG mattered only for a wired USB debug probe, console and drive on one
+cable. The chips without OTG (C3, C5, C6) have only the fixed-function USB-Serial/JTAG: one CDC
+serial port with fixed descriptors plus a JTAG interface for the ESP's own CPU (non-OTG study Q2.1).
+Without a USB port on the board, each wired function has a cover:
 
-What is lost without OTG (non-OTG study Q2.5):
-1. **No standard USB probe.** CMSIS-DAP v2 needs its own vendor bulk interface and v1 needs HID; USJ
-   presents neither. Wired H7 debugging needs either the debugger to own the serial port (a Black
-   Magic remote-protocol or GDB server on the ESP) or a host bridge program (a COBS-framed multiplex
-   re-exported as localhost TCP ports). Neither path has been demonstrated end-to-end on an ESP over
-   USJ. USJ's JTAG bridge to an external target is JTAG-only, and the H7's JTAG pins (PA15, PB3, PB4)
-   carry encoder and IMU lines.
-2. **One serial port.** The H7 console, the probe and the ESP log share one CDC; using two at once
-   needs the host mux. On the S3 they are separate USB interfaces with stock tools.
-3. **No mass storage, WebUSB or custom descriptors.** Drag-and-drop becomes an HTTP or Web Serial
-   upload.
-4. **Unknown wired throughput.** USJ has 64-byte single-buffered CDC endpoints and no published
-   sustained rate; whether it carries the 256 kB/s telemetry with margin is unmeasured. The S3 OTG
-   figures are "only expected to reach 6.4 Mbps" for TinyUSB (about 0.8 MB/s) and "500 KB/s at the
-   maximum currently" ([ESP-FAQ USB]).
-
-What a non-OTG chip gives back:
-1. **Everything over Wi-Fi is the same on every chip**: CMSIS-DAP-TCP for OpenOCD, BMP-TCP for
-   probe-rs and GDB, the telemetry relay and OTA H7 flashing.
-2. **A USB port that ESP firmware cannot brick**, with automatic esptool reset and download and the
-   ESP's own JTAG debugging on the same cable. On the S3 a crashed OTG app leaves the PC with nothing
-   until someone holds GPIO0 and resets.
-3. **On C5/C6, readable DTR/RTS and line coding**, for host-driven mode switching and a scripted H7
-   reset; the C3 resets on RTS=1/DTR=0 and cannot disable it.
-4. **C5 only: 5 GHz Wi-Fi 6** for crowded 2.4 GHz venues, at a 426 mA TX peak (≥ 0.6 A supply).
+| Function | Cover on main2 |
+|---|---|
+| H7 debug probe | CMSIS-DAP over TCP or Black Magic over Wi-Fi ([ESP32 radio](#esp32-radio)); an ST-Link on the SWD1 pads with no Wi-Fi |
+| H7 console and telemetry | the link to the radio, bridged to TCP; logs stored on board and offloaded after a contest allocation |
+| Radio flashing and recovery | OTA (two slots with rollback); the ROM's UART download mode through J2 (GPIO28 low, an EN pulse), which no application can disable |
+| Power on the bench | a current-limited supply into J1 with SW4 on |
 
 | | ESP32-S3 | ESP32-C5 | ESP32-C6 | ESP32-C3 |
 |---|---|---|---|---|
@@ -797,10 +825,9 @@ What a non-OTG chip gives back:
 Sources: chip datasheets (S3 v2.2, C5 v1.5, C6 v1.5, C3 v2.4), module datasheets (S3-MINI-1 v1.7,
 C5-MINI-1 v1.4, C6-MINI-1 v1.5, C3-MINI-1 v2.2), TRMs, ESP-IDF `soc_caps.h` (non-OTG study Q2.4).
 
-The UART to the H7 is identical on all four (5 Mbaud, 128-byte FIFO, UHCI DMA). A C5-MINI-1 is the
-choice only if the team accepts a host bridge program (or treats Wi-Fi as the primary debug path),
-a bench test shows USJ sustains well over 256 kB/s toward the PC, and 5 GHz matters at contests. The
-C6 offers nothing over the S3 here; the C3 is the weakest.
+The C5 is the choice: the only one with 5 GHz for crowded 2.4 GHz venues, the fastest RISC-V core of
+the three, and a module that fits the corner at 426 mA of TX peak (≥ 0.6 A supply). Its SPI2 slave
+in half-duplex carries the H7 link beyond the 5 Mbaud of any of their UARTs.
 
 ### Q3. The fan driver
 
@@ -992,9 +1019,8 @@ PWM ripple against these costs; both are fitted.
 | Emitters from VBAT through a resistor or a sink | 1.2-1.8 W of heat; a resistor alone drifts 170 → 117 mA over the discharge | power-tree study §6, 3V3 study §4 |
 | VREFBUF or an external VREF+ on VFQFPN68 | VREF+ is bonded to VDDA | [DS13311] Table 8 |
 | A precision reference on VDDA | Per-board gain calibration and VREFINT cover the absolute accuracy | 3V3 study §3 |
-| ESP32-C3/C6, or P4 | C3/C6: no OTG and nothing gained over the S3; P4: no radio | [Q2](#q2-the-compromise-of-an-esp32-without-usb-otg) |
-| ESP ↔ H7 data over USB | One OTG controller cannot be host to the H7 and device to the PC at once; needs two switches and two USB stacks for about 2× the UART rate | ESP study Q3 |
-| A USB2422 hub | Occupies PA11/PA12 as USB permanently, losing the UART4 link | ESP study Q3 |
+| ESP32-C3/C6, or P4 | C3/C6: 2.4 GHz only and nothing gained over the C5; P4: no radio | [Q2](#q2-the-compromise-of-an-esp32-without-usb-otg) |
+| A chip-down C5 or a chip antenna | Its crystal and RF match, or the chip antenna's match, must be tuned on the finished board with RF instruments, and it loses the module's certificates | [ESP32 form factor](#esp32-form-factor) |
 | H7 flashing through the system bootloader UART/SPI | Its pins carry motors, the buzzer and the sensor bus; PA10 is Motors_Enable | [AN2606] Table 133 |
 | A/B images in H7 flash | One 1 MB bank | [RM0468] |
 | A battery current monitor (INA228) on the H7 | No free I²C pins; F1 fuses the battery path and PC5 reads its voltage | pin budget |
@@ -1013,7 +1039,7 @@ On breakouts and dev boards:
 
 | Priority | Measurement | Decides | Method |
 |---|---|---|---|
-| 4 | USJ CDC sustained throughput (only if a C5 is considered) | S3 or C5 | C5/C6 devkit, `usb_serial_jtag_write_bytes()` loop, ≥ 8 kB TX ring, 60 s average |
+| 4 | SPI2 half-duplex link bit errors against the SCK prescaler | The link clock | C5 devkit as an spi_slave_hd slave, an STM32H7 board as master, 22 Ω on SCK at the master and 100 Ω on data at the slave, CRC-checked frames |
 
 On the first prototype: the INA241 against a current probe on the motor lead (and against the
 DRV8874's IPROPI, read with a probe across RIPROPI).
@@ -1023,14 +1049,13 @@ DRV8874's IPROPI, read with a probe across RIPROPI).
 | Decision | Options | Notes |
 |---|---|---|
 | Gear and top speed | 4 m/s at G ≈ 4.27 / about 4.6 m/s at 3.7:1 / 6 m/s (needs 18.7 V at 4 N, above 4S) | – |
-| Battery | four 1S cells / a 4S pack; HV or non-HV charging | Non-HV keeps the TPS2121 usable |
+| Battery | four 1S cells / a 4S pack; HV or non-HV charging | – |
 | Motor driver | 2 × DRV8874 (on the board) / DRV8262 | DRV8262 if more than 6 A is needed; the DRV8874's bound reversal peak is 5.48 A (drivetrain/choke_check.py) |
 | Current measurement | INA241A2 + WSK2512 (on the board) / calibrated DRV8874 IPROPI only | Q1; IPROPI sets ITRIP and is readable with a probe across RIPROPI |
 | Fan motor and driver | STSPIN958 (≤ ~3 A continuous) / TPS28225 half-bridge (above) | Fan motor not chosen |
-| Power path | Schottky + P-FET / 2 × LM74700-Q1 / TPS2121 (non-HV only) | – |
-| ESP chip | S3 (recommended) / C5 under the Q2 conditions | – |
+| Radio module | C5-MINI-1-N4 (on the board) / C5-WROOM-1 | the WROOM-1 if Brazilian (Anatel) or Japanese (MIC) coverage must be clean; it fits only with the rear motor connectors and the buck moved |
 | Toolchain | CMSIS-DAP through OpenOCD (master) or probe-rs | ST-Link and CubeProgrammer workflows are lost |
-| Backstops | SWD1 pads (GND, SWDIO, SWCLK) for an ST-Link; SW3 (NRST); BOOT0 held low by R42 | – |
+| Backstops | SWD1 pads (1 SWDIO, 2 GND, 3 SWCLK, 4 5V_IN, a clone ST-Link's order) for an ST-Link; SW3 (NRST); BOOT0 held low by R42 | – |
 
 ## Gaps and TODOs
 
@@ -1049,9 +1074,11 @@ DRV8874's IPROPI, read with a probe across RIPROPI).
   the STSPIN958's supply current, dead time, RDS(on) temperature curve and limiter blanking are
   unpublished (bounded, [Fan](#fan)). For the discrete fallback (not on the board): the limiter is
   not a validated design and its 4.5-8.8 V gate supply is not designed.
-- **ESP**: no published ESP32-S3-to-H7 SWD throughput over USB (cmsis_dap_tcp_esp32 states up to
-  200 kB/s over Wi-Fi); no published detuning of a PCB antenna 2-3 mm over a floor (the link margin
-  covers it, ESP32 form factor); the MINI-1 is not homologated by Anatel (Brazil); an RDP Level 2
+- **ESP**: cmsis_dap_tcp_esp32 is not yet ported to the C5 (tested on the S3, C3 and C6, up to
+  200 kB/s over Wi-Fi), and the Black Magic C5 port is young; no published detuning of a PCB antenna
+  2-3 mm over a floor (the link margin covers it, ESP32 form factor); the C5-MINI-1 holds no Anatel
+  (Brazil) or MIC (Japan) certificate; no C5 power-up glitch table is published (the reset states
+  are, [ESP32-C5 TRM] Table 8.13-1); the SPI2 link clock is set by a bit-error test; an RDP Level 2
   mistake locks out SWD for any probe.
 - **Emitter sink**: AOS publishes no AO3400A SPICE model: the sink model uses a VDMOS fitted to
   the datasheet and a third-party level-3 AO3400 model as stand-ins (emitter_sink.py).
@@ -1081,17 +1108,18 @@ MB, git-ignored) into their `out/` folder; the netlists (`.cir`), logs and summa
 | [drivers/area.py](calculations/drivers/area.py) | `area_out.txt` | Courtyard areas from the KiCad 10 library (reads `/usr/share/kicad/footprints/`) |
 | [drivers/area_board.py](calculations/drivers/area_board.py) | `area_board_out.txt` | As-built areas; KiCad's `pcbnew` module, run with `boards/main/layout/main.kicad_pcb` as argument |
 | [esp/placement.py](calculations/esp/placement.py) | `placement.png` | ESP candidate positions on the main-board-fixes layout with the MicrasHardware chassis projected; `pcbnew` and matplotlib, the board file as argument |
+| [esp/link_budget.py](calculations/esp/link_budget.py) | `link_budget_out.txt` | The ESP32-C5-MINI-1's 5 GHz link margin at 1-20 m in free space |
 | [drivers/jlc_query.py](calculations/drivers/jlc_query.py) | `jlc_out.txt`, `../fan/jlc_fan_out.txt` | JLCPCB parts search by MPN (online; results dated 2026-10-15) |
 | [fan/fan_driver_calc.py](calculations/fan/fan_driver_calc.py) | `fan_driver_calc_out.txt` | Q3: drone motor data, duty, stall current, ripple, driver losses |
 | [fan/fan_choke_check.py](calculations/fan/fan_choke_check.py) | `fan_choke_check_out.txt` | Fan ripple and L6 loss over the motor range, the limiter in a locked rotor at 400 / 100 / 50 kHz, STSPIN958 heat with bounds, the REF rule |
 | [supply3v3/sim3v3.py](calculations/supply3v3/sim3v3.py), [analyze.py](calculations/supply3v3/analyze.py) | `out/summary_meas.txt`, `out/summary_slots.txt` | Averaged 3V3/VDDA droop model during the emitter pulses (ngspice, seconds) |
 | [power_tree/sim_power_tree.py](calculations/power_tree/sim_power_tree.py), [analyze.py](calculations/power_tree/analyze.py) | `out/summary.txt` | Switching-level analog-rail model, cases A-F (ngspice, about 5 min per case, 6 in parallel) |
-| [power_tree/calc_power_tree.py](calculations/power_tree/calc_power_tree.py) | `out/calc_power_tree.txt` | Analog-rail load, LDO heat, emitter sink, USB budget, ADC noise, LC filter |
+| [power_tree/calc_power_tree.py](calculations/power_tree/calc_power_tree.py) | `out/calc_power_tree.txt` | Analog-rail load, LDO heat, emitter sink, the 5V_IN programming budget, ADC noise, LC filter |
 | [emitter/emitter_sink.py](calculations/emitter/emitter_sink.py) | `emitter_sink_out.txt` | main2's emitter sink with the DAC set-point and AC-coupled selectors, with TI's TLV9002 model and AO3400A stand-ins: worst-case current and margin, turn-off with a pin held high, pulse start against the DAC timing, AO3400A VGS over temperature (ngspice, about 15 min; downloads the models) |
 | [emitter/ambient_light.py](calculations/emitter/ambient_light.py) | `ambient_light_out.txt` | Ambient light on the TPS601A receivers: tungsten-equivalent irradiance of contest lighting, receiver current against the ADC range |
-| [power_tree/vbat_bulk.py](calculations/power_tree/vbat_bulk.py) | `vbat_bulk_out.txt` | VBAT capacitor options (MLCC DC bias, 100 kHz ripple, source impedance; the ceramics against 35 V solid-polymer aluminium bulk), hot plug and Q6 switching, regeneration with the pack pulled, TVS clamp, Q8's gate (ngspice, about 5 min) |
+| [power_tree/vbat_bulk.py](calculations/power_tree/vbat_bulk.py) | `vbat_bulk_out.txt` | VBAT capacitor options (MLCC DC bias, 100 kHz ripple, source impedance; the ceramics against 35 V solid-polymer aluminium bulk), hot plug and Q6 switching, regeneration with the pack pulled, TVS clamp, and in section 9 a P-FET gate clamp the board does not use (ngspice, about 5 min) |
 | [power_tree/fuse_501_curves.py](calculations/power_tree/fuse_501_curves.py) | `fuse_501_curves_out.txt` | F1's time-current curves digitised from the Littelfuse 501 datasheet's vector paths (the PDF as argument; pdftocairo) |
-| [power_tree/power_path_checks.py](calculations/power_tree/power_path_checks.py) | `power_path_checks_out.txt` | The pack's short circuit against F1, VBAT on USB alone against D14's and Q6's leakage, the ADP7142's junction temperature per copper area |
+| [power_tree/power_path_checks.py](calculations/power_tree/power_path_checks.py) | `power_path_checks_out.txt` | The pack's short circuit against F1, 5V_IN programming power (the L6981's dropout, the ADP7142, D17 against the pack, VBAT on D14's leakage per battery divider), the ADP7142's junction temperature per copper area |
 
 The power-tree netlists of the cases A_none, A_bead, A_lc, A_lcd, A6981_lc, F and Frc lack the 1 MΩ
 bleed resistor the script adds to the buck output nodes (negligible at mA loads); rerun
@@ -1131,25 +1159,24 @@ refer to these editions.
 | [TPS2121] | [TI TPS2121 SLVSEA3F](https://www.ti.com/lit/ds/symlink/tps2121.pdf) |
 | [TPS560430] | [TI TPS560430 SLVSE22B](https://www.ti.com/lit/ds/symlink/tps560430.pdf) |
 | [TPS7A49] | [TI TPS7A49 SBVS121E](https://www.ti.com/lit/ds/symlink/tps7a49.pdf) |
-| ADP7142 Rev H, LM74700-Q1 SNOSD17G | read from mirrors (analog.com unreachable); secondary |
+| ADP7142 Rev H | read from mirrors (analog.com unreachable); secondary |
 | [WS2812C-2020-V6] | [WS2812C-2020-V6 (LCSC C55109522)](https://datasheet.lcsc.com/datasheet/pdf/8c7f104c99e52e4adb687ae84e594e95.pdf?productCode=C55109522); [WS2812B-2020-V6 (C52917434)](https://datasheet.lcsc.com/datasheet/pdf/a29e59ba4bc7e47e236b4d50b6c26345.pdf?productCode=C52917434) |
-| [ESP32-S3] | [Espressif ESP32-S3 datasheet v2.2](https://www.espressif.com/sites/default/files/documentation/esp32-s3_datasheet_en.pdf) |
-| [ESP32-S3-MINI-1] | [ESP32-S3-MINI-1/1U datasheet v1.7](https://www.espressif.com/sites/default/files/documentation/esp32-s3-mini-1_mini-1u_datasheet_en.pdf) |
-| [ESP32-S3-WROOM-1] | [ESP32-S3-WROOM-1/1U datasheet v1.8](https://www.espressif.com/sites/default/files/documentation/esp32-s3-wroom-1_wroom-1u_datasheet_en.pdf) |
-| [ESP32-S3-PICO-1] | [ESP32-S3-PICO-1 datasheet v1.2](https://www.espressif.com/sites/default/files/documentation/esp32-s3-pico-1_datasheet_en.pdf) |
-| [ESP32-C5-MINI-1] | [ESP32-C5-MINI-1/1U datasheet v1.4](https://documentation.espressif.com/esp32-c5-mini-1_datasheet_en.pdf); [C5 datasheet v1.5](https://documentation.espressif.com/esp32-c5_datasheet_en.pdf); [C5-WROOM-1/1U v1.3](https://documentation.espressif.com/esp32-c5-wroom-1_wroom-1u_datasheet_en.pdf) |
-| [ESP layout] | [ESP32-S3 hardware design guidelines, PCB layout](https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32s3/pcb-layout-design.html) |
-| [ESP schematic] | [ESP32-S3 hardware design guidelines, schematic checklist](https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32s3/schematic-checklist.html) |
+| [ESP32-C5] | [Espressif ESP32-C5 Series datasheet v1.5](https://www.espressif.com/sites/default/files/documentation/esp32-c5_datasheet_en.pdf) |
+| [ESP32-C5 TRM] | [Espressif ESP32-C5 Technical Reference Manual v1.1](https://www.espressif.com/sites/default/files/documentation/esp32-c5_technical_reference_manual_en.pdf) |
+| [ESP32-C5-WROOM-1] | [ESP32-C5-WROOM-1/1U datasheet v1.3](https://www.espressif.com/sites/default/files/documentation/esp32-c5-wroom-1_wroom-1u_datasheet_en.pdf) |
+| [ESP32-C5-MINI-1] | [ESP32-C5-MINI-1/1U datasheet v1.4](https://www.espressif.com/sites/default/files/documentation/esp32-c5-mini-1_mini-1u_datasheet_en.pdf) |
+| [ESP layout] | [ESP32-C5 hardware design guidelines, PCB layout](https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32c5/pcb-layout-design.html) |
+| [ESP schematic] | [ESP32-C5 hardware design guidelines, schematic checklist](https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32c5/schematic-checklist.html) |
+| [ESP-Prog] | [Espressif ESP-Prog user guide, Program Interface](https://docs.espressif.com/projects/esp-dev-kits/en/latest/other/esp-prog/user_guide.html) |
 | ESP certificates | [Espressif certificates](https://www.espressif.com/en/support/documents/certificates) |
-| [ESP-FAQ USB] | [ESP-FAQ, USB](https://docs.espressif.com/projects/esp-faq/en/latest/software-framework/peripherals/usb.html) |
-| [ESP-IDF Wi-Fi performance] | [ESP-IDF Wi-Fi performance, ESP32-S3](https://docs.espressif.com/projects/esp-idf/en/v6.1/esp32s3/api-guides/wifi-driver/wifi-performance-and-power-save.html) |
+| [ESP-IDF Wi-Fi performance] | [ESP-IDF Wi-Fi performance, ESP32-C5](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c5/api-guides/wifi-driver/wifi-performance-and-power-save.html) |
 | [SK-12D29] | [G-Switch SK-12D29-GXXX drawing (2016-05-29), LCSC C2848877](https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2108301530_G-Switch-SK-12D29-G060_C2848877.pdf) |
 | [Samsung MLCC] | [Samsung product pages, DC-bias and ripple-current curves, e.g. CL32B106KBJNNN](https://product.samsungsem.com/mlcc/CL32B106KBJNNN.do) |
 | [Panasonic TQC] | [Panasonic POSCAP TQC series (2023-06-30), LCSC C3018702](https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2401241128_PANASONIC-25TQC100MD3_C3018702.pdf) |
 | [Kyocera-AVX TCJ] | [Kyocera-AVX TCJ series, TDS-PTNO-0027 Rev 19](https://datasheets.kyocera-avx.com/TCJ.pdf) |
 | [SMAJ] | [Littelfuse SMAJ series (rev. 11/20/15), LCSC C148219](https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2304140030_Littelfuse-SMAJ18A_C148219.pdf) |
 | [SMF] | [Littelfuse SMF series, LCSC C409420](https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/1912111437_Littelfuse-SMF18A_C409420.pdf) |
-| Probe firmware | [espressif/esp-usb-bridge](https://github.com/espressif/esp-usb-bridge), [bkuschak/cmsis_dap_tcp_esp32](https://github.com/bkuschak/cmsis_dap_tcp_esp32), [windowsair/wireless-esp8266-dap](https://github.com/windowsair/wireless-esp8266-dap) |
+| Probe firmware | [bkuschak/cmsis_dap_tcp_esp32](https://github.com/bkuschak/cmsis_dap_tcp_esp32), [BareMetalTestLab/blackmagic-esp32-c5](https://github.com/BareMetalTestLab/blackmagic-esp32-c5), [OpenOCD cmsis_dap_tcp.c](https://github.com/openocd-org/openocd/blob/master/src/jtag/drivers/cmsis_dap_tcp.c) |
 | SFH 4550, AN5419, TPS28225, CSD17578Q3A, TLV9001 SBOS833R | vendor datasheets; no URL recorded |
 
 [maxon p98]: https://www.maxongroup.com/medias/sys_master/root/9394600706078/Cataloge-Page-EN-98.pdf
@@ -1180,22 +1207,18 @@ refer to these editions.
 [TPS7A49]: https://www.ti.com/lit/ds/symlink/tps7a49.pdf
 [ADP7142]: https://www.analog.com/media/en/technical-documentation/data-sheets/adp7142.pdf
 [Littelfuse 501]: https://www.littelfuse.com/assetdocs/fuse-501-datasheet?assetguid=c1b674fa-b4a7-46c1-a555-f089b77d5c57
-[USB-C]: https://www.usb.org/document-library/usb-type-cr-cable-and-connector-specification-release-24
-[USB PD]: https://www.usb.org/document-library/usb-power-delivery
 [Takeyuta Lab]: https://neophile.hatenablog.com/entry/2023/08/19/143147
 [JIERR MA]: https://atta.szlcsc.com/upload/public/pdf/source/20260316/D0E6F4E3E2183BCC856933993466F3DF.pdf
 [WS2812C-2020-V6]: https://datasheet.lcsc.com/datasheet/pdf/8c7f104c99e52e4adb687ae84e594e95.pdf?productCode=C55109522
 [WS2812C-2020-V6 V1.1]: https://www.world-semi.com/downloads/datasheets/en/ws2812c-2020-v6-2.1.pdf
-[ESP32-S3]: https://www.espressif.com/sites/default/files/documentation/esp32-s3_datasheet_en.pdf
-[ESP32-S3-MINI-1]: https://www.espressif.com/sites/default/files/documentation/esp32-s3-mini-1_mini-1u_datasheet_en.pdf
-[ESP32-S3 TRM]: https://www.espressif.com/sites/default/files/documentation/esp32-s3_technical_reference_manual_en.pdf
-[ESP32-S3-WROOM-1]: https://www.espressif.com/sites/default/files/documentation/esp32-s3-wroom-1_wroom-1u_datasheet_en.pdf
-[ESP32-S3-PICO-1]: https://www.espressif.com/sites/default/files/documentation/esp32-s3-pico-1_datasheet_en.pdf
-[ESP32-C5-MINI-1]: https://documentation.espressif.com/esp32-c5-mini-1_datasheet_en.pdf
-[ESP layout]: https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32s3/pcb-layout-design.html
-[ESP schematic]: https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32s3/schematic-checklist.html
-[ESP-FAQ USB]: https://docs.espressif.com/projects/esp-faq/en/latest/software-framework/peripherals/usb.html
-[ESP-IDF Wi-Fi performance]: https://docs.espressif.com/projects/esp-idf/en/v6.1/esp32s3/api-guides/wifi-driver/wifi-performance-and-power-save.html
+[ESP32-C5]: https://www.espressif.com/sites/default/files/documentation/esp32-c5_datasheet_en.pdf
+[ESP32-C5 TRM]: https://www.espressif.com/sites/default/files/documentation/esp32-c5_technical_reference_manual_en.pdf
+[ESP32-C5-MINI-1]: https://www.espressif.com/sites/default/files/documentation/esp32-c5-mini-1_mini-1u_datasheet_en.pdf
+[ESP32-C5-WROOM-1]: https://www.espressif.com/sites/default/files/documentation/esp32-c5-wroom-1_wroom-1u_datasheet_en.pdf
+[ESP layout]: https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32c5/pcb-layout-design.html
+[ESP schematic]: https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32c5/schematic-checklist.html
+[ESP-Prog]: https://docs.espressif.com/projects/esp-dev-kits/en/latest/other/esp-prog/user_guide.html
+[ESP-IDF Wi-Fi performance]: https://docs.espressif.com/projects/esp-idf/en/latest/esp32c5/api-guides/wifi-driver/wifi-performance-and-power-save.html
 [SK-12D29]: https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2108301530_G-Switch-SK-12D29-G060_C2848877.pdf
 [Samsung MLCC]: https://product.samsungsem.com/mlcc/CL32B106KBJNNN.do
 [Panasonic TQC]: https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2401241128_PANASONIC-25TQC100MD3_C3018702.pdf
@@ -1269,12 +1292,10 @@ Proposals to verify against the datasheets when entered in Zener.
 
 Source: [INA241] §6.5, §7.3.1.1, pin functions; current-sensing study §8.
 
-### A.4 Power path, 3V3_A and emitter sink
+### A.4 VSYS, 3V3_A and emitter sink
 
 - **VBAT → VSYS**: B5819W 40 V 1 A Schottky (C8598; about 12 µA reverse at 17 V, 25 °C, JCET
-  B5817W-B5819W p2).
-- **VBUS → VSYS**: 30 V P-FET (AO3401A class): drain VBUS, source VSYS, gate to VBAT through 10 kΩ
-  with 1 MΩ to GND. The TPS2121 replaces both only with non-HV cells.
+  B5817W-B5819W p2), the only part between VBAT and the regulators' input.
 - **3V3_A**: VSYS → 22 Ω → 10 µF → ADP7142ACPZN3.3 (or TPS7A4901 with its FB divider, CNR/SS and
   CFF, ≥ 2.2 µF ceramic out); EN from 3V3_D. Place it away from the IMU and near the VDDA pin; run
   3V3_A as its own trace to VDDA, the INA241s and the sensor connectors.
@@ -1304,7 +1325,7 @@ OUT1 (31, 32) + OUT2 (25, 26) ── FAN_OUT ──[ L6 XGL5030-472 4.7 µH ]─
 LSS1 (1, 2) + LSS2 (23, 24)  ── FAN_LSS ── M3 pin 2 (fan −) ; R31 20-25 mΩ 1206 FAN_LSS → GND (Kelvin to the pins)
 PWM2/PH (12) ── GND   (load OUT→LSS: low-side recirculation on limit, Fig. 11/14)
 PWM1 (11)    ── Fan_PWM (PB15, TIM12_CH2, 400 kHz)
-EN/nFAULT (14) ── Fan_Enable (PB14, driven open-drain) ; R27 39 kΩ to 3V3, C30 10 nF (Table 12)
+EN/nFAULT (14) ── Fan_Enable (PB10, driven open-drain) ; R27 39 kΩ to 3V3, C30 10 nF (Table 12)
 TOFF (16)    ── Fan_TOFF (PB13): limiter-active flag in PWM trimming (section 5.6.2)
 REF (15)     ── R28 4.7 kΩ / R29 2.0 kΩ from 3V3 → V_REF = I_peak · R31 · 10 = 0.985 V (3.94 A)
 SR (21)      ── 1-2.2 kΩ to GND
@@ -1315,24 +1336,26 @@ GND (22), GNDPUMP (3), EPAD (33) ── GND
 No capacitor across the fan motor. Pin numbers from the repo symbol
 `components/st/STSPIN958/STSPIN958.kicad_sym` ([STSPIN958] Figure 2, Table 6).
 
-### A.6 ESP32-S3-MINI-1
+### A.6 ESP32-C5-MINI-1
 
-| ESP32-S3-MINI-1 | Net | Other end | Notes |
+| ESP32-C5-MINI-1 (pin) | Net | Other end | Notes |
 |---|---|---|---|
-| 3V3 pins | 3V3_D | L6981C33 | 10 µF + 100 nF at the module, optional 22 µF; 3V3 total < 145 µF |
-| GND pins, EPAD | GND | – | Dense GND vias near the antenna edge |
-| EN (CHIP_PU) | ESP_EN | RC to 3V3/GND, pad or button | 10 kΩ / 1 µF ([ESP32-S3-MINI-1] section 9) |
-| GPIO0 (strap) | ESP_BOOT | pad or button to GND | ROM download recovery; nothing else on it |
-| GPIO19 / GPIO20 | USB_D− / USB_D+ | U6 USBLC6 → USB-C | 90 Ω differential, short, away from the antenna |
-| GPIO12 | SWCLK | H7 PA14 through R86 22 Ω | SPI-capable pin for SWD acceleration |
-| GPIO11 | SWDIO | H7 PA13 | – |
-| GPIO21 | NRST | H7 NRST, SW3, C21 | Open-drain only; no pull and no power-up glitch ([ESP32-S3] Table 2-2) |
-| GPIO17 (U1TXD) | UART4_RX (PA11) | H7, through R88 100 Ω | Up to 5 Mbaud |
-| GPIO18 (U1RXD) | UART4_TX (PA12) | H7 | – |
-| GPIO13 | ESP_Flow | H7 PA9 (pull-down) | Flow control; its 60 µs power-up low reads as "hold off" |
-| GPIO7 + divider | ESP_VBUS_Sense | VBUS via R91/R92 22 kΩ / 33 kΩ | USB power reported to the H7 over UART4 |
+| 3V3 (3) | 3V3_D | L6981C33 | 22 µF + 100 nF at the module, 10 µF on its feed; 3V3 total < 145 µF |
+| GND (1, 2, 42, 43, 46-48, 50-65), EPAD | GND | – | Dense GND vias along the module's ground edge and the notch |
+| EN (45) | ESP_EN | R89 10 kΩ to 3V3_D, C110 1 µF to GND, J2 pin 1 | RC delay ([ESP32-C5-MINI-1] section 9) |
+| GPIO28 (4, strap) | ESP_BOOT | R90 10 kΩ to 3V3_D, J2 pin 6 | Low at EN's rise enters the UART download mode (Table 4-3); no capacitor |
+| TX0 / RX0 (39 / 40, GPIO11 / GPIO12) | ESP_TXD0 / ESP_RXD0 | J2 pins 3 / 5 | UART0, ROM log and download; 499 Ω on TX0 in the module (Figure 8-1) |
+| GPIO0 (16) | SWDIO | H7 PA13, SWD1 | – |
+| GPIO1 (17) | SWCLK | H7 PA14 through R86 22 Ω, SWD1 | Series resistor on the clock (checklist, SPI) |
+| GPIO10 (22) | ESP_SCK | H7 PA12 (SPI2_SCK; UART4_TX in the fallback) through R95 22 Ω at PA12 | spi_slave_hd clock; U1RXD in the fallback |
+| GPIO8 (20) | ESP_DATA | H7 PB14 (SPI2 data line, MISO pad) through R96 220 Ω at the C5 | Half-duplex data, both directions ([RM0468] Figure 643 note 3) |
+| GPIO9 (21) | ESP_CSn | H7 PA11 (GPIO chip select; UART4_RX in the fallback) through R88 100 Ω | U1TXD in the fallback |
+| GPIO23 (31) | Reset | H7 NRST, SW3, C21 | Open drain only |
+| GPIO24 (32) | ESP_Flow | H7 PA9 (EXTI9, pull-down) | The C5's credits |
+| GPIO2-GPIO7, GPIO13-GPIO15, GPIO25-GPIO27 | – | – | Open; the straps at their defaults (Tables 4-1 to 4-7) |
 
-The H7 control lines avoid the strapping pins GPIO0, GPIO3, GPIO45, GPIO46, and NRST avoids the
-pins that glitch at power-up (GPIO1-20). U6, SW3, the ESP's VBUS divider (the H7 learns over UART4
-that it runs from USB alone) and the SWD1 pads on GND/PA13/PA14 stay as the backstop. Source: [ESP32-S3-MINI-1] Table 1-1, §3-4, Tables 6-2 to 6-5;
-[ESP32-S3]; ESP study Q8.
+Every H7 line lands on a GPIO free of any restriction ([ESP32-C5] §2.3.5, priority 2), with its
+input and output off and no pull at reset ([ESP32-C5 TRM] Table 8.13-1). J2 is the ESP-Prog
+Program interface: 1 EN, 2 5V_IN, 3 TX0, 4 GND, 5 RX0, 6 GPIO28 ([ESP-Prog]). SW3 and the SWD1 pads
+on GND/PA13/PA14 stay as the backstop. Source: [ESP32-C5-MINI-1] Tables 3-1, 4-1 to 4-3, 6-2 to
+6-5, section 9; `boards/main2/Esp.zen`.

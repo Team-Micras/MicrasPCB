@@ -38,13 +38,9 @@ def _fitted(d, ref: str) -> bool:
 # --- power tree -----------------------------------------------------------------------------------
 
 # Parts that pass current one way only: MPN prefix -> (from pin, to pin, why). The B5819W is a
-# Schottky diode (JCET B5817W-B5819W); the AO3401A on the power path conducts VBUS -> VSYS through
-# its body diode (drain to source in a P-MOSFET) and through its channel only while its gate is
-# below its source, which needs the battery off (Regulators.zen; boards/main2/test/test_power.zen
-# battery_wins_over_usb).
+# Schottky diode (JCET B5817W-B5819W).
 ONE_WAY = {
     "B5819W": ("A", "K", "a Schottky diode blocks cathode to anode (VR 40 V)"),
-    "AO3401A": ("D", "S", "the body diode blocks source to drain; the channel is off while the pack is on"),
 }
 # Regulators: MPN prefix -> (input pin, output pin, reverse path from output to input or None).
 REGULATORS = {
@@ -98,19 +94,52 @@ def _reach(edges, start):
     return path
 
 
-def test_vsys_oring_never_back_feeds_the_battery_or_usb(d):
-    # Research Power tree: VSYS = OR(VBAT, VBUS), and the battery side and the bridges are never
-    # back-fed: nothing on VSYS (or the rails it makes) reaches VBAT, the pack, or the USB VBUS
-    # (a sink must not drive VBUS, USB Type-C R2.0 section 4.5.2.2.3.1). Both sources reach VSYS.
-    vbat, pack, vbus, vsys = d.net("IC8", "VM"), d.net("J1", "1"), d.net("U2", "VBUS"), d.net("IC7", "VIN")
+def test_vsys_never_back_feeds_the_battery(d):
+    # Research Power tree: VBAT reaches VSYS through D14, and nothing on VSYS or the rails it makes
+    # reaches VBAT or the pack. 5V_IN, a programmer's 5 V pin on J2 pin 2 and SWD1 pad 4, reaches
+    # VSYS through D17 (Regulators.zen); D14 must stop it there, and D17 must keep VSYS (the pack)
+    # off the programmer.
+    vbat, pack, vsys = d.net("IC8", "VM"), d.net("J1", "1"), d.net("IC7", "VIN")
+    v5 = d.net("J2", "2")
     edges = _edges(d)
-    back = _reach(edges, vsys)
-    problems = [f"VSYS reaches {n} through {' -> '.join(back[n])}" for n in (vbat, pack, vbus) if n in back]
-    for src in (vbat, vbus):
-        if vsys not in _reach(edges, src):
-            problems.append(f"{src} does not reach VSYS")
-    usb = _reach(edges, vbus)
-    problems += [f"USB VBUS reaches {n} through {' -> '.join(usb[n])}" for n in (vbat, pack) if n in usb]
+    problems = []
+    for start in (vsys, v5, d.net("SWD1", "4")):
+        back = _reach(edges, start)
+        problems += [f"{start} reaches {n} through {' -> '.join(back[n])}" for n in (vbat, pack) if n in back]
+    if vsys not in _reach(edges, vbat):
+        problems.append(f"{vbat} does not reach VSYS")
+    if vsys not in _reach(edges, v5):
+        problems.append(f"{v5} (J2 pin 2) does not reach VSYS")
+    if d.net("SWD1", "4") != v5:
+        problems.append(f"SWD1 pad 4 is on {d.net('SWD1', '4')}, not J2 pin 2's {v5}")
+    for start in (vbat, vsys):
+        if v5 in _reach(edges, start):
+            problems.append(
+                f"{start} reaches the programmer's 5 V ({v5}) through {' -> '.join(_reach(edges, start)[v5])}"
+            )
+    assert not problems, "\n".join(problems)
+
+
+def test_swd_header_follows_the_clone_st_link_order(d):
+    # The owner's clone ST-Link lead (main2.zen): pads 1 SWDIO, 2 GND, 3 SWCLK, 4 its 5 V pin. Plugged
+    # turned round, or shifted one pad either way, the probe's 5 V pin never lands on GND.
+    want = {1: d.net(MCU, "PA13"), 2: "GND", 3: d.net(MCU, "PA14"), 4: "5V_IN"}
+    got = {pad: d.net("SWD1", str(pad)) for pad in want}
+    assert got == want, f"SWD1 pads {got}, expected {want}"
+    probe_5v = 4  # the lead's pins in the same order: 1 SWDIO, 2 GND, 3 SWCLK, 4 5V
+    misplugs = {"turned round": 5 - probe_5v, "shifted +1": probe_5v + 1, "shifted -1": probe_5v - 1}
+    on_gnd = [how for how, pad in misplugs.items() if got.get(pad) == "GND"]
+    assert not on_gnd, f"the probe's 5 V lands on SWD1's GND pad when the lead is {on_gnd}"
+
+
+def test_no_connector_pin_on_3v3(d):
+    # A programmer's supply pin goes to 5V_IN only (behind D17): no connector or header pin sits on
+    # a regulated 3.3 V rail, where a programmer's 3.3 V or 5 V would meet the regulators' outputs.
+    problems = []
+    for rail in (d.net("IC7", "VOUT/FB"), d.net("U8", "VOUT")):
+        pins = sorted(f"{r} pin {pad}" for r, pad, _ in d.on(rail) if r.startswith(("J", "SWD")))
+        if pins:
+            problems.append(f"{rail} is on {pins}")
     assert not problems, "\n".join(problems)
 
 
@@ -127,13 +156,8 @@ def test_bridges_only_on_vbat(d):
             problems.append(f"{ref} VS is on {d.net(ref, 'VS')}, not VBAT")
     vsys = d.net("IC7", "VIN")
     active = sorted({r for r, _, _ in d.on(vsys) if d.kind(r) not in ("capacitor", "resistor")})
-    # D16 is the power path's own gate clamp (Regulators.zen: BZT52C10S from Q8's gate to its source,
-    # VSYS), so it belongs on VSYS as long as its anode is Q8's gate
-    clamp = [r for r in d.refs("BZT52C10S") if d.net(r, "K") == vsys and d.net(r, "A") == d.net("Q8", "G")]
-    if active != sorted(["IC7", "D14", "Q8", *clamp]) or len(clamp) != 1:
-        problems.append(
-            f"VSYS carries {active}: only the power path (with its gate clamp) and the 3V3_D buck (the LDO through R58)"
-        )
+    if active != sorted(["IC7", "D14", "D17"]):
+        problems.append(f"VSYS carries {active}: only D14, D17 and the 3V3_D buck (the LDO through R58)")
     assert len(d.refs("DRV8874")) == 2 and len(d.refs("STSPIN958")) == 1
     assert not problems, "\n".join(problems)
 
@@ -170,14 +194,15 @@ def test_analog_rail_feeds_only_analog_loads(d):
     assert not problems, "\n".join(problems)
 
 
-def test_no_5v_rail(d):
-    # Research Power tree: no 5 V rail. The USB VBUS (+5V) feeds only the power path Q8, its ESD
-    # clamp and the ESP32's sense divider; no other net carries 5 V.
-    vbus = d.net("U2", "VBUS")
-    active = sorted({r for r, _, _ in d.on(vbus) if d.kind(r) not in ("capacitor", "resistor")})
-    assert active == ["D8", "Q8", "U2"], f"{vbus} feeds {active}"
-    fives = [n for n in d.nets() if "5V" in n.upper() and n != vbus]
-    assert not fives, f"5 V nets besides VBUS: {fives}"
+def test_no_usb_and_no_5v_rail(d):
+    # Research Design basis: the board has no USB and no 5 V rail; every supply comes from J1. The
+    # one 5 V net is 5V_IN, a programmer's 5 V pin into VSYS through D17, which feeds nothing else.
+    usb = sorted(n for n in d.nets() if re.search(r"USB|VBUS|5V", n.upper()) and n != "5V_IN")
+    assert not usb, f"USB or 5 V nets on the board: {usb}"
+    on_5v = sorted(r for r, _, _ in d.on("5V_IN"))
+    assert on_5v == ["D17", "J2", "SWD1"], f"5V_IN reaches {on_5v}: only J2, SWD1 and D17"
+    connectors = sorted(r for r in d.nl.parts if r.startswith("J"))
+    assert connectors == ["J1", "J2"], f"connectors {connectors}: J1 (the pack) and J2 (the radio's header) only"
 
 
 # --- decoupling present on the schematic (its distance is test_layout's, once there is a layout) --
@@ -304,6 +329,36 @@ FIRMWARE_RULES = {
     "emitter_slot_quiet": ["LED_ARGB", "SPI_SCK", "Encoder_Right_CSn", "Encoder_Left_CSn"],
     # the current channels share ADC1/ADC2 with the walls and the battery
     "current_sampling_time": ["adc.current_sampling_time_min_us"],
+    # the link needs the C5's 3-wire spi_slave_hd mode (Esp.zen)
+    "radio_firmware": ["v6.0.3", "SPI_SLAVE_HD_3WIRE_MODE"],
+    # SPI2 keeps its pins driven between transfers, swaps its data pin, starts slow (Esp.zen)
+    "link_spi": ["AFCNTR = 1", "MasterKeepIOState", "Init.IOSwap", "/8"],
+    # the half-duplex data line is never driven from both ends (R96, RM0468 Figure 643 note 3), the
+    # select is released before the MCU drives again (AFCNTR), and the master ends each DMA buffer
+    # (ESP-IDF spi_slave_hd protocol)
+    "link_protocol": [
+        "command and address",
+        "dummy",
+        "never overlap",
+        "releases ESP_CSn before it sets HDDIR = 1",
+        "WR_DONE (CMD7)",
+        "CMD8",
+    ],
+    # the C5 recovers the link after the MCU resets, closing buffers with commands, not ESP_CSn
+    "link_resync": ["MCU reset", "ESP_CSn", "WR_DONE (CMD7)", "CMD8", "CMD9"],
+    # the fan driver's fault comes back on its enable pin, low for about 0.5 ms (R27 x C30 from
+    # 0.4 V to VIH(EN), Drivers.zen, DS14341 section 5.7 and Figure 15)
+    "fan_fault_interrupt": ["EXTI10", "EXTI15_10", "falling", "0.5 ms", "VIH(EN)"],
+    # the C5 drives NRST open drain and must never drive it high (DS13311 Table 61)
+    "probe_pins": ["GPIO23", "open-drain", "never push-pull", "set to 1", "350 ns"],
+    # GPIO0/GPIO1 carry SWD, not the 32 kHz crystal
+    "radio_clock": ["XTAL_32K", "internal RC"],
+    # the C5's link clock input and its UART-fallback receiver
+    "radio_pulls": ["GPIO10"],
+    # INT2 is unconnected: everything goes to INT1 (Sensors.zen)
+    "imu_interrupt": ["INT2_on_INT1", "rising"],
+    # on 5V_IN alone the bridges have no supply and the battery reads near 0 V (Regulators.zen)
+    "battery_absent": ["5V_IN", "Motors_Enable", "Fan_Enable"],
 }
 
 

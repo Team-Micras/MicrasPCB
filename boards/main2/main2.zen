@@ -1,23 +1,23 @@
 """Micras main board, second revision: the micromouse's MCU, 4S power, DRV8874 wheel bridges, fan
-driver, sensors, ESP32-S3 radio and debug probe, and user interface.
+driver, sensors, ESP32-C5 radio and debug probe, and user interface.
 
 The design is research/next-revision/README.md: its design basis (DCX 10 L 4.5 V motors on a 4S
-pack with no boost; USB-C to the ESP32 only; the ESP32 replacing the HM-19 module and the SWD
-connector; digital 3V3_D from the L6981C33 and analog 3V3_A from a battery-side LDO; no 5 V
+pack with no boost; no USB; the ESP32-C5 replacing the HM-19 module and the SWD connector;
+digital 3V3_D from the L6981C33 and analog 3V3_A from a battery-side LDO; no 5 V
 rail; the STSPIN958 fan driver at 400 kHz), its recommended options and its appendix connection
 lists A.1-A.6. The blocks it keeps unchanged are boards/main's, with their designators; the
 parts it adds continue each series, and the designators of removed parts are not reused.
 
 This root sheet holds the STM32H725RGV6 (IC1) with its supply network and the test pads, and
 connects the five sheets:
-- REGULATORS (Regulators.zen): battery input, fuse, switch and measurement; the VSYS
-  power path; the 3V3_D buck and the 3V3_A analog LDO.
+- REGULATORS (Regulators.zen): battery input, fuse, switch and measurement; VSYS; the 3V3_D
+  buck and the 3V3_A analog LDO.
 - DRIVERS (Drivers.zen): two DRV8874 bridges with their shunts and chokes; the STSPIN958 fan
   driver.
 - SENSORS (Sensors.zen): IMU, INA241 current amplifiers, wall sensors with their emitter
   current sink, encoder slots.
-- PERIPHERALS (Peripherals.zen): buttons, DIP switch, buzzer, LEDs, USB-C.
-- ESP (Esp.zen): the ESP32-S3-MINI-1 radio and debug probe.
+- PERIPHERALS (Peripherals.zen): buttons, DIP switch, buzzer, LEDs.
+- ESP (Esp.zen): the ESP32-C5-MINI-1 radio, debug probe and data link, and its flashing header.
 
 The board's mechanics (outline, screw holes, encoder slots, fan hole, wheel and switch notches,
 the drive blocks' zones) are spec/main2.toml. Its stackup and rules are boards/main's: the same
@@ -40,13 +40,13 @@ as on the main board, on 3V3_D:
 - VBAT (pin 1): 3V3_D (AN5419 Table 2, no backup battery), with C8 100 nF and C9 1 uF.
 
 Pin budget (research H7 pin budget): the two pins the main board left open carry two more
-lines, Motors_nFault (both DRV8874 nFAULT wire-ORed) and ESP_Flow (the ESP32's flow-control line).
+lines, Motors_nFault (both DRV8874 nFAULT wire-ORed) and ESP_Flow (the ESP32-C5's credit and
+attention line).
 Layout pin swaps (owner, 2026-10-20): the DIP switch sits on the STM32's right and rear, so
 Switch_1-3 take the plain inputs on the right-facing pin rows, PH1, PC15 and PC14 (reduced-drive
 pins, fine for inputs with pull-ups), and the lines bound for the rear-left leave from the
 left-facing rows: Motors_nFault on PB2 (EXTI2); on the main board's pins every one of them circled
-the chip. The ESP32 takes the SWD pins (PA13/PA14), NRST and UART4 (PA11 = UART4_RX, PA12 =
-UART4_TX), so it costs no new pin. BOOT0 is held low by R42: the MCU always starts from its flash.
+the chip. BOOT0 is held low by R42: the MCU always starts from its flash.
 Layout pin swaps (owner, 2026-10-24), so that no line crosses the STM32's rear tip, where the VCORE
 island leaves In2.Cu no room: the four wall-emitter selectors move from TIM4 (PB6-PB9, all on the
 rear-right row) to TIM3, whose channels reach both sides: Wall_Sensor_PWM_0 on PC9 (TIM3_CH4) and
@@ -58,8 +58,8 @@ set-point is 0, so no emitter lights). The left motor's EN stays on PC7 but take
 to TIM1 over ITR0 (RM0468 Table 350: TIM8 ITR0 = tim1_trgo) in gated mode; its PH (a GPIO) moves
 to PC6. LED_ARGB leaves TIM8_CH1 for PB9 (TIM17_CH1, its CCR1 written by DMA on tim17_up, DMAMUX1
 input 112, RM0468 Table 118). The rest are GPIOs: Motor_Right_PH on PB8, by the right bridge's
-lines, IMU_INT2 on PB6, Encoder_Right_CSn on PB7 beside the SPI pins toward its slot (EC1, on the
-right), IMU_INT1 on PB10, and ESP_Flow on PA9 on the rear-left row, toward the ESP32. The motor
+lines, Encoder_Right_CSn on PB7 beside the SPI pins toward its slot (EC1, on the right), and
+ESP_Flow on PA9 on the rear-left row, toward the ESP32. The motor
 timers: right motor EN/PH on PA8 (TIM1_CH1) and PB8, left on PC7 (TIM8_CH2) and PC6. The ADC lines
 are swapped for the routing: Current_Sensor_Left on PB1, Wall_Sensor_0 on PA4, Wall_Sensor_3 on PC0,
 Current_Sensor_Right still on PC1. Each pin keeps an ADC1 and an ADC2 input, which the currents'
@@ -70,7 +70,8 @@ Pin map check: the 46 I/Os of the VFQFPN68 are each assigned once, every alterna
 on its pin (STMicroelectronics STM32_open_pin_data, the STM32CubeMX MCU database: STM32H725RGVx.xml
 and GPIO-STM32H72_gpio_v1_0_Modes.xml; PC9/PB0/PB4/PB5 TIM3_CH4/CH3/CH1/CH2 AF2, PC7 TIM8_CH2 AF3,
 PB9 TIM17_CH1 AF1, PA8 TIM1_CH1 AF1, PA0/PA1 TIM5 AF2, PA15/PB3 TIM2 AF1, PA2 TIM15_CH1 AF4, PB15
-TIM12_CH2 AF2, PC10-PC12 SPI3 AF6, PA11/PA12 UART4 AF6), and each timer serves one function (TIM1,
+TIM12_CH2 AF2, PC10-PC12 SPI3 AF6, PA12 SPI2_SCK AF5, PB14 SPI2_MISO AF5, and in the fallback
+PA11/PA12 UART4_RX/UART4_TX AF6), and each timer serves one function (TIM1,
 TIM8 motors; TIM2, TIM5 encoders; TIM3 selectors; TIM12 fan; TIM15 buzzer; TIM17 LEDs; TIM4 spare,
 the emitter DAC's trigger). The timer, DMA, DAC and ADC set-up, with the RM0468 Rev 3 and ES0491
 Rev 9 numbers, is boards/main2/firmware_changes.toml (drive, current, emitters, leds). STM32CubeMX
@@ -80,8 +81,25 @@ conflict: every pin's alternate function as above, TIM8 gated on ITR0 and TIM4 g
 TIM1 TRGO = enable and TRGO2 = update, ADC1/ADC2 dual injected simultaneous on channels 5 and 11
 triggered by TIM1 TRGO2 with ADC1's regular group, DAC1 channel 2 on PA5 triggered by TIM4 TRGO
 with its buffer off, channel 1 on-chip only beside PA4's ADC input, and the DMA requests of
-ADC1, UART4, SPI3, TIM17_UP and DAC1 channel 2, at the firmware's 550 MHz clock tree (275 MHz
-timer clocks).
+ADC1, SPI2 (or UART4), SPI3, TIM17_UP and DAC1 channel 2, at the firmware's 550 MHz clock tree
+(275 MHz timer clocks).
+- The link to the ESP32-C5 (ESP sheet; firmware_changes.toml link) is SPI2 in half-duplex on
+  three wires, the MCU the master (SPI_CFG2 COMM = 11, RM0468 Rev 3 section 55.4.4 and Figure
+  643), its one data line on the MISO pad with IOSWP = 1 (sections 55.4.2 and 55.4.4: the data
+  pins swap in any mode): ESP_SCK on PA12 (SPI2_SCK, AF5), ESP_DATA on PB14 (SPI2_MISO, AF5),
+  ESP_CSn on PA11 (a GPIO output: software chip select), and ESP_Flow on PA9 (EXTI9), the C5's
+  credit and attention line. UART4 is the fallback on the same pins, with no board change:
+  ESP_SCK becomes UART4_TX (PA12, AF6) and ESP_CSn UART4_RX (PA11, AF6), the C5's UART1 behind
+  them. The DMA requests are spi2_rx_dma and spi2_tx_dma, DMAMUX1 inputs 39 and 40 (RM0468 Table
+  118). STM32CubeMX 6.18.1 offers the IO swap in half-duplex slave mode only: in master mode it
+  puts the data line on the MOSI pad and rejects PB14. The CubeMX check therefore runs SPI2 as a
+  half-duplex slave with IO swap, which places SPI2_SCK on PA12 and SPI2_MISO on PB14 and generates
+  the SPI2_RX and SPI2_TX DMA streams with the rest of the set-up above, ESP_CSn and ESP_Flow as
+  GPIOs, and UART4 on PA11/PA12 in the fallback project; the firmware runs SPI2 as the master and
+  sets its IOSWP itself (HAL Init.IOSwap = SPI_IO_SWAP_ENABLE, firmware_changes.toml link_spi).
+  PB14 left Fan_Enable for the link: Fan_Enable is on PB10
+  (open drain, DRIVERS sheet), and the IMU's INT1 alone is IMU_INT on PB6 (EXTI6), its INT2 left
+  open (SENSORS sheet).
 - PA5 is DAC1_OUT2, Wall_Emitter_Set, the wall emitters' current set-point (SENSORS sheet). PA4
   (DAC1_OUT1) and PA5 are the package's only DAC outputs (STM32CubeMX MCU database,
   STM32H725RGVx; DS13311 Table 8), and PA4 carries Wall_Sensor_0: DAC channel 1 stays disabled
@@ -93,15 +111,21 @@ timer clocks).
 - PH0 is Switch_0, a plain input with the internal pull-up for the DIP switch: an FT I/O (Table 8)
   that takes no negative injection (Table 54), which a switch to GND does not cause. The firmware
   leaves the HSE off: there is no HSE or LSE crystal.
-- The H7 learns of USB power from the ESP32 over UART4; the ESP32 senses VBUS on its own divider
-  (ESP sheet).
 
-SWD header SWD1 (bare 1.27 mm pitch pads, not assembled): 1 GND, 2 SWDIO, 3 SWCLK, for an ST-Link
-when the ESP32 cannot reach the MCU (the owner's choice: no supply pin, no NRST). The board has
-no test pads.
+SWD header SWD1 (bare 1.27 mm pitch pads, not assembled), for an ST-Link when the ESP32-C5 cannot
+reach the MCU (no NRST: the owner's choice), in the 4-pin order of the owner's clone ST-Link lead
+(owner, 2026-11-01): 1 SWDIO, 2 GND, 3 SWCLK, 4 5V_IN. The lead plugs on pin 1 to pad 1 (the square
+pad, with the footprint's pin-1 corner and "5V" at pad 4 on the silkscreen); turned round, or
+shifted one pad either way, its 5 V never lands on GND, and nothing more is added to protect the
+header (the owner's choice). Pad 4 takes the probe's 5 V pin, never its 3.3 V one: 5V_IN feeds
+VSYS through D17 (REGULATORS sheet), so a clone ST-Link powers the whole board for flashing without
+the pack, and with the pack in D17 blocks (VSYS 11.4-17.4 V). The probe's 3.3 V pin stays
+unconnected: nothing on the header takes it. The probe's own fuse and lead drop part of its USB
+VBUS before pad 4; at the lowest the buck runs at its maximum duty and 3V3_D follows VSYS at about
+3.2 V, enough to flash (REGULATORS sheet, 5V_IN). The board has no test pads.
 """
 
-load("@stdlib/interfaces.zen", "DiffPair", "Spi", "Usb2")
+load("@stdlib/interfaces.zen", "Spi")
 load(
     "@stdlib/board_config.zen",
     "BoardConfig",
@@ -138,19 +162,20 @@ Esp = Module("./Esp.zen")
 BAT_P = Power("BAT_P", voltage="12V to 17.4V")
 # The battery after the fuse F1: the bridges' and the fan driver's supply.
 VBAT = Power("VBAT", voltage="12V to 17.4V")
-# OR(VBAT, VBUS): VBAT less the B5819W's drop, or VBUS less the P-FET (research Power tree).
-VSYS = Power("VSYS", voltage="4.3V to 17.4V")
+# Programming power: a USB-serial adapter's or a clone ST-Link's 5 V pin on J2 pin 2 or SWD1 pad 4,
+# the USB VBUS it passes on: 4.40-5.25 V at a low-power port's connector, 4.75-5.25 V at a
+# high-power one (USB 2.0 Specification, section 7.3.2, Table 7-7).
+V5V_IN = Power("5V_IN", voltage="4.4V to 5.25V")
+# VBAT (or 5V_IN, without the pack) less a B5819W's drop, 0.6 V at most at 1 A (JCET B5817W-B5819W
+# p1), about 0.25 V at a light load (p2, typical; research Power tree): 11.4-17.4 V on the pack,
+# 3.8-5.0 V on 5V_IN.
+VSYS = Power("VSYS", voltage="3.8V to 17.4V")
 # L6981C33 fixed output (DS13554 Table 6 p6: 3.284-3.346 V, TJ -40 to 125 C).
 V3V3_D = Power("3V3_D", voltage="3.284V to 3.346V")
 # ADP7142ACPZN3.3 fixed output (Rev H Table 1: 3.24-3.36 V over load, line and temperature).
 V3V3_A = Power("3V3_A", voltage="3.24V to 3.36V")
 # The ADC and analog supply, 3V3_A through the 0 Ohm R67.
 VDDA = Power("VDDA", voltage="3.24V to 3.36V")
-# USB VBUS from the USB-C receptacle: 4.4 V minimum at a device (USB 2.0 section 7.2.2 and
-# Table 7-7: a low-power port supplies 4.40-5.25 V, and every device must enumerate at 4.40 V at
-# its connector), up to 5.5 V from a Type-C source (vSafe5V, 4.75-5.5 V: USB PD R3.2 V1.2
-# Table 4.8, the definition the Type-C specification R2.5 takes in its terms table, section 1.5).
-V5V = Power("+5V", voltage="4.4V to 5.5V")
 # STM32 core supply from the on-chip SMPS: VOS3 to VOS0 (DS13311 Table 13 p117).
 VCORE = Power("VCORE", voltage="0.95V to 1.40V")
 # SMPS switching node; AN5419 Table 2 gives its range as VCORE in the Direct SMPS supply.
@@ -164,10 +189,10 @@ RESET = Net("Reset")
 BOOT = Net("Boot")
 SWDIO = Net("SWDIO")
 SWCLK = Net("SWCLK")
-UART4_RX = Net("UART4_RX")
-UART4_TX = Net("UART4_TX")
+ESP_SCK = Net("ESP_SCK")
+ESP_CSN = Net("ESP_CSn")
+ESP_DATA = Net("ESP_DATA")
 ESP_FLOW = Net("ESP_Flow")
-USB = Usb2(D=DiffPair(P=Net("USBD_P"), N=Net("USBD_N")))
 BUTTON = Net("Button")
 BUZZER = Net("Buzzer")
 LED_ARGB = Net("LED_ARGB")
@@ -183,8 +208,7 @@ SPI_MOSI = Net("SPI_MOSI")
 IMU_SPI = Spi(CS=Net("IMU_SPI_CSn"), CLK=SPI_SCK, MISO=SPI_MISO, MOSI=SPI_MOSI)
 ENCODER_LEFT_SPI = Spi(CS=Net("Encoder_Left_CSn"), CLK=SPI_SCK, MISO=SPI_MISO, MOSI=SPI_MOSI)
 ENCODER_RIGHT_SPI = Spi(CS=Net("Encoder_Right_CSn"), CLK=SPI_SCK, MISO=SPI_MISO, MOSI=SPI_MOSI)
-IMU_INT1 = Net("IMU_INT1")
-IMU_INT2 = Net("IMU_INT2")
+IMU_INT = Net("IMU_INT")
 ENCODER_LEFT_ABI_A = Net("Encoder_Left_ABI_A")
 ENCODER_LEFT_ABI_B = Net("Encoder_Left_ABI_B")
 ENCODER_RIGHT_ABI_A = Net("Encoder_Right_ABI_A")
@@ -246,8 +270,8 @@ STM32H725RGV6(
     PA8=MOTOR_RIGHT_EN,
     PA9=ESP_FLOW,
     PA10=MOTORS_ENABLE,
-    PA11=UART4_RX,
-    PA12=UART4_TX,
+    PA11=ESP_CSN,
+    PA12=ESP_SCK,
     PA13=SWDIO,
     PA14=SWCLK,
     PA15=ENCODER_RIGHT_ABI_B,
@@ -257,14 +281,14 @@ STM32H725RGV6(
     PB3=ENCODER_RIGHT_ABI_A,
     PB4=WALL_SENSOR_PWM_2,
     PB5=WALL_SENSOR_PWM_3,
-    PB6=IMU_INT2,
+    PB6=IMU_INT,
     PB7=ENCODER_RIGHT_SPI.CS,
     PB8=MOTOR_RIGHT_PH,
     PB9=LED_ARGB,
-    PB10=IMU_INT1,
+    PB10=FAN_ENABLE,
     PB12=LED_RED,
     PB13=FAN_TOFF,
-    PB14=FAN_ENABLE,
+    PB14=ESP_DATA,
     PB15=FAN_PWM,
     PC0=WALL_SENSOR_3,
     PC1=CURRENT_SENSOR_RIGHT,
@@ -303,8 +327,9 @@ Capacitor(name="C15", P1=GND, P2=V3V3_D, **C_100N_0402)
 Capacitor(name="C16", P1=GND, P2=V3V3_D, **C_100N_0402)
 Capacitor(name="C17", P1=GND, P2=V3V3_D, **C_4U7_0402)
 
-# SWD header for an ST-Link (bare pads, not assembled).
-SwdHeader(name="SWD", prefix="SWD", GND=GND, SWDIO=SWDIO, SWCLK=SWCLK)
+# SWD header for an ST-Link (bare pads, not assembled), a clone ST-Link's order: 1 SWDIO, 2 GND,
+# 3 SWCLK, 4 its 5 V pin.
+SwdHeader(name="SWD", prefix="SWD", supply=True, GND=GND, SWDIO=SWDIO, SWCLK=SWCLK, VDD=V5V_IN)
 
 # M2 screw holes to the chassis.
 MountingHole(name="H1")
@@ -316,10 +341,10 @@ Regulators(
     name="REGULATORS",
     BAT_P=BAT_P,
     VBAT=VBAT,
+    V5V_IN=V5V_IN,
     VSYS=VSYS,
     V3V3_D=V3V3_D,
     V3V3_A=V3V3_A,
-    V5V=V5V,
     GND=GND,
     GND_BAT=GND_BAT,
     Battery_Voltage=BATTERY_VOLTAGE,
@@ -356,8 +381,7 @@ Sensors(
     IMU_SPI_CSn=IMU_SPI.CS,
     Encoder_Right_CSn=ENCODER_RIGHT_SPI.CS,
     Encoder_Left_CSn=ENCODER_LEFT_SPI.CS,
-    IMU_INT1=IMU_INT1,
-    IMU_INT2=IMU_INT2,
+    IMU_INT=IMU_INT,
     MOTOR_L_SENSE_P=MOTOR_L_SENSE_P,
     MOTOR_L_SENSE_N=MOTOR_L_SENSE_N,
     MOTOR_R_SENSE_P=MOTOR_R_SENSE_P,
@@ -382,7 +406,6 @@ Sensors(
 Peripherals(
     name="PERIPHERALS",
     V3V3_D=V3V3_D,
-    V5V=V5V,
     GND=GND,
     Button=BUTTON,
     Reset=RESET,
@@ -394,20 +417,19 @@ Peripherals(
     Buzzer=BUZZER,
     LED_ARGB=LED_ARGB,
     LED_Red=LED_RED,
-    USB=USB,
 )
 
 Esp(
     name="ESP",
+    V5V_IN=V5V_IN,
     V3V3_D=V3V3_D,
-    V5V=V5V,
     GND=GND,
-    USB=USB,
     SWDIO=SWDIO,
     SWCLK=SWCLK,
     Reset=RESET,
-    UART4_RX=UART4_RX,
-    UART4_TX=UART4_TX,
+    ESP_SCK=ESP_SCK,
+    ESP_CSn=ESP_CSN,
+    ESP_DATA=ESP_DATA,
     ESP_Flow=ESP_FLOW,
 )
 

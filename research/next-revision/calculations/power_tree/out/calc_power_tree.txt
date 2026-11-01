@@ -52,11 +52,13 @@
   1 oz copper sheet resistance ~0.5 mOhm/square (general; 35 um Cu, 1.72e-8 ohm m)
   -> 0.49 mOhm/sq
 
-=== 6. USB-only power budget (battery absent) ===
-  flash/debug (no emitters, ESP RX)         : 3V3   263 mA -> VBUS   222 mA at eta 0.85, VSYS 4.6 V
-  ESP TX peak, no emitters                  : 3V3   523 mA -> VBUS   441 mA at eta 0.85, VSYS 4.6 V
-  everything incl. emitters + LEDs white    : 3V3   697 mA -> VBUS   588 mA at eta 0.85, VSYS 4.6 V
-  USB 2.0 port: 500 mA after configuration; Type-C 'Default USB Power' = USB 2.0 500 mA / USB 3.x 900 mA
+=== 6. 5V_IN programming power budget (battery absent; Regulators.zen D17) ===
+  C5 UART flashing (C5 Wi-Fi off, H7 running) : 3V3_D   203 mA, 3V3_A  9.7 mA -> 5V_IN   189 mA (VSYS 4.39 V, eta 0.85)
+  H7 SWD flashing, C5 Wi-Fi associated (RX)   : 3V3_D   273 mA, 3V3_A  9.7 mA -> 5V_IN   251 mA (VSYS 4.39 V, eta 0.85)
+  C5 5 GHz TX peak                            : 3V3_D   586 mA, 3V3_A  9.7 mA -> 5V_IN   528 mA (VSYS 4.39 V, eta 0.85)
+  everything: TX peak, emitters, LEDs white   : 3V3_D   718 mA, 3V3_A  9.7 mA -> 5V_IN   645 mA (VSYS 4.39 V, eta 0.85)
+  USB 2.0: a high-power port supplies 500 mA once configured, 100 mA before (USB 2.0 section 7.2.1);
+  the flashing cases stay inside 500 mA, the C5 transmitting at 5 GHz without pause would exceed it (Table 6-5 rates TX at 100 % duty).
 
 === 7. Noise floors the rail must stay below ===
   ADC own noise at ENOB 12.2: 202 uV rms = 4.0 LSB16 rms

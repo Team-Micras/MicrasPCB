@@ -69,7 +69,9 @@ wires = [
 [[block]]
 at = [0, 0]
 frame = [[176, 168, 58, 54, "SWD header for an ST-Link (bare pads)"]]
-parts.SWD1 = [200, 194, 180]
+parts.SWD1 = { at = [200, 194], rot = 180, mirror = "x" }
+stubs."SWD1.2" = { point = "out" }
+stubs."SWD1.4" = { point = "out" }
 
 [[block]]
 at = [0, 0]
@@ -93,14 +95,12 @@ right = ["Battery_Voltage"]
 
 [sheet.ESP]
 at = [36, 60]
-size = [30, 16]
-left = ["USB.D.P", "USB.D.N"]
-right = ["Reset", "SWDIO", "SWCLK", "UART4_RX", "UART4_TX", "ESP_Flow"]
+size = [30, 18]
+right = ["Reset", "SWDIO", "SWCLK", "ESP_SCK", "ESP_CSn", "ESP_DATA", "ESP_Flow"]
 
 [sheet.PERIPHERALS]
 at = [36, 92]
 size = [30, 24]
-left = ["USB.D.P", "USB.D.N"]
 right = [
     "Reset", "Boot", "Button", "Switch_0", "Switch_1", "Switch_2", "Switch_3", "Buzzer",
     "LED_ARGB", "LED_Red",
@@ -110,7 +110,7 @@ right = [
 at = [267, 66]
 size = [36, 48]
 left = [
-    "SPI_SCK", "SPI_MISO", "SPI_MOSI", "IMU_SPI_CSn", "IMU_INT1", "IMU_INT2",
+    "SPI_SCK", "SPI_MISO", "SPI_MOSI", "IMU_SPI_CSn", "IMU_INT",
     "Encoder_Left_CSn", "Encoder_Left_ABI_A", "Encoder_Left_ABI_B",
     "Encoder_Right_CSn", "Encoder_Right_ABI_A", "Encoder_Right_ABI_B",
     "Wall_Sensor_PWM_0", "Wall_Sensor_PWM_1", "Wall_Sensor_PWM_2", "Wall_Sensor_PWM_3",

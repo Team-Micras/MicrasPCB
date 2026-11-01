@@ -1,66 +1,57 @@
 # Placement of the main2 board's ESP sheet (micras-pcb sch; units of 1.27 mm, y down).
 paper = "A4"
-title = "ESP32-S3 radio and debug probe"
+title = "ESP32-C5 radio and debug probe"
 ports = { at = [10, 98], rows = 12, title = "Sheet ports" }
 
 [[block]]
-title = "ESP32-S3-MINI-1-N8 and its 3V3_D decoupling"
+title = "ESP32-C5-MINI-1-N4 and its 3V3_D decoupling"
 at = [10, 10]
 size = [122, 84]
-parts.U13 = [52, 52]
-parts.C107 = [60, 16, 180]
-parts.C108 = [80, 16, 180]
-parts.C109 = [100, 16, 180]
+parts.U13 = [56, 52]
+parts.C107 = [64, 16, 180]
+parts.C108 = [84, 16, 180]
+parts.C109 = [104, 16, 180]
 wires = [
-    ["U13.3", [52, 12]],
-    ["C107.2", [52, 14]],
+    ["U13.3", [56, 12]],
+    ["C107.2", [56, 14]],
     ["C107.2", "C108.2"],
     ["C108.2", "C109.2"],
 ]
 # the ESP-side nets, in one column clear of the MCU's global labels
-stubs."U13.11" = { len = 11 }
-stubs."U13.16" = { len = 11 }
-stubs."U13.18" = { len = 11 }
+stubs."U13.17" = { len = 11 }
+stubs."U13.20" = { len = 11 }
 stubs."U13.21" = { len = 11 }
+stubs."U13.22" = { len = 11 }
+stubs."U13.39" = { len = 11 }
+stubs."U13.31" = { len = 11 }
 
 [[block]]
-title = "Reset and download: EN RC delay, GPIO0 pull-up, recovery pads"
+title = "Reset and download: EN RC delay, GPIO28 pull-up, flashing header J2"
 at = [136, 10]
-size = [80, 44]
+size = [90, 50]
 parts.R89 = [24, 10]
 parts.C110 = { at = [32, 18], rot = 180, fields = "left" }
-parts.ESP_EN1 = [52, 16]
 parts.R90 = [24, 32]
-parts.ESP_BOOT1 = [52, 38]
+parts.J2 = { at = [66, 24], fields = [-16, 7] }
 wires = [
     ["R89.2", [24, 14], [32, 14], "C110.2"],
-    ["ESP_EN1.1", [32, 14]],
     [[24, 14], [16, 14]],
-    ["R90.2", [24, 36], "ESP_BOOT1.1"],
-    [[24, 36], [16, 36]],
+    ["R90.2", [24, 36], [16, 36]],
+    ["J2.2", [74, 22], [74, 18]],
+    ["J2.4", [80, 24], [80, 30]],
+    ["J2.6", [76, 26], [76, 32], { label = "down" }],
 ]
 
 [[block]]
-title = "USB: series resistors at the module"
-at = [136, 58]
-size = [56, 20]
-parts.R84 = [24, 8, 90]
-parts.R85 = [24, 14, 90]
-
-[[block]]
-title = "Links to the MCU: SWCLK, UART4"
-at = [136, 82]
-size = [56, 26]
+title = "Links to the MCU: SWCLK, SPI2 (UART4 fallback), ESP_CSn pull-up"
+at = [136, 64]
+size = [90, 40]
 parts.R86 = [24, 8, 90]
-parts.R88 = [24, 14, 90]
-
-[[block]]
-title = "VBUS detect: +5V divider to GPIO7"
-at = [46, 98]
-size = [44, 30]
-parts.R91 = { at = [14, 12], fields = "left" }
-parts.R92 = { at = [14, 20], rot = 180, fields = "left" }
+parts.R88 = [24, 16, 90]
+parts.R95 = [24, 24, 90]
+parts.R96 = [24, 32, 90]
+parts.R97 = { at = [44, 12], fields = "right" }
 wires = [
-    ["R91.2", "R92.2"],
-    [[14, 16], [20, 16]],
+    ["R88.2", [44, 16], [52, 16]],
+    ["R97.2", [44, 16]],
 ]

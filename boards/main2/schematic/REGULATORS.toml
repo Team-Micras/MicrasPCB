@@ -1,7 +1,7 @@
 # Placement of main2's REGULATORS sheet (micras-pcb sch; units of 1.27 mm, y down).
 # Rows follow the power: battery -> VBAT (top), VBAT's loads here (middle), VSYS's regulators (bottom).
 paper = "A3"
-title = "Battery input, power path and regulators"
+title = "Battery input, VSYS and regulators"
 ports = { at = [160, 88], rows = 4, title = "Sheet ports" }
 
 [[block]]
@@ -48,26 +48,16 @@ wires = [
 ]
 
 [[block]]
-title = "Power path: VSYS = VBAT or VBUS"
+title = "VSYS: VBAT through D14, 5V_IN (a programmer's 5 V) through D17"
 at = [66, 82]
-size = [86, 46]
+size = [86, 28]
 parts.D14 = [24, 12]
-parts.Q8 = [36, 24, 90]
-parts.C63 = { at = [24, 26], rot = 180, fields = "left" }
-parts.R56 = [64, 30]
-parts.R57 = [72, 38, 180]
-parts.D16 = [54, 22, 90]
+parts.D17 = { at = [24, 18], fields = "bottom" }
 wires = [
     ["D14.2", [14, 12], [14, 9]],
     ["D14.1", [48, 12], [48, 9]],
-    ["Q8.2", [44, 22], [44, 12]],
-    ["Q8.3", [20, 22], [20, 19]],
-    ["C63.2", [24, 22]],
-    ["Q8.1", [36, 34], [72, 34], "R57.2"],
-    ["R56.2", [64, 34]],
-    ["D16.1", [54, 12], [48, 12]],
-    ["D16.2", [54, 34]],
-    [[46, 34], [46, 37], { label = "right" }],
+    ["D17.2", [8, 18], [8, 15]],
+    ["D17.1", [48, 18], [48, 12]],
 ]
 
 [[block]]

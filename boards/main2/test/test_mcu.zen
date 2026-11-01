@@ -1,9 +1,10 @@
-"""STM32H725RGV6 (IC1) application circuit and its links to the ESP32-S3 (U13): supplies, boot
-and reset, SWD, UART4, the pin budget.
+"""STM32H725RGV6 (IC1) application circuit and its links to the ESP32-C5 (U13): supplies, boot
+and reset, SWD, the SPI2/UART4 link, the IMU interrupt, the pin budget.
 
-Sources: ST DS13311 Rev 5, AN5419 Rev 3, RM0468 Rev 3; Espressif ESP32-S3-MINI-1 datasheet v1.7
-(Tables 3-1, 4-1), the ESP32-S3 datasheet v2.2 (Table 2-2) and the ESP32-S3 hardware design
-guidelines; research/next-revision (H7 pin budget, ESP32 and USB, A.6).
+Sources: ST DS13311 Rev 5, AN5419 Rev 3, RM0468 Rev 3; Espressif ESP32-C5-MINI-1 datasheet v1.4
+(Tables 3-1, 4-1), the ESP32-C5 Series Datasheet v1.5 (section 2.3.5) and Technical Reference
+Manual v1.1 (Table 8.13-1); ST DS13476 Rev 5 (LSM6DSV); research/next-revision (H7 pin budget,
+ESP32 radio, A.6).
 """
 
 load(
@@ -25,12 +26,11 @@ MAIN2 = Module("../main2.zen")
 
 MCU = "IC1"
 ESP = "U13"
-# ESP32-S3 strapping pins (Table 4-1): GPIO0, GPIO3, GPIO45, GPIO46.
-STRAPPING = ["IO0", "IO3", "IO45", "IO46"]
-# ESP32-S3 datasheet v2.2 Table 2-2: pins that glitch for about 60 us while the chip powers up:
-# low on GPIO1-14, XTAL_32K_P/N (GPIO15/16) and GPIO17, low and high on GPIO18-19, a pull-down and
-# high on GPIO20. GPIO21 does not.
-POWER_UP_GLITCH = ["IO" + str(n) for n in range(1, 21)]
+# The ESP32-C5's GPIOs free of any restriction (ESP32-C5 Series Datasheet v1.5 section 2.3.5,
+# priority 2: no strapping, pad-JTAG, UART0, USB or flash role), each with its input and output
+# off and no pull at reset (TRM v1.1 Table 8.13-1, Reset 0). Neither document lists a power-up
+# glitch for any C5 pin. Every MCU link lands on one of them.
+FREE = ["IO0", "IO1", "IO6", "IO8", "IO9", "IO10", "IO23", "IO24"]
 
 
 def _caps_to_gnd(b, name, value):
@@ -117,13 +117,16 @@ def boot0_pulled_down(module, inputs):
 
 
 def swd_header(module, inputs):
-    # The owner's ST-Link backstop: SWD1 pads 1 GND, 2 SWDIO (PA13), 3 SWCLK (PA14), no supply and
-    # no NRST (main2.zen).
+    # The owner's ST-Link backstop, in his clone ST-Link lead's order: SWD1 pads 1 SWDIO (PA13),
+    # 2 GND, 3 SWCLK (PA14), 4 5V_IN (the probe's 5 V pin, into VSYS through D17), no NRST
+    # (main2.zen). The pins are checked here by name; the SwdHeader4 symbol maps them to the pads,
+    # and tests/test_main2.py checks the pad numbers in the netlist.
     b = index(module)
     p = []
-    for pin, n in (("GND", "GND"), ("SWDIO", net(b, MCU, "PA13")), ("SWCLK", net(b, MCU, "PA14"))):
-        if "SWD" not in refs_on(b, n):
-            p.append("SWD1 " + pin + " must be on " + n)
+    want = {"GND": "GND", "SWDIO": net(b, MCU, "PA13"), "SWCLK": net(b, MCU, "PA14"), "VDD": "5V_IN"}
+    for pin, n in want.items():
+        if net(b, "SWD", pin) != n:
+            p.append("SWD1 " + pin + " must be on " + n + ", is " + net(b, "SWD", pin))
     report(p)
 
 
@@ -135,13 +138,12 @@ def nrst_protection(module, inputs):
 
 
 def esp_is_the_debug_probe(module, inputs):
-    # Research ESP32 and USB and A.6: the ESP32 is the debug probe (SWD1 is the ST-Link backstop); SWDIO (PA13), SWCLK
-    # (PA14) and NRST reach ESP GPIOs (directly or through one series resistor of 100 Ohm or
-    # less), so it can connect under reset (AN5419 Figure 21); UART4 (PA11 RX, PA12 TX) crosses
-    # to an ESP UART; PA9 carries flow control. None of these lands on an ESP strapping pin
-    # (Table 4-1), and the ESP's UART0 (GPIO43/44, ROM messages) is not used for the link. NRST sits
-    # on a pin without a power-up glitch (ESP32-S3 datasheet v2.2 Table 2-2): a 60 us low there
-    # would reset the MCU again when the ESP powers up.
+    # Research ESP32 radio and A.6: the ESP32-C5 is the debug probe (SWD1 is the ST-Link backstop)
+    # and the MCU's link: SWDIO (PA13), SWCLK (PA14) and NRST reach C5 GPIOs (directly or through
+    # one series resistor of 220 Ohm or less), so it can connect under reset (AN5419 Figure 21);
+    # the SPI2 link, ESP_SCK (PA12, SPI2_SCK), ESP_DATA (PB14, the data line on the MISO pad) and
+    # ESP_CSn (PA11), and ESP_Flow (PA9) reach C5 GPIOs too. Each lands on a free pin (FREE),
+    # so none of them is a strapping pin or drives the line before the firmware does.
     b = index(module)
     p = []
     esp_nets = {}
@@ -150,29 +152,79 @@ def esp_is_the_debug_probe(module, inputs):
     links = {
         "PA13": "SWDIO",
         "PA14": "SWCLK",
-        "PA11": "UART4_RX (the ESP's TX)",
-        "PA12": "UART4_TX (the ESP's RX)",
-        "PA9": "flow control",
+        "NRST": "NRST",
+        "PA12": "ESP_SCK (UART4_TX in the fallback)",
+        "PB14": "ESP_DATA",
+        "PA11": "ESP_CSn (UART4_RX in the fallback)",
+        "PA9": "ESP_Flow",
     }
     for mcu_pin, what in links.items():
         m = net(b, MCU, mcu_pin)
-        hit = [esp_nets[n] for n in esp_nets if n != "" and series_to(b, m, n, 100)]
-        if not hit:
-            p.append(mcu_pin + " (" + what + ") does not reach the ESP32")
+        hit = [esp_nets[n] for n in esp_nets if n != "" and series_to(b, m, n, 220)]
+        if len(hit) != 1:
+            p.append(mcu_pin + " (" + what + ") must reach one ESP32-C5 pin, reaches " + str(hit))
         for pin in hit:
-            if pin in STRAPPING or pin in ["TXD0", "RXD0"]:
-                p.append(mcu_pin + " lands on the ESP32's " + pin + " (strapping or UART0)")
-    nrst = net(b, MCU, "NRST")
-    if nrst not in esp_nets:
-        p.append("NRST does not reach the ESP32")
-    elif esp_nets[nrst] in POWER_UP_GLITCH:
-        p.append("NRST is on the ESP32's " + esp_nets[nrst] + ", which glitches at power-up (Table 2-2)")
+            if pin not in FREE:
+                p.append(mcu_pin + " lands on the ESP32-C5's " + pin + ", not a restriction-free pin")
+    report(p)
+
+
+# The link's series resistors: (MCU pin, ohms low, ohms high, the end the layout puts it at).
+LINK_RESISTORS = [("PA12", 22, 33, "IC1"), ("PB14", 220, 220, "U13"), ("PA11", 22, 150, "U13")]
+
+
+def esp_link_series_resistors(module, inputs):
+    # A source series resistor on the clock at its driver, PA12 (checklist, SPI: a series resistor
+    # on the clock trace; the UART4_TX resistor in the fallback); on the shared data line 220 Ohm
+    # against the two drivers overlapping while the direction changes (RM0468 Rev 3 Figure 643
+    # note 3: 3.346 V / 218 Ohm = 15.4 mA, under DS13311 Table 11's 20 mA per pin), at the C5; ESP_CSn its UART-fallback TX resistor at the C5 (schematic checklist,
+    # UART), and a 100 kOhm pull-up to 3V3_D so the select idles high while nobody drives it. Which
+    # end each resistor sits at is the layout's (boards/main2/layout/README.md).
+    b = index(module)
+    p = []
+    for mcu_pin, lo, hi, _end in LINK_RESISTORS:
+        m = net(b, MCU, mcu_pin)
+        rs = [
+            r
+            for r in refs_on(b, m)
+            if b.parts[r].type == "resistor"
+            and other_net(b, r, m) != net(b, MCU, "VDD")
+            and ESP in refs_on(b, other_net(b, r, m))
+        ]
+        if len(rs) != 1 or ohms(b, rs[0]) < lo * 0.99 or ohms(b, rs[0]) > hi * 1.01:
+            p.append(
+                mcu_pin + " needs one " + str(lo) + "-" + str(hi) + " Ohm resistor to the ESP32-C5, found " + str(rs)
+            )
+        elif mcu_pin == "PB14" and 3.346 / (ohms(b, rs[0]) * 0.99) > 0.020:
+            # both ends driving against each other: 3V3_D's top across the resistor at -1 %
+            p.append(rs[0] + " lets " + eng(3.346 / (ohms(b, rs[0]) * 0.99), "A") + " through PB14, above 20 mA")
+    cs = net(b, MCU, "PA11")
+    ups = [r for r in two_terminal(b, "resistor", cs, net(b, MCU, "VDD")) if abs(ohms(b, r) - 100e3) <= 1e3]
+    if len(ups) != 1:
+        p.append("ESP_CSn (PA11) needs one 100 kOhm pull-up to 3V3_D, found " + str(ups))
+    report(p)
+
+
+def imu_interrupt_line(module, inputs):
+    # DS13476 Rev 5: INT1 (pin 4) alone drives IMU_INT on PB6, push-pull at its defaults; the
+    # firmware moves the INT2 interrupts onto it (CTRL4 INT2_on_INT1, Table 58), and INT2 (pin 9),
+    # an output forced to ground by default (Table 22), is left open.
+    b = index(module)
+    p = []
+    line = net(b, MCU, "PB6")
+    if net(b, "IC2", "INT1") != line:
+        p.append("IC2 INT1 must be on PB6's " + line)
+    if net(b, "IC2", "INT2") != "":
+        p.append("IC2 INT2 must be left open, is on " + net(b, "IC2", "INT2"))
+    others = [r for r in refs_on(b, line) if r not in [MCU, "IC2"]]
+    if others:
+        p.append(line + " carries " + str(others) + "; INT1 drives it alone")
     report(p)
 
 
 def pin_budget(module, inputs):
     # Research H7 pin budget: every MCU GPIO is used; the two the main board left open carry
-    # Motors_nFault (both DRV8874 nFAULT, on PB2) and the ESP32's flow control (PA9).
+    # Motors_nFault (both DRV8874 nFAULT, on PB2) and the ESP32-C5's ESP_Flow (PA9).
     b = index(module)
     p = []
     for pin, n in b.parts[MCU].pins.items():
@@ -182,7 +234,7 @@ def pin_budget(module, inputs):
     if sorted([r for r in refs_on(b, fault) if r.startswith("IC") and r != MCU]) != ["IC8", "IC9"]:
         p.append("PB2 must carry both DRV8874 nFAULT outputs")
     if ESP not in refs_on(b, net(b, MCU, "PA9")):
-        p.append("PA9 must reach the ESP32")
+        p.append("PA9 must reach the ESP32-C5")
     report(p)
 
 
@@ -199,6 +251,8 @@ TestBench(
         swd_header,
         nrst_protection,
         esp_is_the_debug_probe,
+        esp_link_series_resistors,
+        imu_interrupt_line,
         pin_budget,
     ],
 )

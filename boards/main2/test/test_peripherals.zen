@@ -1,9 +1,9 @@
-"""USB-C receptacle U2, the ESP32-S3 module's support circuit U13, the status LEDs and the buzzer.
+"""The ESP32-C5 module's support circuit U13 and its flashing header J2, the status LEDs and the
+buzzer.
 
-Sources: USB Type-C Cable and Connector Specification Release 2.0, ST AN4879 Rev 12, Espressif
-ESP32-S3-MINI-1 datasheet v1.7 (Tables 6-2, 6-3; section 9, Figure 9-1) and the ESP32-S3
-hardware design guidelines (schematic checklist), Worldsemi WS2812C-2020-V6 V1.1, Fusheng
-FUET-5030 specification.
+Sources: Espressif ESP32-C5-MINI-1 datasheet v1.4 (Tables 4-1, 4-3, 6-2; section 9, Figure 9-1),
+the ESP32-C5 hardware design guidelines (schematic checklist) and the ESP-Prog user guide (Program
+Interface), Worldsemi WS2812C-2020-V6 V1.1, Fusheng FUET-5030 specification.
 """
 
 load(
@@ -22,131 +22,58 @@ load(
 
 MAIN2 = Module("../main2.zen")
 
-USBC = "U2"
 ESP = "U13"
 
 
-def usb_c_sink_terminations(module, inputs):
-    # Type-C R2.0 section 4.5.1.3.2 and Table 4-25 p236: a sink presents Rd = 5.1 kOhm on each CC.
-    b = index(module)
-    p = []
-    for pin in ["CC1", "CC2"]:
-        rd = [
-            r for r in two_terminal(b, "resistor", net(b, USBC, pin), "GND") if abs(ohms(b, r) - 5.1e3) <= 0.1 * 5.1e3
-        ]
-        if len(rd) != 1:
-            p.append("U2 " + pin + " needs one 5.1 kOhm Rd to GND, found " + str(rd))
-    report(p)
-
-
-def usb_c_sbu_open(module, inputs):
-    # Type-C R2.0 section 4.3 p139 and Table 4-28 p236: SBU open (or >= 950 kOhm to GND) for every
-    # partner. The main board's SBU supply for the HM-19 module is gone with the module.
-    b = index(module)
-    p = []
-    for pin in ["SBU1", "SBU2"]:
-        n = net(b, USBC, pin)
-        if n != "" and [r for r in refs_on(b, n) if r != USBC]:
-            p.append("U2 " + pin + " is connected (" + n + "); it stays open")
-    report(p)
-
-
-def usb_esd_protection(module, inputs):
-    # AN4879 section 2.3: ESD protection at the receptacle on D+, D- and VBUS (Table 11: USBLC6-2
-    # on the data lines). A protection part is a Tvs/Zener or a package of type tvs/esd. The VBUS
-    # clamp's stand-off covers the net's whole declared range (up to Type-C's 5.5 V), so it never
-    # conducts at a legal VBUS.
-    b = index(module)
-    p = []
-    for pin in ["D+", "D-", "VBUS"]:
-        line = net(b, USBC, pin)
-        clamps = [
-            r
-            for r in refs_on(b, line)
-            if b.parts[r].type in ["tvs", "zener", "esd"] and "GND" in [n.name for n in b.parts[r].pins.values()]
-        ]
-        if not clamps:
-            p.append("U2 " + pin + " (" + line + ") has no ESD protection to GND")
-        if pin == "VBUS":
-            vmax = b.parts[USBC].pins["VBUS"].voltage.max
-            for r in clamps:
-                standoff = b.parts[r].reverse_standoff_voltage.max
-                if standoff < vmax:
-                    p.append(r + " stands off " + eng(standoff, "V") + ", below " + line + "'s " + eng(vmax, "V"))
-    report(p)
-
-
-def usb_goes_to_the_esp_only(module, inputs):
-    # Research Design basis: USB-C connects only to the ESP32 (GPIO20 D+, GPIO19 D-), through the
-    # 22-33 Ohm series resistors the checklist reserves close to the module; VBUS feeds only the
-    # power path, the clamp and the ESP32's sense divider (there is no 5 V rail).
-    b = index(module)
-    p = []
-    for pin, esp_pin in [("D+", "USB_D+"), ("D-", "USB_D-")]:
-        line, esp = net(b, USBC, pin), net(b, ESP, esp_pin)
-        rs = [r for r in two_terminal(b, "resistor", line, esp) if ohms(b, r) >= 22 * 0.99 and ohms(b, r) <= 33 * 1.01]
-        if len(rs) != 1:
-            p.append("U2 " + pin + " must reach the ESP32's " + esp_pin + " through one 22-33 Ohm resistor")
-        if "IC1" in refs_on(b, line):
-            p.append("U2 " + pin + " reaches the MCU; USB-C is the ESP32's only")
-    vbus = net(b, USBC, "VBUS")
-    for r in refs_on(b, vbus):
-        kind = b.parts[r].type
-        if r not in [USBC, "Q8"] and kind not in ["capacitor", "resistor", "tvs"]:
-            p.append(r + " (" + kind + ") is powered from VBUS; only the power path Q8 takes VBUS")
-    report(p)
-
-
 def esp_supply_and_enable(module, inputs):
-    # Figure 9-1 and section 9: 3V3 decoupled at the module (the research keeps 10 uF + 100 nF,
-    # optional 22 uF); EN never floating, with the RC delay "usually R = 10 kOhm and C = 1 uF";
-    # the checklist recommends a pull-up on GPIO0 (strapping, Table 4-1). Recovery needs GPIO0 and
-    # EN reachable (research Recovery): a pad or a button on each.
+    # Figure 9-1 and section 9: 3V3 decoupled at the module (22 uF + 0.1 uF); EN never floating,
+    # with the RC delay "usually R = 10 kOhm and C = 1 uF"; the checklist (Strapping Pins) asks for
+    # a pull-up on GPIO28, the boot strap (Tables 4-1, 4-3: low at reset enters the download mode),
+    # and no large capacitor on it.
     b = index(module)
     p = []
     v = net(b, ESP, "3V3")
     caps = two_terminal(b, "capacitor", v, "GND")
-    if not [r for r in caps if abs(farads(b, r) - 10e-6) <= 1e-6] or not [
+    if not [r for r in caps if abs(farads(b, r) - 22e-6) <= 2.2e-6] or not [
         r for r in caps if abs(farads(b, r) - 100e-9) <= 10e-9
     ]:
-        p.append(v + " needs 10 uF + 100 nF at the ESP32")
-    en, gpio0 = net(b, ESP, "EN"), net(b, ESP, "IO0")
+        p.append(v + " needs 22 uF + 100 nF at the ESP32-C5 (Figure 9-1)")
+    en, boot = net(b, ESP, "EN"), net(b, ESP, "IO28")
     if not [r for r in two_terminal(b, "resistor", en, v) if abs(ohms(b, r) - 10e3) <= 0.1e3]:
         p.append("EN needs 10 kOhm to 3V3 (section 9)")
     if not [r for r in two_terminal(b, "capacitor", en, "GND") if abs(farads(b, r) - 1e-6) <= 0.1e-6]:
         p.append("EN needs 1 uF to GND (section 9)")
-    if not two_terminal(b, "resistor", gpio0, v):
-        p.append("GPIO0 needs a pull-up (schematic checklist)")
-    for name, n in [("EN", en), ("GPIO0", gpio0)]:
-        # a bare test pad (designator ESP_*) or a button (SW*) on the line
-        if not [r for r in refs_on(b, n) if r.startswith("ESP_") or r.startswith("SW")]:
-            p.append(name + " (" + n + ") has no recovery pad or button")
-    for r in two_terminal(b, "capacitor", gpio0, "GND"):
+    if not two_terminal(b, "resistor", boot, v):
+        p.append("GPIO28 needs a pull-up (schematic checklist, Strapping Pins)")
+    for r in two_terminal(b, "capacitor", boot, "GND"):
         if farads(b, r) > 1e-9:
-            p.append(r + ": no large capacitor on GPIO0 (schematic checklist)")
+            p.append(r + ": no large capacitor on GPIO28 (schematic checklist)")
     report(p)
 
 
-def esp_vbus_detect(module, inputs):
-    # Table 6-3: VIH 0.75 x VDD, input at most VDD + 0.3 V. The ESP's VBUS divider must read the
-    # lowest VBUS as high and keep the highest below 3.6 V (the +5V net's declared range).
+# ESP-Prog user guide, Program Interface: 1 ESP_EN, 2 VDD, 3 ESP_TXD, 4 GND, 5 ESP_RXD, 6 ESP_IO0;
+# on the C5 the ROM's UART0 is TX0/RX0 (GPIO11/GPIO12) and the boot strap GPIO28 (Table 4-3).
+HEADER = "J2"
+PROGRAM = {"Pin_1": "EN", "Pin_3": "TX0", "Pin_5": "RX0", "Pin_6": "IO28"}
+
+
+def esp_flashing_header(module, inputs):
+    # The radio flashes and recovers through its ROM's UART download mode: J2 wired as the
+    # ESP-Prog's Program interface, its VDD pin on 5V_IN (the programmer's 5 V, into VSYS through
+    # D17, REGULATORS sheet; never the module's 3V3), GND on GND.
     b = index(module)
-    vbus = net(b, USBC, "VBUS")
-    vlo, vhi = b.parts[USBC].pins["VBUS"].voltage.min, b.parts[USBC].pins["VBUS"].voltage.max
     p = []
-    found = False
-    for pin, n in b.parts[ESP].pins.items():
-        up = two_terminal(b, "resistor", vbus, n.name) if n.name != "" else []
-        down = two_terminal(b, "resistor", n.name, "GND") if n.name != "" else []
-        if len(up) == 1 and len(down) == 1:
-            found = True
-            k = ohms(b, down[0]) / (ohms(b, up[0]) + ohms(b, down[0]))
-            if vhi * k > 3.3 + 0.3:
-                p.append(pin + " sees " + eng(vhi * k, "V") + " at " + eng(vhi, "V") + " VBUS, above VDD + 0.3 V")
-            if vlo * k < 0.75 * 3.3:
-                p.append(pin + " sees " + eng(vlo * k, "V") + " at " + eng(vlo, "V") + " VBUS, below VIH")
-    if not found:
-        p.append("no ESP32 pin senses VBUS through a divider")
+    for pin, esp_pin in PROGRAM.items():
+        if net(b, HEADER, pin) != net(b, ESP, esp_pin):
+            p.append(HEADER + " " + pin + " must be the ESP32-C5's " + esp_pin + ", is " + net(b, HEADER, pin))
+    if net(b, HEADER, "Pin_2") != "5V_IN":
+        p.append(HEADER + " Pin_2 (VDD) must be 5V_IN, is " + net(b, HEADER, "Pin_2"))
+    if net(b, HEADER, "Pin_2") == net(b, ESP, "3V3"):
+        p.append(HEADER + " Pin_2 must not be the module's 3V3")
+    if net(b, HEADER, "Pin_4") != "GND":
+        p.append(HEADER + " Pin_4 must be GND")
+    if net(b, "D17", "A") != net(b, HEADER, "Pin_2"):
+        p.append(HEADER + " Pin_2 must reach VSYS through D17")
     report(p)
 
 
@@ -181,12 +108,8 @@ TestBench(
     module=MAIN2,
     test_cases={"board": {}},
     checks=[
-        usb_c_sink_terminations,
-        usb_c_sbu_open,
-        usb_esd_protection,
-        usb_goes_to_the_esp_only,
         esp_supply_and_enable,
-        esp_vbus_detect,
+        esp_flashing_header,
         status_leds_on_3v3,
         buzzer_flyback_diode,
     ],

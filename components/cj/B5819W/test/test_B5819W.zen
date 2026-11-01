@@ -1,4 +1,5 @@
-"""B5819W package facts (JCET B5817W-B5819W, D, Mar 2015) as the VBAT -> VSYS OR-ing diode."""
+"""B5819W package facts (JCET B5817W-B5819W, D, Mar 2015) as main2's OR-ing diodes into VSYS: D14
+from VBAT and D17 from 5V_IN, a programmer's 5 V pin."""
 
 Diode = Module("../B5819W.zen")
 
@@ -16,8 +17,10 @@ def pins(module):
 
 
 def or_ing_orientation(module, inputs):
-    # Anode on the switched pack, cathode on the system node: VSYS never feeds VBAT.
-    check(pins(module) == {"A": "VBAT", "K": "VSYS"}, "pinout changed: " + str(pins(module)))
+    # Anode on its source (the switched pack, or a programmer's 5 V pin), cathode on the system
+    # node: VSYS never feeds VBAT or the programmer.
+    got = pins(module)
+    check(str(got.get("K")).startswith("VSYS") and got.get("A") in ["VBAT", "5V_IN"], "pinout changed: " + str(got))
 
 
 def reverse_voltage(module, inputs):
@@ -38,10 +41,17 @@ TestBench(
     name="B5819W_or_ing",
     module=Diode,
     test_cases={
-        # 4S pack with HV cells, switched off to 0 V; VSYS from the pack or from USB VBUS.
+        # D14: the 4S pack with HV cells, switched off to 0 V; VSYS from the pack or from 5V_IN
+        # through D17 (3.8-5.0 V).
         "4s_hv": {
             "A": Power("VBAT", voltage="0V to 17.4V"),
-            "K": Power("VSYS", voltage="4.3V to 17.4V"),
+            "K": Power("VSYS", voltage="3.8V to 17.4V"),
+        },
+        # D17: 5V_IN absent (0 V) while the pack holds VSYS up to D15's 24.2 V clamp (Regulators.zen):
+        # 61 % of VRRM.
+        "5v_in_reversed_at_clamp": {
+            "A": Power("5V_IN", voltage="0V to 5.25V"),
+            "K": Power("VSYS_AT_CLAMP", voltage="3.8V to 24.2V"),
         },
     },
     checks=[or_ing_orientation, reverse_voltage, sourcing],

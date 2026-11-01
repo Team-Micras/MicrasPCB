@@ -1,0 +1,79 @@
+"""ESP32-C5-MINI-1 package facts (Espressif datasheet v1.4) and its supply on a 3.3 V buck rail."""
+
+MODULE = Module("../ESP32-C5-MINI-1.zen")
+
+# Table 3-1: the module's GPIOs (IO11/IO12 are TX0/RX0).
+GPIOS = [
+    "IO0",
+    "IO1",
+    "IO2",
+    "IO3",
+    "IO4",
+    "IO5",
+    "IO6",
+    "IO7",
+    "IO8",
+    "IO9",
+    "IO10",
+    "IO11",
+    "IO12",
+    "IO13",
+    "IO14",
+    "IO15",
+    "IO23",
+    "IO24",
+    "IO25",
+    "IO26",
+    "IO27",
+    "IO28",
+]
+
+
+def part(module):
+    return module.components()["ESP32-C5-MINI-1"]
+
+
+def orderable_part(module, inputs):
+    c = part(module)
+    check(c.mpn == "ESP32-C5-MINI-1-N4", "MPN must be ESP32-C5-MINI-1-N4, got " + str(c.mpn))
+    check(c.manufacturer == "Espressif Systems", "manufacturer")
+    check(c.prefix == "U", "reference prefix must be U")
+
+
+def pinout(module, inputs):
+    # Table 3-1: 3V3, EN, GND, TX0/RX0 (GPIO11/12) and 20 other GPIOs, each io on its own symbol pin
+    # (the test case names every net after its io). Zener exposes pin names, not pad numbers: the
+    # numbers are the symbol's (ESP32-C5-MINI-1.kicad_sym, as Table 3-1).
+    pins = part(module).pins
+    # (NC: the 18 unconnected pads, wired to NotConnected by the toolchain)
+    want = ["3V3", "EN", "GND", "NC", "RX0", "TX0"] + [g for g in GPIOS if g not in ["IO11", "IO12"]]
+    check(sorted(pins.keys()) == sorted(want), "pins: " + str(sorted(pins.keys())))
+    check(pins["TX0"].name == "IO11", "TX0 is GPIO11 (U0TXD)")
+    check(pins["RX0"].name == "IO12", "RX0 is GPIO12 (U0RXD)")
+    for name in ["3V3", "EN", "GND"]:
+        check(pins[name].name == {"3V3": "V3V3"}.get(name, name), name + " must be on the " + name + " io")
+    for g in GPIOS:
+        if g not in ["IO11", "IO12"]:
+            check(pins[g].name == g, g + " must be on the " + g + " io, is on " + pins[g].name)
+
+
+def supply(module, inputs):
+    # Table 6-2: VDD33 3.0-3.6 V; the rail's declared range must sit inside it.
+    v = part(module).pins["3V3"].voltage
+    check(v.min >= 3.0 and v.max <= 3.6, "3V3 outside 3.0-3.6 V: " + str(v))
+
+
+CASE = {
+    "V3V3": Power("V3V3", voltage="3.284V to 3.346V"),
+    "GND": Ground("GND"),
+    "EN": Net("EN"),
+}
+for g in GPIOS:
+    CASE[g] = Net(g)
+
+TestBench(
+    name="ESP32_C5_MINI_1",
+    module=MODULE,
+    test_cases={"l6981c33_rail": CASE},
+    checks=[orderable_part, pinout, supply],
+)

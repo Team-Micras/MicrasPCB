@@ -1,4 +1,4 @@
-"""User interface and USB-C: buttons, DIP switch, buzzer, LEDs and the USB-C receptacle.
+"""User interface: buttons, DIP switch, buzzer and LEDs.
 
 Buttons (GT-TC048B tactile switches, MCU internal pull-ups), as on the main board:
 - SW2 on Button (PA7) with C20 100 nF to GND.
@@ -54,29 +54,9 @@ LEDs:
   the LED's rating; a mid-bin 2.85 V part draws about 4 mA. R4 680 Ohm would leave a 3.1 V die at
   0.25 mA. The datasheet draws no IF-VF curve; a comparable InGaN 0603 blue rises about 0.3 V from
   0 to 10 mA (Everlight 19-217/BHC-ZL1M2RY/6T DSE-0014124 Rev 5 p5, Forward Current vs. Forward
-  Voltage, typical), so the dimmest case runs above 1.2 mA in practice. Both LEDs take little of
-  the 500 mA USB budget.
-
-USB-C, U2 (GT-USB-7010ASV), a USB 2.0 device port of the ESP32 only (research ESP32 and USB):
-- VBUS on +5V: into the power path Q8 (regulators sheet), the ESP32's sense divider (ESP sheet),
-  and D8 to GND at the receptacle: SP1005-01ETG (Littelfuse SP1005 Series datasheet, revised
-  07/17/19, Electrical Characteristics: VRWM 6.0 V, leakage 0.5 uA max at 5 V, VBR 8.5 V typ at
-  1 mA, VC 9.3 V at 1 A and 15.6 V at 10 A, 8/20 us; IPP 8 A; IEC 61000-4-2 +-30 kV contact;
-  bidirectional, SOD882, the KiCad SOD-882 land of 0.4 x 0.7 mm pads at 0.7 mm centres holds its
-  0.25 x 0.5 mm terminals at 0.65 mm pitch, against the datasheet's 0.325 x 0.65 mm pads at
-  0.65 mm). Its stand-off is above the 5.5 V a Type-C source may hold on VBUS (vSafe5V; the +5V
-  net's range), so it stays off at any legal VBUS. R6/R7 5.1 kOhm Rd on
-  CC1/CC2 (sink). The ESP32 tells the H7 over UART4 when it runs from USB alone.
-- D+/D- (USBD_P/USBD_N) from the receptacle through U6 (USBLC6-2SC6, each line in on one I/O pad
-  and out on its twin, pins 1/6 and 3/4, so the clamp sits in line) to the ESP32's GPIO20/GPIO19, whose USB PHY needs no
-  external termination (ESP sheet). U6's rail pin on 3V3_D, the supply of the circuit it protects
-  (USBLC6-2 section 2.2), with C79 100 nF at the part (DocID 11265 Figure 18).
-- SBU1/SBU2 open, as Type-C R2.0 section 4.3 (p139) and Table 4-28 (p236) allow: the main board's
-  SBU supply for the HM-19 module (Q7, F1, D13, C77, C78, R50-R55, U7) is gone with the module.
-- The shell (pads 1-4) on GND.
+  Voltage, typical), so the dimmest case runs above 1.2 mA in practice.
 """
 
-load("@stdlib/interfaces.zen", "Usb2")
 load(
     "./passives.zen",
     "C_100N_0402",
@@ -86,21 +66,17 @@ load(
     "R_10K_0402",
     "R_10_1206",
     "R_220_0402",
-    "R_5K1_0402",
     "R_680_0402",
 )
 
 Capacitor = Module("@stdlib/generics/Capacitor.zen")
 Led = Module("@stdlib/generics/Led.zen")
 Resistor = Module("@stdlib/generics/Resistor.zen")
-Tvs = Module("@stdlib/generics/Tvs.zen")
 AO3400A = Module("github.com/Team-Micras/MicrasPCB/components/aos/AO3400A/AO3400A.zen")
 D1N4148WS = Module("github.com/Team-Micras/MicrasPCB/components/cj/1N4148WS/1N4148WS.zen")
 DSHP04TJGER = Module("github.com/Team-Micras/MicrasPCB/components/kangshen/DSHP04TJGER/DSHP04TJGER.zen")
 FUET_5030 = Module("github.com/Team-Micras/MicrasPCB/components/fuet/FUET-5030/FUET-5030.zen")
 GT_TC048B = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/GT-TC048B-H025-L1/GT-TC048B-H025-L1.zen")
-GT_USB_7010ASV = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/GT-USB-7010ASV/GT-USB-7010ASV.zen")
-USBLC6_2SC6 = Module("github.com/Team-Micras/MicrasPCB/components/st/USBLC6-2SC6/USBLC6-2SC6.zen")
 WS2812C = Module("github.com/Team-Micras/MicrasPCB/components/worldsemi/WS2812C-2020/WS2812C-2020.zen")
 
 # Its own sheet in the board schematic (layout/main2.kicad_sch).
@@ -110,7 +86,6 @@ Project(name="Peripherals", path="layout", layout=False)
 # that name is an identifier, so its sheet pin and hierarchical label match the root's label:
 # KiCad's ERC flags labels whose names differ only in case (similar_labels).
 V3V3_D = io(Power)
-V5V = io(Power)
 GND = io(Ground)
 
 Button = io(Net)
@@ -123,7 +98,6 @@ Switch_3 = io(Net)
 Buzzer = io(Net)
 LED_ARGB = io(Net)
 LED_Red = io(Net)
-USB = io(Usb2)
 
 BUZZER_GATE = Net("BUZZER_GATE")
 BUZZER_DRAIN = Net("BUZZER_DRAIN")
@@ -131,8 +105,6 @@ BUZZER_COIL = Net("BUZZER_COIL")
 LED_CHAIN = Net("LED_CHAIN")
 LED_BLUE_A = Net("LED_BLUE_A")
 LED_RED_A = Net("LED_RED_A")
-CC1 = Net("USB_CC1")
-CC2 = Net("USB_CC2")
 
 # Buttons and switches.
 GT_TC048B(name="SW2", A=GND, B=Button)
@@ -173,30 +145,3 @@ Resistor(name="R4", P1=LED_BLUE_A, P2=LED_Red, **R_100_0402)
 Led(name="D4", A=LED_BLUE_A, K=GND, **LED_BLUE_0603)
 Resistor(name="R5", P1=LED_RED_A, P2=V3V3_D, **R_680_0402)
 Led(name="D5", A=LED_RED_A, K=GND, **LED_RED_0603)
-
-# USB-C.
-GT_USB_7010ASV(
-    name="U2",
-    VBUS=V5V,
-    GND=GND,
-    SHIELD=GND,
-    CC1=CC1,
-    CC2=CC2,
-    SBU1=NotConnected(),
-    SBU2=NotConnected(),
-    USB=USB,
-)
-Tvs(
-    name="D8",
-    package="SOD-882",
-    direction="Bidirectional",
-    reverse_standoff_voltage="6V",
-    mpn="SP1005-01ETG",
-    manufacturer="Littelfuse",
-    A=GND,
-    K=V5V,
-)
-Resistor(name="R6", P1=GND, P2=CC1, **R_5K1_0402)
-Resistor(name="R7", P1=GND, P2=CC2, **R_5K1_0402)
-USBLC6_2SC6(name="U6", IO1=USB.D.P, IO2=USB.D.N, VBUS=V3V3_D, GND=GND)
-Capacitor(name="C79", P1=GND, P2=V3V3_D, **C_100N_0402)

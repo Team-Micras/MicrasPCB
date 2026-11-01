@@ -21,8 +21,9 @@ on the lever's side. The drawing agrees without saying it in words: its end view
 at one end of the 2 mm travel, 1.0 mm off centre towards one outer pin, and its SCHEMATIC, drawn
 in the same orientation, closes the common to the terminal on that side (solid line) and leaves
 the other open (dashed). C&K's SK series (Littelfuse SK Series datasheet, 1P-2T schematic) labels
-its two positions by the same adjacent pairs, 1-2 and 2-3. A board that reads the other way would
-only swap its silkscreen's ON and OFF.
+its two positions by the same adjacent pairs, 1-2 and 2-3. The footprint's silkscreen reads "ON"
+at the B end, so a board wires its "on" circuit to B; were the reading reversed, the silkscreen's
+ON would mark off.
 
 Footprint: the drawing does not dimension the holes. Scaled from it against its 2 mm pitch: about
 0.8 mm for the pins and 1.1 mm for the frame legs, which take the 0.3 mm thick pins and legs. The
