@@ -125,7 +125,7 @@ ANCHORS = {
     "IC1": (36.0, 0.0, -135),
     "D1": (51.25, 2.2, 180),
     "D2": (51.25, -2.2, 180),
-    # each button on the side of the STM32 its pin faces: the user button (PA7, pin 26) on the
+    # each button on the side of the STM32 its pin faces: the user button (PA11, pin 46) on the
     # left, reset (NRST, pin 12) on the right; the other way round, both nets circled the chip
     "SW2": (35.9, 11.6, 180),
     "SW3": (33.2, -11.9, 180),
@@ -150,8 +150,8 @@ ANCHORS = {
 # line with pin 11, the charge pump below), the fan driver after DS14341 Fig. 23; and the ESP32's
 # parts: U13's 3V3 pin lies on its edge row, so the 22 uF and 100 nF sit where its 3V3_D runs out from
 # under the module at the front-right corner, the 10 uF on its feed by J2, the EN RC and the BOOT
-# pull-up by J2, the series resistors of the C5's link pins at its front end but R95 (at PA12, the
-# clock's driver) and the ESP_CSn pull-up R97 on its run past the fan hole (the module decouples
+# pull-up by J2, the series resistors of the C5's link pins and the ESP_CSn pull-up R97 at its front
+# end, but R95 at PC10, the clock's driver, in line with its escape off the rear tip (the module decouples
 # its chip itself: 10 uF, 1 uF, 0.1 uF, datasheet Figure 8-1). Fixed as ANCHORS are.
 HAND = {
     "C29": (28.524, -16.122, 90),
@@ -208,9 +208,9 @@ HAND = {
     "R88": (-21.7, -18.2, 90),
     "R89": (-40.3, 9.9, 90),
     "R90": (-34.6, 13.2, 90),
-    "R95": (25.8, 2.6, 0),
+    "R95": (28.6, -2.0, 90),
     "R96": (-23.2, -19.4, 90),
-    "R97": (20.9, 8.4, 0),
+    "R97": (-19.6, -19.2, 0),
 }
 
 # Parts packed next to a given pad: reference -> (reference, pad number).

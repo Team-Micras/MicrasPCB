@@ -66,38 +66,44 @@ Current_Sensor_Right still on PC1. Each pin keeps an ADC1 and an ADC2 input, whi
 dual injected-simultaneous sampling needs (PB1 ADC1/2_INP5, PC1 ADC1/2/3_INP11, PA4 ADC1/2_INP18,
 PC0 ADC1/2/3_INP10), and PB1 is a fast channel (DS13311 Table 85; research Current sensing), so the
 left current takes half of the research's fast-ADC swap.
+Layout pin swaps (owner, 2026-11-01), so that the ESP32-C5 link leaves the STM32 from the rear-right
+row, on the side of the module, instead of crossing the rear tip: SPI2's clock exists only on PA9,
+PA12, PB10 and PB13 and its data pins only on PB14, PB15 and PC1 (DS13311 Rev 5 Table 9, Port A
+p95-96, Port B p97-98, Port C p99-100), none on that row, so the link takes SPI3's pins and SPI3, and
+the IMU and encoder bus moves to SPI2 on the rear-left row: SPI_SCK on PB13, SPI_MISO on PB14 and
+SPI_MOSI on PB15 (SPI2 AF5). Fan_PWM leaves PB15 for PA7 (TIM14_CH1 AF9; TIM12's other channel is on
+PB14, which the bus takes), Button leaves PA7 for PA11 and Fan_TOFF leaves PB13 for PA12 (GPIO
+inputs). TIM14, like TIM12, runs from the APB1 timer clock (RM0468 Rev 3 RCC_APB1LENR TIM12EN and
+TIM14EN), so the fan keeps its prescaler and periods.
 Pin map check: the 46 I/Os of the VFQFPN68 are each assigned once, every alternate function exists
 on its pin (STMicroelectronics STM32_open_pin_data, the STM32CubeMX MCU database: STM32H725RGVx.xml
-and GPIO-STM32H72_gpio_v1_0_Modes.xml; PC9/PB0/PB4/PB5 TIM3_CH4/CH3/CH1/CH2 AF2, PC7 TIM8_CH2 AF3,
-PB9 TIM17_CH1 AF1, PA8 TIM1_CH1 AF1, PA0/PA1 TIM5 AF2, PA15/PB3 TIM2 AF1, PA2 TIM15_CH1 AF4, PB15
-TIM12_CH2 AF2, PC10-PC12 SPI3 AF6, PA12 SPI2_SCK AF5, PB14 SPI2_MISO AF5, and in the fallback
-PA11/PA12 UART4_RX/UART4_TX AF6), and each timer serves one function (TIM1,
-TIM8 motors; TIM2, TIM5 encoders; TIM3 selectors; TIM12 fan; TIM15 buzzer; TIM17 LEDs; TIM4 spare,
-the emitter DAC's trigger). The timer, DMA, DAC and ADC set-up, with the RM0468 Rev 3 and ES0491
-Rev 9 numbers, is boards/main2/firmware_changes.toml (drive, current, emitters, leds). STM32CubeMX
-6.18.1 (MCU database DB.6.0.181, STM32Cube FW_H7 V1.13.0) loads that whole set-up as a project
-built from the firmware's micras_v1.ioc with these pins, and generates its code without a
+and GPIO-STM32H72_gpio_v1_0_Modes.xml, DS13311 Table 9; PC9/PB0/PB4/PB5 TIM3_CH4/CH3/CH1/CH2 AF2,
+PC7 TIM8_CH2 AF3, PB9 TIM17_CH1 AF1, PA8 TIM1_CH1 AF1, PA0/PA1 TIM5 AF2, PA15/PB3 TIM2 AF1, PA2
+TIM15_CH1 AF4, PA7 TIM14_CH1 AF9, PB13-PB15 SPI2 AF5, PC10 SPI3_SCK AF6, PC12 SPI3_MOSI AF6, and in
+the fallback PC10/PC11 UART4_TX/UART4_RX AF8), and each timer serves one function (TIM1, TIM8
+motors; TIM2, TIM5 encoders; TIM3 selectors; TIM14 fan; TIM15 buzzer; TIM17 LEDs; TIM4 spare, the
+emitter DAC's trigger). The timer, DMA, DAC and ADC set-up, with the RM0468 Rev 3 and ES0491 Rev 9
+numbers, is boards/main2/firmware_changes.toml (drive, current, emitters, leds, fan, sensor_bus).
+STM32CubeMX 6.18.1 (MCU database DB.6.0.181, STM32Cube FW_H7 V1.13.0) loads that whole set-up as a
+project built from the firmware's micras_v1.ioc with these pins, and generates its code without a
 conflict: every pin's alternate function as above, TIM8 gated on ITR0 and TIM4 gated on ITR2,
 TIM1 TRGO = enable and TRGO2 = update, ADC1/ADC2 dual injected simultaneous on channels 5 and 11
 triggered by TIM1 TRGO2 with ADC1's regular group, DAC1 channel 2 on PA5 triggered by TIM4 TRGO
-with its buffer off, channel 1 on-chip only beside PA4's ADC input, and the DMA requests of
-ADC1, SPI2 (or UART4), SPI3, TIM17_UP and DAC1 channel 2, at the firmware's 550 MHz clock tree
-(275 MHz timer clocks).
-- The link to the ESP32-C5 (ESP sheet; firmware_changes.toml link) is SPI2 in half-duplex on
+with its buffer off, channel 1 on-chip only beside PA4's ADC input, TIM14 at ARR 687 on the
+275 MHz APB1 timer clock, and the DMA requests of ADC1, SPI3 (or UART4), SPI2, TIM17_UP and DAC1
+channel 2, at the firmware's 550 MHz clock tree (275 MHz timer clocks).
+- The link to the ESP32-C5 (ESP sheet; firmware_changes.toml link) is SPI3 in half-duplex on
   three wires, the MCU the master (SPI_CFG2 COMM = 11, RM0468 Rev 3 section 55.4.4 and Figure
-  643), its one data line on the MISO pad with IOSWP = 1 (sections 55.4.2 and 55.4.4: the data
-  pins swap in any mode): ESP_SCK on PA12 (SPI2_SCK, AF5), ESP_DATA on PB14 (SPI2_MISO, AF5),
-  ESP_CSn on PA11 (a GPIO output: software chip select), and ESP_Flow on PA9 (EXTI9), the C5's
-  credit and attention line. UART4 is the fallback on the same pins, with no board change:
-  ESP_SCK becomes UART4_TX (PA12, AF6) and ESP_CSn UART4_RX (PA11, AF6), the C5's UART1 behind
-  them. The DMA requests are spi2_rx_dma and spi2_tx_dma, DMAMUX1 inputs 39 and 40 (RM0468 Table
-  118). STM32CubeMX 6.18.1 offers the IO swap in half-duplex slave mode only: in master mode it
-  puts the data line on the MOSI pad and rejects PB14. The CubeMX check therefore runs SPI2 as a
-  half-duplex slave with IO swap, which places SPI2_SCK on PA12 and SPI2_MISO on PB14 and generates
-  the SPI2_RX and SPI2_TX DMA streams with the rest of the set-up above, ESP_CSn and ESP_Flow as
-  GPIOs, and UART4 on PA11/PA12 in the fallback project; the firmware runs SPI2 as the master and
-  sets its IOSWP itself (HAL Init.IOSwap = SPI_IO_SWAP_ENABLE, firmware_changes.toml link_spi).
-  PB14 left Fan_Enable for the link: Fan_Enable is on PB10
+  643), its one data line on the MOSI pad (IOSWP = 0): ESP_SCK on PC10 (SPI3_SCK, AF6), ESP_DATA
+  on PC12 (SPI3_MOSI, AF6), ESP_CSn on PC11 (a GPIO output: software chip select), and ESP_Flow on
+  PA9 (EXTI9), the C5's credit and attention line. UART4 is the fallback on the same pins, with no
+  board change: ESP_SCK becomes UART4_TX (PC10, AF8) and ESP_CSn UART4_RX (PC11, AF8), the C5's
+  UART1 behind them. The DMA requests are spi3_rx_dma and spi3_tx_dma, DMAMUX1 inputs 61 and 62
+  (uart4 63 and 64 in the fallback; RM0468 Table 118). STM32CubeMX generates both projects: SPI3 as
+  a half-duplex master on PC10/PC12 with its two DMA streams, ESP_CSn and ESP_Flow as GPIOs, and
+  UART4 on PC10/PC11 with its DMA streams in the fallback. The IMU and encoder bus (SENSORS sheet)
+  is SPI2 with spi2_rx_dma and spi2_tx_dma, DMAMUX1 inputs 39 and 40. PB14 left Fan_Enable for the
+  bus: Fan_Enable is on PB10
   (open drain, DRIVERS sheet), and the IMU's INT1 alone is IMU_INT on PB6 (EXTI6), its INT2 left
   open (SENSORS sheet).
 - PA5 is DAC1_OUT2, Wall_Emitter_Set, the wall emitters' current set-point (SENSORS sheet). PA4
@@ -266,12 +272,12 @@ STM32H725RGV6(
     PA4=WALL_SENSOR_0,
     PA5=WALL_EMITTER_SET,
     PA6=WALL_SENSOR_2,
-    PA7=BUTTON,
+    PA7=FAN_PWM,
     PA8=MOTOR_RIGHT_EN,
     PA9=ESP_FLOW,
     PA10=MOTORS_ENABLE,
-    PA11=ESP_CSN,
-    PA12=ESP_SCK,
+    PA11=BUTTON,
+    PA12=FAN_TOFF,
     PA13=SWDIO,
     PA14=SWCLK,
     PA15=ENCODER_RIGHT_ABI_B,
@@ -287,9 +293,9 @@ STM32H725RGV6(
     PB9=LED_ARGB,
     PB10=FAN_ENABLE,
     PB12=LED_RED,
-    PB13=FAN_TOFF,
-    PB14=ESP_DATA,
-    PB15=FAN_PWM,
+    PB13=SPI_SCK,
+    PB14=SPI_MISO,
+    PB15=SPI_MOSI,
     PC0=WALL_SENSOR_3,
     PC1=CURRENT_SENSOR_RIGHT,
     PC4=WALL_SENSOR_1,
@@ -297,9 +303,9 @@ STM32H725RGV6(
     PC6=MOTOR_LEFT_PH,
     PC7=MOTOR_LEFT_EN,
     PC9=WALL_SENSOR_PWM_0,
-    PC10=SPI_SCK,
-    PC11=SPI_MISO,
-    PC12=SPI_MOSI,
+    PC10=ESP_SCK,
+    PC11=ESP_CSN,
+    PC12=ESP_DATA,
     PC14=SWITCH_3,
     PC15=SWITCH_2,
     PD2=IMU_SPI.CS,

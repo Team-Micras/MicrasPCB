@@ -119,8 +119,8 @@ Fan, IC6 (STSPIN958, DS14341 Rev 1), driving connector M3 at 400 kHz (research F
   fault, releases it once it is below VIL(EN), at VFAULT 0.4-0.6 V, and R27 x C30 = 0.39 ms
   recharges it from there to VIH(EN) 2.55 V, so the pin stays low about 0.5 ms before the driver
   retries: section 5.7, Figure 15, Table 5). TOFF is the limiter flag in PWM trimming (section
-  5.6.2), read on Fan_TOFF (PB13).
-  PWM1 on Fan_PWM (PB15, TIM12_CH2). nSTBY on 3V3_D, without Table 12's RSTBY 18 kOhm / CSTBY 1 nF: in Figure 22 that RC
+  5.6.2), read on Fan_TOFF (PA12).
+  PWM1 on Fan_PWM (PA7, TIM14_CH1). nSTBY on 3V3_D, without Table 12's RSTBY 18 kOhm / CSTBY 1 nF: in Figure 22 that RC
   only delays the pin behind VDD at power-up, and the device stays in UVLO until VBOOT rises
   anyway, then needs tWAKE + tBOOT (section 5.5); the firmware never uses standby (no MCU pin
   left), and EN/nFAULT keeps its REN/CEN delay and PWM1 its internal pull-down. V1, V2 unused.

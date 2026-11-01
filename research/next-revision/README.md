@@ -30,7 +30,7 @@ Fixed by the owner:
 | Drive motors: maxon **DCX 10 L 4.5 V**, one per wheel | 2.9 Ω, 0.045 mH, kt 3.52 mNm/A, 2710 rpm/V, 0.648 A continuous, 14,300 rpm maximum, τw 3.94 s, 11 g ([maxon p100]) |
 | Battery: **4S LiPo**, bridges straight from the switched pack, **no boost** | Pack 12.0-16.8 V (17.4 V with HV cells); the TPS61178 boost and its parts go |
 | **No USB** on the board | Every rail comes from J1 (a bench supply into J1 on the bench), but for flashing: a programmer's 5 V pin on J2 or SWD1 (5V_IN, through D17) runs the 3V3 rails without the pack; the radio flashes over its UART0 header J2 and over the air; no H7 USB or DFU path |
-| The **ESP32-C5 replaces the HM-19 module and the SWD connector** | It flashes the H7 over SWD with NRST as a Wi-Fi debug probe, carries the H7's link (SPI2, UART4 as a fallback on the same pins) and relays 5 GHz Wi-Fi telemetry; the bare SWD1 pads take an ST-Link |
+| The **ESP32-C5 replaces the HM-19 module and the SWD connector** | It flashes the H7 over SWD with NRST as a Wi-Fi debug probe, carries the H7's link (SPI3, UART4 as a fallback on the same pins) and relays 5 GHz Wi-Fi telemetry; the bare SWD1 pads take an ST-Link |
 | Digital 3V3 from the **L6981C33 buck**; analog 3V3_A from a **battery-side LDO** | No 5 V rail; the status LEDs become a 3.3 V part |
 | Fan: a generic, not yet chosen **drone-class brushed coreless motor** (high rpm, low R), PWM preferably about **400 kHz**, **no buck** | The STSPIN958 stays, reconfigured |
 
@@ -63,7 +63,7 @@ assumed 90 %). The TPS61178 could not stay anyway: recommended VOUT tops out at 
                                                  VDDA (1 µF + 100 nF), INA241A2 VS + REF1, phototransistor collectors,
                                                  emitter-sink op-amp (set-point from the DAC on PA5)
 ESP32-C5 ─ SWDIO GPIO0 / SWCLK GPIO1 / NRST GPIO23 ─ H7;  ESP_Flow GPIO24 ─ PA9
-ESP32-C5 ─ SPI2 half-duplex (H7 master): SCK GPIO10 ─ PA12, DATA GPIO8 ─ PB14, CSn GPIO9 ─ PA11  (UART4 fallback on PA11/PA12)
+ESP32-C5 ─ SPI3 half-duplex (H7 master): SCK GPIO10 ─ PC10, DATA GPIO8 ─ PC12, CSn GPIO9 ─ PC11  (UART4 fallback on PC10/PC11)
 ESP32-C5 UART0 TX0/RX0, EN, GPIO28, 5V_IN ─ J2 2 × 3 1.27 mm header (ESP-Prog Program interface)
 H7 SWDIO / SWCLK, 5V_IN ─ SWD1 bare 1.27 mm pads (clone ST-Link order: 1 SWDIO, 2 GND, 3 SWCLK, 4 5V)
 DRV8874 nFAULT ×2 wire-OR ─ PB2
@@ -444,9 +444,9 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
 
 ### Fan
 
-- **STSPIN958**, parallel half-bridge mode, **400 kHz** on TIM12 (ARR 687), the same three MCU pins
-  as on the main board but for Fan_Enable (Fan_PWM PB15, Fan_Enable PB10 driven open drain and read back
-  as nFAULT, Fan_TOFF PB13). It is the only integrated single-bridge
+- **STSPIN958**, parallel half-bridge mode, **400 kHz** on TIM14 (ARR 687), on three MCU pins
+  (Fan_PWM PA7 on TIM14_CH1, Fan_Enable PB10 driven open drain and read back as nFAULT, Fan_TOFF
+  PA12). It is the only integrated single-bridge
   driver found with PWM up to 500 kHz, a cycle-by-cycle current limiter, synchronous freewheeling and
   integrated protection (OC, OT 150 °C, UVLO, EN/nFAULT) ([STSPIN958]; fan study §3).
 - **Load model**: a drone-class coreless motor, R 0.2-1.2 Ω, kv 13-17k rpm/V for 1S, operating at
@@ -551,10 +551,12 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   pin 6 low and pulsing pin 1 enters the ROM's UART download mode, which only burned eFuses defeat.
   Pin 2 takes the programmer's 5 V into VSYS through D17, which powers the whole board without the
   pack and blocks with it (Power tree, programming power); no connector pin reaches 3V3_D.
-- **H7 data link**: SPI2 in half-duplex on three wires, the H7 the master: ESP_SCK on PA12
-  (SPI2_SCK), ESP_DATA on PB14 (the MISO pad with IOSWP = 1, SPI_CFG2 COMM = 11, [RM0468] §55.4.2
-  and §55.4.4), ESP_CSn on PA11 (a GPIO), the C5 an ESP-IDF spi_slave_hd slave in 3-wire and DMA
-  append mode. R95, 22 Ω at PA12, terminates the clock at its driver; R96, 220 Ω at the C5 on the
+- **H7 data link**: SPI3 in half-duplex on three wires, the H7 the master: ESP_SCK on PC10
+  (SPI3_SCK), ESP_DATA on PC12 (the MOSI pad, IOSWP = 0, SPI_CFG2 COMM = 11, [RM0468] §55.4.2
+  and §55.4.4), ESP_CSn on PC11 (a GPIO), the C5 an ESP-IDF spi_slave_hd slave in 3-wire and DMA
+  append mode. The link takes SPI3, whose pins sit on the H7's rear-right row toward the C5, and
+  the IMU and encoder bus moves to SPI2 (PB13-PB15): SPI2's clock and data pins are all on the other
+  rows ([DS13311] Table 9). R95, 22 Ω at PC10, terminates the clock at its driver; R96, 220 Ω at the C5 on the
   data line, limits the current to 15 mA, under the 20 mA per pin ([DS13311] Table 11), if both ends
   drive it at a direction change ([RM0468] Figure 643 note 3), which the firmware's turn-around
   avoids (`boards/main2/firmware_changes.toml`, link); its RC with the line, about 3 ns, is 11 % of
@@ -562,8 +564,8 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   40 MHz slave limit (`boards/main2/Esp.zen`); R97
   100 kΩ holds ESP_CSn high while neither end drives it. ESP_Flow (GPIO24 → PA9,
   EXTI9) carries the C5's credits: the H7 starts a transfer only when the C5 has a buffer queued.
-  UART4 is the fallback on the same pins, up to 5 Mbaud (PA12 UART4_TX into the C5's U1RXD on
-  GPIO10, its U1TXD on GPIO9 through R88 100 Ω into PA11 UART4_RX), against the "8 floats at 8 kHz"
+  UART4 is the fallback on the same pins, up to 5 Mbaud (PC10 UART4_TX into the C5's U1RXD on
+  GPIO10, its U1TXD on GPIO9 through R88 100 Ω into PC11 UART4_RX), against the "8 floats at 8 kHz"
   stream of 256 kB/s (MicrasFirmware `bluetooth_design.md` §7). With a laptop on 5 GHz Wi-Fi the
   air carries about 20 Mbit/s of TCP ([ESP-IDF Wi-Fi performance]).
 - **Pins**: every H7 line lands on a C5 GPIO free of any restriction (no strapping, pad-JTAG, UART0,
@@ -684,9 +686,10 @@ at 5.825 GHz at −58.3 dBm against −90.5 dBm sensitivity at 12 Mbit/s, 32.2 d
 
 ### H7 pin budget
 
-The H725 VFQFPN68 uses every GPIO. The ESP32-C5 takes SWD (PA13/PA14), NRST and the link on PA11,
-PA12 and PB14 (SPI2, UART4 as the fallback), and ESP_Flow on PA9. PB14 leaves Fan_Enable for the
-link: Fan_Enable moves to PB10, the IMU's INT1 input, and the IMU's INT1 alone drives one line,
+The H725 VFQFPN68 uses every GPIO. The ESP32-C5 takes SWD (PA13/PA14), NRST and the link on PC10,
+PC11 and PC12 (SPI3, UART4 as the fallback), and ESP_Flow on PA9. The IMU and encoder bus moves to
+SPI2 on PB13-PB15, Fan_PWM to PA7 (TIM14_CH1), Button to PA11 and Fan_TOFF to PA12. PB14 leaves
+Fan_Enable for the bus: Fan_Enable moves to PB10, the IMU's INT1 input, and the IMU's INT1 alone drives one line,
 IMU_INT on PB6 (INT2 unconnected, its interrupts moved onto INT1). The DIP switch sits on PH0, PH1, PC15 and PC14 (plain inputs with the internal
 pull-ups; no HSE or LSE crystal), and the PH/EN bridges need one PWM pin each instead of two,
 which frees the pins of the two new lines, Motors_nFault (PB2) and ESP_Flow (PA9). Every pin's
@@ -696,7 +699,8 @@ without a conflict (`boards/main2/main2.zen`, pin map check).
 
 | Need | Pins | Resolution |
 |---|---|---|
-| ESP ↔ H7 link | 3 | PA12 SPI2_SCK (AF5), PB14 SPI2_MISO pad as the half-duplex data line (AF5, IOSWP = 1), PA11 ESP_CSn (GPIO); UART4_TX/RX (AF6) on PA12/PA11 as the fallback; DMAMUX1 inputs 39/40 (spi2_rx_dma, spi2_tx_dma, [RM0468] Table 118) |
+| ESP ↔ H7 link | 3 | PC10 SPI3_SCK (AF6), PC12 SPI3_MOSI pad as the half-duplex data line (AF6, IOSWP = 0), PC11 ESP_CSn (GPIO); UART4_TX/RX (AF8) on PC10/PC11 as the fallback; DMAMUX1 inputs 61/62 (spi3_rx_dma, spi3_tx_dma, [RM0468] Table 118) |
+| IMU and encoder bus | 3 | PB13 SPI2_SCK, PB14 SPI2_MISO, PB15 SPI2_MOSI (AF5); DMAMUX1 inputs 39/40 (spi2_rx_dma, spi2_tx_dma) |
 | ESP ↔ H7 flow control | 1 | PA9 (ESP_Flow, EXTI9, from the C5's GPIO24, internal pull-down): the C5's credits |
 | Fan enable | 1, moved | PB10, open drain with R27 39 kΩ / C30 10 nF, read back as the STSPIN958's nFAULT |
 | IMU interrupts | 1 for two | PB6 (IMU_INT, EXTI6, no pull): INT1 alone, push-pull and active high at its defaults; INT2 unconnected (an output forced to ground, DS13476 Rev 5 Table 22), its interrupts moved onto INT1 with CTRL4 INT2_on_INT1 (Table 58) |
@@ -735,7 +739,7 @@ New or changed parts; JLC numbers and prices as queried on 2026-10-15 (stock is 
 | Status LEDs | WS2812C-2020-V6 × 2 | replaces WS2815C-2020 (needs 9.5-13.5 V) | 3.3-5.3 V, 5 mA per colour; C55109522 | [WS2812C-2020-V6] |
 | Radio / probe | ESP32-C5-MINI-1-N4, rear-right corner, antenna over the rear-right notch | replaces HM-19 and P1 | 2.4 + 5 GHz Wi-Fi 6, 426 mA TX peak, ≥ 0.6 A supply; C54951860, 0 stock (read 2026-10-31) | [ESP32-C5-MINI-1], [ESP32 form factor](#esp32-form-factor) |
 | Radio header | J2 HC-PZ127-7.2L-2x3PS, 2 × 3 1.27 mm SMD, ESP-Prog Program interface | new | 5.5 mm over the board; C27985144 | [ESP-Prog]; `components/hong-cheng/HC-PZ127-7.2L-2x3PS` |
-| Link resistors | R95 22 Ω 0402 at PA12 (SPI clock), R96 220 Ω 0402 at the C5 (data line), R97 100 kΩ ESP_CSn pull-up | new | 0402WGF220JTCE C25092, 0402WGF2200TCE C25091, 0402WGF1003TCE C25741, basic | [RM0468] Figure 643 note 3, [DS13311] Table 11 |
+| Link resistors | R95 22 Ω 0402 at PC10 (SPI clock), R96 220 Ω 0402 at the C5 (data line), R97 100 kΩ ESP_CSn pull-up | new | 0402WGF220JTCE C25092, 0402WGF2200TCE C25091, 0402WGF1003TCE C25741, basic | [RM0468] Figure 643 note 3, [DS13311] Table 11 |
 | Switches, divider | SW4 → SK-12D29-G060 (DC 24 V 1 A, 6.0 mm lever, new footprint; ON with the lever at pin 3, B); R44/R45 20k/2k | modify | C2848877, 531 stock, $0.13; firmware constant 11.0 | drivetrain study §4; `components/g-switch/SK-12D29-G060` |
 | VDDA filter | FB1 → 0 Ω or ≤ 50 mΩ bead | modify | – | power-tree study §9 |
 | Removed | TPS61178 + 1 µH + 7 capacitors; L6205D and its parts; 2 × TSC2020; 2 × 40 mΩ shunts; the SWD connector P1 and its SWD_VDD OR-ing; the HM-19's SBU supply chain; the USB-C receptacle and its ESD, CC and VBUS parts; WS2815C ×2 | remove | – | – |
@@ -1039,7 +1043,7 @@ On breakouts and dev boards:
 
 | Priority | Measurement | Decides | Method |
 |---|---|---|---|
-| 4 | SPI2 half-duplex link bit errors against the SCK prescaler | The link clock | C5 devkit as an spi_slave_hd slave, an STM32H7 board as master, 22 Ω on SCK at the master and 100 Ω on data at the slave, CRC-checked frames |
+| 4 | Half-duplex SPI link bit errors against the SCK prescaler | The link clock | C5 devkit as an spi_slave_hd slave, an STM32H7 board as master, 22 Ω on SCK at the master and 100 Ω on data at the slave, CRC-checked frames |
 
 On the first prototype: the INA241 against a current probe on the motor lead (and against the
 DRV8874's IPROPI, read with a probe across RIPROPI).
@@ -1324,9 +1328,9 @@ OFFSET (9) = GND
 OUT1 (31, 32) + OUT2 (25, 26) ── FAN_OUT ──[ L6 XGL5030-472 4.7 µH ]── M3 pin 1 (fan +)
 LSS1 (1, 2) + LSS2 (23, 24)  ── FAN_LSS ── M3 pin 2 (fan −) ; R31 20-25 mΩ 1206 FAN_LSS → GND (Kelvin to the pins)
 PWM2/PH (12) ── GND   (load OUT→LSS: low-side recirculation on limit, Fig. 11/14)
-PWM1 (11)    ── Fan_PWM (PB15, TIM12_CH2, 400 kHz)
+PWM1 (11)    ── Fan_PWM (PA7, TIM14_CH1, 400 kHz)
 EN/nFAULT (14) ── Fan_Enable (PB10, driven open-drain) ; R27 39 kΩ to 3V3, C30 10 nF (Table 12)
-TOFF (16)    ── Fan_TOFF (PB13): limiter-active flag in PWM trimming (section 5.6.2)
+TOFF (16)    ── Fan_TOFF (PA12): limiter-active flag in PWM trimming (section 5.6.2)
 REF (15)     ── R28 4.7 kΩ / R29 2.0 kΩ from 3V3 → V_REF = I_peak · R31 · 10 = 0.985 V (3.94 A)
 SR (21)      ── 1-2.2 kΩ to GND
 V1 (8), V2 (17) ── NC (or V1 → an ADC pin if one frees: 0.25 V/A with 25 mΩ)
@@ -1347,9 +1351,9 @@ No capacitor across the fan motor. Pin numbers from the repo symbol
 | TX0 / RX0 (39 / 40, GPIO11 / GPIO12) | ESP_TXD0 / ESP_RXD0 | J2 pins 3 / 5 | UART0, ROM log and download; 499 Ω on TX0 in the module (Figure 8-1) |
 | GPIO0 (16) | SWDIO | H7 PA13, SWD1 | – |
 | GPIO1 (17) | SWCLK | H7 PA14 through R86 22 Ω, SWD1 | Series resistor on the clock (checklist, SPI) |
-| GPIO10 (22) | ESP_SCK | H7 PA12 (SPI2_SCK; UART4_TX in the fallback) through R95 22 Ω at PA12 | spi_slave_hd clock; U1RXD in the fallback |
-| GPIO8 (20) | ESP_DATA | H7 PB14 (SPI2 data line, MISO pad) through R96 220 Ω at the C5 | Half-duplex data, both directions ([RM0468] Figure 643 note 3) |
-| GPIO9 (21) | ESP_CSn | H7 PA11 (GPIO chip select; UART4_RX in the fallback) through R88 100 Ω | U1TXD in the fallback |
+| GPIO10 (22) | ESP_SCK | H7 PC10 (SPI3_SCK; UART4_TX in the fallback) through R95 22 Ω at PC10 | spi_slave_hd clock; U1RXD in the fallback |
+| GPIO8 (20) | ESP_DATA | H7 PC12 (SPI3 data line, MOSI pad) through R96 220 Ω at the C5 | Half-duplex data, both directions ([RM0468] Figure 643 note 3) |
+| GPIO9 (21) | ESP_CSn | H7 PC11 (GPIO chip select; UART4_RX in the fallback) through R88 100 Ω | U1TXD in the fallback |
 | GPIO23 (31) | Reset | H7 NRST, SW3, C21 | Open drain only |
 | GPIO24 (32) | ESP_Flow | H7 PA9 (EXTI9, pull-down) | The C5's credits |
 | GPIO2-GPIO7, GPIO13-GPIO15, GPIO25-GPIO27 | – | – | Open; the straps at their defaults (Tables 4-1 to 4-7) |

@@ -2,7 +2,7 @@
 ESP32 radio and ESP32 form factor, A.6).
 
 The module, U13 (Espressif ESP32-C5-MINI-1 & MINI-1U datasheet v1.4), flashes and debugs the MCU
-over SWD (a CMSIS-DAP-over-TCP or Black Magic probe over Wi-Fi), carries the MCU's link (SPI2
+over SWD (a CMSIS-DAP-over-TCP or Black Magic probe over Wi-Fi), carries the MCU's link (SPI3
 half-duplex, UART4 as a fallback on the same pins) and relays Wi-Fi telemetry. The C5 is
 Espressif's dual-band (2.4 and 5 GHz, 5180-5885 MHz, Table 7-7) Wi-Fi 6 part with a 240 MHz
 RISC-V core (Features). The board has no USB: the radio flashes over its UART0 header J2 and over
@@ -81,17 +81,18 @@ drives a line before the firmware does.
   resistor on the clock trace).
 - NRST: GPIO23 to Reset, driven open-drain by the firmware (NRST has its 30-50 kOhm pull-up, SW3
   and C21; DS13311 Table 61); high-Z until then, so the radio never holds the MCU in reset.
-- SPI2 half-duplex, three wires (the MCU the master, the C5 its spi_slave_hd 3-wire slave):
-  ESP_SCK from PA12 (SPI2_SCK) to GPIO10 through R95 22 Ohm at PA12, the driver's end (a source
+- SPI3 half-duplex, three wires (the MCU the master, the C5 its spi_slave_hd 3-wire slave):
+  ESP_SCK from PC10 (SPI3_SCK) to GPIO10 through R95 22 Ohm at PC10, the driver's end (a source
   series resistor on the clock trace, checklist SPI; it is the TX resistor of UART4_TX in the
-  fallback too); ESP_DATA between PB14 (SPI2_MISO pad, data line with IOSWP) and GPIO8 through R96
+  fallback too); ESP_DATA between PC12 (SPI3_MOSI pad, the master's half-duplex data line, IOSWP =
+  0) and GPIO8 through R96
   220 Ohm at the C5: RM0468 Rev 3 Figure 643 note 3 asks for a series resistance on the shared data
   line against the two drivers fighting while the direction changes (the figure draws 1 kOhm), and
   220 Ohm holds that current to 3.346 V / 218 Ohm = 15.4 mA at most (3V3_D's top, R96 at -1 %),
   under the 20 mA per pin of DS13311 Table 11, before counting either driver's own resistance; the
   firmware turns the line round with both drivers off, so this is only a fault bound
   (firmware_changes.toml link). Its cost is an RC on the read direction, the C5 driving through
-  R96 into the line and PB14: 220 Ohm x about 13 pF (CIO 5 pF, DS13311 Table 55; the C5's CIN 2 pF,
+  R96 into the line and PC12: 220 Ohm x about 13 pF (CIO 5 pF, DS13311 Table 55; the C5's CIN 2 pF,
   module Table 6-3; about 6 pF of trace and pads, an estimate) = 2.9 ns, 3.5 ns to the MCU's
   0.7 VDD input high (Table 55) and 8.6 ns to settle (3 RC). At the /8 start (15.6 MHz: half a
   clock, 32 ns, from the C5's launch edge to the MCU's sampling edge in mode 0) that is 11 % of
@@ -100,10 +101,10 @@ drives a line before the firmware does.
   GPIO-matrix delays, which the bit-error test the firmware runs before raising the clock covers
   (firmware_changes.toml link_spi); /2 (62.5 MHz) is above that limit. Writing, the MCU drives the
   line directly and R96 charges only the C5's pin (220 Ohm x about 3 pF, under 1 ns). ESP_CSn
-  from PA11 (a GPIO) to GPIO9 through R88 100 Ohm, with R97 100 kOhm to 3V3_D at PA11 so the
+  from PC11 (a GPIO) to GPIO9 through R88 100 Ohm, with R97 100 kOhm to 3V3_D on the line so the
   select idles high (no transaction) while neither end drives it, through resets and before the
   firmware runs; it is also UART4_RX's idle in the fallback. In the UART4 fallback the same pins
-  carry UART4_TX (PA12) into GPIO10 (U1RXD) and the C5's U1TXD (GPIO9) into UART4_RX (PA11)
+  carry UART4_TX (PC10) into GPIO10 (U1RXD) and the C5's U1TXD (GPIO9) into UART4_RX (PC11)
   through R88, the TX series resistor of the checklist's UART section.
 - ESP_Flow: GPIO24 to PA9 (EXTI9), the C5's credit and attention line toward the MCU (PA9 has its
   pull-down: low until the C5 drives it).
@@ -209,7 +210,7 @@ HC_PZ127_2x3(
 
 # MCU links.
 Resistor(name="R86", P1=ESP_SWCLK, P2=SWCLK, **R_22_0402)
-# R95 sits at PA12 (the clock's driver), R96 and R88 at the C5.
+# R95 sits at PC10 (the clock's driver), R96 and R88 at the C5.
 Resistor(name="R95", P1=ESP_SCK_IO, P2=ESP_SCK, **R_22_0402)
 Resistor(name="R96", P1=ESP_DATA_IO, P2=ESP_DATA, **R_220_0402)
 Resistor(name="R88", P1=ESP_CSN_IO, P2=ESP_CSn, **R_100_0402)

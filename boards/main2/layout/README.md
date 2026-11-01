@@ -150,11 +150,11 @@ STSPIN958 in parallel half-bridge mode, PWM trimming, on TIM12 at 400 kHz: R31 2
   take at most VDD + 0.3 V (datasheet v1.4 Table 6-3), so that plug can destroy the module: the
   silkscreen marks pad 1 ("1") and pad 2 ("5V") beside the header; there are no protection parts.
 - **Links to the MCU** (C5 GPIOs free of strapping and other roles, off with no pull at reset):
-  SWDIO GPIO0 -> PA13, SWCLK GPIO1 -> PA14 (22 Ohm), NRST GPIO23 (open drain); SPI2 half-duplex
-  on three wires, the MCU the master: ESP_SCK PA12 -> GPIO10 (R95 22 Ohm at PA12), ESP_DATA PB14
-  <-> GPIO8 (R96 220 Ohm at the C5), ESP_CSn PA11 -> GPIO9 (R88 100 Ohm at the C5, R97 100 kOhm
-  pull-up to 3V3_D); ESP_Flow GPIO24 -> PA9, the C5's credit line. UART4 is the fallback on
-  PA12/PA11 with no board change.
+  SWDIO GPIO0 -> PA13, SWCLK GPIO1 -> PA14 (22 Ohm), NRST GPIO23 (open drain); SPI3 half-duplex
+  on three wires, the MCU the master: ESP_SCK PC10 -> GPIO10 (R95 22 Ohm at PC10), ESP_DATA PC12
+  (the MOSI pad, IOSWP = 0) <-> GPIO8 (R96 220 Ohm at the C5), ESP_CSn PC11 -> GPIO9 (R88 100 Ohm
+  at the C5, R97 100 kOhm pull-up to 3V3_D); ESP_Flow GPIO24 -> PA9, the C5's credit line. UART4
+  is the fallback on PC10/PC11 with no board change.
 - **ST-Link header** SWD1: bare 1.27 mm pitch pads in a clone ST-Link lead's order, 1 SWDIO, 2 GND,
   3 SWCLK, 4 5V_IN (the probe's 5 V pin; no NRST), for a probe when the ESP32-C5 cannot reach the
   MCU. Turned round or shifted one pad, the probe's 5 V never lands on GND, but it lands on a link
@@ -166,8 +166,10 @@ STSPIN958 in parallel half-bridge mode, PWM trimming, on TIM12 at 400 kHz: R31 2
 ## Pins
 
 The MCU keeps the main board's pin map except: PA8 (TIM1_CH1) and PB8 carry EN and PH of the right
-bridge, PC7 (TIM8_CH2) and PC6 the left's; PA12 (SPI2_SCK), PB14 (SPI2 data) and PA11 (chip
-select) carry the SPI2 link to the ESP32-C5, UART4 as its fallback on PA12/PA11; PB2 reads
+bridge, PC7 (TIM8_CH2) and PC6 the left's; PC10 (SPI3_SCK), PC12 (SPI3 data) and PC11 (chip
+select) carry the SPI3 link to the ESP32-C5, UART4 as its fallback on PC10/PC11, so the link leaves
+the STM32's rear-right row toward the module; the IMU and encoder bus is SPI2 on PB13-PB15, Fan_PWM
+is on PA7 (TIM14_CH1), Button on PA11 and Fan_TOFF on PA12; PB2 reads
 Motors_nFault; PA9 reads ESP_Flow; PA13/PA14 and NRST go to the ESP32-C5 (PA13/PA14 also to the
 header SWD1); PA5 is the emitter DAC (DAC1_OUT2), PC5 reads the battery divider (ADC12_INP8) and PH0 reads
 Switch_0, the MCU having no VBUS input. For the routing, Current_Sensor_Left moves to PB1 (a fast
@@ -184,16 +186,17 @@ the v1 firmware (`boards/main/firmware.toml`), on top of the main board's own pe
 PH/EN drive at 100 kHz with TIM8 slaved to TIM1; Motors_Enable as nSLEEP (1 ms wake);
 Motors_nFault on PB2; INA241 sampling on TIM1 TRGO2 with dual injected ADC1/ADC2; the battery
 divider constant 11.0 on PC5 and a "no pack" reading on 5V_IN; Switch_0 on PH0; the fan at 400 kHz
-with Fan_Enable on PB10 open drain and its fault on EXTI10; the SPI2 half-duplex link to the
-ESP32-C5 (ESP-IDF v6.0.3 or later, AFCNTR and IOSWP, /8 to start, a turn-around with no driver
-overlap, UART4 as fallback) with ESP_Flow credits on PA9; the C5's slow clock on its RC, its pulls
+with Fan_PWM on TIM14 and Fan_Enable on PB10 open drain and its fault on EXTI10; the SPI3
+half-duplex link to the ESP32-C5 (ESP-IDF v6.0.3 or later, AFCNTR, the data line on the MOSI pad,
+/8 to start, a turn-around with no driver overlap, UART4 as fallback) with ESP_Flow credits on PA9;
+the IMU and encoder bus on SPI2; Button on PA11; the C5's slow clock on its RC, its pulls
 and its resync after an MCU reset;
 one wall emitter at a time on TIM3, with
 the emitter DAC on PA5 stepping with each selector and a code per emitter, and no LED or SPI
 traffic during an emitter's pulse; the current channels sampled for at least 0.7 us; the WS2812C
 timing (T0L/T1L at most 1 us); flashing over Wi-Fi through the ESP32-C5's CMSIS-DAP-over-TCP or
 Black Magic probe, nRESET on its GPIO23 (open drain only, released before it is enabled);
-TIM1/TIM8/TIM12 frozen and the drive enables cleared on a debug halt; the LSM6DSV's I2C disabled
+TIM1/TIM8/TIM14 frozen and the drive enables cleared on a debug halt; the LSM6DSV's I2C disabled
 at boot and its interrupts all routed to INT1.
 
 ## Layout
@@ -201,7 +204,7 @@ at boot and its interrupts all routed to INT1.
 [`place.py`](place.py) places every part and [`route.py`](route.py) pours the planes and routes
 the board; their docstrings give the rules they follow. The `.kicad_pcb` holds their result with
 the connections they left routed by rip-up scripts and by hand, under the same rules. Every
-connection is routed but the 14 listed under Open items.
+connection is routed but the 13 listed under Open items.
 
 - **Placement**: every part on the top side. The spec places what mates with the robot or the
   outline; the ESP32-C5-MINI-1 sits in the rear-right corner (spec `[u13]`), its pads on the board
@@ -233,8 +236,9 @@ connection is routed but the 14 listed under Open items.
   from those vias along the edge row joins the 22 uF C109 and 100 nF C108, which sit off the module's
   front-right corner with two vias each, 13-16 mm from the pin: no capacitor fits nearer it (the
   edge, the antenna end and the ground pads), and the module decouples its chip itself (datasheet
-  Figure 8-1). The series resistors of the link sit at the module's front end (R86, R88, R96), but
-  R95 beside PA12 (ESP_SCK's driver) and the ESP_CSn pull-up R97 on its run past the fan hole.
+  Figure 8-1). The series resistors of the link (R86, R88, R96) and the ESP_CSn pull-up R97 sit at
+  the module's front end, R97 on a via to the B.Cu 3V3_D run there; R95 sits beside PC10 (ESP_SCK's
+  driver), in line with its escape off the STM32's rear tip.
 - **Planes**: In1.Cu is ground over the whole board; In2.Cu is ground but for the STM32's two supply
   islands, each only as big as its job (`route.py`): 3V3_D (`mcu_3v3_outline()`) is the square under
   the chip out to its pin tips with a tab to the via of each 3V3_D pin (VBAT, VDDSMPS, VDD); VCORE
@@ -247,6 +251,16 @@ connection is routed but the 14 listed under Open items.
   at 0.10-0.11 mm clearance. A switching net keeps 0.5 mm from an analog net on the same layer,
   tracks, pads and pours alike, but for the pin pairs and nose lines in Open items.
   No track ends open but the partial routes of the hand-routed connections (Open items).
+- **The ESP32-C5 link**: ESP_SCK, ESP_CSn and ESP_DATA leave the STM32's rear-right row (pins
+  54-56) on F.Cu, R95 in line with the clock's escape, and run as a bus along the fan hole's right
+  side, through the right half of the waist between the encoder slot EC1 and the board's edge and
+  past the right bridge to the module's front end (61-67 mm, 2 vias on ESP_SCK_IO and ESP_CSn, 6 on
+  ESP_DATA). The lines that leave the rear tip for the right side cross under them on B.Cu (SWCLK,
+  ESP_Flow and Motor_Right_EN along the hole, IMU_SPI_CSn and Encoder_Right_ABI_A from vias beside
+  their pins); ESP_Flow still runs beside MOTOR_R_OUT2 for its last few mm before the module
+  (0.13 mm). The IMU and encoder bus (SPI2, pins 37-39) leaves the rear-left row on F.Cu, 0.12 mm
+  wide between C14 and the fan driver's and the left motor's vias, and runs round the hole's left
+  side to EC2, IC2 and EC1.
 - **Power copper**: the battery path is poured for 10 A: J1's BAT_P pin to F1 as a BAT_P pour round
   J1's GND_BAT pin, nothing else on BAT_P before the fuse; F1's VBAT side a pour with 21 vias to the
   B.Cu VBAT pour's left appendage, D15, D14 and IC9's bulk C93 on it; GND_BAT poured on F.Cu and
@@ -357,37 +371,31 @@ Each is a visible TODO in the sheet that owns it.
   175 mA (Figure 2 or a measurement) and a cold check of the AC-coupled selectors' margin; the
   firmware's DAC timing against the selectors.
 - Fan: the REF setting for the chosen motor.
-- Routing: 14 connections on 12 nets are not routed, left for routing by hand:
-  - the ESP32-C5 link's lines between the STM32 and the module's front end: ESP_SCK (pin 47's
-    escape to R95, boxed in by the escape rows' vias and C6), ESP_SCK_IO (R95 to U13 pin 22),
-    ESP_DATA (pin 38's escape, which ends at x 29, to R96) and ESP_CSn (its run, which ends past
-    the fan hole at x 15, y 9, to R88). They leave the STM32's rear-left face and must cross every
-    line that leaves its rear-right face for the IMU, the encoders and the right bridge (ABI_A/B,
-    the SPI bus, IMU_SPI_CSn, Encoder_Right_CSn, Motor_Right_PH/EN, Motors_Enable, SWCLK) to reach
-    the module on the right: routed in either order, the second group finds no way past the
-    STM32's rear tip (router.py, both orders, with the corridor right of the fan hole ripped; the
-    STM32's B.Cu fan-out stubs and the In2.Cu islands leave no room for hops there). Round the left
-    of the fan hole and the rear, where SWDIO now runs (SWD1 to U13 pin 16, 124 mm), F.Cu and B.Cu
-    are full by the fan driver and the IMU. Pin swaps that put the link on the rear-right face
-    (and the IMU's and encoders' lines on the rear-left one) would remove the crossing; they need
-    the STM32's alternate functions checked. SWCLK, Reset and ESP_Flow reach the module, ESP_Flow
-    through the gap between the bridges, beside MOTOR_R_OUT2 (0.13 mm on F.Cu for about 12 mm):
-    the router finds no other way for it;
+- Routing: 13 connections on 11 nets are not routed, left for routing by hand:
+  - the lines that leave the STM32's rear tip between the ESP32-C5 link (pins 54-56, on F.Cu along
+    the fan hole's right side) and the sensor bus (pins 37-39, on F.Cu round its left side):
+    Button (PA11, pin 46, to SW2), Fan_TOFF (PA12, pin 47, to IC6), Encoder_Right_ABI_B (pin 53,
+    to EC1; its escape ends at the via behind the tip) and Wall_Sensor_PWM_2 (pin 59, to R19; its
+    escape ends on B.Cu beside Encoder_Right_ABI_A's). The pocket behind the tip is closed on F.Cu
+    by the link and the bus and on B.Cu by the lines that leave it already (Motor_Right_EN, SWCLK
+    and ESP_Flow along the hole's right side, Motor_Left_EN, Motor_Left_PH and SWDIO round its
+    left), and In2.Cu there is the STM32's VCORE island or crossed at 45 degrees, not square; the
+    router (router.py, every order tried) closes three of these seven at most;
   - IMU_INT (IC2's INT1, pad 4, to its run, which ends at the via by R73), Encoder_Right_CSn,
-    Encoder_Left_ABI_A, SPI_SCK (EC2's join), Motors_Enable (two), Motors_nFault (two), Switch_0,
-    and Current_Sensor_Left (pin 30 to R79, analog: no In2.Cu). They run between the STM32's escape
-    rows and the parts behind the fan hole (the IMU, the encoder slots, the bridges' logic pins)
-    or the DIP switch, where F.Cu and B.Cu are full and In2.Cu takes only square crossings under
-    the encoders' and other lines.
-- Analog copper within 0.5 mm of a switching node's pad or pour: 16 pairs, 0.18-0.49 mm, each a
+    Encoder_Left_ABI_A, Motors_Enable (two), Motors_nFault (two), Switch_0, and Current_Sensor_Left
+    (pin 30 to R79, analog: no In2.Cu). They run between the STM32's escape rows and the parts behind
+    the fan hole (the IMU, the encoder slots, the bridges' logic pins) or the DIP switch, where F.Cu
+    and B.Cu are full and In2.Cu takes only square crossings under the encoders' and other lines.
+- Analog copper within 0.5 mm of a switching node's pad or pour: 17 pairs, 0.18-0.49 mm, each a
   pin pair the parts put side by side (the INA241's IN+ beside VS, the DRV8874's VREF and IPROPI
-  beside OUT1, the emitter sink's op-amp beside Q9) or a nose line beside the emitter sink, whose
+  beside OUT1, the emitter sink's op-amp beside Q9), a nose line beside the emitter sink, whose
   node moves only at the selectors' edges and the DAC's steps, which settle before each receiver
-  scan; `tests/test_main2_layout.py` `SWITCHING_COPPER_EXEMPT` lists them with the gap they may
+  scan, or Current_Sensor_Right beside the buzzer driver's drain (R3.1, silent while the drive runs); `tests/test_main2_layout.py` `SWITCHING_COPPER_EXEMPT` lists them with the gap they may
   not lose.
-- Routing, round the escape rows: Encoder_Right_ABI_B (168 mm for a 34 mm span: its pin faces the
-  rear-right quadrant, whose lines fill both outer layers, so it runs round the nose), Wall_Emitter_Set,
-  Wall_Sensor_2 and Wall_Sensor_PWM_2 are longer than the layout tests' detour rule, and 13 analog /
+- Routing, round the escape rows: Current_Sensor_Right (62 mm: its run from C102 to R78 past the
+  STM32's rear tip is the link's and the IMU's and encoders' corridor, so it goes round by the DIP
+  switch and the buzzer, 0.43 mm from the buzzer driver's drain pad R3.1), Wall_Emitter_Set and
+  Wall_Sensor_2 are longer than the layout tests' detour rule, and 13 analog /
   fast-digital pairs run closer than 0.45 mm for 0.1-16 mm each (the longest: 3V3_A beside
   Encoder_Right_ABI_B, the emitter set-point beside Encoder_Left_ABI_B for 9 mm);
   `tests/test_main2_layout.py` lists them with the length they may not exceed. The ADC filter

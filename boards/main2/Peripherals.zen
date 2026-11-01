@@ -1,7 +1,7 @@
 """User interface: buttons, DIP switch, buzzer and LEDs.
 
 Buttons (GT-TC048B tactile switches, MCU internal pull-ups), as on the main board:
-- SW2 on Button (PA7) with C20 100 nF to GND.
+- SW2 on Button (PA11) with C20 100 nF to GND.
 - SW3 on NRST with C21 100 nF to GND, the recommended NRST protection (DS13311 Figure 27
   p168: 0.1 uF; the pin has an internal 30-50 kOhm pull-up, Table 61 p167). The ESP32 also
   drives NRST, open drain (ESP sheet).

@@ -322,7 +322,7 @@ def test_current_sampling_time_settles_the_adc_kickback(d):
 # Firmware rules the hardware does not enforce (behaviour key -> words it must name).
 FIRMWARE_RULES = {
     # a debug halt: the timers freeze and the drive enables drop (Drivers.zen, R49 covers reset only)
-    "debug_halt": ["TIM1", "TIM8", "TIM12", "Motors_Enable", "Fan_Enable"],
+    "debug_halt": ["TIM1", "TIM8", "TIM14", "Motors_Enable", "Fan_Enable"],
     # the IMU shares SPI_SCK/SPI_MOSI with the encoders and decodes them as I2C while deselected
     "imu_interface": ["I2C_I3C_disable", "IF_CFG"],
     # Wall_Emitter_Set runs beside LED_ARGB and the encoder chip selects (Sensors.zen)
@@ -331,8 +331,12 @@ FIRMWARE_RULES = {
     "current_sampling_time": ["adc.current_sampling_time_min_us"],
     # the link needs the C5's 3-wire spi_slave_hd mode (Esp.zen)
     "radio_firmware": ["v6.0.3", "SPI_SLAVE_HD_3WIRE_MODE"],
-    # SPI2 keeps its pins driven between transfers, swaps its data pin, starts slow (Esp.zen)
-    "link_spi": ["AFCNTR = 1", "MasterKeepIOState", "Init.IOSwap", "/8"],
+    # SPI3 keeps its pins driven between transfers, its data line on the MOSI pad, starts slow (Esp.zen)
+    "link_spi": ["SPI3", "AFCNTR = 1", "MasterKeepIOState", "IOSWP = 0", "/8"],
+    # the IMU and encoder bus on SPI2 and its DMA requests (sensor_bus)
+    "sensor_bus_dma": ["SPI2", "39", "40"],
+    # Button's EXTI line shares its interrupt with Fan_Enable's fault line (button)
+    "button_input": ["PA11", "EXTI11", "EXTI15_10"],
     # the half-duplex data line is never driven from both ends (R96, RM0468 Figure 643 note 3), the
     # select is released before the MCU drives again (AFCNTR), and the master ends each DMA buffer
     # (ESP-IDF spi_slave_hd protocol)

@@ -141,8 +141,8 @@ def esp_is_the_debug_probe(module, inputs):
     # Research ESP32 radio and A.6: the ESP32-C5 is the debug probe (SWD1 is the ST-Link backstop)
     # and the MCU's link: SWDIO (PA13), SWCLK (PA14) and NRST reach C5 GPIOs (directly or through
     # one series resistor of 220 Ohm or less), so it can connect under reset (AN5419 Figure 21);
-    # the SPI2 link, ESP_SCK (PA12, SPI2_SCK), ESP_DATA (PB14, the data line on the MISO pad) and
-    # ESP_CSn (PA11), and ESP_Flow (PA9) reach C5 GPIOs too. Each lands on a free pin (FREE),
+    # the SPI3 link, ESP_SCK (PC10, SPI3_SCK), ESP_DATA (PC12, the data line on the MOSI pad) and
+    # ESP_CSn (PC11), and ESP_Flow (PA9) reach C5 GPIOs too. Each lands on a free pin (FREE),
     # so none of them is a strapping pin or drives the line before the firmware does.
     b = index(module)
     p = []
@@ -153,9 +153,9 @@ def esp_is_the_debug_probe(module, inputs):
         "PA13": "SWDIO",
         "PA14": "SWCLK",
         "NRST": "NRST",
-        "PA12": "ESP_SCK (UART4_TX in the fallback)",
-        "PB14": "ESP_DATA",
-        "PA11": "ESP_CSn (UART4_RX in the fallback)",
+        "PC10": "ESP_SCK (UART4_TX in the fallback)",
+        "PC12": "ESP_DATA",
+        "PC11": "ESP_CSn (UART4_RX in the fallback)",
         "PA9": "ESP_Flow",
     }
     for mcu_pin, what in links.items():
@@ -170,11 +170,11 @@ def esp_is_the_debug_probe(module, inputs):
 
 
 # The link's series resistors: (MCU pin, ohms low, ohms high, the end the layout puts it at).
-LINK_RESISTORS = [("PA12", 22, 33, "IC1"), ("PB14", 220, 220, "U13"), ("PA11", 22, 150, "U13")]
+LINK_RESISTORS = [("PC10", 22, 33, "IC1"), ("PC12", 220, 220, "U13"), ("PC11", 22, 150, "U13")]
 
 
 def esp_link_series_resistors(module, inputs):
-    # A source series resistor on the clock at its driver, PA12 (checklist, SPI: a series resistor
+    # A source series resistor on the clock at its driver, PC10 (checklist, SPI: a series resistor
     # on the clock trace; the UART4_TX resistor in the fallback); on the shared data line 220 Ohm
     # against the two drivers overlapping while the direction changes (RM0468 Rev 3 Figure 643
     # note 3: 3.346 V / 218 Ohm = 15.4 mA, under DS13311 Table 11's 20 mA per pin), at the C5; ESP_CSn its UART-fallback TX resistor at the C5 (schematic checklist,
@@ -195,13 +195,13 @@ def esp_link_series_resistors(module, inputs):
             p.append(
                 mcu_pin + " needs one " + str(lo) + "-" + str(hi) + " Ohm resistor to the ESP32-C5, found " + str(rs)
             )
-        elif mcu_pin == "PB14" and 3.346 / (ohms(b, rs[0]) * 0.99) > 0.020:
+        elif mcu_pin == "PC12" and 3.346 / (ohms(b, rs[0]) * 0.99) > 0.020:
             # both ends driving against each other: 3V3_D's top across the resistor at -1 %
-            p.append(rs[0] + " lets " + eng(3.346 / (ohms(b, rs[0]) * 0.99), "A") + " through PB14, above 20 mA")
-    cs = net(b, MCU, "PA11")
+            p.append(rs[0] + " lets " + eng(3.346 / (ohms(b, rs[0]) * 0.99), "A") + " through PC12, above 20 mA")
+    cs = net(b, MCU, "PC11")
     ups = [r for r in two_terminal(b, "resistor", cs, net(b, MCU, "VDD")) if abs(ohms(b, r) - 100e3) <= 1e3]
     if len(ups) != 1:
-        p.append("ESP_CSn (PA11) needs one 100 kOhm pull-up to 3V3_D, found " + str(ups))
+        p.append("ESP_CSn (PC11) needs one 100 kOhm pull-up to 3V3_D, found " + str(ups))
     report(p)
 
 

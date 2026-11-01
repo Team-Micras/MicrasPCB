@@ -392,6 +392,9 @@ SWITCHING_COPPER_EXEMPT: dict[tuple[str, str], float] = {
     ("Wall_Sensor_2", "SENSORS.EMITTER_SINK"): 0.33,
     ("Wall_Sensor_2", "W2.2"): 0.34,
     ("Wall_Sensor_3", "SENSORS.EMITTER_SINK"): 0.18,
+    # the right current's run past the buzzer's driver, its corridor beside the fan hole taken by the
+    # ESP32-C5 link and the IMU's and encoders' lines (the buzzer is silent while the drive runs)
+    ("Current_Sensor_Right", "R3.1"): 0.43,
 }
 
 
@@ -641,14 +644,13 @@ def test_switch_nodes_are_compact():
 # The connections the owner routes by hand (layout README, Open items): their partial routes end open
 # until then, so their dangling ends are not stubs
 HAND_ROUTED = {
-    "ESP_SCK",
-    "ESP.ESP_SCK_IO",
-    "ESP_DATA",
-    "ESP_CSn",
+    "Encoder_Right_ABI_B",
+    "Wall_Sensor_PWM_2",
+    "Button",
+    "Fan_TOFF",
     "IMU_INT",
     "Encoder_Right_CSn",
     "Encoder_Left_ABI_A",
-    "SPI_SCK",
     "Motors_Enable",
     "Motors_nFault",
     "Switch_0",
@@ -708,15 +710,15 @@ def _span(points: list) -> float:
 DETOUR, DETOUR_ADD = 2.5, 10.0
 ANALOG_DETOUR, ANALOG_ADD = 2.0, 3.0
 # The nets that still run round, with the length they may not exceed (mm): their direct paths cross
-# the STM32's escape rows, which have no free lane (Encoder_Right_ABI_B's pin faces the rear-right
-# quadrant, whose lines fill both outer layers, so it goes round the nose; the two wall-sensor lines
-# and the emitter set-point leave the front-left face for the right side and the nose). Open item in
-# the layout README.
+# the STM32's escape rows or the corridor beside the fan hole, which have no free lane
+# (Current_Sensor_Right's run from C102 to R78 past the rear tip is the ESP32-C5 link's and the
+# IMU's and encoders' corridor, so it goes round by the DIP switch and the buzzer; the wall-sensor
+# line and the emitter set-point leave the front-left face for the right side and the nose). Open
+# item in the layout README.
 ROUND_ABOUT = {
-    "Encoder_Right_ABI_B": 168.5,
+    "Current_Sensor_Right": 62.0,
     "Wall_Emitter_Set": 34.0,
     "Wall_Sensor_2": 46.5,
-    "Wall_Sensor_PWM_2": 53.0,
 }
 
 
