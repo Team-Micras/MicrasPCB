@@ -1,7 +1,8 @@
 """Apply a board's mechanical spec to its KiCad layout, and export it for the other repos.
 
 The spec owns the aux/grid origin and the position of the footprints it names (written locked),
-and the Edge.Cuts outline of the boards in `OUTLINES`. The other boards' outlines are layout
+and the Edge.Cuts outline of the boards in `OUTLINES`. The layout's zones are written in a
+canonical order (`zone_order`), so a regeneration is byte-stable. The other boards' outlines are layout
 geometry (the boards keep their previous revisions'): the spec checks the features other parts
 mate with (`FEATURES`). KiCad owns everything else: the remaining placement, routing and zones.
 
@@ -496,6 +497,23 @@ def _same_edges(old: list[tuple], new: list[tuple]) -> bool:
     return not left
 
 
+def zone_order(text: str) -> str:
+    """The layout with its board-level zones in a canonical order: the zones with a UUID as KiCad
+    wrote them, then the zones without one (teardrops) by their text. KiCad 10 saves a teardrop
+    zone without its UUID and gives it a new one on every load, so each save of a board with
+    teardrops interleaves them with the other zones in another order; this order keeps `make gen`
+    byte-stable. Only the order changes: every zone keeps its text, and a board without teardrops
+    is left as it is."""
+    root = sexpr.parse(text)
+    zones = root.children("zone")
+    spans = [sexpr.line_span(text, z) for z in zones]
+    items = [
+        (i, text[a:b], z.child("uuid") is not None) for i, (z, (a, b)) in enumerate(zip(zones, spans, strict=True))
+    ]
+    canon = [s for _, s, _ in sorted(items, key=lambda it: (0, it[0], "") if it[2] else (1, 0, it[1]))]
+    return sexpr.splice(text, [(a, b, s) for (a, b), s in zip(spans, canon, strict=True)])
+
+
 def apply(board: str, text: str) -> tuple[str, list[str], list[str]]:
     """The layout text with the spec applied, the changes made, and the problems only KiCad can fix."""
     s = spec.load(board)
@@ -571,7 +589,11 @@ def apply(board: str, text: str) -> tuple[str, list[str], list[str]]:
         )
     problems += footprint_checks(s, root)
 
-    return sexpr.splice(text, edits), changes, problems
+    new = sexpr.splice(text, edits)
+    ordered = zone_order(new)
+    if ordered != new:
+        changes.append("zones written in canonical order (zone_order)")
+    return ordered, changes, problems
 
 
 def sample(e, n: int = 16) -> list[tuple[float, float]]:

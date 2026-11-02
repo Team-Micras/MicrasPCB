@@ -158,6 +158,20 @@ def test_main_layout_matches_the_spec(main_spec):
     assert new == text
 
 
+def test_zone_order_is_canonical_whatever_order_kicad_saves():
+    # KiCad saves the teardrop zones (no UUID) interleaved with the others in a new order each time:
+    # the teardrops moved to the front in reverse, the rest kept, come back as the layout has them.
+    text = board_pcb("main").read_text()
+    root = sexpr.parse(text)
+    spans = [sexpr.line_span(text, z) for z in root.children("zone")]
+    kept = [text[a:b] for (a, b), z in zip(spans, root.children("zone"), strict=True) if z.child("uuid")]
+    tears = [text[a:b] for (a, b), z in zip(spans, root.children("zone"), strict=True) if not z.child("uuid")]
+    assert tears, "the main board has teardrops"
+    scrambled = sexpr.splice(text, [(a, b, s) for (a, b), s in zip(spans, [*tears[::-1], *kept], strict=True)])
+    assert scrambled != text
+    assert mech.zone_order(scrambled) == text
+
+
 def test_main_mech_export_is_in_the_robot_frame(main_spec):
     m = mech.mech_json("main")
     xs = [p[0] for e in m["edge"] for k in ("start", "end") for p in [e[k]]]
