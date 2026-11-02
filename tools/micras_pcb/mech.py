@@ -213,7 +213,7 @@ def kicad_to_robot(s: dict, p: tuple[float, float]) -> tuple[float, float]:
 
 
 def kicad_to_board(s: dict, p: tuple[float, float]) -> tuple[float, float]:
-    """KiCad to a board frame with u right and v up (the encoder's and the Bluetooth module's)."""
+    """KiCad to a board frame with u right and v up (the encoder's)."""
     return p[0] - s["kicad"]["origin_x"], s["kicad"]["origin_y"] - p[1]
 
 
@@ -288,35 +288,6 @@ def slots(s: dict) -> dict[str, tuple[float, float]]:
     """Encoder slot centres in the robot frame, keyed by the slot footprint's instance path."""
     e = s["encoder_slots"]
     return {e["right_path"]: (0.0, -e["y"]), e["left_path"]: (0.0, e["y"])}
-
-
-def bluetooth_features(s: dict, root: sexpr.Node) -> list[str]:
-    """What the Bluetooth module's layout lacks of spec/bluetooth.toml: outline extents (board frame)
-    and the HM-19 at its position."""
-    pts = [p for e in outline_elements(s, root, kicad_to_board) for p in sample(e, 16)]
-    if not pts:
-        return ["no Edge.Cuts outline"]
-    us, vs = [p[0] for p in pts], [p[1] for p in pts]
-    o = s["outline"]
-    problems = [
-        f"outline {name} at {got:.4f}, spec {want}"
-        for name, got, want in (
-            ("left", min(us), o["left"]),
-            ("right", max(us), o["right"]),
-            ("top", max(vs), o["top"]),
-            ("bottom", min(vs), o["bottom"]),
-        )
-        if abs(got - want) > TOL
-    ]
-    m = s["module"]
-    fp = next((f for f in root.children("footprint") if f.prop("Reference") == m["ref"]), None)
-    if fp is None:
-        problems.append(f"{m['ref']} (the HM-19) is missing")
-    else:
-        u, v = kicad_to_board(s, _xy_of(fp.child("at")))
-        if math.dist((u, v), (m["u"], m["v"])) > TOL:
-            problems.append(f"{m['ref']} at ({u:.4f}, {v:.4f}), spec ({m['u']}, {m['v']})")
-    return problems
 
 
 def footprint_checks(s: dict, root: sexpr.Node) -> list[str]:
@@ -438,7 +409,7 @@ def encoder_features(s: dict, root: sexpr.Node) -> list[str]:
     return problems
 
 
-FEATURES = {"encoder": encoder_features, "bluetooth": bluetooth_features}
+FEATURES = {"encoder": encoder_features}
 
 
 def _edge_item(s: dict, e, i: int, to=None) -> str:
@@ -730,45 +701,7 @@ def chain(els: list, tol: float = 1e-3) -> list[tuple[float, float]]:
     return poly
 
 
-def bluetooth_json(s: dict, root: sexpr.Node) -> dict:
-    """The module in its board frame (outline from the layout, the rest from the spec), and where the
-    mating puts that frame in the robot."""
-    poly: list[tuple[float, float]] = []
-    for p in chain(outline_elements(s, root, kicad_to_board)):
-        if not poly or math.dist(p, poly[-1]) >= 0.02:
-            poly.append(p)
-    m, pl, mt = s["module"], s["plug"], s["mating"]
-    main = spec.load("main")
-    face_x = mt["receptacle_x"] - mt["mouth_offset"] + mt["insertion"] - pl["height"]
-    return {
-        "frame": "board: origin at the plug centre on the component side, u right and v up seen from the component side; mm",
-        "thickness": s["pcb"]["thickness"],
-        "outline": [_r(p) for p in poly],
-        "plug": {"u": pl["u"], "v": pl["v"], "height": pl["height"], "side": "top"},
-        "module": {
-            "u": m["u"],
-            "v": m["v"],
-            "width": m["width"],
-            "length": m["length"],
-            "thickness": m["thickness"],
-            "side": "top",
-            "note": "footprint origin on the module's bottom edge; the module extends length up from it",
-        },
-        "robot": {
-            "frame": "spec/main.toml robot frame: x forward, y left, z up from the main board's bottom surface",
-            "origin": [
-                round(face_x, 4),
-                mt["receptacle_y"],
-                round(main["pcb"]["thickness"] + mt["centre_height"], 4),
-            ],
-            "u": [0, 1, 0],
-            "v": [0, 0, 1],
-            "component_side": [1, 0, 0],
-        },
-    }
-
-
-EXPORTS = {"encoder": encoder_json, "main": main_json, "bluetooth": bluetooth_json}
+EXPORTS = {"encoder": encoder_json, "main": main_json}
 
 
 def mech_json(board: str, text: str | None = None) -> dict:

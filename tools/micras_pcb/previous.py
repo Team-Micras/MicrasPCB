@@ -1,19 +1,18 @@
 """The previous board revision as a committed reference, and a connectivity comparator against it.
 
-The encoder and Bluetooth boards are replicated from their previous revisions (Altium, in
-`hw_debug`). `snapshot` reads a board's previous revision once and writes
-`boards/<board>/previous/board.json`, so the checks never need `hw_debug`. `compare` proves the
-new board connects exactly what the old one did, and names its nets as the old one did, except
-for the changes declared in `boards/<board>/changes.toml`.
+The encoder is replicated from its previous revision (Altium, in `hw_debug`). `snapshot` reads a
+board's previous revision once and writes `boards/<board>/previous/board.json`, so the checks
+never need `hw_debug`. `compare` proves the new board connects exactly what the old one did, and
+names its nets as the old one did, except for the changes declared in
+`boards/<board>/changes.toml`.
 
     MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot encoder            # (re)write its board.json
-    MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot bluetooth          # the Bluetooth module's
     MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot encoder --check    # fail if it is stale
     micras-pcb previous compare encoder                                              # new board vs previous
 
-Where each board's previous revision lives is in `SOURCES`: the encoder and the Bluetooth module
-as the Altium files themselves (`hw_debug/modules/<board>`): the PcbDoc is converted with
-`kicad-cli pcb import` on each run, the part fields come from the SchDoc's component parameters,
+Where each board's previous revision lives is in `SOURCES`: the encoder as the Altium files
+themselves (`hw_debug/modules/<board>`): the PcbDoc is converted with `kicad-cli pcb import` on
+each run, the part fields come from the SchDoc's component parameters,
 and the netlist export must group the pads as the PCB does. A source can also be a KiCad 10
 conversion of an Altium project (`Source.schematics` for the part fields, `Source.bom` for a
 JLCPCB BOM's LCSC numbers).
@@ -125,11 +124,6 @@ SOURCES = {
         pcb="modules/encoder/MicrasEncoder.PcbDoc",
         altium_sch="modules/encoder/Encoder.SchDoc",
         netlist="modules/encoder/Encoder.netlist.txt",
-    ),
-    "bluetooth": Source(
-        pcb="modules/bluetooth/MicrasBluetoothModule.PcbDoc",
-        altium_sch="modules/bluetooth/MicrasBluetoothModule.SchDoc",
-        netlist="modules/bluetooth/MicrasBluetoothModule.netlist.txt",
     ),
 }
 

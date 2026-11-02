@@ -283,7 +283,7 @@ def test_in2_signal_hops_are_digital_and_keep_clear():
 
 
 # Hops are the exception where F.Cu and B.Cu have no room, not a routing layer: every millimetre of
-# them is a slot in the ground under B.Cu (reports/main2-review/routing.md F6)
+# them is a slot in the ground under B.Cu
 IN2_BUDGET = 200.0  # mm, all hops together
 
 
@@ -401,8 +401,8 @@ SWITCHING_COPPER_EXEMPT: dict[tuple[str, str], float] = {
 def test_analog_keeps_clear_of_switching_pads_and_pours():
     """The rule above for the rest of the switching copper: no analog track within ANALOG_GAP of a
     switching node's pad or pour on its layer, and no switching track within ANALOG_GAP of an
-    analog pad (ST AN2834 section 4.2.11; reports/main2-review/routing.md F7). The escape stubs at
-    nets.STUB_PARTS and their pads stay out, as above."""
+    analog pad (ST AN2834 section 4.2.11). The escape stubs at nets.STUB_PARTS and their pads stay
+    out, as above."""
     pcb = layout.load("main")
     pins = [p.xy for ref in nets.STUB_PARTS for p in pcb.footprints[ref].pads]
     stub = lambda t: any(math.dist(e, q) < 0.01 for e in (t.start, t.end) for q in pins)  # noqa: E731
@@ -444,10 +444,10 @@ def test_analog_keeps_clear_of_switching_pads_and_pours():
     assert not problems, "\n".join(problems)
 
 
-# The pins whose net follows a switch node (reports/main2-review/routing.md F6, circuits.md M4): the
-# bridges' outputs and charge-pump flying capacitor (SLVSF66A pinout), the fan driver's outputs,
-# low-side sources, bootstrap and charge pump (DS14341 pinout), the buck's switch node and
-# bootstrap (L6981 pinout), and the INA241s' Kelvin inputs, at the shunt's OUT1 end.
+# The pins whose net follows a switch node: the bridges' outputs and charge-pump flying capacitor
+# (SLVSF66A pinout), the fan driver's outputs, low-side sources, bootstrap and charge pump (DS14341
+# pinout), the buck's switch node and bootstrap (L6981 pinout), and the INA241s' Kelvin inputs, at
+# the shunt's OUT1 end.
 SWITCH_FOLLOWERS = {
     "DRV8874": ("OUT1", "OUT2", "CPH", "CPL"),
     "STSPIN958": ("OUT1", "OUT2", "LSS1", "LSS2", "VBOOT", "CP1", "CP2"),
@@ -648,7 +648,7 @@ HAND_ROUTED: set[str] = set()
 @needs_kicad
 def test_no_dangling_copper(tmp_path):
     # a track end or via that meets no copper of its net is an open stub, an antenna (TI SCAA082A);
-    # KiCad's DRC flags them as track_dangling / via_dangling (reports/main2-review/routing.md F4)
+    # KiCad's DRC flags them as track_dangling / via_dangling
     import json
     import re
     import subprocess
@@ -693,7 +693,7 @@ def _span(points: list) -> float:
 
 
 # routed length against the pads' spanning tree: a two-pad net at most DETOUR x span + DETOUR_ADD,
-# an analog net at most ANALOG_DETOUR x span + ANALOG_ADD (reports/main2-review/routing.md F4)
+# an analog net at most ANALOG_DETOUR x span + ANALOG_ADD
 DETOUR, DETOUR_ADD = 2.5, 10.0
 ANALOG_DETOUR, ANALOG_ADD = 2.0, 3.0
 # The nets that still run round, with the length they may not exceed (mm): their direct paths cross
@@ -735,7 +735,7 @@ def test_no_detours():
 
 
 # Analog tracks keep FAST_GAP (three track widths) from the fast digital lines on the same layer
-# (reports/main2-review/routing.md F7; ST AN2834 sections 4.2.11-4.2.14), but where both leave
+# (ST AN2834 sections 4.2.11-4.2.14), but where both leave
 # neighbouring pins of the STM32 (a fine-pitch escape: each track has an end within ESCAPE_REACH of
 # its pads). The pairs below still run closer, in the nose and round the STM32's escape rows, for at
 # most the length given (mm of the analog track inside FAST_GAP): they may not grow, and no other pair
@@ -819,8 +819,8 @@ def test_adc_filter_caps_at_the_pin():
     assert not problems, "\n".join(problems)
 
 
-# Signal tracks are at least TRACK_FLOOR wide (margin over JLCPCB's 0.09 mm against over-etch,
-# reports/main2-review/routing.md F14), but for a fine-pitch escape: a track both of whose ends lie
+# Signal tracks are at least TRACK_FLOOR wide (margin over JLCPCB's 0.09 mm against over-etch),
+# but for a fine-pitch escape: a track both of whose ends lie
 # within ESCAPE_TRACK of a pad narrower than FINE_PAD (the STM32's 0.4 mm pitch pins)
 TRACK_FLOOR = 0.12  # mm
 FINE_PAD = 0.3  # mm, the pad's smaller side

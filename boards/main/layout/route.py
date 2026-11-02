@@ -1777,8 +1777,8 @@ def square_corners() -> int:
 
 # Pads in the board-wide pours (the ground pours and planes, the B.Cu VBAT pour) join them by thermal
 # reliefs, so the pour end of a small part heats as fast as its track end in reflow (no tombstoning)
-# and a through-hole pad can be soldered by hand (reports/main2-review/routing.md R14: 0.10-0.20 mm
-# spokes for SMD, 0.30-0.50 mm for through-hole; the JLCPCB thermal relief design guide). The pads
+# and a through-hole pad can be soldered by hand (0.10-0.20 mm spokes for SMD, 0.30-0.50 mm for
+# through-hole: the JLCPCB thermal relief design guide). The pads
 # that carry current or heat join solid (a pad override): every SMD pad of RELIEF_SOLID_AREA and
 # more (exposed pads, the bulk capacitors, the large passives), every ground pin of the power stages
 # (POWER_STAGES) and every pad inside one of the power paths' own pours (the named zones, solid
