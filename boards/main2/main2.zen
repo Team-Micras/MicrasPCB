@@ -55,13 +55,13 @@ no via site. BOOT0 is held low by R42: the MCU always starts from its flash.
   row. PB4 leaves its reset function NJTRST (the debug port is SWD only): out of reset PB4 is
   NJTRST with its pull-up (RM0468 Rev 3 section 11.3.1), which lifts Wall_Sensor_PWM_3's
   AC-coupled gate for a few ms while the emitter set-point is 0, so no emitter lights.
-- The motors: the right bridge's EN on PA10 (TIM1_CH3) and PH on PB7, the left's EN on PC6
+- The motors: the right bridge's EN on PA10 (TIM1_CH3) and PH on PB6, the left's EN on PC6
   (TIM8_CH1, slaved to TIM1 over ITR0, RM0468 Table 350: TIM8 ITR0 = tim1_trgo, in gated mode)
-  and PH on PA9, both GPIOs; Motors_Enable on PB8 and Motors_nFault on PD2 (EXTI2).
+  and PH on PA12, both GPIOs; Motors_Enable on PB7 and Motors_nFault on PD2 (EXTI2).
 - LED_ARGB on PA2 (TIM15_CH1, its CCR1 written by DMA on tim15_up, DMAMUX1 input 106, RM0468
   Table 118), the buzzer on PB9 (TIM17_CH1), LED_Red on PB2 and Button on PA3.
-- The sensor bus's chip selects, GPIOs: Encoder_Left_CSn on PA12, IMU_SPI_CSn on PA8 and
-  Encoder_Right_CSn on PB6; IMU_INT on PC7 (EXTI7). The fan's Fan_TOFF on PB10 (a polled input)
+- The sensor bus's chip selects, GPIOs: Encoder_Left_CSn on PA9, IMU_SPI_CSn on PA8 and
+  Encoder_Right_CSn on PB8; IMU_INT on PC7 (EXTI7). The fan's Fan_TOFF on PB10 (a polled input)
   and Fan_Enable on PB12; ESP_Flow on PA11 (EXTI11).
 - The ADC lines: Current_Sensor_Left on PB1, Wall_Sensor_0 on PA4, Wall_Sensor_3 on PC0,
   Current_Sensor_Right on PC1. Each pin keeps an ADC1 and an ADC2 input, which the currents' dual
@@ -278,10 +278,10 @@ STM32H725RGV6(
     PA6=WALL_SENSOR_2,
     PA7=FAN_PWM,
     PA8=IMU_SPI.CS,
-    PA9=MOTOR_LEFT_PH,
+    PA9=ENCODER_LEFT_SPI.CS,
     PA10=MOTOR_RIGHT_EN,
     PA11=ESP_FLOW,
-    PA12=ENCODER_LEFT_SPI.CS,
+    PA12=MOTOR_LEFT_PH,
     PA13=SWDIO,
     PA14=SWCLK,
     PA15=ENCODER_RIGHT_ABI_B,
@@ -291,9 +291,9 @@ STM32H725RGV6(
     PB3=ENCODER_RIGHT_ABI_A,
     PB4=WALL_SENSOR_PWM_3,
     PB5=WALL_SENSOR_PWM_2,
-    PB6=ENCODER_RIGHT_SPI.CS,
-    PB7=MOTOR_RIGHT_PH,
-    PB8=MOTORS_ENABLE,
+    PB6=MOTOR_RIGHT_PH,
+    PB7=MOTORS_ENABLE,
+    PB8=ENCODER_RIGHT_SPI.CS,
     PB9=BUZZER,
     PB10=FAN_TOFF,
     PB12=FAN_ENABLE,

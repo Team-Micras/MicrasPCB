@@ -6,8 +6,8 @@ next to its connector (TI SLVSF66A; research/next-revision, Drivetrain and A.1).
 datasheet's netlist rules are checked by components/ti/DRV8874/checks.zen in
 boards/main2/test/test_drivers.zen.
 - PH/EN mode, PMODE on GND (Table 2: <= 0.65 V). The timer PWM goes on EN/IN1 and the direction
-  on PH/IN2: right motor Motor_Right_EN (PA10, TIM1_CH3) and Motor_Right_PH (PB7), left motor
-  Motor_Left_EN (PC6, TIM8_CH1) and Motor_Left_PH (PA9). EN = 0 is the low-side brake (Table 3),
+  on PH/IN2: right motor Motor_Right_EN (PA10, TIM1_CH3) and Motor_Right_PH (PB6), left motor
+  Motor_Left_EN (PC6, TIM8_CH1) and Motor_Left_PH (PA12). EN = 0 is the low-side brake (Table 3),
   so the bridge alternates drive and low-side slow decay at 100 kHz, the fPWM maximum (section
   6.3) and below the INA241's 125 kHz PWM-rejection limit (SBOSA30D 7.3.1.1). The datasheet gives
   no minimum output pulse: both edges are delayed alike (tPD 400 ns) and swing in tRISE/tFALL
@@ -35,7 +35,7 @@ boards/main2/test/test_drivers.zen.
   Equation 3 fixes only the ratio; 4.7 kOhm and 20 kOhm are JLCPCB basic parts (the 20 kOhm
   already on the board), drawing 134 uA from 3V3_D, and VREF is a high-impedance input (the
   datasheet's design example uses 16 kOhm / 50 kOhm, Table 8).
-- nSLEEP of both bridges on Motors_Enable (PB8) with R49 100 kOhm to GND, so the bridges sleep
+- nSLEEP of both bridges on Motors_Enable (PB7) with R49 100 kOhm to GND, so the bridges sleep
   while the MCU is in reset or halted for SWD flashing (its pins float in analog mode, RM0468
   section 11.3.1); the inputs' own 100 kOhm pull-downs (Figure 16) make 50 kOhm in parallel.
 - nFAULT: open drain, both wire-ORed on Motors_nFault (PD2) with R60 10 kOhm to 3V3_D (0.33 mA,

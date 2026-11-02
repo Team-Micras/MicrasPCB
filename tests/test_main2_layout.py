@@ -644,16 +644,8 @@ def test_switch_nodes_are_compact():
 # The connections the owner routes by hand (layout README, Open items): their partial routes end open
 # until then, so their dangling ends are not stubs
 HAND_ROUTED = {
-    "Button",
-    "ESP_Flow",
     "Encoder_Left_ABI_A",
-    "Encoder_Right_ABI_A",
-    "Encoder_Right_CSn",
     "LED_ARGB",
-    "Motor_Left_EN",
-    "Motor_Right_PH",
-    "SPI_MISO",
-    "SWDIO",
 }
 
 
