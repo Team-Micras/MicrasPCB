@@ -143,9 +143,8 @@ that remains.
 - `.github/workflows/ci.yml`: on every push and PR, installs the pinned KiCad and Zener,
   checks that `make gen` changes nothing, runs `make check`, builds the review outputs and fab package
   (uploaded as the run's artifact).
-- `.github/dependabot.yml`: weekly PRs for new GitHub Actions and Python dev-tool releases.
-  KiCad and Zener stay pinned in `versions.env` and are bumped by hand, since a bump can change
-  the generated files.
+- GitHub Actions, the Python dev tools (`uv.lock`), KiCad and Zener (`versions.env`) are bumped
+  by hand; a KiCad or Zener bump can change the generated files.
 - JLCPCB stock is not checked in CI (it changes daily and the API is undocumented): run
   `make parts-online` before ordering.
 
