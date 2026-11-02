@@ -1,11 +1,12 @@
 """SWD header: bare through-hole pads at 1.27 mm pitch for an ST-Link's SWD lines, and optionally
 its supply pin.
 
-Default: three pads, 1 GND, 2 SWDIO, 3 SWCLK: the middle three contacts of boards/main's SWD
-connector P1 (1 SWD_VDD, 2 GND, 3 SWDIO, 4 SWCLK, 5 NRST) in the same order, without NRST.
+Default: three pads, 1 GND, 2 SWDIO, 3 SWCLK: the middle three contacts of the v1 main board's SWD
+connector P1 (MicrasPCB e34fb9a, boards/main: 1 SWD_VDD, 2 GND, 3 SWDIO, 4 SWCLK, 5 NRST) in the
+same order, without NRST.
 With `supply`: four pads in the 4-pin order of a clone ST-Link's 1.27 mm SWD lead (owner,
 2026-11-01): 1 SWDIO, 2 GND, 3 SWCLK, 4 VDD, VDD taking the probe's 5 V pin into the board (the
-board decides what that pin feeds; main2 takes it through a Schottky diode into its regulators'
+board decides what that pin feeds; the main board takes it through a Schottky diode into its regulators'
 input). The lead plugs on pin 1 to pad 1; turned round, or shifted one pad either way, the probe's
 5 V never lands on the board's GND. The two variants number their pads differently: a board
 switching variants re-routes the header.

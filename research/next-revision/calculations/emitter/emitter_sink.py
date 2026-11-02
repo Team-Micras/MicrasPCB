@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Behavioural ngspice model of main2's wall-emitter drive (boards/main2/Sensors.zen).
+"""Behavioural ngspice model of the main board's wall-emitter drive (boards/main/Sensors.zen).
 
 The circuit: the four emitters share one constant-current sink, U12 (TLV9001) driving Q9
 (AO3400A) over R83 1.2 ohm. The set-point comes from the DAC (PA5, DAC1_OUT2, output buffer off)
@@ -139,7 +139,7 @@ def netlist(
         q9dev, q9model = "XQ9 sink gq sense AO3400", f".include {ao}"
     else:
         q9dev, q9model = "MQ9 sink gq sense NQ9", ".model NQ9 " + FET.format(vto=q9 - DV175)
-    return f"""* main2 emitter sink
+    return f"""* main board emitter sink
 .temp {temp}
 .model SFH D(IS={is_led:.4g} N=3.03 RS=0.8 CJO=60p)
 .model NSEL {FET.format(vto=vsel - DV175)}

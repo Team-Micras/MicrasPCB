@@ -33,7 +33,7 @@ set-point (+-1.0 % over temperature).
 
 Integrator-owned circuitry: the 100 nF V+ bypass, the set-point divider, the gate resistor and
 any loop compensation. The AO3400A's 630 pF Ciss sits above the 500 pF drive rating; the source
-follower bootstraps most of Cgs, and main2's integrator loop (1 kOhm, 1 nF, 100 Ohm gate
+follower bootstraps most of Cgs, and the main board's integrator loop (1 kOhm, 1 nF, 100 Ohm gate
 resistor) settles without overshoot in TI's TLV9002 model (research/next-revision/calculations/
 emitter/emitter_sink.py, section 3).
 """

@@ -52,10 +52,11 @@ thickness = { value = 2.3, source = "HM Bluetooth module datasheet V107 section 
 ref = { value = "U1", source = "boards/bluetooth/bluetooth.zen designator" }
 
 [mating]
-# The main board's receptacle U2 (GT-USB-7010ASV, boards/main PERIPHERALS.U2) and how far the plug
-# goes in. tests/test_bluetooth.py checks the U2 numbers against the main board's layout.
-receptacle_x = { value = -26.72102, source = "main board layout: U2 footprint origin at KiCad y = 140.22462 (robot x = 113.5036 - 140.22462)" }
-receptacle_y = { value = -1.749975, source = "main board layout: U2 footprint origin at KiCad x = 150.251075 (robot y = 148.5011 - 150.251075)" }
+# The v1 main board's receptacle U2 (GT-USB-7010ASV; MicrasPCB e34fb9a boards/main, PERIPHERALS.U2)
+# and how far the plug goes in. The v1 board's tests/test_bluetooth.py checks the U2 numbers against
+# its layout; the current main board has no USB-C receptacle.
+receptacle_x = { value = -26.72102, source = "v1 main board layout (e34fb9a): U2 footprint origin at KiCad y = 140.22462 (robot x = 113.5036 - 140.22462)" }
+receptacle_y = { value = -1.749975, source = "v1 main board layout (e34fb9a): U2 footprint origin at KiCad x = 150.251075 (robot y = 148.5011 - 150.251075)" }
 mouth_offset = { value = 5.03006, source = "GT-USB-7010ASV drawing rev A0, L = 7.35 mm; the footprint's body outline (User.15) ends 5.03006 mm behind its origin" }
 centre_height = { value = 1.68, source = "GT-USB-7010ASV drawing rev A0: CH = 1.68 mm, the plug axis above the main board's top surface" }
 insertion = { value = 4.8, source = "GT-USB-7010ASV drawing rev A0, AFTER MATING: 6.65 mm plug shell, its overmold 1.85 mm (Ref) out of the receptacle face; 6.65 - 1.85" }

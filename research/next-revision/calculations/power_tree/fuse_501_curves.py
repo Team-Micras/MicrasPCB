@@ -91,7 +91,7 @@ for n, (cur_a, t_s) in curves.items():
     o = np.argsort(t_s)
     print(n, "%.1f" % (np.interp(math.log10(0.001), np.log10(t_s[o]), cur_a[o]) ** 2 * 0.001))
 
-print("\n=== F1 (12 A) against the board's budgets (boards/main2/test/test_power.zen battery_fuse) ===")
+print("\n=== F1 (12 A) against the board's budgets (boards/main/test/test_power.zen battery_fuse) ===")
 cur_a, t_s = curves["12A"]
 o = np.argsort(t_s)
 i100 = np.interp(2.0, np.log10(t_s[o]), cur_a[o])

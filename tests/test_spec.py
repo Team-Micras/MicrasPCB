@@ -130,7 +130,7 @@ def test_slots_are_symmetric_about_the_axle(main_spec):
 
 
 def test_screw_holes_are_symmetric_and_on_the_board(main_spec, main_layout):
-    holes = [(p["x"], p["y"]) for p in mech.placements(main_spec).values()]
+    holes = [(p["x"], p["y"]) for path, p in mech.placements(main_spec).items() if path.startswith("H")]
     assert len(holes) == 4
     assert sorted(holes) == sorted((x, -y) for x, y in holes)
     outline = [p for e in mech.outline_elements(main_spec, main_layout) for p in mech.sample(e, 64)]
@@ -145,8 +145,9 @@ def test_hole_diameter_is_the_mounting_hole_footprint(main_spec):
     assert float(pad.child("drill").atoms()[0]) == main_spec["holes"]["diameter"]
 
 
-def test_main_layout_has_every_spec_feature(main_spec, main_layout):
-    assert mech.features(main_spec, main_layout) == []
+def test_main_layout_has_every_spec_footprint(main_spec, main_layout):
+    # the spec draws the outline (mech.OUTLINES); the encoder slot footprints sit on their slots and
+    # the screw holes have the spec's drill
     assert mech.footprint_checks(main_spec, main_layout) == []
 
 
@@ -167,16 +168,16 @@ def test_main_mech_export_is_in_the_robot_frame(main_spec):
     assert [h["name"] for h in m["holes"]] == ["H1", "H2", "H3", "H4"]
 
 
-# --- main2: the outline the spec draws, the antenna notch -------------------------------------------
+# --- the outline the spec draws, the antenna notch ------------------------------------------------
 
-MAIN2 = spec.load("main2")
+MAIN = spec.load("main")
 U13_FOOTPRINT = ROOT / "components/espressif/ESP32-C5-MINI-1/ESP32-C5-MINI-1.kicad_mod"
 EDGE_CLEARANCE = 0.2  # mm, copper to board edge (rules/jlcpcb.kicad_dru)
 
 
-def _main2_board() -> list[tuple[float, float]]:
-    """main2's board outline (robot frame) as a polygon: the largest closed loop of the elements."""
-    els = mech.main2_outline(MAIN2)
+def _main_board() -> list[tuple[float, float]]:
+    """The main board's outline (robot frame) as a polygon: the largest closed loop of the elements."""
+    els = mech.main_outline(MAIN)
     loops, left = [], list(els)
     while left:
         group, ends = [left.pop(0)], None
@@ -220,10 +221,10 @@ def _edge_distance(p, poly) -> float:
 
 def _u13_to_robot(u: float, v: float) -> tuple[float, float]:
     """A point of U13's footprint (KiCad footprint frame) on the board, in the robot frame."""
-    p = MAIN2["u13"]
+    p = MAIN["u13"]
     a = math.radians(p["rotation"])
-    kx, ky = mech.robot_to_kicad(MAIN2, (p["x"], p["y"]))
-    return mech.kicad_to_robot(MAIN2, (kx + u * math.cos(a) + v * math.sin(a), ky - u * math.sin(a) + v * math.cos(a)))
+    kx, ky = mech.robot_to_kicad(MAIN, (p["x"], p["y"]))
+    return mech.kicad_to_robot(MAIN, (kx + u * math.cos(a) + v * math.sin(a), ky - u * math.sin(a) + v * math.cos(a)))
 
 
 def _u13_footprint():
@@ -237,22 +238,22 @@ def _u13_footprint():
     return area, pads
 
 
-def test_main2_outline_is_one_closed_loop():
-    board = _main2_board()
+def test_main_outline_is_one_closed_loop():
+    board = _main_board()
     assert len(board) > 100
-    o = MAIN2["outline"]
+    o = MAIN["outline"]
     xs, ys = [p[0] for p in board], [p[1] for p in board]
     assert max(xs) == pytest.approx(o["front"], abs=1e-6)
     assert min(xs) == pytest.approx(o["rear"], abs=1e-6)
     assert (min(ys), max(ys)) == (pytest.approx(-o["width"] / 2, abs=1e-6), pytest.approx(o["width"] / 2, abs=1e-6))
 
 
-def test_main2_antenna_notch_cuts_the_board_away_under_the_antenna():
+def test_main_antenna_notch_cuts_the_board_away_under_the_antenna():
     """ESP32-C5 Hardware Design Guidelines (Positioning a Module on a Base Board): no board under the
     module's antenna; the footprint's keep-out (the 5.85 mm antenna area, ESP32-C5-MINI-1 datasheet
     v1.4 Figure 11-1) lies in the notch, the module's pads on the board, at least the edge
     clearance in."""
-    board = _main2_board()
+    board = _main_board()
     area, pads = _u13_footprint()
     corners = [_u13_to_robot(u, v) for u, v in area]
     cx, cy = (sum(c[0] for c in corners) / len(corners), sum(c[1] for c in corners) / len(corners))
@@ -272,24 +273,24 @@ def test_main2_antenna_notch_cuts_the_board_away_under_the_antenna():
             assert _edge_distance(p, board) >= EDGE_CLEARANCE - 1e-6, f"U13 pad {name} at {p}: too near the edge"
 
 
-def test_main2_antenna_notch_keeps_off_the_chassis_zones():
-    x0, x1, y0, y1 = mech.notch_box(MAIN2, "antenna_notch")
-    for name, (zx0, zx1, zy0, zy1, _h) in mech.keepout_zones(MAIN2):
+def test_main_antenna_notch_keeps_off_the_chassis_zones():
+    x0, x1, y0, y1 = mech.notch_box(MAIN, "antenna_notch")
+    for name, (zx0, zx1, zy0, zy1, _h) in mech.keepout_zones(MAIN):
         assert min(x1, zx1) <= max(x0, zx0) or min(y1, zy1) <= max(y0, zy0), f"the antenna notch cuts into {name}"
     # one notch in each rear corner, with rear edge left between them for the power input
-    _, _, sy0, sy1 = mech.notch_box(MAIN2, "switch_notch")
-    assert {MAIN2["antenna_notch"]["side"], MAIN2["switch_notch"]["side"]} == {"left", "right"}
+    _, _, sy0, sy1 = mech.notch_box(MAIN, "switch_notch")
+    assert {MAIN["antenna_notch"]["side"], MAIN["switch_notch"]["side"]} == {"left", "right"}
     assert y1 < sy0 or sy1 < y0, "the antenna and switch notches overlap"
 
 
-def test_main2_antenna_notch_follows_espressifs_keepout_figure():
+def test_main_antenna_notch_follows_espressifs_keepout_figure():
     """ESP32-C5 Hardware Design Guidelines, Keepout Zone for ESP32-C5 Module's Antenna: at most 2 mm
     from the antenna's ground-point side (the C5-MINI-1's pin-1 end, spec [antenna_notch]) to the
     board's side edge, at least 15 mm of board cut away beyond its open end (the pin-45 end), the
     antenna end at most 1 mm inside the board's edge line, and the cut as deep as the antenna area
     (the footprint's keep-out)."""
-    o, u = MAIN2["outline"], MAIN2["u13"]
-    _, x1, y0, y1 = mech.notch_box(MAIN2, "antenna_notch")
+    o, u = MAIN["outline"], MAIN["u13"]
+    _, x1, y0, y1 = mech.notch_box(MAIN, "antenna_notch")
     area, pads = _u13_footprint()
     corners = [_u13_to_robot(a, b) for a, b in area]
     xs, ys = [c[0] for c in corners], [c[1] for c in corners]
@@ -298,7 +299,7 @@ def test_main2_antenna_notch_follows_espressifs_keepout_figure():
     pin45_y = sum(p[1] for p in pad["45"]) / 4
     edge = -o["width"] / 2 if pin1_y < pin45_y else o["width"] / 2  # the side edge the pin-1 end faces
     gnd_side, open_side = (min(ys), max(ys)) if edge < 0 else (max(ys), min(ys))
-    assert MAIN2["antenna_notch"]["side"] == ("right" if edge < 0 else "left")
+    assert MAIN["antenna_notch"]["side"] == ("right" if edge < 0 else "left")
     assert abs(gnd_side - edge) <= 2.0, "the antenna's ground-point (pin-1) side is more than 2 mm from the edge"
     beyond = (y1 - open_side) if edge < 0 else (open_side - y0)
     assert beyond >= 15.0 - 1e-6, f"{beyond:.2f} mm cut away beyond the open (pin-45) end, under 15 mm"

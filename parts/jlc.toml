@@ -5,8 +5,8 @@
 # rotation           degrees added to KiCad's rotation in the CPL; check each part once in JLC's
 #                    placement preview, then set rotation_verified = true
 # source             where the mapping was checked
-# why_extended       an extended resistor or capacitor on main2: why no basic part does (a value
-#                    or rating the datasheet fixes, a tolerance, a package); tests/test_main2.py
+# why_extended       an extended resistor or capacitor on the main board: why no basic part does (a value
+#                    or rating the datasheet fixes, a tolerance, a package); tests/test_main.py
 #
 # `micras-pcb parts` fails when a board uses an MPN missing here; `--online` adds stock and type.
 

@@ -9,7 +9,7 @@ current below 1 uA; "stable supply down to 3.3 V" (p.1 features). The electrical
 LED tables are given at VDD = 5 V only: 3.3 V appears only in the feature text and the ratings
 range. Datasheet V1.1 p5 (Chinese edition, the "VF" curve) shows each channel's constant-current
 sink holding 4.95-4.99 mA from 0.4 V across it, so a channel keeps its full current while its
-LED's VF is at most VDD - 0.4 V; at 3.3 V that is the knee for green (boards/main2 Peripherals.zen
+LED's VF is at most VDD - 0.4 V; at 3.3 V that is the knee for green (boards/main Peripherals.zen
 works it out for its rail). VDD is declared with the 3.3-5.3 V range, so a rail whose
 declared range dips below 3.3 V raises a build warning.
 

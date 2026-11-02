@@ -17,7 +17,7 @@ DBV package has another pinout (SBOS833R Figure 6-2).
 ## Why this op amp
 
 The next main board's emitter sink (research/next-revision, "IR emitters", A.4;
-`boards/main2/Sensors.zen`): op amp + AO3400A + 1.2 Ohm 0.1 % sense, 175 mA (0.21 V), set-point
+`boards/main/Sensors.zen`): op amp + AO3400A + 1.2 Ohm 0.1 % sense, 175 mA (0.21 V), set-point
 from the MCU's DAC, supplied from 3V3_A on a ~100 uA budget, settling within a few us of a 150 us
 pulse, driving the AO3400A gate (Ciss 630 pF) through a small resistor.
 
@@ -38,7 +38,7 @@ LMV321 meet the bandwidth but their offsets (2-3 % of the set-point) and slower 
 gain nothing; the OPA313 slews four times slower and drives only 150 pF.
 
 The AO3400A's 630 pF Ciss is above the 500 pF rated drive, and Figure 7-26 gives about 30 deg
-phase margin at 600 pF (G = 1). main2 closes the loop through an integrator (1 kOhm from the sense
+phase margin at 600 pF (G = 1). The main board closes the loop through an integrator (1 kOhm from the sense
 resistor to IN-, 1 nF from OUT to IN-). With TI's TLV9002 PSpice model (the dual of the same die,
 SBOMAL2) and an AO3400A fitted to its datasheet the step settles to 1 % in 7.4-13 us without
 overshoot; with a gate of twice the datasheet's capacitance it overshoots to at most 233 mA and

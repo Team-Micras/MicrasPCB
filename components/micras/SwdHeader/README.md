@@ -1,7 +1,8 @@
 # SwdHeader
 
 SWD header for an ST-Link: bare through-hole pads at 1.27 mm pitch. By default three pads, 1 GND,
-2 SWDIO, 3 SWCLK (the middle three contacts of boards/main's SWD connector, in the same order);
+2 SWDIO, 3 SWCLK (the middle three contacts of the v1 main board's SWD connector, MicrasPCB
+e34fb9a, in the same order);
 with `supply = True` four pads in the 4-pin order of a clone ST-Link's 1.27 mm SWD lead, 1 SWDIO,
 2 GND, 3 SWCLK, 4 VDD, VDD taking the probe's supply pin. Copper on the PCB, not a purchased part:
 a 1.27 mm pitch header, or the probe's wires, is soldered by hand, so it is excluded from the BOM
@@ -37,4 +38,4 @@ KiCad's library footprints of those names (kicad-footprint-generator) with their
 rules/jlcpcb.kicad_dru); pad 1 square with the silkscreen's pin-1 corner beside it, 1.27 mm pitch,
 pads numbered along the row. Each embeds KiCad's STEP of the same name (`pcb embed-step`): nothing
 is assembled there, but the chassis checks see the height of the header soldered in. A board
-labels the pads on its own silkscreen (main2: "5V" at pad 4).
+labels the pads on its own silkscreen (the main board: "5V" at pad 4).

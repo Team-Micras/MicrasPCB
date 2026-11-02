@@ -1,9 +1,9 @@
-"""Place every footprint of the second main board: the floorplan, then the passives packed by their pins.
+"""Place every footprint of the main board: the floorplan, then the passives packed by their pins.
 
-    /usr/bin/python3 boards/main2/layout/place.py      # KiCad's Python (pcbnew), from the repo root
+    /usr/bin/python3 boards/main/layout/place.py      # KiCad's Python (pcbnew), from the repo root
 
 Every part goes on the top side (the board rides 1.2 mm off the floor, MicrasHardware
-Board.bottom_z). The spec places what mates with the robot or the outline (spec/main2.toml: screw
+Board.bottom_z). The spec places what mates with the robot or the outline (spec/main.toml: screw
 holes, encoder slots, battery switch, ESP32 module, wall sensors); `ANCHORS` place the other large parts by function:
 
 - rear, open up to the battery: the ESP32-C5-MINI-1 in the rear-right corner (spec [u13]), its
@@ -51,8 +51,8 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "tools"))
 from micras_pcb import mech  # noqa: E402
 
-PCB = ROOT / "boards/main2/layout/main2.kicad_pcb"
-SPEC = tomllib.loads((ROOT / "spec/main2.toml").read_text())
+PCB = ROOT / "boards/main/layout/main.kicad_pcb"
+SPEC = tomllib.loads((ROOT / "spec/main.toml").read_text())
 S = {k: {kk: vv["value"] for kk, vv in v.items()} for k, v in SPEC.items()}
 OX, OY = S["kicad"]["origin_x"], S["kicad"]["origin_y"]
 RES = 0.1  # mm per raster cell
@@ -62,7 +62,7 @@ ESCAPE = 2.5  # mm round the MCU's courtyard kept for its pins' escapes: only it
 VIA_RING = 1.0  # mm round the MCU's courtyard kept free of every part: a ring of escape vias
 # The bridges' logic pins (DRV8874 1-6: EN, PH, nSLEEP, nFAULT, VREF, IPROPI) and their outputs
 # (8 OUT1, 10 OUT2, 0.8 mm paths) leave on F.Cu only, over the B.Cu VBAT pour
-# (boards/main2/layout/route.py): a strip in front of each group, as deep as given and LANES_SIDE
+# (boards/main/layout/route.py): a strip in front of each group, as deep as given and LANES_SIDE
 # past its ends, is kept free of every part for their tracks
 LOGIC = ("1", "2", "3", "4", "5", "6")
 LANES = 1.6  # mm past the logic pins' outer ends: four 0.2 mm tracks at 0.14 mm
@@ -70,7 +70,7 @@ OUT_LANE = 3.0  # mm past an output pin: its 0.8 mm path clear of the charge pum
 STRIPS = {ref: [(LOGIC, LANES), (("8",), OUT_LANE), (("10",), OUT_LANE)] for ref in ("IC8", "IC9")}
 LANES_SIDE = 0.4  # mm
 # The STM32's VCAP2 and VCAP3 pins (49, 66) take their VCORE via on their own axis, past the 3V3_D
-# island round the chip (boards/main2/layout/route.py, ESCAPE_REACH): a lane that deep in front of
+# island round the chip (boards/main/layout/route.py, ESCAPE_REACH): a lane that deep in front of
 # each is kept free of every part (C15 and C16, beside them, took it)
 MCU_LANES = {"49": 2.2, "66": 2.2}  # mm past the pin tip
 MCU_LANE_HALF = 0.45  # mm each side of the pin's axis
@@ -425,7 +425,7 @@ def fill(polys: list[np.ndarray], shape=(NY, NX), origin=(KX0, KY0)) -> np.ndarr
 def board_mask() -> np.ndarray:
     """Cells inside the outline and outside its holes, one cell in from every edge."""
     loops, cur, start = [], [], None
-    for e in mech.main2_outline(S):  # loop after loop, each element following the last
+    for e in mech.main_outline(S):  # loop after loop, each element following the last
         start = start or e.a
         cur += [to_kicad(*p) for p in mech.sample(e, 24)]
         if math.dist(e.b, start) < 1e-6:

@@ -69,7 +69,7 @@ Coilcraft's saturation SPICE model of the part (XGL5030-472_sat: L 4.4984 uH, Is
 a 0.7097) keeps 92 / 87 / 81 / 77 / 66 % of the zero-current inductance at 2 / 3 / 4 / 4.8 / 6.7 A,
 slightly below the datasheet's 10 / 20 / 30 % points. Core loss from Coilcraft's power-inductor
 loss tool for this part: 71.6 mW x dIpp^1.99 at 0.408 MHz, independent of the DC current and
-linear in frequency; part temperature rise 25.3 K/W. On main2 (drone fan at 400 kHz): at most
+linear in frequency; part temperature rise 25.3 K/W. On the main board (drone fan at 400 kHz): at most
 2.8 A pp of ripple and 0.53 W of core loss, +17 K with the DCR at 2.5 A
 (`research/next-revision/calculations/fan/fan_choke_check.py`). Coilcraft's Power Inductor tool
 (2.5 A with 2.8 A pp at 400 kHz, 40 C ambient, 2026-10-25) agrees: 673 mW in all, 57 C, 4.0 uH at

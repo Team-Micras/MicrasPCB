@@ -1,148 +1,505 @@
-"""The main board against its previous revision: same parts, nets and net names, except the declared changes."""
+"""The main board's circuit: power tree, analog rail, decoupling and the firmware contract.
 
+The board is research/next-revision/README.md entered in Zener. These tests read its generated
+schematic (the netlist KiCad exports) and Zener's BOM; tests/test_main_layout.py and the
+layout-wide checks of tests/test_layout.py take its layout.
+
+The firmware contract is boards/main/firmware.toml, the firmware's view of the board (from
+MicrasFirmware), with the changes the board declares for it (boards/main/firmware_changes.toml),
+the ones MicrasFirmware has not made yet, applied in order.
+"""
+
+import os
 import re
 import shutil
+from pathlib import Path
 
 import pytest
-from micras_pcb import jlc, netlist, previous
+from micras_pcb import firmware, jlc
+from micras_pcb.paths import ROOT
 
 from .conftest import needs_kicad
+from .design import design, function
+from .test_layout import DECOUPLING, PER_PAD
 
-# The replication's changes: the functional changes (C1, C2), the designator renames the toolchain
-# forces (TP) and the screw holes that the previous board had as footprints without a designator
-# (H). Then the fixes of the design review's findings, each under its review item.
-CHANGE_IDS = ["C1", "C2", "TP", "H"]
-FIX_IDS = [
-    "M5",
-    "C1-battery",
-    "C3",
-    "m7",
-    "C5",
-    "C4",
-    "m12",
-    "M1",
-    "M7",
-    "M11",
-    "M12",
-    "M6",
-    "M13",
-    "m9",
-    "M8",
-    "M9",
-    "m19",
-    "M14",
-    "m16",
-    "m1",
-    "m2",
-    "M4",
-    "m14",
-    "m15",
-]
-# Net renames: the firmware's pin labels (m14) and the motor each current-sense net measures (m15).
-NET_RENAMES = {
-    "Fan_Overcurrent": "Fan_TOFF",
-    "LED_Blue": "LED_Red",
-    "Motor_Enable": "Motors_Enable",
-    "Current_Sensor_Left": "Current_Sensor_Right",
-    "Current_Sensor_Right": "Current_Sensor_Left",
-    "Motor_L_Sense+": "Motor_R_Sense+",
-    "Motor_R_Sense+": "Motor_L_Sense+",
-    "Motor_L_Sense-": "Motor_R_Sense-",
-    "Motor_R_Sense-": "Motor_L_Sense-",
+pytestmark = [needs_kicad, pytest.mark.skipif(shutil.which("pcb") is None, reason="pcb not installed")]
+
+BOARD = "main"
+MCU = "IC1"
+FIRMWARE = firmware.load(BOARD)
+CHANGES = firmware.load_changes(BOARD)
+FW = firmware.apply_changes(FIRMWARE, CHANGES)
+SOURCE = Path(os.environ.get("MICRAS_FIRMWARE", firmware.default_source()))
+
+
+@pytest.fixture(scope="module")
+def d():
+    return design(BOARD)
+
+
+def _fitted(d, ref: str) -> bool:
+    return not d.bom.get(ref, {}).get("dnp")
+
+
+# --- power tree -----------------------------------------------------------------------------------
+
+# Parts that pass current one way only: MPN prefix -> (from pin, to pin, why). The B5819W is a
+# Schottky diode (JCET B5817W-B5819W).
+ONE_WAY = {
+    "B5819W": ("A", "K", "a Schottky diode blocks cathode to anode (VR 40 V)"),
+}
+# Regulators: MPN prefix -> (input pin, output pin, reverse path from output to input or None).
+REGULATORS = {
+    "L6981": ("VIN", "VOUT/FB", "the high-side MOSFET's body diode conducts from SW to VIN (DS13554 Figure 19)"),
+    "ADP7142": ("VIN", "VOUT", None),
+}
+# Parts that conduct DC both ways: inductors, ferrite beads, low-value resistors (links, input RCs).
+LINK_OHMS = 100.0
+
+
+def _edges(d):
+    """net -> [(net, how)]: every DC path a supply can take across a part."""
+    edges: dict[str, list[tuple[str, str]]] = {}
+
+    def edge(a, b, how):
+        if a and b and a != b:
+            edges.setdefault(a, []).append((b, how))
+
+    for mpn, (a, k, _) in ONE_WAY.items():
+        for ref in d.refs(mpn):
+            edge(d.net(ref, a), d.net(ref, k), f"{ref} {a}->{k}")
+    for mpn, (pin_in, pin_out, reverse) in REGULATORS.items():
+        for ref in d.refs(mpn):
+            edge(d.net(ref, pin_in), d.net(ref, pin_out), f"{ref} {pin_in}->{pin_out}")
+            if reverse:
+                edge(d.net(ref, pin_out), d.net(ref, pin_in), f"{ref} {pin_out}->{pin_in} ({reverse})")
+    for ref in d.refs("WSK2512"):  # 4-terminal shunts: the force pads carry the current
+        edge(d.net(ref, "I1"), d.net(ref, "I2"), ref)
+        edge(d.net(ref, "I2"), d.net(ref, "I1"), ref)
+    for ref in d.bom:
+        if not _fitted(d, ref):
+            continue
+        nets = sorted(set(d.nets_of(ref).values()))
+        kind = d.kind(ref)
+        low = kind == "resistor" and (d.value(ref, "resistance") or 1e9) <= LINK_OHMS
+        if len(nets) == 2 and (kind in ("inductor", "ferritebead") or low):
+            edge(nets[0], nets[1], ref)
+            edge(nets[1], nets[0], ref)
+    return edges
+
+
+def _reach(edges, start):
+    path = {start: []}
+    todo = [start]
+    while todo:
+        n = todo.pop()
+        for m, how in edges.get(n, []):
+            if m not in path:
+                path[m] = path[n] + [how]
+                todo.append(m)
+    return path
+
+
+def test_vsys_never_back_feeds_the_battery(d):
+    # Research Power tree: VBAT reaches VSYS through D14, and nothing on VSYS or the rails it makes
+    # reaches VBAT or the pack. 5V_IN, a programmer's 5 V pin on J2 pin 2 and SWD1 pad 4, reaches
+    # VSYS through D17 (Regulators.zen); D14 must stop it there, and D17 must keep VSYS (the pack)
+    # off the programmer.
+    vbat, pack, vsys = d.net("IC8", "VM"), d.net("J1", "1"), d.net("IC7", "VIN")
+    v5 = d.net("J2", "2")
+    edges = _edges(d)
+    problems = []
+    for start in (vsys, v5, d.net("SWD1", "4")):
+        back = _reach(edges, start)
+        problems += [f"{start} reaches {n} through {' -> '.join(back[n])}" for n in (vbat, pack) if n in back]
+    if vsys not in _reach(edges, vbat):
+        problems.append(f"{vbat} does not reach VSYS")
+    if vsys not in _reach(edges, v5):
+        problems.append(f"{v5} (J2 pin 2) does not reach VSYS")
+    if d.net("SWD1", "4") != v5:
+        problems.append(f"SWD1 pad 4 is on {d.net('SWD1', '4')}, not J2 pin 2's {v5}")
+    for start in (vbat, vsys):
+        if v5 in _reach(edges, start):
+            problems.append(
+                f"{start} reaches the programmer's 5 V ({v5}) through {' -> '.join(_reach(edges, start)[v5])}"
+            )
+    assert not problems, "\n".join(problems)
+
+
+def test_swd_header_follows_the_clone_st_link_order(d):
+    # The owner's clone ST-Link lead (main.zen): pads 1 SWDIO, 2 GND, 3 SWCLK, 4 its 5 V pin. Plugged
+    # turned round, or shifted one pad either way, the probe's 5 V pin never lands on GND.
+    want = {1: d.net(MCU, "PA13"), 2: "GND", 3: d.net(MCU, "PA14"), 4: "5V_IN"}
+    got = {pad: d.net("SWD1", str(pad)) for pad in want}
+    assert got == want, f"SWD1 pads {got}, expected {want}"
+    probe_5v = 4  # the lead's pins in the same order: 1 SWDIO, 2 GND, 3 SWCLK, 4 5V
+    misplugs = {"turned round": 5 - probe_5v, "shifted +1": probe_5v + 1, "shifted -1": probe_5v - 1}
+    on_gnd = [how for how, pad in misplugs.items() if got.get(pad) == "GND"]
+    assert not on_gnd, f"the probe's 5 V lands on SWD1's GND pad when the lead is {on_gnd}"
+
+
+def test_no_connector_pin_on_3v3(d):
+    # A programmer's supply pin goes to 5V_IN only (behind D17): no connector or header pin sits on
+    # a regulated 3.3 V rail, where a programmer's 3.3 V or 5 V would meet the regulators' outputs.
+    problems = []
+    for rail in (d.net("IC7", "VOUT/FB"), d.net("U8", "VOUT")):
+        pins = sorted(f"{r} pin {pad}" for r, pad, _ in d.on(rail) if r.startswith(("J", "SWD")))
+        if pins:
+            problems.append(f"{rail} is on {pins}")
+    assert not problems, "\n".join(problems)
+
+
+def test_bridges_only_on_vbat(d):
+    # Research Design basis: the bridges and the fan driver run straight from the switched pack
+    # (VBAT), never from VSYS or a regulated rail; VSYS feeds only the two regulators.
+    vbat = d.net("IC8", "VM")
+    problems = []
+    for ref in d.refs("DRV8874"):
+        if d.net(ref, "VM") != vbat:
+            problems.append(f"{ref} VM is on {d.net(ref, 'VM')}, not VBAT")
+    for ref in d.refs("STSPIN958"):
+        if d.net(ref, "VS") != vbat:
+            problems.append(f"{ref} VS is on {d.net(ref, 'VS')}, not VBAT")
+    vsys = d.net("IC7", "VIN")
+    active = sorted({r for r, _, _ in d.on(vsys) if d.kind(r) not in ("capacitor", "resistor")})
+    if active != sorted(["IC7", "D14", "D17"]):
+        problems.append(f"VSYS carries {active}: only D14, D17 and the 3V3_D buck (the LDO through R58)")
+    assert len(d.refs("DRV8874")) == 2 and len(d.refs("STSPIN958")) == 1
+    assert not problems, "\n".join(problems)
+
+
+# Parts allowed on the analog rail and the pins they may use there (research Power tree, 3V3_A
+# loads: VDDA, the INA241 VS and REF1, the phototransistor collectors, the emitter-sink op-amp and
+# its set-point divider).
+ANALOG_LOADS = {
+    "INA241": {"VS", "REF1"},
+    "TLV9001": {"V+"},
+    "ADP7142": {"VOUT", "SENSE/ADJ"},
 }
 
-# Test points: a designator is prefix + number, so the ones without a trailing number gain a 1.
-TP_RENAMES = {"FAN_PWM": "FAN_PWM1", "FAN_ENABLE": "FAN_ENABLE1", "FAN_OVERCURRENT": "FAN_OVERCURRENT1", "20V": "20V1"}
 
-# Old part numbers that the board orders under their orderable code.
-MPN_RENAMES = {"IC6": ("STSPIN958", "STSPIN958TR")}
-
-AUTO_NAMED = re.compile(r"Net[A-Z]+\d+_\d+$")  # Altium's names for unnamed nets ("NetR25_1")
-
-
-@pytest.fixture(scope="module")
-def snap():
-    return previous.load("main")
-
-
-@pytest.fixture(scope="module")
-def changes():
-    return previous.load_changes("main")
-
-
-@pytest.fixture(scope="module")
-def nl():
-    return netlist.load("main")
-
-
-def test_declared_changes_are_c1_c2_the_test_point_renames_the_holes_and_the_review_fixes(snap, changes):
-    assert [c.id for c in changes] == CHANGE_IDS + FIX_IDS
-    assert all(c.review for c in changes[len(CHANGE_IDS) :]), "every fix cites its review item"
-    c1, c2, tp, holes = changes[: len(CHANGE_IDS)]
-    # C1: VBAT pin to 3V3 (pad 68 is VDD on 3V3), with its two capacitors.
-    assert c1.move == {"IC1.1": "IC1.68", "C8.2": "IC1.68", "C9.2": "IC1.68"}
-    assert not (c1.merge or c1.isolate or c1.add_parts or c1.remove_parts or c1.rename_parts)
-    # C2: VFBSMPS and VCAP1-3 on one net.
-    assert c2.merge == [["IC1.7", "IC1.33", "IC1.49", "IC1.66"]]
-    assert not (c2.move or c2.isolate or c2.add_parts or c2.remove_parts or c2.rename_parts)
-    assert tp.rename_parts == TP_RENAMES
-    assert not (tp.move or tp.merge or tp.isolate or tp.add_parts or tp.remove_parts)
-    # H: one padless part per unnamed footprint of the previous board, connecting nothing.
-    assert holes.add_parts == {f"H{i}": {} for i in range(1, len(snap["unnamed"]) + 1)}
-    assert not (holes.move or holes.merge or holes.isolate or holes.remove_parts or holes.rename_parts)
-
-
-def test_c1_moves_exactly_the_vbat_pin_and_its_capacitors(snap, changes):
-    before = previous.from_snapshot(snap).net_of()
-    after = previous.apply_changes(previous.from_snapshot(snap), changes).net_of()
-    moved = {p for p in before if p in after and before[p] != after[p] and after[p] == "3V3"}
-    assert moved == {("IC1", "1"), ("C8", "2"), ("C9", "2")}
-    assert all(before[p] == "VBAT" for p in moved)
-
-
-@needs_kicad
-def test_connectivity_is_the_previous_board_plus_the_declared_changes(snap, changes, nl):
-    expected = previous.apply_changes(previous.from_snapshot(snap), changes)
-    report = previous.diff(expected, previous.from_netlist(nl))
-    assert report.ok, str(report)
-
-
-def test_declared_net_renames(changes):
-    renames = {old: new for c in changes for old, new in c.rename_nets.items()}
-    assert renames == NET_RENAMES
-
-
-@needs_kicad
-def test_named_nets_keep_their_names(snap, changes, nl):
-    expected = previous.apply_changes(previous.from_snapshot(snap), changes)
-    actual = {name.lstrip("/"): {(p.ref, p.pin) for p in pins} for name, pins in nl.nets.items()}
-    named = [n for n in expected.nets if previous.named(n)]
-    old_named = [n for n in previous.from_snapshot(snap).nets if previous.named(n)]
-    assert len(old_named) == 54  # every named net of the previous board
-    assert {NET_RENAMES.get(n, n) for n in old_named} - set(named) == {"+5V"} - set(named)
-    for name in named:
-        if len(expected.nets[name]) > 1:
-            assert actual.get(name) == set(expected.nets[name]), name
-
-
-@needs_kicad
-def test_vcore_ties_vfbsmps_and_every_vcap_with_their_capacitors(nl):
-    vcore = {(p.ref, p.pin) for p in nl.nets["VCORE"]}
-    assert {("IC1", n) for n in ("7", "33", "49", "66")} <= vcore
-    assert {("C5", "2"), ("C6", "2"), ("C7", "2"), ("C3", "2"), ("C4", "2"), ("L1", "1")} <= vcore
-
-
-@pytest.mark.skipif(shutil.which("pcb") is None, reason="pcb not installed")
-def test_every_part_keeps_its_part_number(snap, changes):
-    # The previous board's part numbers, except the ones a declared change replaces (part_numbers)
-    # and the parts it leaves unfitted (dnp).
-    members = [m for line in jlc.design_bom("main") for m in line["members"]]
-    bom = {m["designator"]: m.get("mpn") for m in members}
-    assert {m["designator"] for m in members if m.get("dnp")} == previous.dnp_parts(changes)
-    declared = previous.part_numbers(snap, changes)
-    for ref, part in snap["parts"].items():
-        if not part["mpn"] or ref not in declared:
+def test_analog_rail_feeds_only_analog_loads(d):
+    a = d.net("U8", "VOUT")
+    problems = []
+    for ref, _pad, fn in sorted(d.on(a)):
+        kind = d.kind(ref)
+        if kind in ("capacitor", "resistor"):
             continue
-        old, new = MPN_RENAMES.get(ref, (part["mpn"], declared[ref]))
-        assert part["mpn"] == old
-        assert bom.get(ref) == new, ref
+        mpn = d.mpn(ref) or ""
+        allowed = next((pins for prefix, pins in ANALOG_LOADS.items() if mpn.startswith(prefix)), None)
+        if d.nl.parts[ref].value == "WallSensor":
+            allowed = {"PT_C"}
+        if allowed is None or fn not in allowed:
+            problems.append(f"{ref} ({mpn or d.nl.parts[ref].value}) pin {fn} is on the analog rail {a}")
+    # VDDA through the 0 Ohm link, and nothing digital behind it
+    vdda = d.net(MCU, "VDDA")
+    for ref, _pad, fn in sorted(d.on(vdda)):
+        if d.kind(ref) not in ("capacitor", "resistor") and not (ref == MCU and fn == "VDDA"):
+            problems.append(f"{ref} {fn} is on VDDA")
+    assert d.net("U13", "3V3") != a and d.net(MCU, "VDD") != a
+    assert not problems, "\n".join(problems)
+
+
+def test_no_usb_and_no_5v_rail(d):
+    # Research Design basis: the board has no USB and no 5 V rail; every supply comes from J1. The
+    # one 5 V net is 5V_IN, a programmer's 5 V pin into VSYS through D17, which feeds nothing else.
+    usb = sorted(n for n in d.nets() if re.search(r"USB|VBUS|5V", n.upper()) and n != "5V_IN")
+    assert not usb, f"USB or 5 V nets on the board: {usb}"
+    on_5v = sorted(r for r, _, _ in d.on("5V_IN"))
+    assert on_5v == ["D17", "J2", "SWD1"], f"5V_IN reaches {on_5v}: only J2, SWD1 and D17"
+    connectors = sorted(r for r in d.nl.parts if r.startswith("J"))
+    assert connectors == ["J1", "J2"], f"connectors {connectors}: J1 (the pack) and J2 (the radio's header) only"
+
+
+# --- decoupling present on the schematic (its distance is test_layout's, once there is a layout) --
+
+
+def test_listed_decoupling_is_on_the_schematic(d):
+    problems = []
+    for mpn, names, count, (lo, hi), source, *_ in DECOUPLING:
+        for ref in d.refs(mpn):
+            pads = [p for name in names for p in d.pads(ref, name)]
+            if not pads:
+                problems.append(f"{ref} has no pin named {'/'.join(names)}")
+                continue
+            rail = d.net(ref, pads[0])
+            caps = [
+                c
+                for c in d.two_terminal("capacitor", rail, "GND")
+                if _fitted(d, c) and lo <= (d.value(c, "capacitance") or 0) <= hi
+            ]
+            need = len(pads) if count is PER_PAD else count
+            if len(caps) < need:
+                problems.append(f"{ref} {'/'.join(names)} ({rail}): {len(caps)} of {need} capacitors; {source}")
+    assert not problems, "\n".join(problems)
+
+
+# --- the firmware contract -------------------------------------------------------------------------
+
+
+def _gpio_nets(d) -> dict[str, str]:
+    out = {}
+    for name, pins in d.nets().items():
+        for p in pins:
+            fn = function(p)
+            if p.ref == MCU and fn[:1] == "P" and fn[1:2] in "ABCDEH" and len(pins) > 1:
+                out[fn] = name
+    return out
+
+
+@pytest.mark.skipif(not (SOURCE / firmware.IOC).is_file(), reason="MicrasFirmware checkout not available")
+def test_contract_matches_the_firmware():
+    assert firmware.dumps(firmware.build(SOURCE.resolve())) == firmware.contract_path(BOARD).read_text()
+
+
+def test_declared_firmware_changes_are_still_pending():
+    # A declared change the firmware already has is stale: drop it from firmware_changes.toml.
+    stale = firmware.stale_changes(FIRMWARE, CHANGES)
+    assert not stale, "\n".join(stale)
+
+
+def test_every_firmware_pin_is_wired(d):
+    missing = [p for p in FW["pins"] if p not in _gpio_nets(d)]
+    assert not missing, f"the firmware uses {missing}, unconnected on the board"
+
+
+def test_the_board_uses_no_pin_the_firmware_leaves_unconfigured(d):
+    extra = sorted(set(_gpio_nets(d)) - set(FW["pins"]))
+    assert not extra, f"wired on the board, not configured by the firmware: {', '.join(extra)}"
+
+
+def test_net_names_follow_the_firmware_labels(d):
+    wired = _gpio_nets(d)
+    wrong = [
+        f"{pin}: board net {wired.get(pin)!r}, firmware label {f['label']!r}"
+        for pin, f in FW["pins"].items()
+        if "label" in f and wired.get(pin) != f["label"]
+    ]
+    assert not wrong, "\n".join(wrong)
+
+
+def test_battery_divider_matches_the_firmware(d):
+    # PC5 reads VBAT through the divider; the firmware's constant must be its ratio.
+    tap = d.net(MCU, "PC5")
+    vbat = d.net("IC8", "VM")
+    up = d.two_terminal("resistor", vbat, tap)
+    down = d.two_terminal("resistor", tap, "GND")
+    assert len(up) == 1 and len(down) == 1
+    ratio = (d.value(up[0], "resistance") + d.value(down[0], "resistance")) / d.value(down[0], "resistance")
+    assert FW["battery"]["channel"] == "pin"
+    assert abs(FW["battery"]["divider"] / ratio - 1) < 0.01, f"firmware {FW['battery']['divider']}, board {ratio}"
+
+
+def test_supply_configuration_matches_the_wiring(d):
+    # The firmware selects its supply with PWR_CR3 once per power-on (RM0468 section 6.8.4); a
+    # selection the board does not wire cuts the core supply (AN5419 Figure 5, Direct SMPS:
+    # VFBSMPS and every VCAP on one node).
+    assert FW["supply"]["source"] == "PWR_DIRECT_SMPS_SUPPLY", "only the Direct SMPS wiring is described here"
+    core = {d.net(MCU, p) for p in ("VFBSMPS", "VCAP1", "VCAP2", "VCAP3")}
+    assert len(core) == 1, f"the firmware selects Direct SMPS, but VFBSMPS/VCAP are on {sorted(core)}"
+
+
+# FUET-5030 specification p2: coil 12 +- 3 Ohm; the inductance is not given, so the DC case bounds
+# the current at low tones.
+BUZZER_COIL_MIN = 9.0
+
+
+def test_buzzer_resistor_at_the_firmware_duty(d):
+    # The firmware drives the buzzer at 50 % duty at any tone (firmware.toml [drive], micras-lib
+    # Buzzer::play). At low tones the coil current approaches 3.3 V / (coil + R).
+    duty = FW["drive"]["buzzer"]
+    coil = d.net("BZ1", "-")
+    rs = [r for r in d.refs_on(coil) if d.kind(r) == "resistor"]
+    assert rs, "no series resistor on the buzzer coil"
+    r = rs[0]
+    ohms = d.value(r, "resistance")
+    i = 3.3 / (BUZZER_COIL_MIN + ohms)
+    p = i * i * ohms * duty
+    assert p <= d.value(r, "power"), (
+        f"{r}: {i * 1e3:.0f} mA through a {BUZZER_COIL_MIN:g} Ohm coil at {duty:.0%} duty dissipates {p * 1e3:.0f} mW, "
+        f"rated {d.value(r, 'power') * 1e3:.0f} mW"
+    )
+
+
+# research/next-revision/calculations/current_sense/ina241_riso_out.txt, section 4: the sampling time
+# from which the ADC kickback error stays under 1 mA, per (R_iso, C_f), in every corner of TI's
+# INA241A2 model (C_f +-5 %, ADC switch resistance 50-1000 Ohm, 2-10 pF on the pin, VCM 0-16.8 V, the
+# model's output impedance and Figure 6-24's). The INA241's output impedance (about 55 Ohm at 1 MHz)
+# makes the pin ring, so R_iso x C_f alone does not give it; another pair needs a rerun of
+# ina241_riso.py. The table is for 0.2 V/A (INA241A2, 20 V/V, on 10 mOhm).
+KICKBACK_SETTLED = {(100.0, 1e-9): 0.87e-6, (150.0, 1e-9): 0.64e-6}
+INA241A2_GAIN = 20.0  # SBOSA30D: the A2 gain, V/V
+
+
+def test_current_sampling_time_settles_the_adc_kickback(d):
+    # The wall sensors and the battery share ADC1/ADC2 with the motor currents, so the 4 pF sample
+    # capacitor (DS13311 Table 84) arrives charged to another channel's voltage and kicks C_f; the
+    # firmware's minimum sampling time must cover the simulated settling of the board's R_iso + C_f.
+    t_s = FW["adc"]["current_sampling_time_min_us"] * 1e-6
+    problems = []
+    for amp in d.refs("INA241"):
+        out = d.net(amp, "OUT")
+        iso = [r for r in d.bom if d.kind(r) == "resistor" and out in d.nets_of(r).values() and _fitted(d, r)]
+        assert len(iso) == 1, f"{amp} OUT: expected one R_iso, found {iso}"
+        pin = next(n for n in d.nets_of(iso[0]).values() if n != out)
+        caps = [c for c in d.two_terminal("capacitor", pin, "GND") if _fitted(d, c)]
+        assert len(caps) == 1, f"{pin}: expected one C_f, found {caps}"
+        shunt = next(r for r in d.refs("WSK2512") if d.net(r, "E1") == d.net(amp, "IN+"))
+        volts_per_amp = INA241A2_GAIN * d.value(shunt, "resistance")
+        assert abs(volts_per_amp - 0.2) < 1e-6, f"{amp}: {volts_per_amp} V/A, the kickback table is for 0.2 V/A"
+        r_iso, c_f = d.value(iso[0], "resistance"), d.value(caps[0], "capacitance")
+        key = next((k for k in KICKBACK_SETTLED if abs(k[0] - r_iso) < 0.5 and abs(k[1] / c_f - 1) < 0.01), None)
+        if key is None:
+            problems.append(
+                f"{pin} ({iso[0]} {r_iso:g} Ohm, {caps[0]} {c_f * 1e9:g} nF): not simulated (ina241_riso.py)"
+            )
+        elif t_s < KICKBACK_SETTLED[key]:
+            problems.append(
+                f"{pin} ({iso[0]} {r_iso:g} Ohm, {caps[0]} {c_f * 1e9:g} nF): {t_s * 1e6:g} us of sampling, the kickback "
+                f"settles under 1 mA only from {KICKBACK_SETTLED[key] * 1e6:g} us"
+            )
+    assert len(d.refs("INA241")) == 2
+    assert not problems, "\n".join(problems)
+
+
+# Firmware rules the hardware does not enforce (behaviour key -> words it must name).
+FIRMWARE_RULES = {
+    # a debug halt: the timers freeze and the drive enables drop (Drivers.zen, R49 covers reset only);
+    # Motors_Enable (PB8) and Fan_Enable (PB12) are both port B pins: one GPIOB write
+    "debug_halt": ["TIM1", "TIM8", "TIM14", "Motors_Enable", "Fan_Enable", "GPIOB_BSRR"],
+    # the IMU shares SPI_SCK/SPI_MOSI with the encoders and decodes them as I2C while deselected
+    "imu_interface": ["I2C_I3C_disable", "IF_CFG"],
+    # Wall_Emitter_Set runs beside LED_ARGB and the encoder chip selects (Sensors.zen)
+    "emitter_slot_quiet": ["LED_ARGB", "SPI_SCK", "Encoder_Right_CSn", "Encoder_Left_CSn"],
+    # the current channels share ADC1/ADC2 with the walls and the battery
+    "current_sampling_time": ["adc.current_sampling_time_min_us"],
+    # the link needs the C5's 3-wire spi_slave_hd mode (Esp.zen)
+    "radio_firmware": ["v6.0.3", "SPI_SLAVE_HD_3WIRE_MODE"],
+    # SPI3 keeps its pins driven between transfers, its data line on the MOSI pad, starts slow (Esp.zen)
+    "link_spi": ["SPI3", "AFCNTR = 1", "MasterKeepIOState", "IOSWP = 0", "/8"],
+    # the IMU and encoder bus on SPI2 and its DMA requests (sensor_bus)
+    "sensor_bus_dma": ["SPI2", "39", "40"],
+    # Button's EXTI line has its interrupt to itself (button)
+    "button_input": ["PA3", "EXTI3"],
+    # the LEDs' timer and DMA request, the buzzer's timer (leds, buzzer; RM0468 Table 118)
+    "led_timer": ["TIM15", "tim15_up", "106", "MOE"],
+    "buzzer_timer": ["TIM17", "MOE"],
+    # the half-duplex data line is never driven from both ends (R96, RM0468 Figure 643 note 3), the
+    # select is released before the MCU drives again (AFCNTR), and the master ends each DMA buffer
+    # (ESP-IDF spi_slave_hd protocol)
+    "link_protocol": [
+        "command and address",
+        "dummy",
+        "never overlap",
+        "releases ESP_CSn before it sets HDDIR = 1",
+        "WR_DONE (CMD7)",
+        "CMD8",
+        # ESP_Flow's EXTI11 shares the EXTI15_10 interrupt with Fan_Enable's fault line (EXTI12)
+        "EXTI11 on PA11",
+        "EXTI15_10",
+    ],
+    # the C5 recovers the link after the MCU resets, closing buffers with commands, not ESP_CSn
+    "link_resync": ["MCU reset", "ESP_CSn", "WR_DONE (CMD7)", "CMD8", "CMD9"],
+    # the fan driver's fault comes back on its enable pin, low for about 0.5 ms (R27 x C30 from
+    # 0.4 V to VIH(EN), Drivers.zen, DS14341 section 5.7 and Figure 15)
+    "fan_fault_interrupt": ["EXTI12", "EXTI15_10", "falling", "0.5 ms", "VIH(EN)"],
+    # the C5 drives NRST open drain and must never drive it high (DS13311 Table 61)
+    "probe_pins": ["GPIO23", "open-drain", "never push-pull", "set to 1", "350 ns"],
+    # GPIO0/GPIO1 carry SWD, not the 32 kHz crystal
+    "radio_clock": ["XTAL_32K", "internal RC"],
+    # the C5's link clock input and its UART-fallback receiver
+    "radio_pulls": ["GPIO10"],
+    # INT2 is unconnected: everything goes to INT1 (Sensors.zen)
+    "imu_interrupt": ["INT2_on_INT1", "rising"],
+    # on 5V_IN alone the bridges have no supply and the battery reads near 0 V (Regulators.zen)
+    "battery_absent": ["5V_IN", "Motors_Enable", "Fan_Enable"],
+}
+
+
+def test_firmware_contract_names_the_rules_the_hardware_leaves_open():
+    missing = [
+        f"behaviour.{key}: missing, or does not name {[w for w in words if w not in FW['behaviour'].get(key, '')]}"
+        for key, words in FIRMWARE_RULES.items()
+        if any(w not in FW["behaviour"].get(key, "") for w in words)
+    ]
+    assert not missing, "\n".join(missing)
+
+
+# --- sourcing: every extended passive is a stated decision ----------------------------------------
+
+
+def _fitted_lines():
+    return [[m for m in line["members"] if not m.get("dnp")] for line in jlc.design_bom(BOARD)]
+
+
+def test_extended_passives_say_why():
+    # JLCPCB charges a loading fee per extended part and order; a resistor or capacitor has a basic
+    # part in most values, so an extended one carries why_extended in parts/jlc.toml.
+    db = jlc.parts_db()
+    missing = sorted(
+        {
+            f"{m['mpn']} ({', '.join(x['designator'] for x in members)})"
+            for members in _fitted_lines()
+            if members
+            for m in members[:1]
+            if m.get("component_type") in ("Resistor", "Capacitor")
+            and db.get(m["mpn"], {}).get("type") == "extended"
+            and not db[m["mpn"]].get("why_extended")
+        }
+    )
+    assert not missing, "extended passives without why_extended in parts/jlc.toml:\n" + "\n".join(missing)
+
+
+# Parts whose MPNs differ only by package or vendor do one job: one MPN per board (MPN prefix).
+FAMILIES = ["1N4148W"]
+
+
+def _rating(m: dict) -> tuple:
+    """What a passive is to the circuit: its kind, value, package and the ratings that matter."""
+
+    def nominal(q):
+        return float(m[q]["nominal"]) if m.get(q) else None
+
+    if m.get("component_type") == "Resistor":
+        return ("R", nominal("resistance"), m.get("package"), m["resistance"]["min"], nominal("power"))
+    return ("C", nominal("capacitance"), m.get("package"), nominal("voltage"), m.get("dielectric"))
+
+
+def test_no_duplicate_function_mpns():
+    # One MPN per function on the board: two MPNs with the same value, package and ratings, or two
+    # members of one part family, are two reels (and possibly two fees) for one job.
+    first = [members[0] for members in _fitted_lines() if members]
+    problems = []
+    seen: dict[tuple, str] = {}
+    for m in first:
+        if m.get("component_type") not in ("Resistor", "Capacitor"):
+            continue
+        key = _rating(m)
+        if key in seen and seen[key] != m["mpn"]:
+            problems.append(f"{seen[key]} and {m['mpn']} are both {key}")
+        seen.setdefault(key, m["mpn"])
+    for prefix in FAMILIES:
+        mpns = sorted({m["mpn"] for m in first if (m.get("mpn") or "").startswith(prefix)})
+        if len(mpns) > 1:
+            problems.append(f"{prefix} family on the board as {mpns}")
+    assert not problems, "\n".join(problems)
+
+
+# --- documentation names only parts the board has --------------------------------------------------
+
+RESEARCH = ROOT / "research" / "next-revision" / "README.md"
+# A designator as the board's prefixes write it, standing alone (not in a path, a link anchor or a
+# part number); "H7..." is the MCU family (STM32H7, H725), not a mounting hole.
+DESIGNATOR = re.compile(r"(?<![\w./-])(R|C|L|D|Q|U|IC|J|M|SW|F|BZ|W|EC|H|TP|SWD)(\d{1,3})(?![\w])")
+
+
+def test_research_names_only_parts_on_the_board(d):
+    # research/next-revision/README.md describes the board as built: a designator it names must be a
+    # part of the board's netlist, so a removed or renamed part cannot linger in the description.
+    absent = {}
+    for n, line in enumerate(RESEARCH.read_text().splitlines(), 1):
+        for m in DESIGNATOR.finditer(line):
+            ref = m.group(0)
+            if not ref.startswith("H7") and ref not in d.nl.parts:
+                absent.setdefault(ref, []).append(n)
+    assert not absent, "\n".join(f"{ref}: line {', '.join(map(str, lines))}" for ref, lines in sorted(absent.items()))

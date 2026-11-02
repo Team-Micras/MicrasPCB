@@ -1,4 +1,4 @@
-"""main2's nets by how they behave, for its routing (boards/main2/layout/route.py) and its tests."""
+"""The main board's nets by how they behave, for its routing (boards/main/layout/route.py) and its tests."""
 
 from __future__ import annotations
 

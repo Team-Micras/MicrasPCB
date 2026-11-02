@@ -3,7 +3,9 @@
 The Micras Bluetooth module: a 16 x 25 mm, 2-layer, 0.79 mm board with an HM-19 Bluetooth Low
 Energy module (TI CC2640R2F) and a vertical USB-C plug. It plugs into the main board's USB-C
 receptacle U2 and stands upright behind the robot, and gives the firmware a wireless UART
-(MicrasFirmware `bluetooth_design.md`: UART4, 115 200 8N1, no flow control).
+(MicrasFirmware `bluetooth_design.md`: UART4, 115 200 8N1, no flow control). The main board it
+plugs into is the v1 main board (MicrasPCB e34fb9a, `boards/main`); the current main board has no
+USB-C receptacle, and its ESP32-C5 takes the radio's role.
 
 The circuit is the MicrasBluetoothModule Altium design with two changes from the design review
 (`hw_debug/schematic_review.md`): the plug's CC contacts carry the module's signature (M6), and
@@ -28,8 +30,8 @@ The board files are in `boards/bluetooth/` (this README sits in its `layout/` fo
 | [`previous/`](../previous) | the previous revision's snapshot and [`transfer_layout.py`](../previous/transfer_layout.py), which builds the layout from it |
 | [`spec/bluetooth.toml`](../../../spec/bluetooth.toml) | mechanics: thickness, outline extents, plug and HM-19 positions, mating with the main board's U2 |
 
-`tests/test_bluetooth.py` checks the board against its previous revision, its joint with the main
-board, and the spec.
+`tests/test_bluetooth.py` checks the board against its previous revision and the spec; the v1 main
+board's tests (e34fb9a) check the joint with it.
 
 ## Circuit
 
@@ -53,7 +55,7 @@ RTS, CTS, KEY (pin 8), PIO2 and PIO3 are open, as in the vendor schematic.
 
 The plug mates the main board's U2 (GT-USB-7010ASV) contact by contact. The plug joins both D+
 contacts, both D- contacts and SBU1 with SBU2, and U2 joins them the same way, so the module works
-either side up (`tests/test_bluetooth.py` checks both orientations).
+either side up (the v1 main board's `tests/test_bluetooth.py` checks both orientations).
 
 | Contacts | Module | Main board |
 |---|---|---|
@@ -162,9 +164,8 @@ shell, 1.85 mm Ref from the plug overmold to the receptacle face) and the plug's
 
 ## Known faults
 
-Every gate passes, the joint's checks against the main board included (its signature detector,
-`usb_c_sbu_open`, and PA11's firmware pull-up, `test_uart_rx_is_held_with_the_module_unplugged`).
-DRC and layout-check report one warning:
+Every gate passes (the joint's checks, its signature detector `usb_c_sbu_open` and PA11's firmware
+pull-up, are the v1 main board's, at e34fb9a). DRC and layout-check report one warning:
 
 | Check (gate) | Fault | Requirement | Fix |
 |---|---|---|---|

@@ -1,6 +1,6 @@
-"""The second main board's layout against the robot: size, sides, and the chassis over the board.
+"""The main board's layout against the robot: size, sides, and the chassis over the board.
 
-spec/main2.toml holds the owner's brief and the zones the chassis takes: the drive blocks, motors
+spec/main.toml holds the owner's brief and the zones the chassis takes: the drive blocks, motors
 and encoder boards (MicrasHardware's model). The parts' heights come from their 3D models.
 """
 
@@ -14,9 +14,9 @@ from micras_pcb.paths import board_pcb, has_layout
 
 from .conftest import needs_kicad
 
-pytestmark = pytest.mark.skipif(not has_layout("main2"), reason="main2 has no layout yet")
+pytestmark = pytest.mark.skipif(not has_layout("main"), reason="main has no layout yet")
 
-S = spec.load("main2") if has_layout("main2") else {}
+S = spec.load("main") if has_layout("main") else {}
 
 
 def _robot_box(box: tuple[float, float, float, float]) -> tuple[float, float, float, float]:
@@ -30,7 +30,7 @@ def _spec_placed() -> set[str]:
     from micras_pcb import sexpr
 
     paths = set(mech.placements(S)) | set(mech.slots(S))
-    root = sexpr.parse(board_pcb("main2").read_text())
+    root = sexpr.parse(board_pcb("main").read_text())
     return {fp.prop("Reference") for fp in root.children("footprint") if fp.prop("Path") in paths}
 
 
@@ -39,13 +39,13 @@ def test_the_board_keeps_to_the_owner_maximum():
     o = S["outline"]
     assert o["front"] - o["rear"] <= 100.0
     assert o["width"] <= 50.0
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     assert pcb.placed, "no Edge.Cuts outline"
 
 
 def test_every_part_is_on_the_top_side():
     # the board rides 1.2 mm off the floor (MicrasHardware Board.bottom_z): no parts underneath
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     bottom = sorted(f.ref for f in pcb.footprints.values() if f.side != "top")
     assert not bottom, f"parts on the bottom side: {bottom}"
 
@@ -55,8 +55,8 @@ def test_parts_keep_under_the_chassis():
     """Each part's courtyard over a chassis zone stays at or below the zone's height; elsewhere at
     or below the open height (but for the parts the spec places: the wall sensors stand in the
     nose, where the chassis leaves room for them)."""
-    pcb = layout.load("main2")
-    heights = layout.part_heights(board_pcb("main2"), S["pcb"]["thickness"])
+    pcb = layout.load("main")
+    heights = layout.part_heights(board_pcb("main"), S["pcb"]["thickness"])
     exempt = _spec_placed()
     problems = []
     for f in pcb.footprints.values():
@@ -89,7 +89,7 @@ def _zones() -> list[tuple[str, list[str], list[tuple[float, float]]]]:
     track) left out."""
     from micras_pcb import sexpr
 
-    root = sexpr.parse(board_pcb("main2").read_text())
+    root = sexpr.parse(board_pcb("main").read_text())
     out = []
     for z in root.children("zone"):
         if z.child("keepout") or (z.child("attr") and z.child("attr").child("teardrop")):
@@ -144,7 +144,7 @@ def _gap(a, b) -> float:
     return centre - a.width / 2 - b.width / 2
 
 
-# The STM32's supplies on In2.Cu (boards/main2/layout/route.py, planes()): its 3V3_D and VCORE pins
+# The STM32's supplies on In2.Cu (boards/main/layout/route.py, planes()): its 3V3_D and VCORE pins
 # alternate round all four of its sides, and nest there as islands rather than ring it as tracks
 # (owner, 2026-10-18). They stay within MCU_REACH of its centre.
 MCU_ISLANDS = {"3V3_D", "VCORE"}
@@ -159,7 +159,7 @@ def test_inner_layers_are_ground_planes():
     assert {n for n, layers, _ in zones if "In1.Cu" in layers} == {"GND"}
     in2 = {n for n, layers, _ in zones if "In2.Cu" in layers}
     assert "GND" in in2 and in2 <= {"GND"} | MCU_ISLANDS, f"In2.Cu: {in2}"
-    mcu = layout.load("main2").footprints["IC1"].xy
+    mcu = layout.load("main").footprints["IC1"].xy
     far = sorted(
         {
             f"{n} at {_xy(p)}"
@@ -179,7 +179,7 @@ VCORE_AREA_MAX = 120.0  # mm2 of outline (the full ring round the 3V3_D island w
 
 
 def test_vcore_island_is_minimal():
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     zones = [pts for n, layers, pts in _zones() if n == "VCORE" and "In2.Cu" in layers]
     assert len(zones) == 1, f"{len(zones)} VCORE islands on In2.Cu"
     poly = zones[0]
@@ -194,12 +194,12 @@ def test_vcore_island_is_minimal():
 
 # 3V3_D's island is as small as its job too (owner, 2026-10-25; route.py mcu_3v3_outline()): the
 # square under the chip to its pin tips, with a tab to each 3V3_D pin's via (VBAT pin 1, VDDSMPS pin
-# 6, VDD pins 9, 22, 35, 51, 68: main2.zen), so the escape rows past the pin tips are In2.Cu ground.
+# 6, VDD pins 9, 22, 35, 51, 68: main.zen), so the escape rows past the pin tips are In2.Cu ground.
 MCU_3V3_AREA_MAX = 90.0  # mm2 of outline (the full square past the pin tips was 109)
 
 
 def test_3v3d_island_is_minimal():
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     zones = [pts for n, layers, pts in _zones() if n == "3V3_D" and "In2.Cu" in layers]
     assert len(zones) == 1, f"{len(zones)} 3V3_D islands on In2.Cu"
     poly = zones[0]
@@ -250,7 +250,7 @@ def _run_under(pairs) -> float:
 
 
 def test_in2_signal_hops_are_digital_and_keep_clear():
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     zones = _zones()
     hops = [t for t in pcb.tracks if t.layer in ("In1.Cu", "In2.Cu")]
     assert all(t.layer == "In2.Cu" for t in hops), "a track on In1.Cu"
@@ -288,7 +288,7 @@ IN2_BUDGET = 200.0  # mm, all hops together
 
 
 def test_in2_signal_hops_stay_short():
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     total = sum(math.dist(t.start, t.end) for t in pcb.tracks if t.layer == "In2.Cu")
     assert total <= IN2_BUDGET, f"{total:.0f} mm of In2.Cu hops"
 
@@ -298,7 +298,7 @@ def test_no_other_track_runs_on_b_cu_over_the_vbat_pour():
     # B.Cu-side ground and cut the pour
     pours = [pts for n, layers, pts in _zones() if n == "VBAT" and "B.Cu" in layers]
     assert pours, "no VBAT pour on B.Cu"
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     problems = sorted(
         {
             f"{t.net} at {_xy(p)}"
@@ -321,8 +321,8 @@ def test_switching_nodes_keep_clear_of_analog_tracks():
     # pin side by side (nets.STUB_PARTS): the DRV8874 puts VREF and IPROPI (pins 5, 6) two pins
     # from OUT1 (pin 8, SLVSF66A pinout), the INA241 its Kelvin input IN+ beside VS; and the Kelvin
     # lines' own stubs off their shunt's sense pads (the owner's exemption, as
-    # boards/main2/layout/route.py _bridge_stub())
-    pcb = layout.load("main2")
+    # boards/main/layout/route.py _bridge_stub())
+    pcb = layout.load("main")
     pins = [p.xy for ref in nets.STUB_PARTS for p in pcb.footprints[ref].pads]
     stub = lambda t: any(math.dist(e, q) < 0.01 for e in (t.start, t.end) for q in pins)  # noqa: E731
     sw = [t for t in pcb.tracks if t.net in nets.SWITCHING and not stub(t)]
@@ -403,7 +403,7 @@ def test_analog_keeps_clear_of_switching_pads_and_pours():
     switching node's pad or pour on its layer, and no switching track within ANALOG_GAP of an
     analog pad (ST AN2834 section 4.2.11; reports/main2-review/routing.md F7). The escape stubs at
     nets.STUB_PARTS and their pads stay out, as above."""
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     pins = [p.xy for ref in nets.STUB_PARTS for p in pcb.footprints[ref].pads]
     stub = lambda t: any(math.dist(e, q) < 0.01 for e in (t.start, t.end) for q in pins)  # noqa: E731
     pads = [(ref, node, pad) for ref, node, pad in _pad_nodes() if pad.net and ref not in nets.STUB_PARTS]
@@ -460,7 +460,7 @@ SWITCH_FOLLOWERS = {
 def test_switch_following_nets_are_classified():
     from .design import design
 
-    d = design("main2")
+    d = design("main")
     missing = sorted(
         {
             f"{ref}.{name}: {d.net(ref, name)}"
@@ -484,7 +484,7 @@ def ipc2221_width(amps: float, rise: float = 20.0, oz: float = 1.0) -> float:
 
 
 # Currents (A) the power paths carry: the 4S pack's limit through F1 (BAT_P, GND_BAT), each DCX10 L
-# motor path, the fan driver's 3.86 A limit (boards/main2/Drivers.zen). A track farther than NECK
+# motor path, the fan driver's 3.86 A limit (boards/main/Drivers.zen). A track farther than NECK
 # from its net's pads is at least as wide as IPC-2221 asks at a 20 C rise and at least MIN_WIDTH;
 # pours count as wide copper. A layer change holds ceil(I / VIA_AMPS) vias (a 0.3 mm via carries
 # about 0.84 A at a 10 C rise on 1 oz: TI SLVA959B Table 3-1).
@@ -525,7 +525,7 @@ def _groups(points: list, reach: float) -> list[list]:
 
 
 def test_power_paths_carry_their_current():
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     pads = {}
     for f in pcb.footprints.values():
         for p in f.pads:
@@ -573,7 +573,7 @@ def test_power_paths_carry_their_current():
 
 def test_nothing_but_the_fuse_on_the_unfused_battery_net():
     # F1 protects everything: BAT_P runs from J1 to F1 alone (not even a capacitor before the fuse)
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     on = sorted(f"{f.ref}.{p.number}" for f in pcb.footprints.values() for p in f.pads if p.net == "BAT_P")
     assert on == ["F1.1", "J1.1"], on
 
@@ -581,7 +581,7 @@ def test_nothing_but_the_fuse_on_the_unfused_battery_net():
 def test_fan_sense_is_local():
     # DS14341 Rev 1 section 8: the sense resistor as close as possible to the pins, preferably on the
     # same layer. R31's LSS pad sits by an LSS pin, joined on F.Cu (no FAN_LSS via between them)
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     lss = [p for p in pcb.footprints["IC6"].pads if p.net == "DRIVERS.FAN_LSS"]
     r31 = next(p for p in pcb.footprints["R31"].pads if p.net == "DRIVERS.FAN_LSS")
     pin = min(lss, key=lambda p: math.dist(p.xy, r31.xy))
@@ -606,7 +606,7 @@ SWITCH_DETOUR = 1.5
 
 
 def test_switch_nodes_are_compact():
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     zones = _zones()
     problems = []
     for net in SWITCH_NODES:
@@ -655,9 +655,9 @@ def test_no_dangling_copper(tmp_path):
 
     from micras_pcb.tools import kicad_cli
 
-    pcb = board_pcb("main2")
+    pcb = board_pcb("main")
     for ext in (".kicad_pcb", ".kicad_pro", ".kicad_dru"):
-        shutil.copy(pcb.with_suffix(ext), tmp_path / f"main2{ext}")
+        shutil.copy(pcb.with_suffix(ext), tmp_path / f"main{ext}")
     report = tmp_path / "drc.json"
     cmd = [
         kicad_cli(),
@@ -668,7 +668,7 @@ def test_no_dangling_copper(tmp_path):
         "json",
         "-o",
         str(report),
-        str(tmp_path / "main2.kicad_pcb"),
+        str(tmp_path / "main.kicad_pcb"),
     ]
     subprocess.run(cmd, check=True, capture_output=True)
     found = sorted(
@@ -710,7 +710,7 @@ ROUND_ABOUT = {
 
 
 def test_no_detours():
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     pads, length = {}, {}
     for f in pcb.footprints.values():
         for p in f.pads:
@@ -778,7 +778,7 @@ def _run_within(a, b, gap: float) -> float:
 
 
 def test_analog_keeps_clear_of_fast_digital():
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     mcu = [p.xy for p in pcb.footprints["IC1"].pads]
     escape = lambda t: any(math.dist(e, q) < ESCAPE_REACH for e in (t.start, t.end) for q in mcu)  # noqa: E731
     an = [t for t in pcb.tracks if t.net in nets.ANALOG]
@@ -808,7 +808,7 @@ ADC_CAP_REACH = 3.0  # mm, pad centre to pad centre
     reason="no 0402 fits within 3 mm of IC1.14 or IC1.30 outside the escape rows (layout README, open items)",
 )
 def test_adc_filter_caps_at_the_pin():
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     problems = []
     for net, ref in ADC_FILTERS.items():
         pin = next(p for p in pcb.footprints["IC1"].pads if p.net == net)
@@ -828,7 +828,7 @@ ESCAPE_TRACK = 0.6  # mm from the pad's edge
 
 
 def test_track_width_floor():
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     fine = [p for f in pcb.footprints.values() for p in f.pads if 0 < min(p.size) < FINE_PAD]
     near = lambda q: any(math.dist(q, p.xy) - max(p.size) / 2 <= ESCAPE_TRACK for p in fine)  # noqa: E731
     problems = [
@@ -846,7 +846,7 @@ def test_track_width_floor():
 def _root():
     from micras_pcb import sexpr
 
-    return sexpr.parse(board_pcb("main2").read_text())
+    return sexpr.parse(board_pcb("main").read_text())
 
 
 def _pts(node) -> list[tuple[float, float]]:
@@ -945,7 +945,7 @@ def _antenna_area() -> list[tuple[float, float]]:
 
     lib = sexpr.parse((ROOT / "components/espressif/ESP32-C5-MINI-1/ESP32-C5-MINI-1.kicad_mod").read_text())
     local = _pts(next(z for z in lib.children("zone") if z.child("keepout")).child("polygon"))
-    u13 = layout.load("main2").footprints["U13"]
+    u13 = layout.load("main").footprints["U13"]
     return [(u13.xy[0] + dx, u13.xy[1] + dy) for dx, dy in (layout._rotate(x, y, u13.rotation) for x, y in local)]
 
 
@@ -966,7 +966,7 @@ def test_antenna_area_is_copper_free_on_every_layer():
     board = _board_polygon()
     assert not [p for p in grid if _inside(p, board)], "the antenna area is on the board"
     inside = lambda p: _inside(p, area)  # noqa: E731
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     found = [f"track {t.net} {t.layer}" for t in pcb.tracks for p in _samples(t) if inside(p)]
     found += [f"via {v.net}" for v in pcb.vias if inside(v.xy)]
     found += [f"pad {f.ref}.{p.number}" for f in pcb.footprints.values() for p in f.pads if inside(p.xy)]
@@ -979,7 +979,7 @@ def test_antenna_area_is_copper_free_on_every_layer():
 
 def _anchors() -> list[tuple[float, float]]:
     """Where the ground reaches every layer: ground vias and through-hole ground pads."""
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     pts = [v.xy for v in pcb.vias if v.net == "GND"]
     pts += [p.xy for f in pcb.footprints.values() for p in f.pads if p.net == "GND" and p.kind == "thru_hole"]
     return pts
@@ -999,7 +999,7 @@ STITCH_SPARE = {"C72.1": 4.5, "C8.1": 4.5}
 def _rings(layer: str) -> set[tuple[int, int]]:
     """The sample points within STITCH_RING of a ground pad or track on the layer, and within
     STITCH_SPARE of a spared pad."""
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     cells, s = set(), STITCH_STEP
     for f in pcb.footprints.values():
         for p in f.pads:
@@ -1103,7 +1103,7 @@ def test_ground_pours_are_stitched():
 
 # The board-wide pours (the unnamed zones: ground on every layer, VBAT on B.Cu) join pads by thermal
 # reliefs (routing review F11, R14), but the pads that carry current or heat, which join solid:
-# mirrors boards/main2/layout/route.py relief()
+# mirrors boards/main/layout/route.py relief()
 RELIEF_GAP = 0.25  # mm
 SMD_SPOKE, THT_SPOKE = 0.2, 0.4  # mm
 RELIEF_SOLID_AREA = 1.2  # mm2
@@ -1124,7 +1124,7 @@ ZONE_SOLID, ZONE_THERMAL = "2", "1"  # a pad's zone_connect in the .kicad_pcb
 
 def _pad_nodes():
     """(reference, pad node, pad from layout.load) for every pad."""
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     for fp in _root().children("footprint"):
         ref = fp.prop("Reference")
         for node, pad in zip(fp.children("pad"), pcb.footprints[ref].pads, strict=True):
@@ -1225,7 +1225,7 @@ def test_vias_in_pads():
     (TI SLUA271C 3.4.1: smaller vias lose less solder, back-side tenting traps air) and no paste
     aperture comes within PASTE_CLEAR of its hole: the pad's paste is split into windows round it
     (SLUA271C 4.4)."""
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     vias = [
         (v, n, float(n.child("drill").atoms()[0]) / 2) for v, n in zip(pcb.vias, _root().children("via"), strict=True)
     ]
@@ -1255,7 +1255,7 @@ def test_vias_in_pads():
     assert exposed and S["pcb"]["via_in_pad"] == "open"
 
 
-# The split-paste footprints main2 uses (open thermal vias): (file, exposed pad, its solder-mask
+# The split-paste footprints the board uses (open thermal vias): (file, exposed pad, its solder-mask
 # opening if smaller than the copper pad)
 SPLIT_PASTE = {
     "ti/DRV8874/Texas_PWP0016J_HTSSOP-16-1EP_4.4x5mm_P0.65mm_EP3.4x5mm_Mask2.46x3.55mm.kicad_mod": ("17", (2.46, 3.55)),
@@ -1310,14 +1310,14 @@ def test_split_paste_keeps_off_the_via_sites(path):
 
 
 # Exposed pads whose every thermal-via site holds a ground via: the STSPIN958's (the board's hottest part,
-# 2.0 W bound and 2.7 W in a stall, boards/main2/Drivers.zen; its third lane once lay under the FAN_LSS
+# 2.0 W bound and 2.7 W in a stall, boards/main/Drivers.zen; its third lane once lay under the FAN_LSS
 # join) and the ADP7142's (Rev. K Table 4 72.1 C/W against Table 6 182.8 C/W on 25 mm2 of copper)
 ALL_SITES = {"IC6": 9, "U8": 2}
 
 
 @pytest.mark.parametrize("ref", sorted(ALL_SITES))
 def test_exposed_pad_via_sites_all_hold_a_via(ref):
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     fp = pcb.footprints[ref]
     node = next(n for n in _root().children("footprint") if n.prop("Reference") == ref)
     sites = []
@@ -1368,7 +1368,7 @@ def _route(pcb, net: str, a, b) -> list[tuple[float, float]]:
 
 @pytest.mark.parametrize("side", sorted(KELVIN))
 def test_kelvin_lines_run_as_a_pair(side):
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     shunt, amp = (pcb.footprints[r] for r in KELVIN[side])
     loop = []
     for sign in ("+", "-"):
@@ -1384,7 +1384,7 @@ def test_kelvin_lines_run_as_a_pair(side):
 def test_bridge_pads_have_a_ground_heat_path():
     """Routing review F15 (SLVSF66A section 10.1, maximize the copper on the thermal pad): B.Cu
     under each DRV8874's exposed pad is at least half ground pour."""
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     fills = [(p, _box(p)) for p in _fills("B.Cu", "GND")]
     for ref in ("IC8", "IC9"):
         ep = max((p for p in pcb.footprints[ref].pads if p.net == "GND"), key=_pad_area)
@@ -1396,7 +1396,7 @@ def test_bridge_pads_have_a_ground_heat_path():
         assert hit / len(pts) >= 0.5, f"{ref}: {hit / len(pts):.0%} of its exposed pad over B.Cu ground"
 
 
-# --- Countersinks (spec/main2.toml [countersink]): the screws' 90 deg countersinks, cut by hand from
+# --- Countersinks (spec/main.toml [countersink]): the screws' 90 deg countersinks, cut by hand from
 # the bottom side, keep every layer's copper out of their cone: keep-outs (tracks, vias and pours)
 # of clearance_outer on B.Cu and In2.Cu and clearance_in1 on In1.Cu round each screw hole, and the
 # countersink drawn on User.1, a layer the fab outputs never plot.
@@ -1434,7 +1434,7 @@ def _covers(poly, c, r: float) -> bool:
 
 def test_countersinks_keep_the_copper_off():
     keepouts = _keepouts()
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     need = {"B.Cu": CSK["clearance_outer"], "In2.Cu": CSK["clearance_outer"], "In1.Cu": CSK["clearance_in1"]}
     assert CSK["diameter"] / 2 < CSK["clearance_outer"], "the keep-out is smaller than the countersink"
     problems = []
@@ -1472,8 +1472,8 @@ def test_countersinks_are_drawn_but_never_fabricated():
         )
     assert CSK["fabricated"] is False
     # the gerbers plot only copper, mask, paste, silk and the outline; the drill files only holes
-    assert CSK_LAYER not in jlc.gerber_layers("main2")
-    pcb = layout.load("main2")
+    assert CSK_LAYER not in jlc.gerber_layers("main")
+    pcb = layout.load("main")
     big = [
         f"{f.ref}.{p.number}"
         for f in pcb.footprints.values()
@@ -1492,7 +1492,7 @@ BATTERY_PIN_GAP = 0.5  # mm
 
 
 def test_battery_entry_pins_keep_other_nets_clear():
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     pins = [(f"{r}.{p.number}", p) for r in BATTERY_PARTS for p in pcb.footprints[r].pads if p.kind == "thru_hole"]
     problems = []
     for name, p in pins:
@@ -1549,7 +1549,7 @@ def _chamfer(win: tuple[int, int, int, int], zero) -> dict:
 
 
 def _neck_ok(net: str, layer: str, a, b, width: float) -> bool:
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     pa = pcb.footprints[a[0]].pads_named(a[1])[0]
     pb = pcb.footprints[b[0]].pads_named(b[1])[0]
     m = 4.0
@@ -1622,7 +1622,7 @@ NOISY_RUN = 1.0  # mm
 
 
 def test_analog_keeps_clear_of_noisy_supplies():
-    pcb = layout.load("main2")
+    pcb = layout.load("main")
     an = [t for t in pcb.tracks if t.net in nets.ANALOG]
     sup = [t for t in pcb.tracks if t.net in nets.NOISY_SUPPLY]
     runs = {}

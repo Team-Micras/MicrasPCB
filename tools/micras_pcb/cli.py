@@ -53,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("previous", help="a board's previous revision: snapshot and connectivity comparison")
     psub = p.add_subparsers(dest="action", required=True)
     s = psub.add_parser("snapshot", help="write boards/<board>/previous/board.json from the previous revision")
-    s.add_argument("board", nargs="?", default="main", choices=sorted(previous.SOURCES), help="board (default: main)")
+    s.add_argument("board", choices=sorted(previous.SOURCES), help="board")
     s.add_argument(
         "--source", type=Path, help="previous revision directory (default: $MICRAS_PREVIOUS, else ../hw_debug)"
     )

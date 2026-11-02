@@ -50,7 +50,7 @@ Application on the next main board (research/next-revision, power tree and A.4):
 the INA241s, the receivers and the emitter-sink op amp, fed from VSYS (4.3-17.4 V) through
 22 Ohm + 10 uF, EN on 3V3_D so 3V3_A starts after VDD. The 3V3_D logic high (>= 3.2 V) clears
 the 1.30 V maximum on threshold. Worst case 22.5 mA at VIN 17.4 V: PD = 14.1 V x 22.5 mA +
-17.4 V x 190 uA = 0.32 W, +23 K at 72.1 C/W, +27 K at 83.9 C/W (500 mm^2; main2's exposed pad
+17.4 V x 190 uA = 0.32 W, +23 K at 72.1 C/W, +27 K at 83.9 C/W (500 mm^2; the main board's exposed pad
 has more: an F.Cu GND pour and vias to two inner GND planes) and +59 K with only 25 mm^2.
 
 Integrator-owned circuitry: the input and output capacitors, the input RC, an optional CSS, the

@@ -17,7 +17,7 @@ Sources and bounds:
   * Dead time: 100 ns typical, 300 ns bound per edge, body diode 0.9 V (the DRV8874's VSD) at the
     current, two edges per period.
   * VS operating current: 7 mA typical (the DRV8874's IVM maximum), 10 mA bound.
-  * Board RthJA: 35.8 C/W typical, 45 C/W bound (main2's inner planes are 0.5 oz and the board is
+  * Board RthJA: 35.8 C/W typical, 45 C/W bound (the main board's inner planes are 0.5 oz and the board is
     smaller than the JESD51 one); board ambient 40 C.
   * Limiter: on-time at least the blanking t_b (280 ns typical = the minimum pulse, 500 ns bound),
     plus a comparator delay of 200 ns (the amplifier's settling time, Table 5) after the crossing.

@@ -18,13 +18,13 @@ load(
     "two_terminal",
 )
 
-MAIN2 = Module("../main2.zen")
+MAIN = Module("../main.zen")
 
 MCU = "IC1"
 SINK_AMP = "U12"
 SINK_FET = "Q9"
 SENSE = "R83"
-# Emitter n's selector is driven from a TIM3 channel (boards/main2/firmware_changes.toml, emitters):
+# Emitter n's selector is driven from a TIM3 channel (boards/main/firmware_changes.toml, emitters):
 # PC9 CH4, PB0 CH3, PB5 CH2 (W3), PB4 CH1 (W4).
 CHANNELS = [("W1", "PC9"), ("W2", "PB0"), ("W3", "PB5"), ("W4", "PB4")]
 # A pin held high must let the gate fall below VGS(th) min 0.65 V (AO3400A p2) in milliseconds, so
@@ -140,7 +140,7 @@ def emitter_sink_set_point_from_the_dac(module, inputs):
 
 def emitter_pulse_within_rating(module, inputs):
     # SFH 4550 pulse handling (WallSensor.zen, emitter_pulse_current: tp <= 150 us, D <= 0.2, 25 C;
-    # the firmware lights each emitter 150 us per 1 ms frame, boards/main2/firmware_changes.toml):
+    # the firmware lights each emitter 150 us per 1 ms frame, boards/main/firmware_changes.toml):
     # - the DAC's full scale (code 4095, VREF+ at VDDA max, RO at its 10.3 kOhm minimum) stays within it;
     # - so does a failed sink (Q9 shorted or U12 stuck high), which leaves only the emitter resistor and
     #   R83 to limit the current, at 3V3_D max;
@@ -196,8 +196,8 @@ def emitter_pulse_within_rating(module, inputs):
 
 
 TestBench(
-    name="main2_sensors",
-    module=MAIN2,
+    name="main_sensors",
+    module=MAIN,
     test_cases={"board": {}},
     checks=[
         wall_selector_gates_are_ac_coupled,

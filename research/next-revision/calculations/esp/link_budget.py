@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Wi-Fi link margin of main2's ESP32-C5-MINI-1 telemetry at 5 GHz (boards/main2/Esp.zen).
+"""Wi-Fi link margin of the main board's ESP32-C5-MINI-1 telemetry at 5 GHz (boards/main/Esp.zen).
 
 The PCB antenna sits 2.2-3 mm over the maze floor; no published measurement gives that detuning,
 so this sizes the margin it may consume.

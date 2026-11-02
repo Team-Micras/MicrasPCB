@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Battery input, power path and analog LDO numbers of main2 (boards/main2/Regulators.zen).
+"""Battery input, power path and analog LDO numbers of the main board (boards/main/Regulators.zen).
 
 Run: python3 -I power_path_checks.py   (no dependencies)
 

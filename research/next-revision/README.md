@@ -1,9 +1,11 @@
 # Next main-board revision: design
 
-Research for the second revision of the `main` board. The design is entered in Zener as the board
-[`main2`](../../boards/main2/layout/README.md) (schematic and layout), with the option this document
+Research for the design of the `main` board that follows the v1 main board (MicrasPCB e34fb9a,
+`boards/main` there). The design is entered in Zener as the board
+[`main`](../../boards/main/layout/README.md) (schematic and layout), with the option this document
 recommends wherever it lists several, the datasheet checks as test benches, and the open items
-below as visible TODOs in its sheets; `boards/main` stays the current board. Every hardware number
+below as visible TODOs in its sheets. Here "the main board" and "the current board" name the v1
+board; paths under `boards/main` are the design this document describes. Every hardware number
 below carries its source; values marked
 *computed* come from the scripts in [calculations/](calculations/), and *inference* marks a
 conclusion that no datasheet states directly. Open items are kept as visible **TODO**s.
@@ -114,7 +116,7 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
     a 5.05 V maximum and no minimum, so it is not counted on: its output stays Hi-Z with EN/nFAULT
     low, or on its low side with PWM1 held low by its internal pull-down ([STSPIN958] Tables 5 and
     11), and the firmware keeps Fan_Enable low and reads "no pack"
-    (`boards/main2/firmware_changes.toml`, battery).
+    (`boards/main/firmware_changes.toml`, battery).
 - **Bench power without a pack**: a current-limited supply at 12-16.8 V into J1 (a lead with the
   pack's JST PA plug) with SW4 on; the board starts as from the pack. With the motors and the fan
   disabled, a limit just above what the 3V3 rails draw keeps a fault on VBAT from taking the
@@ -276,7 +278,7 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   None of these is needed: the ripple reaches VDDA about 100 dB down (R58/C80 and the LDO's
   PSRR), the pack itself does not ring (Q ≤ 0.69), and Q6 holds the bank off at plug-in, so a
   bench supply's leads never ring against it then. Against that, the part is a 6.6 mm square can
-  6-7.7 mm high, which fits only off the drive blocks' zones (8 mm there, spec/main2.toml), it
+  6-7.7 mm high, which fits only off the drive blocks' zones (8 mm there, spec/main.toml), it
   adds up to 0.5-0.7 mA of leakage on the pack (0.2 CV or 500 µA, [JIERR MA]). So the board
   stays all ceramic; the polymer rows are in vbat_bulk.py should a bench supply
   on long leads become the normal way to run the robot.
@@ -319,18 +321,18 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   which roughly halves the summed input ripple. In centre-aligned mode a 180° shift moves one
   bridge's on-centre onto the other's off-centre, so a trigger at CNT = 0 and CNT = ARR still lands
   on a phase centre of each bridge (inference, untested). The PH pins are GPIOs (PB8 right, PC6
-  left) and LED_ARGB moves to TIM17_CH1 (PB9), freeing TIM8 (main2.zen layout pin swaps).
+  left) and LED_ARGB moves to TIM17_CH1 (PB9), freeing TIM8 (main.zen layout pin swaps).
 - **Why 100 kHz**: the DRV8874 ceiling is 100 kHz, and the INA241's PWM rejection "holds the output
   for 1 µs ... up to a PWM frequency of 125 kHz or if common-mode transient edges are separated by a
   3 µs interval or more" ([INA241] §7.3.1.1). At 200 kHz no phase reaches the 4 µs centre window
   (1 µs hold plus 1 µs settling each side) at mid duty. The edge response is characterised only at
-  VS = 5 V and a 48 V step (Figure 7-1); TI's PSpice model (without the hold) at main2's VS 3.3 V and
+  VS = 5 V and a 48 V step (Figure 7-1); TI's PSpice model (without the hold) at the design's VS 3.3 V and
   a 0-16.8 V edge in 150 ns settles within 6 mA from 1 µs on, and at the phase centres leaves the
   AC-CMRR tail of Figure 6-8's 105 dB plateau: 3.3 mA at D 0.5, 1.3 mA on the long phase at D 0.2/0.8,
   cancelling in the duty-weighted mean of the two centres (current_sense/ina241_edge.py).
 - **Current limit**: ITRIP = VREF / (RIPROPI × AIPROPI), set to **2.5-3 A** with RIPROPI 2.0 kΩ 1 %
   (0.9 V/A), VREF = 2.25-2.7 V (computed; VREF 0-3.6 V, IIPROPI ≤ 3 mA; [DRV8874] §6.3, §7.3.3). The
-  board uses 4.7 kΩ / 20 kΩ from 3V3_D: VREF 2.67 V, ITRIP 2.97 A typical (`boards/main2/Drivers.zen`).
+  board uses 4.7 kΩ / 20 kΩ from 3V3_D: VREF 2.67 V, ITRIP 2.97 A typical (`boards/main/Drivers.zen`).
   **IMODE = GND**: fixed off-time with auto-retry, nFAULT only for real faults. The 25 µs off-time
   ends at the next input edge ("if the state of the ... control pin inputs changes during the tOFF
   time, the remainder of the tOFF time is ignored", §7.3.3.2.1), so with a 100 kHz input the
@@ -342,7 +344,7 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
 - **Minimum pulse**: the DRV8874 specifies none. Both edges are delayed alike (tPD 400 ns) and swing
   in tRISE/tFALL 150 ns, so an EN pulse under about 0.3 µs (3 % duty, 0.5 V at 16.8 V) does not
   reach full swing; the firmware rounds such duties to 0 or leaves them to the current loop on the
-  INA241 (`boards/main2/firmware_changes.toml`, drive).
+  INA241 (`boards/main/firmware_changes.toml`, drive).
 - **OCP**: 6 A minimum, 10 A typical, no maximum, 3 µs deglitch (§6.5). Unregulated at 16.8 V the
   motor would draw 5.42 A at stall and 7.12 A in a full-speed reversal through a DRV8874
   (drivers/q4_drivers.py), so ITRIP, not OCP, holds the current. In a full-speed reversal at
@@ -352,7 +354,7 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   INA241's +7.25 A (drivetrain/choke_check.py).
 - **Thermal**: 0.70 W per bridge at the 1.0 A rms run limit (hot maximum RDS(on)): +18 K over a
   60 s run (ZθJA ≈ 26 °C/W at 60 s, [DRV8874] Figure 25, read) and +25 K steady on the JEDEC
-  36.0 °C/W (Figure 21: 31-32 °C/W on a 4-layer 1 oz board with 2-4 cm² of top copper; main2's inner
+  36.0 °C/W (Figure 21: 31-32 °C/W on a 4-layer 1 oz board with 2-4 cm² of top copper; the design's inner
   planes are 0.5 oz). A stall held at 3.23 A (about 4.2 W) gains +63 K in 1 s and +88 K in 10 s and
   reaches the 160 °C TSD minimum from 40 °C only after about a minute.
 - **Choke**: **XAL7070-473MEC 47 µH** per motor. An ironless winding's inductance falls with
@@ -429,7 +431,7 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   R_iso·C_f: with TI's INA241A2 model, a 150 Ω R_iso keeps the error under 1 mA from 0.64 µs on in
   every corner (0.87 µs with 100 Ω), so PB1/PC1 sample for at least 0.7 µs
   ([current_sense/ina241_riso.py](calculations/current_sense/ina241_riso.py);
-  `boards/main2/firmware_changes.toml`, current; [DS13311] Table 84). The model also confirms the
+  `boards/main/firmware_changes.toml`, current; [DS13311] Table 84). The model also confirms the
   output's stability: 1 nF straight on OUT, the datasheet's limit, peaks 4.2 dB; behind 150 Ω the pin
   is flat to 0.93 MHz without overshoot. The held sample trails the shunt current by the trigger
   latency, the sampling time and the 0.35 µs delay of the INA241 and R_iso·C_f at 100 kHz: the mid-on and mid-off samples
@@ -487,7 +489,7 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
 - **Firmware**: duty = V_cmd / VBAT, never below the 11.2 % floor set by the 280 ns minimum pulse at
   400 kHz except at 0; start from rest at 50 kHz with the duty ramp and move to 400 kHz once TOFF
   stops asserting; TOFF without a break at 50 kHz means a jammed fan, and EN/nFAULT is the fault
-  flag (`boards/main2/firmware_changes.toml`, fan).
+  flag (`boards/main/firmware_changes.toml`, fan).
 - **Above about 3 A continuous**: the fallback is a discrete synchronous half-bridge, a TPS28225
   driver (adaptive 14 ns dead time, VIN ≤ 27 V, VDD 4.5-8.8 V) with 2 × CSD17578Q3A (30 V, 9.4 mΩ at
   4.5 V) and a 10-20 mΩ low-side shunt read by a TLV3201/TLV7031 comparator that pulls EN low
@@ -512,7 +514,7 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   edge); then, with TI's TLV9002 model and the AO3400A fitted to its datasheet, the pulse settles
   to 1 % in 7.4-13 µs without overshoot, and a gate of twice the datasheet's capacitance
   overshoots to at most 233 mA and settles in 18 µs, all before the scan at 75 µs
-  ([emitter/emitter_sink.py](calculations/emitter/emitter_sink.py); `boards/main2/Sensors.zen`).
+  ([emitter/emitter_sink.py](calculations/emitter/emitter_sink.py); `boards/main/Sensors.zen`).
   Kelvin-connect the 1.2 Ω and keep the emitter loop compact and away from VDDA/VSSA. Op-amp:
   TLV9001 (IQ 60 µA typ, 1 MHz, 2 V/µs; `components/ti/TLV9001`). The DAC's 10.3-16 kΩ output
   resistance ([DS13311] Table 90) bounds its drift after a calibration to ±1.3 % of the current.
@@ -533,7 +535,7 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   for a die 0.1 V higher). In a 50-60 mV dip of 3V3_D green loses about 10 % for the dip's
   duration. Colours stay recognisable, slightly short of green at worst; no addressable LED of
   this size rates a lower supply in its electrical table (SK6805-EC20, XL-2020RGBC-2812B 3.5 V,
-  SK6812-EC20 3.7 V), so the WS2812C stays (`boards/main2/Peripherals.zen`).
+  SK6812-EC20 3.7 V), so the WS2812C stays (`boards/main/Peripherals.zen`).
 
 ### ESP32 radio
 
@@ -559,9 +561,9 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   rows ([DS13311] Table 9). R95, 22 Ω at PC10, terminates the clock at its driver; R96, 220 Ω at the C5 on the
   data line, limits the current to 15 mA, under the 20 mA per pin ([DS13311] Table 11), if both ends
   drive it at a direction change ([RM0468] Figure 643 note 3), which the firmware's turn-around
-  avoids (`boards/main2/firmware_changes.toml`, link); its RC with the line, about 3 ns, is 11 % of
+  avoids (`boards/main/firmware_changes.toml`, link); its RC with the line, about 3 ns, is 11 % of
   the half clock at the 15.6 MHz start and 22 % at 31.25 MHz, the fastest step under the C5's
-  40 MHz slave limit (`boards/main2/Esp.zen`); R97
+  40 MHz slave limit (`boards/main/Esp.zen`); R97
   100 kΩ holds ESP_CSn high while neither end drives it. ESP_Flow (GPIO24 → PA9,
   EXTI9) carries the C5's credits: the H7 starts a transfer only when the C5 has a buffer queued.
   UART4 is the fallback on the same pins, up to 5 Mbaud (PC10 UART4_TX into the C5's U1RXD on
@@ -573,7 +575,7 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   ESP_DATA GPIO8, ESP_CSn GPIO9, ESP_SCK GPIO10, NRST GPIO23 (open drain), ESP_Flow GPIO24. At reset
   each has its input and output off and no pull ([ESP32-C5 TRM] Table 8.13-1), and neither the
   datasheet nor the TRM lists a power-up glitch on any C5 pin, so none drives NRST or a link line
-  before the firmware does (`boards/main2/Esp.zen`).
+  before the firmware does (`boards/main/Esp.zen`).
 - **Flashing**: SWD with connect-under-reset (NRST), no system bootloader and no BOOT0. The H725's
   bootloader UART/SPI/I²C pins all carry motors, the buzzer, sensors or the sensor bus, and PA10 is
   Motors_Enable ([AN2606] Table 133). The H7 flash is a single 1 MB bank of eight 128 kB sectors;
@@ -599,17 +601,17 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   last tag v0.12.0, 2023), or a Black Magic Probe port for the C5 (BareMetalTestLab/blackmagic-esp32-c5,
   GDB on TCP). The H725 accepts SWCLK up to 71 MHz ([DS13311] Table 124). STM32CubeProgrammer has no
   path, so `make flash` moves to OpenOCD or GDB; the host runs the H7 flash algorithm, so the radio
-  carries no STM32 code (`boards/main2/firmware_changes.toml`, flash). The SWD1 pads take an
+  carries no STM32 code (`boards/main/firmware_changes.toml`, flash). The SWD1 pads take an
   ST-Link when the radio cannot reach the H7, or at a venue without Wi-Fi.
 - **Contests**: All Japan (NTF), UKMARS and Minos, IEEE Regions 1 and 2, APEC and Portugal (UTAD)
   forbid control or assistance into a running mouse and ask it to be autonomous or self-contained;
   none names transmit-only telemetry, but judges may read the wording strictly, and RoboCore
   (Brazil) and RoboChallenge allow only a remote start. The firmware therefore has a contest mode
   with the radio fully off for the whole maze allocation, telemetry logged on board
-  (`boards/main2/firmware_changes.toml`, contest). Outside it the radio runs 5 GHz only on channels
+  (`boards/main/firmware_changes.toml`, contest). Outside it the radio runs 5 GHz only on channels
   36-48, the only DFS-free channels in every target country.
 - **Placement**: the rear-right corner, the antenna area over a notch in the rear edge
-  (`boards/main2/Esp.zen`, `spec/main2.toml`); see [ESP32 form factor](#esp32-form-factor). Keep
+  (`boards/main/Esp.zen`, `spec/main.toml`); see [ESP32 form factor](#esp32-form-factor). Keep
   the UART lines, J2 and its header pins away from the antenna, with ground copper and vias round
   them ([ESP layout]).
 - **Not on the board**: the main board's SWD connector P1 and its SWD_VDD OR-ing (the bare SWD1
@@ -638,7 +640,7 @@ Sources: [ESP32-C5-MINI-1] Tables 1-1, 1-2, Figures 8-1, 10-1, 10-2; [ESP32-C5-W
 1-1, 1-2, Figure 10-1; [ESP32-C5] Table 1-1; [ESP schematic]; Espressif certificate listing;
 JLCPCB parts library.
 
-**Placement on this board** (`spec/main2.toml` [u13], [antenna_notch]):
+**Placement on this board** (`spec/main.toml` [u13], [antenna_notch]):
 
 ```text
           front: wall sensors + H7 (analog front end)
@@ -665,9 +667,9 @@ JLCPCB parts library.
   at most 1 mm inside the board's edge line ([ESP layout], Keepout Zone for ESP32-C5 Module's
   Antenna): the notch is 6.4 mm deep and 31.1 mm wide, from the right edge to y +6.1, 15 mm past
   the module's inner side. Dense ground vias run along the module's ground edge and the notch.
-- The battery switch SW4 and its notch take the rear-left corner (boards/main's notch, mirrored),
+- The battery switch SW4 and its notch take the rear-left corner (the v1 board's notch, mirrored),
   and the power input (J1, F1, D15, Q6) and the 3V3_D buck move beside it; the chassis's rear zones
-  are mirror images (`spec/main2.toml` [drive_blocks] tail_left/tail_right, rear bosses), and the
+  are mirror images (`spec/main.toml` [drive_blocks] tail_left/tail_right, rear bosses), and the
   battery basket's wire slots sit at the rear of both side walls (MicrasHardware `frame.py`), so
   the pack's leads reach J1 on either side.
 - Keep the DRV8874 bridges out of the rear-right corner; the WROOM modules fit only with the rear
@@ -695,7 +697,7 @@ pull-ups; no HSE or LSE crystal), and the PH/EN bridges need one PWM pin each in
 which frees the pins of the two new lines, Motors_nFault (PB2) and ESP_Flow (PA9). Every pin's
 alternate function, and the one-function-per-timer split, checks against ST's STM32_open_pin_data
 database, and STM32CubeMX 6.18.1 loads and generates the whole timer, DMA, DAC and dual-ADC set-up
-without a conflict (`boards/main2/main2.zen`, pin map check).
+without a conflict (`boards/main/main.zen`, pin map check).
 
 | Need | Pins | Resolution |
 |---|---|---|
@@ -705,7 +707,7 @@ without a conflict (`boards/main2/main2.zen`, pin map check).
 | Fan enable | 1, moved | PB10, open drain with R27 39 kΩ / C30 10 nF, read back as the STSPIN958's nFAULT |
 | IMU interrupts | 1 for two | PB6 (IMU_INT, EXTI6, no pull): INT1 alone, push-pull and active high at its defaults; INT2 unconnected (an output forced to ground, DS13476 Rev 5 Table 22), its interrupts moved onto INT1 with CTRL4 INT2_on_INT1 (Table 58) |
 | Motor fault | 1 | PB2 (Motors_nFault, EXTI2), both DRV8874 nFAULT wire-ORed (open drain; IMODE = GND so it does not chatter) |
-| Current inputs | 2, by swapping | No direct channel is free. Current_Sensor_Left on PB1 (ADC1/2 INP5, a fast channel), Current_Sensor_Right on PC1 (ADC1/2 INP11, slow; one conversion per centre still fits); Wall_Sensor_0 on PA4 and Wall_Sensor_3 on PC0. Each keeps an ADC1 and an ADC2 input: ADC1 converts PB1 and ADC2 PC1 in dual injected-simultaneous mode on TIM1 TRGO2, the walls and the battery run on ADC1's regular group ([RM0468] §28.4.32, Table 227; `boards/main2/firmware_changes.toml`, current) |
+| Current inputs | 2, by swapping | No direct channel is free. Current_Sensor_Left on PB1 (ADC1/2 INP5, a fast channel), Current_Sensor_Right on PC1 (ADC1/2 INP11, slow; one conversion per centre still fits); Wall_Sensor_0 on PA4 and Wall_Sensor_3 on PC0. Each keeps an ADC1 and an ADC2 input: ADC1 converts PB1 and ADC2 PC1 in dual injected-simultaneous mode on TIM1 TRGO2, the walls and the battery run on ADC1's regular group ([RM0468] §28.4.32, Table 227; `boards/main/firmware_changes.toml`, current) |
 | IPROPI | 0 | ITRIP only |
 | Emitter set-point DAC | 1 | PA5 (DAC1_OUT2; PA4, DAC1_OUT1, carries Wall_Sensor_0, so DAC channel 1 stays off the pad, MODE1 = 011, [RM0468] Table 266). TIM4, freed by the selectors' move to TIM3, triggers the DAC in step with TIM3 (the DAC has no TIM3 trigger, [RM0468] Tables 264 and 355). The battery divider moves to PC5 (ADC12_INP8, slow channel, DS13311 Table 85) and Switch_0 to PH0 (a plain FT input with the internal pull-up; no HSE crystal) |
 
@@ -728,10 +730,10 @@ New or changed parts; JLC numbers and prices as queried on 2026-10-15 (stock is 
 | Analog 3V3_A, alternative | TPS560430X3FDBVR + 12 µH + damped LC | documented alternative | forced PWM 1.1 MHz, 4-36 V; C2071721 $1.19 | [TPS560430] |
 | Motor drivers | DRV8874PWPR × 2 | replaces L6205D | 0.2 Ω HS+LS, 6 A peak, OCP 6 A min, 100 kHz, LS IPROPI 450 µA/A; C1855818, 25,990 stock, $1.01 / $0.66 | [DRV8874] |
 | Motor driver, alternative | DRV8262DDWR × 1 | if > 6 A or the stall margin proves short | 0.1 Ω, 8 A dual peak, 60 V; C22427252, $9.77 / $6.98 | [DRV8262] |
-| Motor chokes | XAL7070-473MEC 47 µH shielded (Isat 4.2 A, 97 mΩ max, 7.2 × 7.5 × 7.0 mm, 1.9-2.3 g) × 2; fan: XGL5030-472MEC 4.7 µH (5.3 × 5.5 × 3.1 mm) | new; 7.0 mm (7.13 mm with unreflowed terminations) within the 8.0 mm open height and the 7.2 mm `left_tail` zone of `spec/main2.toml` | 0.05-0.30 W ripple heat in the motor at 100 kHz; choke +15 K at the run limit | drivetrain/choke_check.py, fan/fan_choke_check.py |
+| Motor chokes | XAL7070-473MEC 47 µH shielded (Isat 4.2 A, 97 mΩ max, 7.2 × 7.5 × 7.0 mm, 1.9-2.3 g) × 2; fan: XGL5030-472MEC 4.7 µH (5.3 × 5.5 × 3.1 mm) | new; 7.0 mm (7.13 mm with unreflowed terminations) within the 8.0 mm open height and the 7.2 mm `left_tail` zone of `spec/main.toml` | 0.05-0.30 W ripple heat in the motor at 100 kHz; choke +15 K at the run limit | drivetrain/choke_check.py, fan/fan_choke_check.py |
 | Motor shunts | WSK2512R0100FEA (±1 %, C3985410, 4955 stock) or WSK2512R0100DEA (±0.5 %, C1517461, 0 stock) × 2 | replaces the 40 mΩ 2-pad 2512 | 4-terminal, ±35 ppm/K | [WSK2512] |
 | Current amplifiers | INA241A2IDGKR × 2 | replaces TSC2020 | ±15 µV, ±0.01 %, 1 µs hold, ≤ 125 kHz PWM; C36752877, 2 stock, $5.71-4.08 | [INA241] |
-| Battery fuse | Littelfuse 0501012.WR1 (F1), 12 A fast-acting, 1206 | new | 32 VDC, 150 A interrupting, 3.11 mΩ, melting I²t 20.34 A²s ([Littelfuse 501], Revised 12/14/17); 8.2 A continuous at 75 °C, holds the 10.1 A summed limits; a 4S pack of ≤ 180 mAh cells shorts at 82 A at most (Battery input, Gaps) | `boards/main2/Regulators.zen` |
+| Battery fuse | Littelfuse 0501012.WR1 (F1), 12 A fast-acting, 1206 | new | 32 VDC, 150 A interrupting, 3.11 mΩ, melting I²t 20.34 A²s ([Littelfuse 501], Revised 12/14/17); 8.2 A continuous at 75 °C, holds the 10.1 A summed limits; a 4S pack of ≤ 180 mAh cells shorts at 82 A at most (Battery input, Gaps) | `boards/main/Regulators.zen` |
 | Bridge decoupling | 4 × CL32B106KBJNNNE 10 µF X7R 50 V 1210 per bridge (and 2 at the fan), all ceramic on merit (VBAT capacitance) | new | 265 mV pp worst case at 100 kHz; C138687 $0.33 | calculations/power_tree/vbat_bulk.py |
 | Fan driver | STSPIN958 (keep); R31 20-25 mΩ 1206; RSR 1-2.2 kΩ; C36 ≥ 25 V; C34/C35 50 V X7R 0805; C33 X7R; L6 XGL5030-472 4.7 µH | modify | 5.05-58 V, 500 kHz, 280 ns min pulse; C20033901, 0 stock, $4.23 | [STSPIN958], fan study §5 |
 | Fan fallback | TPS28225DR + 2 × CSD17578Q3A + TLV3201/TLV7031 + shunt | only above ~3 A | TPS28225DR C52897 $0.85; CSD17578Q3A $0.42 | fan study §3 |
@@ -810,7 +812,7 @@ cable. The chips without OTG (C3, C5, C6) have only the fixed-function USB-Seria
 serial port with fixed descriptors plus a JTAG interface for the ESP's own CPU (non-OTG study Q2.1).
 Without a USB port on the board, each wired function has a cover:
 
-| Function | Cover on main2 |
+| Function | Cover on the board |
 |---|---|
 | H7 debug probe | CMSIS-DAP over TCP or Black Magic over Wi-Fi ([ESP32 radio](#esp32-radio)); an ST-Link on the SWD1 pads with no Wi-Fi |
 | H7 console and telemetry | the link to the radio, bridged to TCP; logs stored on board and offloaded after a contest allocation |
@@ -959,7 +961,7 @@ PWM ripple against these costs; both are fitted.
 - **Size, height and mass.** A shielded part rated for the current is the largest passive near each
   motor and adds mass to a 76 g robot. The wheel choke is the XAL7070-473 (7.2 × 7.5 × 7.0 mm,
   1.9-2.3 g each), the fan's the XGL5030-472 (5.3 × 5.5 × 3.1 mm). Heights: 7.0 mm (7.13 mm with
-  unreflowed terminations) and 3.1 mm, within the 8.0 mm open height of `spec/main2.toml`; the
+  unreflowed terminations) and 3.1 mm, within the 8.0 mm open height of `spec/main.toml`; the
   XAL7070 also fits the 7.2 mm `left_tail` zone and no lower zone.
 - **Saturation current.** Both parts saturate softly (Coilcraft's saturation models): the XAL7070-473
   keeps 79 % of its inductance at the 3 A ITRIP, 69 % at its 4.2 A Isat and 60 % at the 5.48 A bound
@@ -1065,7 +1067,7 @@ DRV8874's IPROPI, read with a probe across RIPROPI).
 
 - **Motors**: maxon publishes no commutator wear at 4-5 × IN (ordered with CLL, spares kept;
   [Drivetrain](#drivetrain)); the DCX 10 L's 25.2 mm length needs MicrasHardware's blocks reshaped
-  and the `left_motor_can` zone of `spec/main2.toml` extended.
+  and the `left_motor_can` zone of `spec/main.toml` extended.
 - **Drivers**: the DRV8874's tBLK and tDEG are typical values only (the overshoot bound takes 1.5 ×
   them). For the IPROPI-only alternative of Q1 (not on the board): DRV8262 IPROPI dynamics and its
   "rated current" are undefined, there are no mirror noise, VM dependence or calibration-stability
@@ -1110,7 +1112,7 @@ MB, git-ignored) into their `out/` folder; the netlists (`.cir`), logs and summa
 | [current_sense/ina241_riso.py](calculations/current_sense/ina241_riso.py) | `ina241_riso_out.txt` | INA241A2 into R_iso + C_f with TI's PSpice model: peaking, step overshoot, ADC kickback settling over tolerance corners (ngspice, about 8 min; downloads the model) |
 | [drivers/q4_drivers.py](calculations/drivers/q4_drivers.py) | `q4_drivers_out.txt` | Q4 losses, junction rise, stall and reversal currents, duty distortion |
 | [drivers/area.py](calculations/drivers/area.py) | `area_out.txt` | Courtyard areas from the KiCad 10 library (reads `/usr/share/kicad/footprints/`) |
-| [drivers/area_board.py](calculations/drivers/area_board.py) | `area_board_out.txt` | As-built areas; KiCad's `pcbnew` module, run with `boards/main/layout/main.kicad_pcb` as argument |
+| [drivers/area_board.py](calculations/drivers/area_board.py) | `area_board_out.txt` | As-built areas of the v1 board; KiCad's `pcbnew` module, run with its layout (`git show e34fb9a:boards/main/layout/main.kicad_pcb`) as argument |
 | [esp/placement.py](calculations/esp/placement.py) | `placement.png` | ESP candidate positions on the main-board-fixes layout with the MicrasHardware chassis projected; `pcbnew` and matplotlib, the board file as argument |
 | [esp/link_budget.py](calculations/esp/link_budget.py) | `link_budget_out.txt` | The ESP32-C5-MINI-1's 5 GHz link margin at 1-20 m in free space |
 | [drivers/jlc_query.py](calculations/drivers/jlc_query.py) | `jlc_out.txt`, `../fan/jlc_fan_out.txt` | JLCPCB parts search by MPN (online; results dated 2026-10-15) |
@@ -1119,7 +1121,7 @@ MB, git-ignored) into their `out/` folder; the netlists (`.cir`), logs and summa
 | [supply3v3/sim3v3.py](calculations/supply3v3/sim3v3.py), [analyze.py](calculations/supply3v3/analyze.py) | `out/summary_meas.txt`, `out/summary_slots.txt` | Averaged 3V3/VDDA droop model during the emitter pulses (ngspice, seconds) |
 | [power_tree/sim_power_tree.py](calculations/power_tree/sim_power_tree.py), [analyze.py](calculations/power_tree/analyze.py) | `out/summary.txt` | Switching-level analog-rail model, cases A-F (ngspice, about 5 min per case, 6 in parallel) |
 | [power_tree/calc_power_tree.py](calculations/power_tree/calc_power_tree.py) | `out/calc_power_tree.txt` | Analog-rail load, LDO heat, emitter sink, the 5V_IN programming budget, ADC noise, LC filter |
-| [emitter/emitter_sink.py](calculations/emitter/emitter_sink.py) | `emitter_sink_out.txt` | main2's emitter sink with the DAC set-point and AC-coupled selectors, with TI's TLV9002 model and AO3400A stand-ins: worst-case current and margin, turn-off with a pin held high, pulse start against the DAC timing, AO3400A VGS over temperature (ngspice, about 15 min; downloads the models) |
+| [emitter/emitter_sink.py](calculations/emitter/emitter_sink.py) | `emitter_sink_out.txt` | The board's emitter sink with the DAC set-point and AC-coupled selectors, with TI's TLV9002 model and AO3400A stand-ins: worst-case current and margin, turn-off with a pin held high, pulse start against the DAC timing, AO3400A VGS over temperature (ngspice, about 15 min; downloads the models) |
 | [emitter/ambient_light.py](calculations/emitter/ambient_light.py) | `ambient_light_out.txt` | Ambient light on the TPS601A receivers: tungsten-equivalent irradiance of contest lighting, receiver current against the ADC range |
 | [power_tree/vbat_bulk.py](calculations/power_tree/vbat_bulk.py) | `vbat_bulk_out.txt` | VBAT capacitor options (MLCC DC bias, 100 kHz ripple, source impedance; the ceramics against 35 V solid-polymer aluminium bulk), hot plug and Q6 switching, regeneration with the pack pulled, TVS clamp, and in section 9 a P-FET gate clamp the board does not use (ngspice, about 5 min) |
 | [power_tree/fuse_501_curves.py](calculations/power_tree/fuse_501_curves.py) | `fuse_501_curves_out.txt` | F1's time-current curves digitised from the Littelfuse 501 datasheet's vector paths (the PDF as argument; pdftocairo) |
@@ -1362,4 +1364,4 @@ Every H7 line lands on a GPIO free of any restriction ([ESP32-C5] §2.3.5, prior
 input and output off and no pull at reset ([ESP32-C5 TRM] Table 8.13-1). J2 is the ESP-Prog
 Program interface: 1 EN, 2 5V_IN, 3 TX0, 4 GND, 5 RX0, 6 GPIO28 ([ESP-Prog]). SW3 and the SWD1 pads
 on GND/PA13/PA14 stay as the backstop. Source: [ESP32-C5-MINI-1] Tables 3-1, 4-1 to 4-3, 6-2 to
-6-5, section 9; `boards/main2/Esp.zen`.
+6-5, section 9; `boards/main/Esp.zen`.

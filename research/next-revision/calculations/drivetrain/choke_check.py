@@ -23,7 +23,7 @@
 #   gives 24 K/W; the tool's LossRth for the series is 17-26.5 K/W; 26.5 K/W is used.
 # - DRV8874 (TI SLVSF66A section 6.5): tBLK 1.1 us + tDEG 0.6 us (typical, no limits published),
 #   tFALL 150 ns; AIPROPI 450 uA/A, AERR +-5.5 % at 2-4 A; IOCP 6 A min with a 3 us deglitch (tOCP).
-#   ITRIP (equation 3) with VREF = 3V3_D x 20k / 24.7k: 3V3_D 3.284-3.346 V (main2.zen), 1 %
+#   ITRIP (equation 3) with VREF = 3V3_D x 20k / 24.7k: 3V3_D 3.284-3.346 V (main.zen), 1 %
 #   resistors, RIPROPI 2.0 kOhm 1 %.
 # - INA241A2 linear range +7.25 / -8.15 A (Sensors.zen).
 import math

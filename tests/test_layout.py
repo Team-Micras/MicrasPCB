@@ -26,8 +26,8 @@ needs_pcb = pytest.mark.skipif(shutil.which("pcb") is None, reason="pcb not inst
 PER_PAD = None
 # reach of the capacitors that cannot sit at their pin (mm, pad centre to pad centre; see below)
 REACH_C109, REACH_C108 = 15.5, 13.5
-REACH_VDDSMPS = {"main2": 4.6}  # mm: main2's C1/C2 from VDDSMPS (pin 6); checked on main2 only
-REACH_VFBSMPS = {"main2": 7.5}  # mm: main2's C3/C4 from VFBSMPS (pin 7)
+REACH_VDDSMPS = 4.6  # mm: the main board's C1/C2 from VDDSMPS (pin 6)
+REACH_VFBSMPS = 7.5  # mm: the main board's C3/C4 from VFBSMPS (pin 7)
 DECOUPLING = [
     (
         "STM32H725",
@@ -37,9 +37,9 @@ DECOUPLING = [
         "AN5419 Rev 3 Table 2 p7: 100 nF per VDD pin, as close as possible",
     ),
     ("STM32H725", ("VDDA",), 1, (90e-9, 110e-9), "AN5419 Table 2 p7: 100 nF as close as possible to VDDA"),
-    # The SMPS (Direct SMPS supply): AN5419 asks for its capacitors "close" with no number; main2's
-    # sit where its escape rows leave room (layout README, Open items). The reaches are main2's,
-    # which may not grow; the main board, done before this check, is not held to them.
+    # The SMPS (Direct SMPS supply): AN5419 asks for its capacitors "close" with no number; the
+    # main board's sit where its escape rows leave room (layout README, Open items). The reaches
+    # are its own, which may not grow.
     (
         "STM32H725",
         ("VDDSMPS",),
@@ -62,20 +62,6 @@ DECOUPLING = [
     ("STM32H725", ("VCAP3",), 1, (90e-9, 110e-9), "AN5419 Figure 5 p10: 100 nF close to each VCAP pin"),
     ("LSM6DSV", ("Vdd",), 1, (90e-9, 110e-9), "DS13476 Rev 5 Table 2 note 1, Figure 27: 100 nF as near as possible"),
     ("LSM6DSV", ("Vdd_IO",), 1, (90e-9, 110e-9), "DS13476 Rev 5 Table 2 note 1, Figure 27: 100 nF as near as possible"),
-    (
-        "TSC2020",
-        ("VCC",),
-        1,
-        (90e-9, 110e-9),
-        "DS14393 Rev 7 section 5.11: 100 nF as close as possible to the supply pins",
-    ),
-    (
-        "L6205",
-        ("VSA", "VSB"),
-        1,
-        (90e-9, 220e-9),
-        "L6205 p12: 100-200 nF ceramic between VSA/VSB and ground near the L6205",
-    ),
     ("STSPIN958", ("VS",), 2, (420e-9, 520e-9), "DS14341 Rev 1 section 8, Table 12: 2 x 470 nF close to the VS pins"),
     ("STSPIN958", ("VDD",), 1, (198e-9, 242e-9), "DS14341 Rev 1 section 8, Table 12: 220 nF close to VDD"),
     (
@@ -145,7 +131,7 @@ DECOUPLING = [
 # only for the 1 uF of the 5 V LDO mode; the 3.3 V mode drawing just shows 100 nF on VDD.
 # The datasheets give no number for "close". This project reads it as: the capacitor's nearest pad
 # centre within 3 mm of the pin's pad centre, which puts an 0402 beside the pin with one via (the
-# previous main board's LSM6DSV capacitors sit 2.1-2.5 mm from the part).
+# Altium MicrasMainBoard's LSM6DSV capacitors sit 2.1-2.5 mm from the part).
 MAX_DECOUPLING_MM = 3.0
 
 # A schematic-only board (no .kicad_pcb yet) has nothing to check here.
@@ -189,10 +175,6 @@ def decoupling_findings(board: str, pcb: layout.Board) -> list[str]:
             if ref not in d.refs(mpn):
                 continue
             lim = reach[0] if reach else MAX_DECOUPLING_MM
-            if isinstance(lim, dict):  # a reach for named boards only
-                if board not in lim:
-                    continue
-                lim = lim[board]
             numbers = [n for name in names for n in d.pads(ref, name)]
             if not numbers:
                 problems.append(f"{ref} has no pin named {'/'.join(names)}")

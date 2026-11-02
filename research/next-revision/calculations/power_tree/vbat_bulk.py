@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """VBAT bulk capacitance without electrolytics, and VBAT overvoltage (research/next-revision).
 
-Compares the VBAT capacitor options of main2 (bridges' bulk C87/C96) and quantifies the
+Compares the VBAT capacitor options of the main board (bridges' bulk C87/C96) and quantifies the
 overvoltage cases behind the TVS question. Every input number carries its source; ASSUMPTION
 marks the rest. ngspice (batch mode) runs the time-domain and AC cases; the netlists go to a
 temporary directory.
@@ -92,7 +92,7 @@ OPTIONS = {
     "board + 1 x 35SVPF22M 22u 35V OS-CON": ([("CL32B106KBJNNNE 10u 50V X7R 1210", 10)],
                                              (22e-6, 0.035, 3e-9, 1)),
 }
-# Existing VBAT ceramics on main2 (Drivers.zen): 4 x 10 uF 1206 per bridge (C83-C86, C92-C95) and
+# Existing VBAT ceramics on the main board (Drivers.zen): 4 x 10 uF 1206 per bridge (C83-C86, C92-C95) and
 # 2 x 10 uF 1206 at the fan (C36, C99), all CL31B106KBHNNNE; the 100 nF and 470 nF parts are
 # ignored here.
 BASE_MLCC = [("CL31B106KBHNNNE 10u 50V X7R 1206", 10)]

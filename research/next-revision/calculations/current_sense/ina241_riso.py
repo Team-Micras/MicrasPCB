@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """INA241A2 output into R_iso + C_f and the ADC's sample capacitor, with TI's PSpice model in ngspice.
 
-The circuit (boards/main2/Sensors.zen): U10/U11 INA241A2 on VS = 3V3_A = 3.3 V, REF1 = VS and
+The circuit (boards/main/Sensors.zen): U10/U11 INA241A2 on VS = 3V3_A = 3.3 V, REF1 = VS and
 REF2 = GND (mid-supply output), OUT -> R_iso (R78/R79) -> ADC pin (PB1/PC1) with C_f (C102/C105) to
 GND. The ADC (DS13311 Rev 5, Table 84 and Figure 45) samples through its switches onto CADC = 4 pF,
 which arrives charged to another channel's voltage (up to VDDA away); the converted value is the
@@ -172,7 +172,7 @@ CASES = [  # (R_iso, C_f), all 0402: C_f straight on OUT, then R_iso + C_f pairs
     (100, 2.2e-9),
 ]
 CHOSEN = (150, 1e-9)
-T_MIN = 0.7  # us: the firmware's minimum sampling time (boards/main2/firmware_changes.toml, adc)
+T_MIN = 0.7  # us: the firmware's minimum sampling time (boards/main/firmware_changes.toml, adc)
 TIMES = (0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.7, 0.8, 1.0)
 
 

@@ -21,12 +21,12 @@ Ratings (datasheet p.1-2): VRRM 40 V; IO 1 A; IFSM 9 A; Pd 500 mW, RthJA 200 C/W
 Reverse current is 1 mA max at 40 V and 25 C; typical at 17 V: about 12 uA (25 C), 0.11 mA
 (75 C), 0.92 mA (100 C); at 1-5 V: 5-6 uA, 55-64 uA, 0.42-0.59 mA.
 
-Integration note: as one of two OR-ing diodes into a rail (main2: D14 from VBAT and D17 from a
+Integration note: as one of two OR-ing diodes into a rail (the main board: D14 from VBAT and D17 from a
 programmer's 5 V pin into VSYS), the diode on the absent source blocks with VR up to the other
 source's voltage. Its leakage then flows into its anode's node; if nothing else drives that node
-(main2's VBAT with only 5V_IN present), size the node's load for it: about 6 uA at 25 C and
-0.14 mA at 85 C at a few volts. main2's 22 kOhm battery divider holds VBAT at 0.13 V at 25 C and
-1.1 V at 70 C (boards/main2/Regulators.zen, VSYS).
+(the main board's VBAT with only 5V_IN present), size the node's load for it: about 6 uA at 25 C and
+0.14 mA at 85 C at a few volts. The main board's 22 kOhm battery divider holds VBAT at 0.13 V at 25 C and
+1.1 V at 70 C (boards/main/Regulators.zen, VSYS).
 
 ## Footprint
 

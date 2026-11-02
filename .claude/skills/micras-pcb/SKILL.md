@@ -21,11 +21,10 @@ spec geometry). Each check cites its source and names the parts in its failure m
 
 `boards/main/firmware.toml` is the firmware's pin map and drive settings. When MicrasFirmware
 changes them, regenerate it (`MICRAS_FIRMWARE=<checkout> uv run micras-pcb firmware snapshot`);
-`tests/test_firmware.py` then shows what the board must change. A board change the firmware
+`tests/test_main.py` then shows what the board must change. A board change the firmware
 must follow (a new ADC pin, a new input, a new drive mode) goes in
 `boards/<board>/firmware_changes.toml`, which the tests apply on top of `firmware.toml` until
-MicrasFirmware has it (`main2`'s on top of `main`'s); list it in the board README's "Firmware
-changes".
+MicrasFirmware has it; list it in the board README's "Firmware changes".
 
 A new board can start as a schematic only: its root declares `Project(layout = False)` (no
 `Board()`), `make gen` writes no `.kicad_pcb`, and the layout gates skip it with that reason. When
@@ -221,9 +220,11 @@ not list.
 
 Origin, mechanically critical parts and the board outline come from `spec/<board>.toml`, every
 value `{value, source}`. `make gen` writes them into the layout (parts locked) and exports
-`build/<board>/<board>_mech.json` for MicrasHardware, micras-simulation and the firmware. The
-outlines are layout geometry (the boards keep their previous revisions'), and `micras-pcb mech`
-checks each has every interface feature of its spec (`spec/encoder.toml`: tab, reliefs, shoulder,
-tapers, corners, extents; `spec/main.toml`: encoder slots, screw holes, USB-C peg holes, fan hole,
-wheel notches, extents; `spec/bluetooth.toml`: extents, the HM-19's position). Change a mechanical number in the spec, never in the layout or in
-another repo; an outline change goes in both.
+`build/<board>/<board>_mech.json` for MicrasHardware, micras-simulation and the firmware. The main
+board's outline is the spec's (`spec/main.toml`: nose, wheel notches, encoder slots, fan hole,
+antenna and switch notches; `micras-pcb mech` draws it, `mech.OUTLINES`). The encoder's and the
+Bluetooth module's outlines are layout geometry (the boards keep their previous revisions'), and
+`micras-pcb mech` checks each has every interface feature of its spec (`spec/encoder.toml`: tab,
+reliefs, shoulder, tapers, corners, extents; `spec/bluetooth.toml`: extents, the HM-19's
+position). Change a mechanical number in the spec, never in the layout or in another repo; a
+layout-owned outline change goes in both.

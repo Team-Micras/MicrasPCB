@@ -1,7 +1,7 @@
 # WS2812C-2020
 
 Worldsemi WS2812C-2020-V6 (LCSC C55109522): 3.3-5.3 V addressable RGB LED, single-wire data,
-2.2 x 2.0 x 0.84 mm, 4 pads, 5 mA per colour. The 3.3 V successor of the main board's
+2.2 x 2.0 x 0.84 mm, 4 pads, 5 mA per colour. The 3.3 V successor of the v1 main board's
 WS2815C-2020-4P (12 V) for a board without a 12 V or 5 V rail. Evidence is in the docstring of
 [`WS2812C-2020.zen`](WS2812C-2020.zen).
 
@@ -24,7 +24,7 @@ Integration notes (WS2812C-2020-V6 V1.0):
 - `VDD` is declared 3.3-5.3 V (p.2). The datasheet gives 3.3 V only as the bottom of that range
   and in the feature text; its tables are at 5 V. V1.1 p5's curve keeps each channel's 5 mA
   sink at full current from 0.4 V across it, so a channel holds full current while its LED's VF
-  is at most VDD - 0.4 V: at 3.3 V that is the knee for green (boards/main2 Peripherals.zen).
+  is at most VDD - 0.4 V: at 3.3 V that is the knee for green (boards/main Peripherals.zen).
 - A 100 nF capacitor on VDD per LED (p.5 typical application) is the board's.
 - DI needs VIH = 0.55 x VDD (1.82 V at 3.3 V), so a 3.3 V MCU on the same rail drives it directly.
 - Bit timing (p.3-4): T0H 220-380 ns, T1H 580 ns-1 us, T0L and T1L 580 ns-1 us, reset >= 280 us;

@@ -13,7 +13,7 @@ Both headers take the programmer's 5 V pin as 5V_IN, which powers the board with
 MINI-1 (PCB antenna) rather than MINI-1U (external antenna): every metal part of the robot is
 18.1 mm or more from the antenna (drive blocks 18.1 mm, the left motor's can, past the centre
 line, 23 mm, the M2 screw H4 25 mm, the LiPo pack 35 mm; MicrasHardware params.py,
-spec/main2.toml [drive_blocks]), beyond Espressif's 15 mm clearance (ESP32-C5
+spec/main.toml [drive_blocks]), beyond Espressif's 15 mm clearance (ESP32-C5
 Hardware Design Guidelines, Positioning a Module on a Base Board); the exception is the dielectric
 floor 2.2-3 mm below. No published measurement quantifies that detuning, so the link is sized for
 it: at 20 m, 15.5 dBm (the lowest 802.11a power, 54 Mbit/s, Table 7-8) arrives at -58.3 dBm at
@@ -23,7 +23,7 @@ link_budget.py), so 10 dB of detuning and 15-20 dB of obstruction still leave th
 Mbit/s PHY rates. The MINI-1 holds FCC ID 2AC7Z-ESPC5MINI1 and a CE (RED) EU-type certificate (Espressif
 certificates page); the MINI-1U lists none.
 
-Placement (spec/main2.toml [u13], [antenna_notch]): the rear-right corner, the module at 180
+Placement (spec/main.toml [u13], [antenna_notch]): the rear-right corner, the module at 180
 degrees with its 5.85 mm antenna area (Figures 10-1 and 11-1) over a notch cut out of the board
 under it and beside it, its pads on the board. The antenna's ground point is at the module's pin-1
 end (the pad-62 corner), its open, loaded end at the pin-45 end (Espressif's STEP model, parts
@@ -40,7 +40,7 @@ L6981C33 (1.5 A), with C109 22 uF and C108 100 nF on the module's 3V3 pin (Figur
 0.1 uF) and C107 10 uF on its 3V3_D feed, off the antenna notch; the pin faces the board's edge, so
 the two sit off the module's front-right corner on a 1 mm strap from it (layout README); the module
 decouples its chip itself (Figure 8-1). 3V3_D carries about 104 uF in all, inside the buck's 30.5-145 uF window
-(boards/main2/test/test_power.zen). The EPAD is on GND.
+(boards/main/test/test_power.zen). The EPAD is on GND.
 
 EN: R89 10 kOhm to 3V3_D and C110 1 uF to GND, the RC delay of section 9 ("usually R = 10 kOhm and
 C = 1 uF"), so EN rises after 3V3_D (tSTBL 50 us, Table 4-8). J2 pin 1 pulls it to GND (reset).
@@ -130,7 +130,7 @@ HC_PZ127_2x3 = Module(
     "github.com/Team-Micras/MicrasPCB/components/hong-cheng/HC-PZ127-7.2L-2x3PS/HC-PZ127-7.2L-2x3PS.zen"
 )
 
-# Its own sheet in the board schematic (layout/main2.kicad_sch).
+# Its own sheet in the board schematic (layout/main.kicad_sch).
 Project(name="Esp", path="layout", layout=False)
 
 # A signal port takes the name of the board net it carries (the firmware's pin label) wherever

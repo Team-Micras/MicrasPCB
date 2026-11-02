@@ -1,9 +1,9 @@
-"""Planes, plane vias and routing of the second main board, on the placement place.py leaves.
+"""Planes, plane vias and routing of the main board, on the placement place.py leaves.
 
-    /usr/bin/python3 boards/main2/layout/route.py      # KiCad's Python (pcbnew), from the repo root
+    /usr/bin/python3 boards/main/layout/route.py      # KiCad's Python (pcbnew), from the repo root
 
 Starts from the placed board: every track, via and board-level pour is removed first, so a rerun
-gives the same copper. Stackup (boards/main2/main2.zen): F.Cu and B.Cu 1 oz, In1.Cu and In2.Cu
+gives the same copper. Stackup (boards/main/main.zen): F.Cu and B.Cu 1 oz, In1.Cu and In2.Cu
 0.5 oz.
 
 - In1.Cu and In2.Cu: ground planes over the whole board, so a track on either outer layer has an
@@ -59,13 +59,13 @@ import router  # noqa: E402
 sys.path.insert(0, str(ROOT / "tools"))
 from micras_pcb import nets, tools  # noqa: E402
 
-PCB = HERE / "main2.kicad_pcb"
-OX, OY = 148.5011, 113.5036  # spec/main2.toml [kicad]
+PCB = HERE / "main.kicad_pcb"
+OX, OY = 148.5011, 113.5036  # spec/main.toml [kicad]
 B: pcbnew.BOARD = None
 F, BK, IN1, IN2 = pcbnew.F_Cu, pcbnew.B_Cu, pcbnew.In1_Cu, pcbnew.In2_Cu
 LAYERS = {"F": F, "B": BK, "In1": IN1, "In2": IN2}
 VIA_D, VIA_HOLE = 0.45, 0.3
-# the signals' via in Freerouting (boards/main2/main2.zen): between the STM32's 0.4 mm pitch pins
+# the signals' via in Freerouting (boards/main/main.zen): between the STM32's 0.4 mm pitch pins
 ESCAPE_D, ESCAPE_HOLE = 0.35, 0.2
 CU_GAP = 0.2  # via to other copper on the outer layers
 
@@ -190,7 +190,7 @@ VBAT_POUR = [
 MCU = "IC1"
 MCU_3V3 = 0.8  # mm past the pin tips: a via at each 3V3_D pin's tip
 # VCORE's island (owner, 2026-10-24) is only as big as its job: a band round the 3V3_D island that
-# reaches the vias of VFBSMPS (pin 7) and VCAP1-3 (pins 33, 49, 66; main2.zen, DS13311 pinout), of
+# reaches the vias of VFBSMPS (pin 7) and VCAP1-3 (pins 33, 49, 66; main.zen, DS13311 pinout), of
 # their capacitors C5-C7 and of the SMPS output (L1, C3, C4), and joins them. Each face goes out to
 # its own reach (mm, in |dx| + |dy| from the chip's centre: the faces run at 45 degrees as the chip
 # sits, place.py) about 1 mm past its furthest VCORE via, and the band stops either side of the
@@ -254,7 +254,7 @@ def vcore_outline() -> list:
 def mcu_3v3_outline() -> list:
     """3V3_D's In2.Cu island (robot frame): the square under IC1 out to its pin tips, with a tab out
     to each 3V3_D pin's via at the tip (ESCAPE_REACH): VBAT (pin 1), VDDSMPS (pin 6) and VDD (pins 9,
-    22, 35, 51, 68), all on 3V3_D (main2.zen; DS13311 pinout). Built in the chip's frame and turned
+    22, 35, 51, 68), all on 3V3_D (main.zen; DS13311 pinout). Built in the chip's frame and turned
     with it, so the outline is octilinear as the chip sits."""
     f = B.FindFootprintByReference(MCU)
     kx, ky = xy(f.GetPosition())
@@ -640,7 +640,7 @@ EP_REACH = 0.6  # mm from a pin's inner end to its exposed pad
 
 
 # The STM32's escape: each pin leaves straight out along its axis, before any other part's via
-# or track takes the room in front of its row, to a 0.35 mm via (main2.zen) on one of three rows
+# or track takes the room in front of its row, to a 0.35 mm via (main.zen) on one of three rows
 # past the pin tips, staggered so a track out of the far rows passes between the near rows' vias
 # (0.4 mm pitch: 0.15 mm from a 0.15 mm track to a via). 3V3_D's vias take the near row, inside
 # its In2 island; VCORE's go past the far row, onto its ring; VDDA and SMPS_LX (ROUTES) leave
@@ -1391,7 +1391,7 @@ def fatten() -> int:
 
 # router.py's rules: 0.15 mm signals; 0.13 mm from other copper, so a track keeps the board's
 # 0.2 mm from a via's hole (0.45 mm via: 0.225 mm pad, 0.15 mm hole radius) with 5 um to spare: a
-# 0.28 mm pitch, against JLCPCB's 0.1 / 0.1 mm (main2.zen)
+# 0.28 mm pitch, against JLCPCB's 0.1 / 0.1 mm (main.zen)
 SIGNAL_W, SIGNAL_CLR = 0.15, 0.13
 # Freerouting's: the board's 0.1 mm from tracks and pads (a 0.25 mm pitch), its vias drawn wide
 # enough that the 0.1 mm from their copper is HOLE_TRACK from their hole; they come back their size
@@ -1521,7 +1521,7 @@ def freerouting() -> None:
                     held.append(host)
     holds = [_hold(p) for p in held]
     with tempfile.TemporaryDirectory() as d:
-        dsn, ses = Path(d) / "main2.dsn", Path(d) / "main2.ses"
+        dsn, ses = Path(d) / "main.dsn", Path(d) / "main.ses"
         if not pcbnew.ExportSpecctraDSN(B, str(dsn)):
             raise SystemExit("Specctra export failed")
         dsn.write_text(_classes(dsn.read_text()))
@@ -1604,7 +1604,7 @@ def _bridge_stub(t) -> bool:
     """t ends at the centre of a pin of a part that puts a switching and an analog pin side by side
     (nets.STUB_PARTS: the DRV8874s' VREF and IPROPI two pins from OUT1, SLVSF66A pinout; the INA241s'
     Kelvin input beside VS; the shunts' sense pads): its escape stub cannot keep ANALOG_GAP (the
-    owner's exemption, as in tests/test_main2_layout.py)."""
+    owner's exemption, as in tests/test_main_layout.py)."""
     ends = (xy(t.GetStart()), xy(t.GetEnd()))
     for ref in nets.STUB_PARTS:
         f = B.FindFootprintByReference(ref)
@@ -1629,7 +1629,7 @@ def _near_switching() -> list:
 
 def _over_pour() -> list:
     """The B.Cu tracks of other nets with a point inside the VBAT pour's outline (sampled every
-    0.1 mm, as tests/test_main2_layout.py does): Freerouting's keep-out strips leave the pour's
+    0.1 mm, as tests/test_main_layout.py does): Freerouting's keep-out strips leave the pour's
     edges up to a strip open."""
     poly = _pour()[0]
     out = []

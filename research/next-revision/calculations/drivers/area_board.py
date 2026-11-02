@@ -1,5 +1,6 @@
 # As-built L6205D and TSC2020 blocks on the current main board:
-# courtyard bounding box per footprint, with pcbnew. Usage: python3 area_board.py boards/main/layout/main.kicad_pcb
+# courtyard bounding box per footprint, with pcbnew. Usage, on the v1 board's layout:
+#   git show e34fb9a:boards/main/layout/main.kicad_pcb > v1.kicad_pcb; python3 area_board.py v1.kicad_pcb
 import sys, pcbnew
 b = pcbnew.LoadBoard(sys.argv[1])
 tot = 0

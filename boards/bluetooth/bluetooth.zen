@@ -1,7 +1,8 @@
 """Micras Bluetooth module: an HM-19 BLE module on a USB-C plug.
 
-The module plugs into the main board's USB-C receptacle U2 (boards/main, PERIPHERALS.U2) and
-uses it as a four-wire port:
+The module plugs into the main board's USB-C receptacle U2 and uses it as a four-wire port. The
+main board here is the v1 main board (MicrasPCB e34fb9a, boards/main, PERIPHERALS.U2); the
+current main board has no USB-C receptacle:
 - 3V3 from the main board (its 3V3 through a switch and the PTC fuse F1) on the plug's SBU1 and
   SBU2;
 - GND on the plug's GND contacts and shell;

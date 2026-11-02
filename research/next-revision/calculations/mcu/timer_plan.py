@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Timer register values for main2's firmware changes (boards/main2/firmware_changes.toml).
+"""Timer register values for the main board's firmware changes (boards/main/firmware_changes.toml).
 
-Clocks: the firmware's CubeMX project (MicrasFirmware cube/micras_v1.ioc, kept on main2):
+Clocks: the firmware's CubeMX project (MicrasFirmware cube/micras_v1.ioc, kept on the main board):
 SYSCLK 550 MHz, APB1 and APB2 137.5 MHz, so every timer kernel clock is 275 MHz
 (RCC.Tim1OutputFreq_Value and Tim2OutputFreq_Value) and dac_pclk is APB1, 137.5 MHz.
 

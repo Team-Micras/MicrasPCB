@@ -39,7 +39,7 @@ are the module's TX0/RX0 (UART0, the ROM's console and download port).
   under the antenna there is nothing to print them on); a pin-1 tick on the silkscreen outside the
   body, beside pad 1 (the module hides any mark under it); and the 12 thermal-via sites of Figure
   11-1 ("Via for thermal pad", in the gaps between the EPAD squares) as 0.2 mm circles on
-  Cmts.User, the repo's via-site convention (boards/main2/layout/route.py thermal_sites), for the
+  Cmts.User, the repo's via-site convention (boards/main/layout/route.py thermal_sites), for the
   layout to place 0.2 mm vias there.
 - Espressif's STEP (`ESP32-C5-MINI-1_V1-3_0.STEP`, linked from the datasheet's section 11.1) is
   embedded (`pcb embed-step`) at offset (-7.7, -7.7, 0), no rotation: its 15.4 x 21.3 mm body

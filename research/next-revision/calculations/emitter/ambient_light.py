@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ambient light on main2's wall receivers (TPS601A(F) on 1 kOhm, boards/main2/Sensors.zen).
+"""Ambient light on the main board's wall receivers (TPS601A(F) on 1 kOhm, boards/main/Sensors.zen).
 
 The receiver is an emitter follower: collector on 3V3_A, emitter on the ADC pin with 1 kOhm to GND,
 so its output is IL x 1 kOhm and can never pass 3V3_A - VCE(sat) (0.25 V typ, 0.4 V max, TPS601A(F)

@@ -27,7 +27,7 @@ drawing's end view and SCHEMATIC show the same pairing, see the docstring).
 
 ## Why this part
 
-Requirement (main2, Regulators): DC rating at or above the 4S pack (16.8 V, 17.4 V with HV
+Requirement (the main board, Regulators.zen): DC rating at or above the 4S pack (16.8 V, 17.4 V with HV
 cells; the switch carries only Q6's gate drive, VBAT / 200 kOhm, about 87 uA), not much bigger
 than the MK-12D18-G040 it follows, a long black lever that overhangs the rear notch's edge,
 mounted the same way. Candidates (drawings and LCSC listings, JLCPCB parts search 2026-10-17;
@@ -65,7 +65,7 @@ it against its 2 mm pitch and fit the 0.3 mm thick pins and legs. F.Fab: the bod
 2.65 mm) and the lever over its travel (to y 8.65 mm). F.CrtYd 0.25 mm around the pads, the body
 and the lever's travel. Silkscreen on the rear edge and the sides, clear of the pads, and "ON"
 behind the body at the pin-3 (B) end (x +3.2 mm, y -2.1 mm, beside the reference): the lever at
-that end joins COM to B, so a board wires its "on" circuit to B (main2's SW4 does).
+that end joins COM to B, so a board wires its "on" circuit to B (the main board's SW4 does).
 
 The embedded STEP `SK-12D29-G060.step` was written for this package with CadQuery from the
 drawing's nominal dimensions (body 8.6 x 3.6 x 3.6 mm, lever 1.5 x 1.5 x 6.0 mm at mid-height,

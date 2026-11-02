@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""INA241A2 output after a bridge's common-mode edge, at main2's conditions, with TI's PSpice model.
+"""INA241A2 output after a bridge's common-mode edge, at the main board's conditions, with TI's PSpice model.
 
 The datasheet characterises the common-mode transient only at VS = 5 V with a 0-48 V step (SBOSA30D
 Figure 7-1, section 7.3.1.1: the output is held for 1 us after a large dV/dt edge, then the
-amplifier's bandwidth and AC CMRR take over). main2 runs it at VS = 3V3_A = 3.3 V, REF1 = VS,
+amplifier's bandwidth and AC CMRR take over). The main board runs it at VS = 3V3_A = 3.3 V, REF1 = VS,
 REF2 = GND (mid-supply), with the shunt on the bridge output, so both inputs step 0 <-> VBAT
 (16.8 V) at the DRV8874's 150 ns edges (SLVSF66A tRISE/tFALL), and the output goes through R_iso
 150 Ohm to C_f 1 nF at the ADC pin (Sensors.zen).
