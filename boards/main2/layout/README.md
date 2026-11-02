@@ -103,9 +103,9 @@ VBAT ─┬─ IC8/IC9 DRV8874 VM, IC6 STSPIN958 VS
 ## Drivetrain and current sensing
 
 - **Bridges**: one DRV8874PWPR per motor, PH/EN mode (PMODE = GND), PWM on EN and direction on
-  PH (right PA8/PB8, left PC7/PC6), IMODE = GND (fixed off-time, automatic retry), ITRIP 2.97 A
+  PH (right PA10/PB7, left PC6/PA9), IMODE = GND (fixed off-time, automatic retry), ITRIP 2.97 A
   from RIPROPI 2.0 kOhm and VREF 2.67 V (4.7k/20k from 3V3_D). nSLEEP of both on Motors_Enable
-  (PA10) with R49 100 kOhm to GND; nFAULT of both wire-ORed on Motors_nFault (PB2) with R60
+  (PB8) with R49 100 kOhm to GND; nFAULT of both wire-ORed on Motors_nFault (PD2) with R60
   10 kOhm to 3V3_D. Per bridge: 100 nF + 4 x 10 uF 50 V X7R 1210 on VM, 100 nF VCP, 22 nF
   CPH-CPL.
 - **Motor path**: OUT1 -> 10 mOhm WSK2512 4-terminal shunt -> 47 uH XAL7070-473 choke -> motor
@@ -117,9 +117,9 @@ VBAT ─┬─ IC8/IC9 DRV8874 VM, IC6 STSPIN958 VS
 
 ## Fan
 
-STSPIN958 in parallel half-bridge mode, PWM trimming, on TIM12 at 400 kHz: R31 25 mOhm, REF from
+STSPIN958 in parallel half-bridge mode, PWM trimming, on TIM14 at 400 kHz: R31 25 mOhm, REF from
 4.7k/2.0k on 3V3_D (current limit 3.94 A), RSR 1 kOhm (2 V/ns), 2 x 470 nF 50 V X7R 0805 +
-2 x 10 uF 50 V on VS, CBOOT 1 uF 50 V X7R (the IC runs hot), and a 4.7 uH XGL5030-472 choke between FAN_OUT and the motor. Fan_PWM PB15 and Fan_TOFF PB13 as on the main board; Fan_Enable on PB10, driven open drain and read back as the driver's nFAULT.
+2 x 10 uF 50 V on VS, CBOOT 1 uF 50 V X7R (the IC runs hot), and a 4.7 uH XGL5030-472 choke between FAN_OUT and the motor. Fan_PWM on PA7 (TIM14_CH1), Fan_TOFF on PB10; Fan_Enable on PB12, driven open drain and read back as the driver's nFAULT.
 
 ## Sensors
 
@@ -153,7 +153,7 @@ STSPIN958 in parallel half-bridge mode, PWM trimming, on TIM12 at 400 kHz: R31 2
   SWDIO GPIO0 -> PA13, SWCLK GPIO1 -> PA14 (22 Ohm), NRST GPIO23 (open drain); SPI3 half-duplex
   on three wires, the MCU the master: ESP_SCK PC10 -> GPIO10 (R95 22 Ohm at PC10), ESP_DATA PC12
   (the MOSI pad, IOSWP = 0) <-> GPIO8 (R96 220 Ohm at the C5), ESP_CSn PC11 -> GPIO9 (R88 100 Ohm
-  at the C5, R97 100 kOhm pull-up to 3V3_D); ESP_Flow GPIO24 -> PA9, the C5's credit line. UART4
+  at the C5, R97 100 kOhm pull-up to 3V3_D); ESP_Flow GPIO24 -> PA11, the C5's credit line. UART4
   is the fallback on PC10/PC11 with no board change.
 - **ST-Link header** SWD1: bare 1.27 mm pitch pads in a clone ST-Link lead's order, 1 SWDIO, 2 GND,
   3 SWCLK, 4 5V_IN (the probe's 5 V pin; no NRST), for a probe when the ESP32-C5 cannot reach the
@@ -165,31 +165,42 @@ STSPIN958 in parallel half-bridge mode, PWM trimming, on TIM12 at 400 kHz: R31 2
 
 ## Pins
 
-The MCU keeps the main board's pin map except: PA8 (TIM1_CH1) and PB8 carry EN and PH of the right
-bridge, PC7 (TIM8_CH2) and PC6 the left's; PC10 (SPI3_SCK), PC12 (SPI3 data) and PC11 (chip
-select) carry the SPI3 link to the ESP32-C5, UART4 as its fallback on PC10/PC11, so the link leaves
-the STM32's rear-right row toward the module; the IMU and encoder bus is SPI2 on PB13-PB15, Fan_PWM
-is on PA7 (TIM14_CH1), Button on PA11 and Fan_TOFF on PA12; PB2 reads
-Motors_nFault; PA9 reads ESP_Flow; PA13/PA14 and NRST go to the ESP32-C5 (PA13/PA14 also to the
-header SWD1); PA5 is the emitter DAC (DAC1_OUT2), PC5 reads the battery divider (ADC12_INP8) and PH0 reads
-Switch_0, the MCU having no VBUS input. For the routing, Current_Sensor_Left moves to PB1 (a fast
-ADC channel), Wall_Sensor_0 to PA4 and Wall_Sensor_3 to PC0, each keeping an ADC1 and an ADC2 input;
-and so that no line crosses the STM32's rear tip, the wall selectors move from TIM4 (PB6-PB9) to
-TIM3 on the rows facing their emitters (PC9 CH4, PB0 CH3 on the left; PB4 CH1, PB5 CH2 on the
-right), LED_ARGB to PB9 (TIM17_CH1) and Encoder_Right_CSn to PB7; the IMU's INT1 alone is
-IMU_INT on PB6 (INT2 unconnected), and Fan_Enable is on PB10 (main2.zen, with the alternate functions' source). Every GPIO of the VFQFPN68 is now used.
+The MCU keeps the main board's pin map except where the layout needs another row (main2.zen has
+the full map and the alternate functions' source). Each line leaves the STM32 from the row facing
+its part, and the lines that pass the fan hole leave the rear faces in the order of their routes
+round it, so no line crosses the rear tip and no two escapes cross there:
+
+- **Motors**: right bridge EN on PA10 (TIM1_CH3) and PH on PB7, left bridge EN on PC6 (TIM8_CH1,
+  gated by TIM1 over ITR0) and PH on PA9; Motors_Enable on PB8, Motors_nFault on PD2 (EXTI2).
+- **ESP32-C5 link**: PC10 (SPI3_SCK), PC12 (SPI3 data) and PC11 (chip select) on the rear-right
+  row toward the module, UART4 as its fallback on PC10/PC11; ESP_Flow on PA11 (EXTI11); PA13/PA14
+  and NRST to the C5 (PA13/PA14 also to the header SWD1).
+- **Sensor bus**: SPI2 on PB13-PB15; chip selects Encoder_Left_CSn PA12, IMU_SPI_CSn PA8,
+  Encoder_Right_CSn PB6; IMU_INT on PC7 (EXTI7, the IMU's INT1; INT2 unconnected).
+- **Wall sensors**: selectors on TIM3 on the rows facing their emitters (PC9 CH4, PB0 CH3 on the
+  left; PB4 CH1 Wall_Sensor_PWM_3, PB5 CH2 Wall_Sensor_PWM_2 on the right); the emitter DAC on PA5
+  (DAC1_OUT2); Wall_Sensor_0 on PA4 and Wall_Sensor_3 on PC0.
+- **ADC**: Current_Sensor_Left on PB1 (a fast channel), Current_Sensor_Right on PC1, each with an
+  ADC1 and an ADC2 input; the battery divider on PC5 (ADC12_INP8).
+- **Fan**: Fan_PWM on PA7 (TIM14_CH1), Fan_Enable on PB12 (open drain, its fault on EXTI12),
+  Fan_TOFF on PB10.
+- **User interface**: LED_ARGB on PA2 (TIM15_CH1, DMA on tim15_up), the buzzer on PB9
+  (TIM17_CH1), LED_Red on PB2, Button on PA3, Switch_0-3 on PH0, PH1, PC15 and PC14 (the MCU has
+  no VBUS input).
+
+Every GPIO of the VFQFPN68 is used.
 
 ## Firmware changes
 
 [`firmware_changes.toml`](../firmware_changes.toml) lists what the firmware must change against
 the v1 firmware (`boards/main/firmware.toml`), on top of the main board's own pending changes:
 PH/EN drive at 100 kHz with TIM8 slaved to TIM1; Motors_Enable as nSLEEP (1 ms wake);
-Motors_nFault on PB2; INA241 sampling on TIM1 TRGO2 with dual injected ADC1/ADC2; the battery
+Motors_nFault on PD2; INA241 sampling on TIM1 TRGO2 with dual injected ADC1/ADC2; the battery
 divider constant 11.0 on PC5 and a "no pack" reading on 5V_IN; Switch_0 on PH0; the fan at 400 kHz
-with Fan_PWM on TIM14 and Fan_Enable on PB10 open drain and its fault on EXTI10; the SPI3
+with Fan_PWM on TIM14 and Fan_Enable on PB12 open drain and its fault on EXTI12; the SPI3
 half-duplex link to the ESP32-C5 (ESP-IDF v6.0.3 or later, AFCNTR, the data line on the MOSI pad,
-/8 to start, a turn-around with no driver overlap, UART4 as fallback) with ESP_Flow credits on PA9;
-the IMU and encoder bus on SPI2; Button on PA11; the C5's slow clock on its RC, its pulls
+/8 to start, a turn-around with no driver overlap, UART4 as fallback) with ESP_Flow credits on PA11;
+the IMU and encoder bus on SPI2; Button on PA3; the LEDs on TIM15 and the buzzer on TIM17; the C5's slow clock on its RC, its pulls
 and its resync after an MCU reset;
 one wall emitter at a time on TIM3, with
 the emitter DAC on PA5 stepping with each selector and a code per emitter, and no LED or SPI
@@ -204,7 +215,7 @@ at boot and its interrupts all routed to INT1.
 [`place.py`](place.py) places every part and [`route.py`](route.py) pours the planes and routes
 the board; their docstrings give the rules they follow. The `.kicad_pcb` holds their result with
 the connections they left routed by rip-up scripts and by hand, under the same rules. Every
-connection is routed but the 13 listed under Open items.
+connection is routed but the 10 listed under Open items.
 
 - **Placement**: every part on the top side. The spec places what mates with the robot or the
   outline; the ESP32-C5-MINI-1 sits in the rear-right corner (spec `[u13]`), its pads on the board
@@ -371,21 +382,19 @@ Each is a visible TODO in the sheet that owns it.
   175 mA (Figure 2 or a measurement) and a cold check of the AC-coupled selectors' margin; the
   firmware's DAC timing against the selectors.
 - Fan: the REF setting for the chosen motor.
-- Routing: 13 connections on 11 nets are not routed, left for routing by hand:
-  - the lines that leave the STM32's rear tip between the ESP32-C5 link (pins 54-56, on F.Cu along
-    the fan hole's right side) and the sensor bus (pins 37-39, on F.Cu round its left side):
-    Button (PA11, pin 46, to SW2), Fan_TOFF (PA12, pin 47, to IC6), Encoder_Right_ABI_B (pin 53,
-    to EC1; its escape ends at the via behind the tip) and Wall_Sensor_PWM_2 (pin 59, to R19; its
-    escape ends on B.Cu beside Encoder_Right_ABI_A's). The pocket behind the tip is closed on F.Cu
-    by the link and the bus and on B.Cu by the lines that leave it already (Motor_Right_EN, SWCLK
-    and ESP_Flow along the hole's right side, Motor_Left_EN, Motor_Left_PH and SWDIO round its
-    left), and In2.Cu there is the STM32's VCORE island or crossed at 45 degrees, not square; the
-    router (router.py, every order tried) closes three of these seven at most;
-  - IMU_INT (IC2's INT1, pad 4, to its run, which ends at the via by R73), Encoder_Right_CSn,
-    Encoder_Left_ABI_A, Motors_Enable (two), Motors_nFault (two), Switch_0, and Current_Sensor_Left
-    (pin 30 to R79, analog: no In2.Cu). They run between the STM32's escape rows and the parts behind
-    the fan hole (the IMU, the encoder slots, the bridges' logic pins) or the DIP switch, where F.Cu
-    and B.Cu are full and In2.Cu takes only square crossings under the encoders' and other lines.
+- Routing: 10 connections on 10 nets are not routed, left for routing by hand:
+  - behind the fan hole, from the right corridor's end at x 14 (B.Cu, 0.24 mm pitch):
+    Motor_Right_PH (to IC8.2), Encoder_Right_CSn (to EC1.1) and Encoder_Right_ABI_A (to EC1.7).
+    Their lanes lie between Motors_Enable's and Motors_nFault's, which leave the corridor across
+    them, under 3V3_A's F.Cu run at y -9.3; each needs its lane carried on exactly to a wider
+    pitch (or a square In2.Cu hop) before its neighbours are re-routed;
+  - Motor_Left_EN (to IC9.1): IC9's logic vias are closed by the 3V3_D F.Cu trunk (x -3.8 to
+    -5.4) and Motors_Enable's and Motors_nFault's B.Cu runs; SPI_MISO (EC1.3, behind C69/C70);
+  - ESP_Flow (to U13.32) and SWDIO (SWD1.1 to U13.16): the rear centre's B.Cu is the VBAT pour,
+    so both need an F.Cu run behind the bridges or round the left;
+  - on the STM32's front-left face: Button (to SW2), LED_ARGB and Encoder_Left_ABI_A (its escape
+    via at pin 17 is closed by Switch_0 and Switch_1 on B.Cu and VDDA on F.Cu; EC2.7 has its
+    escape, an F.Cu stub between EC2.8 and C71.1 to a via).
 - Analog copper within 0.5 mm of a switching node's pad or pour: 17 pairs, 0.18-0.49 mm, each a
   pin pair the parts put side by side (the INA241's IN+ beside VS, the DRV8874's VREF and IPROPI
   beside OUT1, the emitter sink's op-amp beside Q9), a nose line beside the emitter sink, whose

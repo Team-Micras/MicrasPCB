@@ -42,69 +42,73 @@ as on the main board, on 3V3_D:
 Pin budget (research H7 pin budget): the two pins the main board left open carry two more
 lines, Motors_nFault (both DRV8874 nFAULT wire-ORed) and ESP_Flow (the ESP32-C5's credit and
 attention line).
-Layout pin swaps (owner, 2026-10-20): the DIP switch sits on the STM32's right and rear, so
-Switch_1-3 take the plain inputs on the right-facing pin rows, PH1, PC15 and PC14 (reduced-drive
-pins, fine for inputs with pull-ups), and the lines bound for the rear-left leave from the
-left-facing rows: Motors_nFault on PB2 (EXTI2); on the main board's pins every one of them circled
-the chip. BOOT0 is held low by R42: the MCU always starts from its flash.
-Layout pin swaps (owner, 2026-10-24), so that no line crosses the STM32's rear tip, where the VCORE
-island leaves In2.Cu no room: the four wall-emitter selectors move from TIM4 (PB6-PB9, all on the
-rear-right row) to TIM3, whose channels reach both sides: Wall_Sensor_PWM_0 on PC9 (TIM3_CH4) and
-Wall_Sensor_PWM_1 on PB0 (TIM3_CH3) on the left rows, by their emitters, Wall_Sensor_PWM_2 on PB4
-(TIM3_CH1) and Wall_Sensor_PWM_3 on PB5 (TIM3_CH2) on the rear-right row (PB4 leaves its reset
-function NJTRST: the debug port is SWD only; out of reset PB4 is NJTRST with its pull-up, RM0468 Rev
-3 section 11.3.1, which lifts Wall_Sensor_PWM_2's AC-coupled gate for a few ms while the emitter
-set-point is 0, so no emitter lights). The left motor's EN stays on PC7 but takes TIM8_CH2, slaved
-to TIM1 over ITR0 (RM0468 Table 350: TIM8 ITR0 = tim1_trgo) in gated mode; its PH (a GPIO) moves
-to PC6. LED_ARGB leaves TIM8_CH1 for PB9 (TIM17_CH1, its CCR1 written by DMA on tim17_up, DMAMUX1
-input 112, RM0468 Table 118). The rest are GPIOs: Motor_Right_PH on PB8, by the right bridge's
-lines, Encoder_Right_CSn on PB7 beside the SPI pins toward its slot (EC1, on the right), and
-ESP_Flow on PA9 on the rear-left row, toward the ESP32. The motor
-timers: right motor EN/PH on PA8 (TIM1_CH1) and PB8, left on PC7 (TIM8_CH2) and PC6. The ADC lines
-are swapped for the routing: Current_Sensor_Left on PB1, Wall_Sensor_0 on PA4, Wall_Sensor_3 on PC0,
-Current_Sensor_Right still on PC1. Each pin keeps an ADC1 and an ADC2 input, which the currents'
-dual injected-simultaneous sampling needs (PB1 ADC1/2_INP5, PC1 ADC1/2/3_INP11, PA4 ADC1/2_INP18,
-PC0 ADC1/2/3_INP10), and PB1 is a fast channel (DS13311 Table 85; research Current sensing), so the
-left current takes half of the research's fast-ADC swap.
-Layout pin swaps (owner, 2026-11-01), so that the ESP32-C5 link leaves the STM32 from the rear-right
-row, on the side of the module, instead of crossing the rear tip: SPI2's clock exists only on PA9,
-PA12, PB10 and PB13 and its data pins only on PB14, PB15 and PC1 (DS13311 Rev 5 Table 9, Port A
-p95-96, Port B p97-98, Port C p99-100), none on that row, so the link takes SPI3's pins and SPI3, and
-the IMU and encoder bus moves to SPI2 on the rear-left row: SPI_SCK on PB13, SPI_MISO on PB14 and
-SPI_MOSI on PB15 (SPI2 AF5). Fan_PWM leaves PB15 for PA7 (TIM14_CH1 AF9; TIM12's other channel is on
-PB14, which the bus takes), Button leaves PA7 for PA11 and Fan_TOFF leaves PB13 for PA12 (GPIO
-inputs). TIM14, like TIM12, runs from the APB1 timer clock (RM0468 Rev 3 RCC_APB1LENR TIM12EN and
-TIM14EN), so the fan keeps its prescaler and periods.
+Layout pin map (owner, 2026-10-20 to 2026-11-01): each line leaves the STM32 from the pin row
+facing its part, and the lines that pass the fan hole leave the rear faces in the order of their
+routes round it (the inner lane's lines nearest the rear tip), so that no line crosses the rear
+tip, where the VCORE island leaves In2.Cu no room, and no two escapes cross where the hole leaves
+no via site. BOOT0 is held low by R42: the MCU always starts from its flash.
+- The DIP switch on the right-facing rows: Switch_0-3 on PH0, PH1, PC15 and PC14 (reduced-drive
+  pins, fine for inputs with pull-ups).
+- The wall-emitter selectors on TIM3, whose channels reach both sides: Wall_Sensor_PWM_0 on PC9
+  (TIM3_CH4) and Wall_Sensor_PWM_1 on PB0 (TIM3_CH3) on the left rows, by their emitters,
+  Wall_Sensor_PWM_3 on PB4 (TIM3_CH1) and Wall_Sensor_PWM_2 on PB5 (TIM3_CH2) on the rear-right
+  row. PB4 leaves its reset function NJTRST (the debug port is SWD only): out of reset PB4 is
+  NJTRST with its pull-up (RM0468 Rev 3 section 11.3.1), which lifts Wall_Sensor_PWM_3's
+  AC-coupled gate for a few ms while the emitter set-point is 0, so no emitter lights.
+- The motors: the right bridge's EN on PA10 (TIM1_CH3) and PH on PB7, the left's EN on PC6
+  (TIM8_CH1, slaved to TIM1 over ITR0, RM0468 Table 350: TIM8 ITR0 = tim1_trgo, in gated mode)
+  and PH on PA9, both GPIOs; Motors_Enable on PB8 and Motors_nFault on PD2 (EXTI2).
+- LED_ARGB on PA2 (TIM15_CH1, its CCR1 written by DMA on tim15_up, DMAMUX1 input 106, RM0468
+  Table 118), the buzzer on PB9 (TIM17_CH1), LED_Red on PB2 and Button on PA3.
+- The sensor bus's chip selects, GPIOs: Encoder_Left_CSn on PA12, IMU_SPI_CSn on PA8 and
+  Encoder_Right_CSn on PB6; IMU_INT on PC7 (EXTI7). The fan's Fan_TOFF on PB10 (a polled input)
+  and Fan_Enable on PB12; ESP_Flow on PA11 (EXTI11).
+- The ADC lines: Current_Sensor_Left on PB1, Wall_Sensor_0 on PA4, Wall_Sensor_3 on PC0,
+  Current_Sensor_Right on PC1. Each pin keeps an ADC1 and an ADC2 input, which the currents' dual
+  injected-simultaneous sampling needs (PB1 ADC1/2_INP5, PC1 ADC1/2/3_INP11, PA4 ADC1/2_INP18,
+  PC0 ADC1/2/3_INP10), and PB1 is a fast channel (DS13311 Table 85; research Current sensing), so
+  the left current takes half of the research's fast-ADC swap.
+- The ESP32-C5 link leaves the STM32 from the rear-right row, on the side of the module: SPI2's
+  clock exists only on PA9, PA12, PB10 and PB13 and its data pins only on PB14, PB15 and PC1
+  (DS13311 Rev 5 Table 9, Port A p95-96, Port B p97-98, Port C p99-100), none on that row, so the
+  link takes SPI3's pins and SPI3, and the IMU and encoder bus is SPI2 on the rear-left row:
+  SPI_SCK on PB13, SPI_MISO on PB14 and SPI_MOSI on PB15 (SPI2 AF5). Fan_PWM is on PA7
+  (TIM14_CH1 AF9; TIM12's other channel is on PB14, which the bus takes). TIM14, like TIM12, runs
+  from the APB1 timer clock (RM0468 Rev 3 RCC_APB1LENR TIM12EN and TIM14EN), so the fan keeps its
+  prescaler and periods.
 Pin map check: the 46 I/Os of the VFQFPN68 are each assigned once, every alternate function exists
 on its pin (STMicroelectronics STM32_open_pin_data, the STM32CubeMX MCU database: STM32H725RGVx.xml
-and GPIO-STM32H72_gpio_v1_0_Modes.xml, DS13311 Table 9; PC9/PB0/PB4/PB5 TIM3_CH4/CH3/CH1/CH2 AF2,
-PC7 TIM8_CH2 AF3, PB9 TIM17_CH1 AF1, PA8 TIM1_CH1 AF1, PA0/PA1 TIM5 AF2, PA15/PB3 TIM2 AF1, PA2
-TIM15_CH1 AF4, PA7 TIM14_CH1 AF9, PB13-PB15 SPI2 AF5, PC10 SPI3_SCK AF6, PC12 SPI3_MOSI AF6, and in
-the fallback PC10/PC11 UART4_TX/UART4_RX AF8), and each timer serves one function (TIM1, TIM8
-motors; TIM2, TIM5 encoders; TIM3 selectors; TIM14 fan; TIM15 buzzer; TIM17 LEDs; TIM4 spare, the
-emitter DAC's trigger). The timer, DMA, DAC and ADC set-up, with the RM0468 Rev 3 and ES0491 Rev 9
-numbers, is boards/main2/firmware_changes.toml (drive, current, emitters, leds, fan, sensor_bus).
+and GPIO-STM32H72_gpio_v1_0_Modes.xml, DS13311 Table 9, Port D p101 for PD2; PC9/PB0/PB4/PB5
+TIM3_CH4/CH3/CH1/CH2 AF2, PC6 TIM8_CH1 AF3, PA10 TIM1_CH3 AF1, PA2 TIM15_CH1 AF4, PB9 TIM17_CH1
+AF1, PA0/PA1 TIM5 AF2, PA15/PB3 TIM2 AF1, PA7 TIM14_CH1 AF9, PB13-PB15 SPI2 AF5, PC10 SPI3_SCK AF6,
+PC12 SPI3_MOSI AF6, and in the fallback PC10/PC11 UART4_TX/UART4_RX AF8), each EXTI line is used
+once (2 Motors_nFault, 3 Button, 7 IMU_INT, 11 ESP_Flow, 12 Fan_Enable), and each timer serves one
+function (TIM1, TIM8 motors; TIM2, TIM5 encoders; TIM3 selectors; TIM14 fan; TIM15 LEDs; TIM17
+buzzer; TIM4 spare, the emitter DAC's trigger). The timer, DMA, DAC and ADC set-up, with the RM0468
+Rev 3 and ES0491 Rev 9 numbers, is boards/main2/firmware_changes.toml (drive, current, emitters,
+leds, buzzer, fan, sensor_bus).
 STM32CubeMX 6.18.1 (MCU database DB.6.0.181, STM32Cube FW_H7 V1.13.0) loads that whole set-up as a
 project built from the firmware's micras_v1.ioc with these pins, and generates its code without a
 conflict: every pin's alternate function as above, TIM8 gated on ITR0 and TIM4 gated on ITR2,
 TIM1 TRGO = enable and TRGO2 = update, ADC1/ADC2 dual injected simultaneous on channels 5 and 11
 triggered by TIM1 TRGO2 with ADC1's regular group, DAC1 channel 2 on PA5 triggered by TIM4 TRGO
 with its buffer off, channel 1 on-chip only beside PA4's ADC input, TIM14 at ARR 687 on the
-275 MHz APB1 timer clock, and the DMA requests of ADC1, SPI3 (or UART4), SPI2, TIM17_UP and DAC1
-channel 2, at the firmware's 550 MHz clock tree (275 MHz timer clocks).
+275 MHz APB1 timer clock, the EXTI2, EXTI3, EXTI9_5 and EXTI15_10 interrupts, and the DMA
+requests of ADC1, SPI3 (or UART4), SPI2, TIM15_UP and DAC1 channel 2, at the firmware's 550 MHz
+clock tree (275 MHz timer clocks).
 - The link to the ESP32-C5 (ESP sheet; firmware_changes.toml link) is SPI3 in half-duplex on
   three wires, the MCU the master (SPI_CFG2 COMM = 11, RM0468 Rev 3 section 55.4.4 and Figure
   643), its one data line on the MOSI pad (IOSWP = 0): ESP_SCK on PC10 (SPI3_SCK, AF6), ESP_DATA
   on PC12 (SPI3_MOSI, AF6), ESP_CSn on PC11 (a GPIO output: software chip select), and ESP_Flow on
-  PA9 (EXTI9), the C5's credit and attention line. UART4 is the fallback on the same pins, with no
+  PA11 (EXTI11), the C5's credit and attention line. UART4 is the fallback on the same pins, with no
   board change: ESP_SCK becomes UART4_TX (PC10, AF8) and ESP_CSn UART4_RX (PC11, AF8), the C5's
   UART1 behind them. The DMA requests are spi3_rx_dma and spi3_tx_dma, DMAMUX1 inputs 61 and 62
   (uart4 63 and 64 in the fallback; RM0468 Table 118). STM32CubeMX generates both projects: SPI3 as
   a half-duplex master on PC10/PC12 with its two DMA streams, ESP_CSn and ESP_Flow as GPIOs, and
   UART4 on PC10/PC11 with its DMA streams in the fallback. The IMU and encoder bus (SENSORS sheet)
   is SPI2 with spi2_rx_dma and spi2_tx_dma, DMAMUX1 inputs 39 and 40. PB14 left Fan_Enable for the
-  bus: Fan_Enable is on PB10
-  (open drain, DRIVERS sheet), and the IMU's INT1 alone is IMU_INT on PB6 (EXTI6), its INT2 left
+  bus: Fan_Enable is on PB12
+  (open drain, DRIVERS sheet), and the IMU's INT1 alone is IMU_INT on PC7 (EXTI7), its INT2 left
   open (SENSORS sheet).
 - PA5 is DAC1_OUT2, Wall_Emitter_Set, the wall emitters' current set-point (SENSORS sheet). PA4
   (DAC1_OUT1) and PA5 are the package's only DAC outputs (STM32CubeMX MCU database,
@@ -267,32 +271,32 @@ STM32H725RGV6(
     BOOT0=BOOT,
     PA0=ENCODER_LEFT_ABI_A,
     PA1=ENCODER_LEFT_ABI_B,
-    PA2=BUZZER,
-    PA3=ENCODER_LEFT_SPI.CS,
+    PA2=LED_ARGB,
+    PA3=BUTTON,
     PA4=WALL_SENSOR_0,
     PA5=WALL_EMITTER_SET,
     PA6=WALL_SENSOR_2,
     PA7=FAN_PWM,
-    PA8=MOTOR_RIGHT_EN,
-    PA9=ESP_FLOW,
-    PA10=MOTORS_ENABLE,
-    PA11=BUTTON,
-    PA12=FAN_TOFF,
+    PA8=IMU_SPI.CS,
+    PA9=MOTOR_LEFT_PH,
+    PA10=MOTOR_RIGHT_EN,
+    PA11=ESP_FLOW,
+    PA12=ENCODER_LEFT_SPI.CS,
     PA13=SWDIO,
     PA14=SWCLK,
     PA15=ENCODER_RIGHT_ABI_B,
     PB0=WALL_SENSOR_PWM_1,
     PB1=CURRENT_SENSOR_LEFT,
-    PB2=MOTORS_NFAULT,
+    PB2=LED_RED,
     PB3=ENCODER_RIGHT_ABI_A,
-    PB4=WALL_SENSOR_PWM_2,
-    PB5=WALL_SENSOR_PWM_3,
-    PB6=IMU_INT,
-    PB7=ENCODER_RIGHT_SPI.CS,
-    PB8=MOTOR_RIGHT_PH,
-    PB9=LED_ARGB,
-    PB10=FAN_ENABLE,
-    PB12=LED_RED,
+    PB4=WALL_SENSOR_PWM_3,
+    PB5=WALL_SENSOR_PWM_2,
+    PB6=ENCODER_RIGHT_SPI.CS,
+    PB7=MOTOR_RIGHT_PH,
+    PB8=MOTORS_ENABLE,
+    PB9=BUZZER,
+    PB10=FAN_TOFF,
+    PB12=FAN_ENABLE,
     PB13=SPI_SCK,
     PB14=SPI_MISO,
     PB15=SPI_MOSI,
@@ -300,15 +304,15 @@ STM32H725RGV6(
     PC1=CURRENT_SENSOR_RIGHT,
     PC4=WALL_SENSOR_1,
     PC5=BATTERY_VOLTAGE,
-    PC6=MOTOR_LEFT_PH,
-    PC7=MOTOR_LEFT_EN,
+    PC6=MOTOR_LEFT_EN,
+    PC7=IMU_INT,
     PC9=WALL_SENSOR_PWM_0,
     PC10=ESP_SCK,
     PC11=ESP_CSN,
     PC12=ESP_DATA,
     PC14=SWITCH_3,
     PC15=SWITCH_2,
-    PD2=IMU_SPI.CS,
+    PD2=MOTORS_NFAULT,
     PH0=SWITCH_0,
     PH1=SWITCH_1,
 )

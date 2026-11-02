@@ -79,15 +79,15 @@ def esp_flashing_header(module, inputs):
 
 def status_leds_on_3v3(module, inputs):
     # WS2812C-2020-V6 V1.1 p3: VDD 3.3-5.3 V, DI VIH 0.55 x VDD, 100 nF on VDD (p5). The research
-    # puts them on 3V3_D (no 5 V rail), driven from PB9.
+    # puts them on 3V3_D (no 5 V rail), driven from PA2.
     b = index(module)
     p = []
     vdd = net(b, "IC1", "VDD")
     for led in ["D1", "D2"]:
         if net(b, led, "VDD") != vdd:
             p.append(led + " VDD is on " + net(b, led, "VDD") + ", not 3V3_D")
-    if net(b, "D1", "DI") != net(b, "IC1", "PB9"):
-        p.append("D1 DI is not on PB9")
+    if net(b, "D1", "DI") != net(b, "IC1", "PA2"):
+        p.append("D1 DI is not on PA2")
     if net(b, "D2", "DI") != net(b, "D1", "DO"):
         p.append("D1 DO does not chain to D2 DI")
     if len([r for r in two_terminal(b, "capacitor", vdd, "GND") if abs(farads(b, r) - 100e-9) <= 10e-9]) < 2:

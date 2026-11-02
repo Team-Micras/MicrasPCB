@@ -2,7 +2,7 @@
 the two encoder slots.
 
 IMU, IC2 (LSM6DSV, DS13476 Rev 5) on the shared SPI bus with its own chip select IMU_SPI_CSn;
-INT1 (pin 4) on IMU_INT to PB6 (EXTI6), INT2 (pin 9) unconnected. The firmware routes every
+INT1 (pin 4) on IMU_INT to PC7 (EXTI7), INT2 (pin 9) unconnected. The firmware routes every
 interrupt it uses to INT1, the INT2 ones through CTRL4 (13h) INT2_on_INT1 (Table 58: the movable
 INT2 interrupts are ORed onto INT1 and not fed to INT2), so one pin drives the line, push-pull and
 active high at its defaults (IF_CFG PP_OD = 0, H_LACTIVE = 0, Tables 28-29), and needs no pull.

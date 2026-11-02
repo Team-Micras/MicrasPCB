@@ -321,8 +321,9 @@ def test_current_sampling_time_settles_the_adc_kickback(d):
 
 # Firmware rules the hardware does not enforce (behaviour key -> words it must name).
 FIRMWARE_RULES = {
-    # a debug halt: the timers freeze and the drive enables drop (Drivers.zen, R49 covers reset only)
-    "debug_halt": ["TIM1", "TIM8", "TIM14", "Motors_Enable", "Fan_Enable"],
+    # a debug halt: the timers freeze and the drive enables drop (Drivers.zen, R49 covers reset only);
+    # Motors_Enable (PB8) and Fan_Enable (PB12) are both port B pins: one GPIOB write
+    "debug_halt": ["TIM1", "TIM8", "TIM14", "Motors_Enable", "Fan_Enable", "GPIOB_BSRR"],
     # the IMU shares SPI_SCK/SPI_MOSI with the encoders and decodes them as I2C while deselected
     "imu_interface": ["I2C_I3C_disable", "IF_CFG"],
     # Wall_Emitter_Set runs beside LED_ARGB and the encoder chip selects (Sensors.zen)
@@ -335,8 +336,11 @@ FIRMWARE_RULES = {
     "link_spi": ["SPI3", "AFCNTR = 1", "MasterKeepIOState", "IOSWP = 0", "/8"],
     # the IMU and encoder bus on SPI2 and its DMA requests (sensor_bus)
     "sensor_bus_dma": ["SPI2", "39", "40"],
-    # Button's EXTI line shares its interrupt with Fan_Enable's fault line (button)
-    "button_input": ["PA11", "EXTI11", "EXTI15_10"],
+    # Button's EXTI line has its interrupt to itself (button)
+    "button_input": ["PA3", "EXTI3"],
+    # the LEDs' timer and DMA request, the buzzer's timer (leds, buzzer; RM0468 Table 118)
+    "led_timer": ["TIM15", "tim15_up", "106", "MOE"],
+    "buzzer_timer": ["TIM17", "MOE"],
     # the half-duplex data line is never driven from both ends (R96, RM0468 Figure 643 note 3), the
     # select is released before the MCU drives again (AFCNTR), and the master ends each DMA buffer
     # (ESP-IDF spi_slave_hd protocol)
@@ -347,12 +351,15 @@ FIRMWARE_RULES = {
         "releases ESP_CSn before it sets HDDIR = 1",
         "WR_DONE (CMD7)",
         "CMD8",
+        # ESP_Flow's EXTI11 shares the EXTI15_10 interrupt with Fan_Enable's fault line (EXTI12)
+        "EXTI11 on PA11",
+        "EXTI15_10",
     ],
     # the C5 recovers the link after the MCU resets, closing buffers with commands, not ESP_CSn
     "link_resync": ["MCU reset", "ESP_CSn", "WR_DONE (CMD7)", "CMD8", "CMD9"],
     # the fan driver's fault comes back on its enable pin, low for about 0.5 ms (R27 x C30 from
     # 0.4 V to VIH(EN), Drivers.zen, DS14341 section 5.7 and Figure 15)
-    "fan_fault_interrupt": ["EXTI10", "EXTI15_10", "falling", "0.5 ms", "VIH(EN)"],
+    "fan_fault_interrupt": ["EXTI12", "EXTI15_10", "falling", "0.5 ms", "VIH(EN)"],
     # the C5 drives NRST open drain and must never drive it high (DS13311 Table 61)
     "probe_pins": ["GPIO23", "open-drain", "never push-pull", "set to 1", "350 ns"],
     # GPIO0/GPIO1 carry SWD, not the 32 kHz crystal

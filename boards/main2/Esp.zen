@@ -106,8 +106,8 @@ drives a line before the firmware does.
   firmware runs; it is also UART4_RX's idle in the fallback. In the UART4 fallback the same pins
   carry UART4_TX (PC10) into GPIO10 (U1RXD) and the C5's U1TXD (GPIO9) into UART4_RX (PC11)
   through R88, the TX series resistor of the checklist's UART section.
-- ESP_Flow: GPIO24 to PA9 (EXTI9), the C5's credit and attention line toward the MCU (PA9 has its
-  pull-down: low until the C5 drives it).
+- ESP_Flow: GPIO24 to PA11 (EXTI11), the C5's credit and attention line toward the MCU (PA11 has
+  its pull-down: low until the C5 drives it).
 """
 
 load(

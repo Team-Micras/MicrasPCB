@@ -1,7 +1,7 @@
 """User interface: buttons, DIP switch, buzzer and LEDs.
 
 Buttons (GT-TC048B tactile switches, MCU internal pull-ups), as on the main board:
-- SW2 on Button (PA11) with C20 100 nF to GND.
+- SW2 on Button (PA3) with C20 100 nF to GND.
 - SW3 on NRST with C21 100 nF to GND, the recommended NRST protection (DS13311 Figure 27
   p168: 0.1 uF; the pin has an internal 30-50 kOhm pull-up, Table 61 p167). The ESP32 also
   drives NRST, open drain (ESP sheet).
@@ -11,7 +11,7 @@ SW1, a 4-way DIP switch, pulls Switch_0..3 to GND (Switch_0 on PH0, Switch_1-3 o
 all with the MCU's internal pull-ups).
 
 Buzzer: BZ1 (FUET-5030, 3 V electromagnetic, externally driven) from 3V3_D through R3 10 Ohm to
-the low-side switch Q1 (AO3400A), driven from Buzzer (PA2, TIM15) through R1 220 Ohm with R2
+the low-side switch Q1 (AO3400A), driven from Buzzer (PB9, TIM17) through R1 220 Ohm with R2
 10 kOhm gate pull-down; D3 (1N4148WS, the board's clamp diode, D9-D12) clamps the coil: at most
 the 174 mA coil current below, decaying, against its 300 mA IFM and 2 A IFSM at 1 us. R3 is a 1206 (250 mW): at the firmware's
 50 % duty and low tones the coil current approaches 3.3 V / (9 + 10) Ohm = 174 mA with the 9 Ohm
@@ -20,9 +20,9 @@ minimum coil (FUET-5030 p2), 151 mW in R3.
 LEDs:
 - D1, D2: WS2812C-2020-V6 addressable LEDs in a chain on 3V3_D (research IR emitters and status
   LEDs; A.4), replacing the main board's WS2815C-2020, whose 9.5-13.5 V supply range fits
-  neither 4S nor 3.3 V. DI of D1 on LED_ARGB (PB9, TIM17_CH1), D1 DO to D2 DI. VDD 3.3-5.3 V and
+  neither 4S nor 3.3 V. DI of D1 on LED_ARGB (PA2, TIM15_CH1), D1 DO to D2 DI. VDD 3.3-5.3 V and
   DI VIH 0.55 x VDD, 1.81-1.84 V on this rail, VIL 0.7 V (Worldsemi WS2812C-2020-V6 datasheet
-  V1.1 p3), so PB9 (VOH >= VDD - 0.4 V, VOL <= 0.4 V, DS13311 Table 56) drives it directly with
+  V1.1 p3), so PA2 (VOH >= VDD - 0.4 V, VOL <= 0.4 V, DS13311 Table 56) drives it directly with
   1 V and 0.3 V of margin; C19 (D1) and C18 (D2) 100 nF on VDD (p5 typical application). The bit
   timing caps T0L and T1L at 1 us and asks 1.25 us a bit (V1.1 p4), against the WS2815C's 5 us
   (boards/main2/firmware_changes.toml, leds).
@@ -43,14 +43,14 @@ LEDs:
   1.3-2.2 mA for the KT-0603R's VF 1.8-2.4 V (LCSC C2286 listing, at its rated current; VF is
   lower at 2 mA), an indicator's brightness at a tenth of its 20 mA rating.
 - D4 (blue, KENTO KT-0603B datasheet, LCSC C2288, p3 sections 4-5: VF 2.6-3.1 V and IV
-  70-175 mcd at IF = 5 mA, IF 30 mA DC max) from LED_Red (PB12, the firmware's label) through
-  R4 100 Ohm. VF rises with IF, so 3.1 V bounds it at every current below 5 mA. PB12's high level
+  70-175 mcd at IF = 5 mA, IF 30 mA DC max) from LED_Red (PB2, the firmware's label) through
+  R4 100 Ohm. VF rises with IF, so 3.1 V bounds it at every current below 5 mA. PB2's high level
   is VDD - 0.4 V at 8 mA (DS13311 Table 56): at most 0.4 V / 8 mA = 50 Ohm of driver, whose drop
   shrinks with the current. Dimmest (3V3_D 3.284 V, VF 3.1 V, R4 +1 %, 50 Ohm driver):
   (3.284 - 3.1) / (101 + 50) = 1.2 mA, at least 17 mcd at the 70 mcd/5 mA bin's slope (light
   about proportional to IF at low current), against the red D5's 20-33 mcd (300 mcd at 20 mA,
   C2286 listing); brightest (3.346 V, no driver drop, VF 2.6 V, which holds from 5 mA up, R4
-  -1 %): 0.746 V / 99 Ohm = 7.5 mA, within the 8 mA of PB12's VOH specification and a quarter of
+  -1 %): 0.746 V / 99 Ohm = 7.5 mA, within the 8 mA of PB2's VOH specification and a quarter of
   the LED's rating; a mid-bin 2.85 V part draws about 4 mA. R4 680 Ohm would leave a 3.1 V die at
   0.25 mA. The datasheet draws no IF-VF curve; a comparable InGaN 0603 blue rises about 0.3 V from
   0 to 10 mA (Everlight 19-217/BHC-ZL1M2RY/6T DSE-0014124 Rev 5 p5, Forward Current vs. Forward

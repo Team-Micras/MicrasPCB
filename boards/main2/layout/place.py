@@ -125,7 +125,7 @@ ANCHORS = {
     "IC1": (36.0, 0.0, -135),
     "D1": (51.25, 2.2, 180),
     "D2": (51.25, -2.2, 180),
-    # each button on the side of the STM32 its pin faces: the user button (PA11, pin 46) on the
+    # each button on the side of the STM32 its pin faces: the user button (PA3, pin 20) on the
     # left, reset (NRST, pin 12) on the right; the other way round, both nets circled the chip
     "SW2": (35.9, 11.6, 180),
     "SW3": (33.2, -11.9, 180),
@@ -154,6 +154,10 @@ ANCHORS = {
 # end, but R95 at PC10, the clock's driver, in line with its escape off the rear tip (the module decouples
 # its chip itself: 10 uF, 1 uF, 0.1 uF, datasheet Figure 8-1). Fixed as ANCHORS are.
 HAND = {
+    # C6 (VCAP2, pin 49) radial on pin 49's own normal, off the escape normals of pins 44-48, so the
+    # rear-left lanes all pass it on one side; C21 (NRST) beside SW3, out of the right corridor's entrance
+    "C6": (29.6, 3.3, 45),
+    "C21": (30.3, -10.8, 90),
     "C29": (28.524, -16.122, 90),
     "C30": (27.079, 5.693, 90),
     "C31": (19.6, 10.45, 270),

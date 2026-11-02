@@ -142,7 +142,7 @@ def esp_is_the_debug_probe(module, inputs):
     # and the MCU's link: SWDIO (PA13), SWCLK (PA14) and NRST reach C5 GPIOs (directly or through
     # one series resistor of 220 Ohm or less), so it can connect under reset (AN5419 Figure 21);
     # the SPI3 link, ESP_SCK (PC10, SPI3_SCK), ESP_DATA (PC12, the data line on the MOSI pad) and
-    # ESP_CSn (PC11), and ESP_Flow (PA9) reach C5 GPIOs too. Each lands on a free pin (FREE),
+    # ESP_CSn (PC11), and ESP_Flow (PA11) reach C5 GPIOs too. Each lands on a free pin (FREE),
     # so none of them is a strapping pin or drives the line before the firmware does.
     b = index(module)
     p = []
@@ -156,7 +156,7 @@ def esp_is_the_debug_probe(module, inputs):
         "PC10": "ESP_SCK (UART4_TX in the fallback)",
         "PC12": "ESP_DATA",
         "PC11": "ESP_CSn (UART4_RX in the fallback)",
-        "PA9": "ESP_Flow",
+        "PA11": "ESP_Flow",
     }
     for mcu_pin, what in links.items():
         m = net(b, MCU, mcu_pin)
@@ -206,14 +206,14 @@ def esp_link_series_resistors(module, inputs):
 
 
 def imu_interrupt_line(module, inputs):
-    # DS13476 Rev 5: INT1 (pin 4) alone drives IMU_INT on PB6, push-pull at its defaults; the
+    # DS13476 Rev 5: INT1 (pin 4) alone drives IMU_INT on PC7, push-pull at its defaults; the
     # firmware moves the INT2 interrupts onto it (CTRL4 INT2_on_INT1, Table 58), and INT2 (pin 9),
     # an output forced to ground by default (Table 22), is left open.
     b = index(module)
     p = []
-    line = net(b, MCU, "PB6")
+    line = net(b, MCU, "PC7")
     if net(b, "IC2", "INT1") != line:
-        p.append("IC2 INT1 must be on PB6's " + line)
+        p.append("IC2 INT1 must be on PC7's " + line)
     if net(b, "IC2", "INT2") != "":
         p.append("IC2 INT2 must be left open, is on " + net(b, "IC2", "INT2"))
     others = [r for r in refs_on(b, line) if r not in [MCU, "IC2"]]
@@ -224,17 +224,17 @@ def imu_interrupt_line(module, inputs):
 
 def pin_budget(module, inputs):
     # Research H7 pin budget: every MCU GPIO is used; the two the main board left open carry
-    # Motors_nFault (both DRV8874 nFAULT, on PB2) and the ESP32-C5's ESP_Flow (PA9).
+    # Motors_nFault (both DRV8874 nFAULT, on PD2) and the ESP32-C5's ESP_Flow (PA11).
     b = index(module)
     p = []
     for pin, n in b.parts[MCU].pins.items():
         if pin[:1] == "P" and pin[1:2] in "ABCDH" and n.name == "":
             p.append("IC1 " + pin + " is unconnected")
-    fault = net(b, MCU, "PB2")
+    fault = net(b, MCU, "PD2")
     if sorted([r for r in refs_on(b, fault) if r.startswith("IC") and r != MCU]) != ["IC8", "IC9"]:
-        p.append("PB2 must carry both DRV8874 nFAULT outputs")
-    if ESP not in refs_on(b, net(b, MCU, "PA9")):
-        p.append("PA9 must reach the ESP32-C5")
+        p.append("PD2 must carry both DRV8874 nFAULT outputs")
+    if ESP not in refs_on(b, net(b, MCU, "PA11")):
+        p.append("PA11 must reach the ESP32-C5")
     report(p)
 
 
