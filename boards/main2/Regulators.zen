@@ -235,8 +235,9 @@ divider, lower noise, specified EN thresholds; research Open decisions):
   22.5 mA worst case (research calculations/power_tree/calc_power_tree.py section 1: both ADCs
   at DS13311 Table 84's per-ADC maximum, the DAC's 20 + 160 uA from VDDA and VREF+, Table 90).
 - Heat: worst case (Eq. 10) 14.1 V x 22.5 mA + 17.4 V x 190 uA = 0.32 W, at the HV pack's top
-  with every receiver saturated; 0.11 W typical (9.7 mA from 14.8 V). The exposed pad sits on the
-  F.Cu GND pour with two GND vias within 1.6 mm to the In1/In2 GND planes (3500-3700 mm2 each),
+  with every receiver saturated; 0.11 W typical (9.7 mA from 14.8 V). The exposed pad holds two
+  0.2 mm thermal vias at its footprint's sites and sits on the F.Cu GND pour with two more GND vias
+  within 1.6 mm, all to the In1/In2 GND planes (3500-3700 mm2 each),
   more copper than Table 6's 500 mm2 row (83.9 C/W; 71.7 C/W at 1000 mm2, 182.8 C/W on minimum
   traces) and close to Table 4's JEDEC 4-layer 72.1 C/W: at 83.9 C/W the junction sits at
   85 + 27 = 112 C at an 85 C ambient, inside the 125 C limit (p17), and 15 K above the board

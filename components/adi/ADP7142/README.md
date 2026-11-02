@@ -21,7 +21,7 @@ that net to the load as one trace. Integration rules (ADP7142 Rev. H):
 - SS: leave open or put a capacitor to GND; never ground it (Table 5).
 - Heat: PD = (VIN - 3.3 V) x ILOAD + VIN x IGND; RthJA 72.1 C/W (JEDEC 4-layer, Table 4) to
   182.8 C/W with 25 mm^2 of copper (Table 6). Keep TJ <= 125 C; solder the exposed pad to a
-  ground pour with vias.
+  ground pour and put vias at the footprint's two sites (0.2 mm holes, left open).
 
 The test bench ([`test/`](test)) puts the part between an input and an output capacitor
 ([`ADP7142_rail.zen`](test/ADP7142_rail.zen)) and checks the pinout, the capacitors, the EN
@@ -44,5 +44,10 @@ levels, that SS is not grounded, and the junction temperature at 22.5 mA from 17
 `LFCSP-6-1EP_2x2mm_P0.65mm_EP1x1.6mm.kicad_mod`: KiCad's `Package_CSP` footprint generated from
 ADI's CP-6-3 outline (2 x 2 mm, 0.65 mm pitch, exposed pad 1.0 x 1.6 mm, Rev. H Figure 67), pads
 1-3 down the left side and 4-6 up the right side (top view, as Figure 3), exposed pad 7 with
-four paste windows. KiCad's `LFCSP-6-1EP_2x2mm_P0.65mm_EP1x1.6mm.step` (2.0 x 2.0 x 0.56 mm) is
-embedded (`pcb rectify check`: OK).
+two thermal-via sites, 0.2 mm circles on Cmts.User at (0, +-0.4) on the pad's long axis, and its
+paste in five windows clear of their holes by 0.05 mm, 54 % of the pad (TI SLUA271C section 4.4:
+50-70 %). The pin table asks for the exposed pad on the board's ground plane, and Table 4's
+72.1 C/W is for a JESD51-7 4-layer board, against 182.8 C/W on 25 mm^2 of top copper alone
+(Table 6): the vias tie the pad to the inner planes. KiCad's
+`LFCSP-6-1EP_2x2mm_P0.65mm_EP1x1.6mm.step` (2.0 x 2.0 x 0.56 mm) is embedded
+(`pcb rectify check`: OK).

@@ -96,13 +96,14 @@ ANCHORS = {
     # behind the left drive block; its BAT_P pin reaches F1 by a pour on the centre side, its GND_BAT
     # pin Q6's sources by one along the edge (the pours cross nowhere). Q6's sources and gate face the
     # board's centre, its drain the edge; the buck in front of the tab, its VIN (pin 7) toward C53
-    # and SW4, SW (pin 1) toward L3 at the module's inner corner
+    # and SW4, SW (pin 1) toward L3 at the module's inner corner; L3 against C54/C55's courtyard (0.03 mm),
+    # as far inboard as the fixed parts round the buck allow (M1/M2 in front, SW4, J1, J2, U13, the notch)
     "J1": (-33.5, 22.0, 270),
     "D15": (-24.4, 16.65, 180),
     "Q6": (-20.35, 21.6, 90),
     "F1": (-29.0, 17.1, 90),
     "IC7": (-36.4, 7.87, 180),
-    "L3": (-36.0, -1.36, 0),
+    "L3": (-36.0, -0.91, 0),
     # the flashing header in the tab between the notches, its pads 17 mm from the antenna's open end
     # (at least 10), its EN/TX0/RX0 row toward the antenna notch; D17 by the buck
     "J2": (-43.9, 11.3, 180),
@@ -110,7 +111,9 @@ ANCHORS = {
     # under the left motor: left bridge; inboard of the right block: right bridge
     "IC9": (-10.5, 4.5, 270),
     "IC8": (-10.5, -3.0, 270),
-    "R75": (-9.0, 11.25, 90),
+    # the shunts along x; R75 turned so its OUT1 pad faces IC9 (front) and its own pad the choke L5 (rear),
+    # neither force lead under the part; R65's OUT1 pad behind, its own pad in front
+    "R75": (-9.0, 11.25, -90),
     "R65": (-9.0, -9.6, 90),
     # on the axle, between the encoder slots
     "IC2": (0.0, 0.0, 0),

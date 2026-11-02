@@ -517,7 +517,8 @@ def _blocked(c, r: float, gap: float = THERMAL_GAP) -> bool:
 
 
 def thermal_vias(only: set[str] | None = None) -> int:
-    """Vias in every exposed pad on GND (the largest pad of a chip or transistor, over 2 mm2), to the
+    """Vias in every exposed pad on GND (the largest pad of a chip or transistor, over 2 mm2, or a smaller one
+    its footprint draws sites in, the ADP7142's), to the
     ground planes: the DRV8874s' and STSPIN958's PowerPADs carry their heat out this way. At the
     footprint's via sites (those clear of other nets' copper), else on a grid. A footprint whose
     exposed pad is split into ground squares (the ESP32-C5-MINI-1's nine, datasheet Figure 11-1)
@@ -544,8 +545,8 @@ def thermal_vias(only: set[str] | None = None) -> int:
                 continue
             bb = p.GetBoundingBox()
             (x0, y0), (x1, y1) = xy(bb.GetOrigin()), xy(bb.GetEnd())
-            if (x1 - x0) * (y1 - y0) < 2.0:
-                continue
+            if (x1 - x0) * (y1 - y0) < 2.0 and not sites:
+                continue  # a smaller exposed pad takes vias only where its footprint draws sites (ADP7142)
             if sites:
                 for x, y in sites:
                     if p.HitTest(pt(x, y)) and not _blocked((x, y), THERMAL_D / 2):

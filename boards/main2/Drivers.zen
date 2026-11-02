@@ -143,7 +143,9 @@ Fan, IC6 (STSPIN958, DS14341 Rev 1), driving connector M3 at 400 kHz (research F
   which the firmware ends first from Fan_TOFF. The board at the pad stays about P x RthJB
   (17.4 C/W) below the junction, 97 C at the 2.5 A bound, so C33 stays inside its X7R range
   (-15 % at most there: 0.85 uF for the gate-drive reservoir) while the driver runs (research
-  calculations/fan/fan_choke_check.py, section 3).
+  calculations/fan/fan_choke_check.py, section 3). On the board every one of the footprint's nine
+  thermal-via sites holds a via to the ground planes: the LSS1-LSS2 join runs on B.Cu beside the
+  exposed pad, not under it.
 - Choke L6, XGL5030-472MEC 4.7 uH +-20 % (Isat 4.8 A at a 20 % drop, 6.7 A at 30 %; DCR
   24.5 mOhm max; Coilcraft Doc 1576), between FAN_OUT and the motor. No drone motor publishes its
   inductance; the makers that do bound it: scaled by L ~ 1/kv^2 to 13,000-20,000 rpm/V, the DCX

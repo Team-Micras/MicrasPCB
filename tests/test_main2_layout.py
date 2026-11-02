@@ -1187,6 +1187,9 @@ def test_pour_connections():
 
 
 EXPOSED_PAD = 2.0  # mm2
+# Exposed pads under EXPOSED_PAD that still take thermal vias at their footprint's sites: the ADP7142's
+# 1.0 x 1.6 mm pad (its 72.1 C/W, Rev. K Table 4, is for a JEDEC 4-layer board, pad tied to the plane)
+SMALL_EXPOSED = {("U8", "7")}
 THERMAL_HOLE = 0.2  # mm: TI's PowerPAD via (SLVSF66A land pattern 4223595/B)
 PASTE_CLEAR = 0.05  # mm from a via's hole to a paste aperture
 
@@ -1235,7 +1238,7 @@ def test_vias_in_pads():
             if v.net != pad.net or not _pad_hit(pad, node, v.xy, r):
                 continue
             where = f"{v.net} via at {_xy(v.xy)} in {ref}.{pad.number}"
-            if _pad_area(pad) <= EXPOSED_PAD:
+            if _pad_area(pad) <= EXPOSED_PAD and (ref, pad.number) not in SMALL_EXPOSED:
                 problems.append(where)
                 continue
             exposed += 1
@@ -1259,6 +1262,7 @@ SPLIT_PASTE = {
     "st/STSPIN958/QFN50P500X500X100-33N-D_SplitPaste.kicad_mod": ("33", None),
     "st/STM32H725RGV6/QFN-68-1EP_8x8mm_P0.4mm_EP6.5x6.5mm_SplitPaste.kicad_mod": ("69", None),
     "huashuo/HSBB3072/PRPAK-8_L3.0-W3.0-P0.65-BL-EP_SplitPaste.kicad_mod": ("3", None),
+    "adi/ADP7142/LFCSP-6-1EP_2x2mm_P0.65mm_EP1x1.6mm.kicad_mod": ("7", None),
 }
 PASTE_COVERAGE = (0.50, 0.70)  # TI SLUA271C section 4.4
 
@@ -1303,6 +1307,78 @@ def test_split_paste_keeps_off_the_via_sites(path):
         for b in windows:
             d = math.hypot(max(b[0] - sx, 0, sx - b[2]), max(b[1] - sy, 0, sy - b[3]))
             assert d >= THERMAL_HOLE / 2 + PASTE_CLEAR - 1e-9, f"site ({sx}, {sy}) {d:.3f} mm from a window"
+
+
+# Exposed pads whose every thermal-via site holds a ground via: the STSPIN958's (the board's hottest part,
+# 2.0 W bound and 2.7 W in a stall, boards/main2/Drivers.zen; its third lane once lay under the FAN_LSS
+# join) and the ADP7142's (Rev. K Table 4 72.1 C/W against Table 6 182.8 C/W on 25 mm2 of copper)
+ALL_SITES = {"IC6": 9, "U8": 2}
+
+
+@pytest.mark.parametrize("ref", sorted(ALL_SITES))
+def test_exposed_pad_via_sites_all_hold_a_via(ref):
+    pcb = layout.load("main2")
+    fp = pcb.footprints[ref]
+    node = next(n for n in _root().children("footprint") if n.prop("Reference") == ref)
+    sites = []
+    for c in node.children("fp_circle"):
+        if c.child("layer").atoms() == ["Cmts.User"]:
+            (sx, sy), (ex, ey) = ((float(v) for v in c.child(k).atoms()) for k in ("center", "end"))
+            if abs(math.hypot(ex - sx, ey - sy) - THERMAL_HOLE / 2) < 1e-6:
+                dx, dy = layout._rotate(sx, sy, fp.rotation)
+                sites.append((fp.xy[0] + dx, fp.xy[1] + dy))
+    assert len(sites) == ALL_SITES[ref], f"{ref}: {len(sites)} via sites drawn"
+    empty = [s for s in sites if not any(v.net == "GND" and math.dist(v.xy, s) < 0.05 for v in pcb.vias)]
+    assert not empty, f"{ref}: no ground via at sites {[_xy(s) for s in empty]}"
+
+
+# The INA241s' Kelvin lines (INA241 README, SBOSA30D 8.4.1; WSK2512 README: the sense pads as a separate pair
+# to the amplifier): the loop they close, sense pad to pin along each line and pin 8 to pin 1 across the
+# amplifier and back across the shunt, stays under KELVIN_LOOP (the pads sit in opposite corners of the
+# WSK2512 and IN+/IN- on opposite rows of the VSSOP-8, so some loop is left). Routed apart, 4 mm or more
+# between the two lines, each loop was about 25 mm2.
+KELVIN = {"R": ("R65", "U10"), "L": ("R75", "U11")}
+KELVIN_LOOP = 12.0  # mm2
+
+
+def _route(pcb, net: str, a, b) -> list[tuple[float, float]]:
+    """The points of the net's tracks from the end nearest a to the end nearest b (ends within 10 um
+    join, so a via joins its layers' tracks)."""
+    adj: dict = {}
+    for t in pcb.tracks:
+        if t.net == net:
+            adj.setdefault(t.start, set()).add(t.end)
+            adj.setdefault(t.end, set()).add(t.start)
+    for p in adj:
+        adj[p] |= {q for q in adj if q != p and math.dist(p, q) < 0.01}
+    start, goal = (min(adj, key=lambda q: math.dist(q, p)) for p in (a, b))
+    prev, todo = {start: None}, [start]
+    while todo:
+        q = todo.pop(0)
+        for r in adj[q] - prev.keys():
+            prev[r] = q
+            todo.append(r)
+    assert goal in prev, f"{net}: no track path between its pads"
+    out, q = [], goal
+    while q is not None:
+        out.append(q)
+        q = prev[q]
+    return out[::-1]
+
+
+@pytest.mark.parametrize("side", sorted(KELVIN))
+def test_kelvin_lines_run_as_a_pair(side):
+    pcb = layout.load("main2")
+    shunt, amp = (pcb.footprints[r] for r in KELVIN[side])
+    loop = []
+    for sign in ("+", "-"):
+        net = f"Motor_{side}_Sense{sign}"
+        s = next(p.xy for p in shunt.pads if p.net == net)
+        i = next(p.xy for p in amp.pads if p.net == net)
+        path = [s, *_route(pcb, net, s, i), i]
+        loop += path if sign == "+" else path[::-1]
+    area = abs(sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(loop, loop[1:] + loop[:1], strict=True))) / 2
+    assert area <= KELVIN_LOOP, f"{shunt.ref} -> {amp.ref}: the Kelvin lines close {area:.1f} mm2"
 
 
 def test_bridge_pads_have_a_ground_heat_path():

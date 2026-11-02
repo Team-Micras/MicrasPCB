@@ -233,7 +233,8 @@ connection is routed.
   front of the tab, between SW4 and the module: its VIN/EN row faces SW4 with C53 at VIN (pin 7)
   and C52 (input bulk) beside it, its SW pin (1) faces L3 across a 3.8 x 2.2 mm BUCK_SW pour, C55
   (BOOT) and C54 (VCC) at their pins on that side (DS13554 Figure 32, the application board, puts
-  them beside the chip); C56/C57 at L3's output on a short 3V3_D patch at the module's inner corner.
+  them beside the chip); L3 against C54/C55's courtyard, its 3V3_D pad 4.85 mm from the antenna's
+  open end; C56/C57 at L3's output on a short 3V3_D patch at the module's inner corner.
 - **The tab and the module's inner side**: the flashing header J2 sits in the tab between the two
   notches, its pads 17 mm from the antenna's open end (at least 10 mm) and reachable from the
   robot's rear, with the EN RC (R89, C110) and the 10 uF C107 on U13's 3V3_D feed beside it; the
@@ -301,19 +302,25 @@ connection is routed.
   VM pin takes a short F.Cu island with its 100 nF (C82, C91) and 3-4 vias to the pour. The fan driver
   (STSPIN958) is turned so its power side faces the board's edge and its logic pins the fan hole
   (DS14341 Fig. 23): the VS strip runs out from pins 27-30 between OUT1 and OUT2 to the two 470 nF
-  (C34, C35) and the bulk C99, with 5 vias to the B.Cu VBAT feed; OUT1 goes straight to L6 on F.Cu,
+  (C34, C35) and the bulk C99, with 6 vias to the B.Cu VBAT feed; OUT1 goes straight to L6 on F.Cu,
   OUT2 joins it through 5 + 5 vias and a B.Cu pour under the pins; LSS2 goes to R31 (its LSS pad
   1.8 mm from pin 24) and on to the fan connector's return M3.2, LSS1 joins it through 5 + 5 vias
-  and a B.Cu pour under the chip's outer edge (the exposed pad keeps two rows of three thermal
-  vias); the motor runs from L6.2 to M3.1 along the board's edge on B.Cu. VBAT reaches the fan on
+  and a B.Cu pour beside the exposed pad's outer edge (the pad keeps all nine thermal vias),
+  FAN_OUT's B.Cu pour beyond it, its front vias out of the ground path from C35 to the pad on
+  In1.Cu; the motor runs from L6.2 to M3.1 along the board's edge on B.Cu. VBAT reaches the fan on
   B.Cu from the bridges' pour along the left wheel cut-out (a 1.5 mm pour, 1.1 mm at its
   narrowest), and goes on round the
   fan block's front (0.4 mm) to the bulk C112 and C96 in front of the fan hole and the battery
   divider's R44. The logic pins drop to B.Cu at their tips, and VDD and nSTBY take C31 under them
   on F.Cu: the fan hole's rim stays free on both outer layers for the lines to the STM32. The switch nodes stay on F.Cu: SMPS_LX straight to L1, BUCK_SW a short pour
   from IC7's pin 1 past C55 to L3. R58 (the 3V3_A LDO's input RC) sits by C80 and U8, VSYS running to it
-  along the right wheel cut-out beside CURRENT_R_AMP; the VBAT pour leaves a notch under R75 where
-  Motor_L_Sense+ leaves the shunt on B.Cu (OUT1 and SHUNT close F.Cu round its pad).
+  along the right wheel cut-out beside CURRENT_R_AMP. R75 is turned so OUT1 enters its front pad
+  straight from IC9 and MOTOR_L_SHUNT leaves its rear pad toward L5; R65's OUT1 pad is its rear one.
+  Each INA241's Kelvin lines run as a pair: the far sense line crosses under the shunt's body on
+  F.Cu, between the force pads, to a via beside the near one's, and both run on B.Cu 0.4 mm apart
+  to the amplifier's corner; the loop they close, pad to pin and back, is 10.6 mm2 (R65) and
+  8.8 mm2 (R75), set by the WSK2512's sense pads in opposite corners and IN+/IN- on opposite rows.
+  The VBAT pour leaves a slot under R75's rear half for its pair; Reset keeps outside R65's.
 - **In2.Cu hops**: an exception where F.Cu and B.Cu have no room, not a routing layer: 14 mm on
   five nets (LED_ARGB, Motor_Left_EN, Reset, Switch_0, Wall_Sensor_PWM_0), 200 mm at most in all. A hop carries a digital line of the STM32 or the ESP32
   only; it keeps 0.25 mm (plan view) from every switching, analog and battery-side supply track on
@@ -347,12 +354,12 @@ connection is routed.
   the pour reaches from one side only (`route.py` `relief()`, `RELIEF_STARVED`). Under each
   DRV8874's exposed pad a 4.0 x 5.6 mm B.Cu ground island, cut out of the VBAT pour, takes the
   heat of its 12 thermal vias (SLVSF66A section 10.1); the VBAT pour flows round it to the VM vias.
-- **Ground stitching** (`route.py` `stitch()`, `prune()`): 432 ground vias in all. Every point where both outer layers are ground lies within 4 mm of a ground via or
+- **Ground stitching** (`route.py` `stitch()`, `prune()`): 441 ground vias in all. Every point where both outer layers are ground lies within 4 mm of a ground via or
   through-hole ground pad (a twentieth of the 2.4 GHz wavelength, TI SZZA009), and every island of
   outer ground pour over 2 mm2 has at least two, but for the pour within 0.6 mm of a ground pad or
   track (its join) and within 4.5 mm of C72.1 and C8.1 (see Open items). A stitching via goes only where all
   four layers are ground round it, so it cuts no other net's copper, In2.Cu's islands and hops
-  included; the ground that no via can reach is cut out by 26 pour keep-outs (`no pour:
+  included; the ground that no via can reach is cut out by 25 pour keep-outs (`no pour:
   unstitched`), and a 2 mm2 strip of F.Cu ground behind the right bridge that only one via
   reaches by one more (`no pour: island`).
   Two B.Cu keep-outs (`analog_keepoff`, fills only) hold the FAN_LSS pour 0.5 mm off
@@ -364,11 +371,11 @@ connection is routed.
   without a via-in-pad process (spec `[pcb] via_in_pad = "open"`). They are 0.2 mm holes (TI's
   PowerPAD via, SLVSF66A land pattern 4223595/B), 0.45 mm copper, left open on both sides (tenting
   a pad's via from the back traps air, TI SLUA271C section 3.4.1), at the via sites each footprint
-  draws on Cmts.User (`route.py` `thermal_vias()`): 12 per DRV8874 on TI's 1.2 mm grid, 6 in the
-  STSPIN958's pad, 4 in the STM32's and 4 in Q6's drain pad. Each of these pads' paste is split into
+  draws on Cmts.User (`route.py` `thermal_vias()`): 12 per DRV8874 on TI's 1.2 mm grid, 9 in the
+  STSPIN958's pad, 4 in the STM32's, 4 in Q6's drain pad and 2 in the ADP7142's. Each of these pads' paste is split into
   windows clear of the sites, 51-64 % of the pad (SLUA271C section 4.4: 50-70 %): the DRV8874's in
   its footprint, the STSPIN958's, the STM32's and the HSBB3072's in `_SplitPaste` variants (their
-  modules' `paste = "split"`). The ADP7142's exposed pad has no vias and four paste windows; the
+  modules' `paste = "split"`), and the ADP7142's in its footprint (five windows, 54 %); the
   ESP32-C5 module's footprint draws 12 sites in the gaps between its nine ground squares (datasheet
   Figure 11-1, "Via for thermal pad"), off the squares themselves: those vias are tented on F.Cu, so
   the mask web between the squares stays and their solder has no open hole beside it, and open on
@@ -428,19 +435,17 @@ Each is a visible TODO in the sheet that owns it.
   nets' tracks (`PRUNE_SPARE`).
 - Assembly: every through-hole lead trimmed to 0.5 mm or less (Ordering); M2's leads lie under
   MicrasHardware's rear skate.
-- Buck: L3 sits 4.4 mm from the antenna's open end, boxed in by M1/M2's courtyards in front, IC7,
-  C54 and C55 inboard and the notch behind; moving it inboard means moving IC7.
-- Fan driver: IC6's exposed pad takes 6 of its 9 thermal vias; the third row would cut the FAN_LSS
-  B.Cu strip that joins LSS1 to LSS2 under the chip (0.65 mm between the analog keep-off and the
-  FAN_OUT bar), so it needs the fan stage's B.Cu joins laid again.
-- Current sense: each INA241's Kelvin lines leave the shunt's sense pads, at opposite corners of the
-  WSK2512, on separate paths (about 25 mm2 enclosed), not as a pair.
+- Buck: L3's 3V3_D pad sits 4.85 mm from the antenna's open end, against C54/C55, with M1/M2's
+  courtyards in front and the notch behind. Further inboard means moving IC7, C53 and C54/C55 as
+  well, at most 0.8 mm more (SW4's courtyard), and C53 then takes ESP_BOOT's only F.Cu lane
+  between it and SW4's peg hole.
+- Silkscreen: the KiCad library passives (stdlib 0402-1210, 0603 LED) keep their 0.12 mm outlines;
+  U13's outline and SW4's run past the board's edge (the module over its notch, the switch's
+  lever at the cut corner), where the fab clips them.
 - STM32 SMPS: C1/C2 sit 3.8-4.6 mm from VDDSMPS and C3/C4 6.5-7.1 mm from L1 and VFBSMPS (AN5419
   Rev 3 Table 2 asks for them "close"); `tests/test_layout.py` holds them to those reaches.
 - VBAT bulk: C87, C92, C111 and C36 sit in the middle, off a 0.4 mm B.Cu spur of the pour, where the
   2.5 mm 1210 clears the drive blocks' 1.5 mm zones.
-- 3V3_A LDO: U8's exposed pad has no vias (its paste windows cover the pad); vias need the
-  footprint's paste split round them.
 - JLCPCB rotations: unverified until the order's assembly preview.
 - ADC pins: the CubeMX check of the ADC set-up on the swapped pins; R_iso + C_f stability.
 - 3V3_A: the LDO's board-level thermal limit at about 0.33 W.
