@@ -26,6 +26,8 @@ needs_pcb = pytest.mark.skipif(shutil.which("pcb") is None, reason="pcb not inst
 PER_PAD = None
 # reach of the capacitors that cannot sit at their pin (mm, pad centre to pad centre; see below)
 REACH_C109, REACH_C108 = 15.5, 13.5
+REACH_VDDSMPS = {"main2": 4.6}  # mm: main2's C1/C2 from VDDSMPS (pin 6); checked on main2 only
+REACH_VFBSMPS = {"main2": 7.5}  # mm: main2's C3/C4 from VFBSMPS (pin 7)
 DECOUPLING = [
     (
         "STM32H725",
@@ -35,6 +37,25 @@ DECOUPLING = [
         "AN5419 Rev 3 Table 2 p7: 100 nF per VDD pin, as close as possible",
     ),
     ("STM32H725", ("VDDA",), 1, (90e-9, 110e-9), "AN5419 Table 2 p7: 100 nF as close as possible to VDDA"),
+    # The SMPS (Direct SMPS supply): AN5419 asks for its capacitors "close" with no number; main2's
+    # sit where its escape rows leave room (layout README, Open items). The reaches are main2's,
+    # which may not grow; the main board, done before this check, is not held to them.
+    (
+        "STM32H725",
+        ("VDDSMPS",),
+        2,
+        (4.2e-6, 11e-6),
+        "AN5419 Rev 3 Table 2 p8: 10 uF + 4.7 uF on VDDSMPS (best performance)",
+        REACH_VDDSMPS,
+    ),
+    (
+        "STM32H725",
+        ("VFBSMPS",),
+        2,
+        (9e-6, 11e-6),
+        "AN5419 Rev 3 Table 2 p8: 2 x 10 uF close to the inductor on the VFBSMPS side",
+        REACH_VFBSMPS,
+    ),
     ("STM32H725", ("VBAT",), 1, (90e-9, 110e-9), "AN5419 Table 2 p7: 100 nF close to the VBAT pin"),
     ("STM32H725", ("VCAP1",), 1, (90e-9, 110e-9), "AN5419 Figure 5 p10: 100 nF close to each VCAP pin"),
     ("STM32H725", ("VCAP2",), 1, (90e-9, 110e-9), "AN5419 Figure 5 p10: 100 nF close to each VCAP pin"),
@@ -167,6 +188,11 @@ def decoupling_findings(board: str, pcb: layout.Board) -> list[str]:
         for mpn, names, count, (lo, hi), source, *reach in DECOUPLING:
             if ref not in d.refs(mpn):
                 continue
+            lim = reach[0] if reach else MAX_DECOUPLING_MM
+            if isinstance(lim, dict):  # a reach for named boards only
+                if board not in lim:
+                    continue
+                lim = lim[board]
             numbers = [n for name in names for n in d.pads(ref, name)]
             if not numbers:
                 problems.append(f"{ref} has no pin named {'/'.join(names)}")
@@ -181,7 +207,7 @@ def decoupling_findings(board: str, pcb: layout.Board) -> list[str]:
                         dist = min(math.dist(a.xy, c.xy) for a in pads for c in pcb.footprints[cap].pads if c.net)
                         options.append((dist, cap))
                 where = f"{ref} {'/'.join(names)} (pad {', '.join(group)}, {rail})"
-                wants.append((where, source, sorted(options), reach[0] if reach else MAX_DECOUPLING_MM))
+                wants.append((where, source, sorted(options), lim))
         matched = _match([[cap for dist, cap in opts if dist <= lim] for _, _, opts, lim in wants])
         for i, (where, source, options, lim) in enumerate(wants):
             if i in matched:

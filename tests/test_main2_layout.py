@@ -744,6 +744,13 @@ def test_no_detours():
 FAST_GAP = 0.45  # mm
 ESCAPE_REACH = 1.0  # mm
 CLOSE_NEIGHBOURS = {
+    # Fan_PWM's pin (PA7, pin 26) sits between ADC pins 23-28 (Wall_Sensor_0, Wall_Sensor_2,
+    # Wall_Sensor_1, Battery_Voltage): its escape runs with theirs until a via site frees it
+    ("Battery_Voltage", "Fan_PWM"): 6.1,
+    ("VDDA", "Fan_PWM"): 0.3,
+    ("Wall_Sensor_0", "Fan_PWM"): 6.7,
+    ("Wall_Sensor_1", "Fan_PWM"): 0.2,
+    ("Wall_Sensor_2", "Fan_PWM"): 0.5,
     ("3V3_A", "Encoder_Left_CSn"): 4.6,
     ("3V3_A", "Encoder_Right_ABI_B"): 16.4,
     ("SENSORS.CURRENT_L_AMP", "Encoder_Right_ABI_B"): 2.3,
@@ -1311,3 +1318,243 @@ def test_bridge_pads_have_a_ground_heat_path():
             1 for q in pts if any(b[0] <= q[0] <= b[2] and b[1] <= q[1] <= b[3] and _inside(q, p) for p, b in fills)
         )
         assert hit / len(pts) >= 0.5, f"{ref}: {hit / len(pts):.0%} of its exposed pad over B.Cu ground"
+
+
+# --- Countersinks (spec/main2.toml [countersink]): the screws' 90 deg countersinks, cut by hand from
+# the bottom side, keep every layer's copper out of their cone: keep-outs (tracks, vias and pours)
+# of clearance_outer on B.Cu and In2.Cu and clearance_in1 on In1.Cu round each screw hole, and the
+# countersink drawn on User.1, a layer the fab outputs never plot.
+CSK = S.get("countersink", {})
+CSK_LAYER = "User.1"
+
+
+def _screw_holes() -> dict[str, tuple[float, float]]:
+    return {
+        v["path"].split(".")[0]: (v["x"], v["y"])
+        for v in S.values()
+        if isinstance(v, dict) and v.get("path", "").startswith("H")
+    }
+
+
+def _keepouts() -> list[tuple[list[str], set[str], list[tuple[float, float]]]]:
+    """Rule areas: (layers, what they forbid, outline points in the robot frame)."""
+    out = []
+    for z in _root().children("zone"):
+        k = z.child("keepout")
+        if not k:
+            continue
+        banned = {c.head for c in k.children() if c.atoms() == ["not_allowed"]}
+        layers = (z.child("layers") or z.child("layer")).atoms()
+        out.append((layers, banned, [mech.kicad_to_robot(S, p) for p in _pts(z.child("polygon"))]))
+    return out
+
+
+def _covers(poly, c, r: float) -> bool:
+    """The polygon holds the whole disc of radius r round c."""
+    if not _inside(c, poly):
+        return False
+    return all(_seg_dist(c, a, b) >= r - 0.002 for a, b in zip(poly, poly[1:] + poly[:1], strict=True))
+
+
+def test_countersinks_keep_the_copper_off():
+    keepouts = _keepouts()
+    pcb = layout.load("main2")
+    need = {"B.Cu": CSK["clearance_outer"], "In2.Cu": CSK["clearance_outer"], "In1.Cu": CSK["clearance_in1"]}
+    assert CSK["diameter"] / 2 < CSK["clearance_outer"], "the keep-out is smaller than the countersink"
+    problems = []
+    for h, c in _screw_holes().items():
+        for layer, r in need.items():
+            if not any(
+                layer in layers and {"tracks", "vias", "copperpour"} <= banned and _covers(poly, c, r)
+                for layers, banned, poly in keepouts
+            ):
+                problems.append(f"{h}: no {layer} keep-out of {r} mm (tracks, vias, pours)")
+        ck = mech.robot_to_kicad(S, c)
+        for t in pcb.tracks:
+            if t.layer in need and _seg_dist(ck, t.start, t.end) - t.width / 2 < need[t.layer]:
+                problems.append(f"{h}: {t.net} track on {t.layer} inside the countersink's clearance")
+        for v in pcb.vias:
+            if math.dist(ck, v.xy) - v.size / 2 < CSK["clearance_outer"]:
+                problems.append(f"{h}: {v.net} via inside the countersink's clearance")
+    assert not problems, "\n".join(problems)
+
+
+def test_countersinks_are_drawn_but_never_fabricated():
+    from micras_pcb import jlc
+
+    circles = []
+    for g in _root().children("gr_circle"):
+        if g.child("layer").atoms() == [CSK_LAYER]:
+            c, e = (
+                mech.kicad_to_robot(S, (float(a), float(b)))
+                for a, b in (g.child(k).atoms()[:2] for k in ("center", "end"))
+            )
+            circles.append((c, math.dist(c, e)))
+    for h, c in _screw_holes().items():
+        assert any(math.dist(c, q) < 1e-3 and abs(2 * r - CSK["diameter"]) < 1e-3 for q, r in circles), (
+            f"{h}: no countersink on {CSK_LAYER}"
+        )
+    assert CSK["fabricated"] is False
+    # the gerbers plot only copper, mask, paste, silk and the outline; the drill files only holes
+    assert CSK_LAYER not in jlc.gerber_layers("main2")
+    pcb = layout.load("main2")
+    big = [
+        f"{f.ref}.{p.number}"
+        for f in pcb.footprints.values()
+        for p in f.pads
+        if p.kind in ("thru_hole", "np_thru_hole") and max(p.size) >= CSK["diameter"] - 1e-6 and p.net is None
+    ]
+    assert not big, f"pads as large as the countersink would drill it: {big}"
+
+
+# --- The battery entry's through-hole pins (J1, SW4) carry the pack's 10 A and its switching
+# edges: other nets' tracks and vias keep BATTERY_PIN_GAP from them (the review's 3V3_A ran 0.17 mm
+# from J1.1 and SW4.2).
+BATTERY_PARTS = ("J1", "SW4")
+BATTERY_NETS = {"BAT_P", "GND_BAT", "VBAT", "REGULATORS.BAT_SW_DRIVE", "GND"}
+BATTERY_PIN_GAP = 0.5  # mm
+
+
+def test_battery_entry_pins_keep_other_nets_clear():
+    pcb = layout.load("main2")
+    pins = [(f"{r}.{p.number}", p) for r in BATTERY_PARTS for p in pcb.footprints[r].pads if p.kind == "thru_hole"]
+    problems = []
+    for name, p in pins:
+        own = {p.net} | BATTERY_NETS
+        rad = max(p.size) / 2
+        for t in pcb.tracks:
+            if t.net not in own and ("*.Cu" in p.layers or t.layer in p.layers):
+                g = _seg_dist(p.xy, t.start, t.end) - t.width / 2 - rad
+                if g < BATTERY_PIN_GAP:
+                    problems.append(f"{t.net} {t.layer} {g:.2f} mm from {name} near {_xy(t.start)}")
+        for v in pcb.vias:
+            if v.net not in own and (g := math.dist(p.xy, v.xy) - v.size / 2 - rad) < BATTERY_PIN_GAP:
+                problems.append(f"{v.net} via {g:.2f} mm from {name} at {_xy(v.xy)}")
+    assert not problems, "\n".join(problems)
+
+
+# --- The battery path's pours carry the pack's 10 A (layout README, Power copper): between the
+# terminals below, each pour keeps a path at least POUR_NECK wide, measured by a morphological
+# opening of the pour's fill (and the net's tracks) with the terminals' pads added back. POUR_NECK
+# is IPC-2221's external 1 oz width for 10 A at a 45 C rise (ipc2221_width): the necks are short
+# (a few mm, the pour on both sides spreads their heat), where the long-run 20 C width (4.7 mm)
+# would be too strict, but a neck to a track's width (the review found 0.5 mm on BAT_P) is not.
+POUR_NECK = ipc2221_width(10.0, rise=45.0)
+POUR_PATHS = [  # (net, layer, from pad, to pad)
+    ("BAT_P", "F.Cu", ("J1", "1"), ("F1", "1")),
+    ("GND_BAT", "F.Cu", ("J1", "2"), ("Q6", "2")),
+    ("VBAT", "F.Cu", ("F1", "2"), ("D15", "1")),
+]
+NECK_STEP = 0.05  # mm raster
+
+
+def _chamfer(win: tuple[int, int, int, int], zero) -> dict:
+    """Chamfer distance (cells) over the window from the cells where zero(cell) holds."""
+    i0, j0, i1, j1 = win
+    d = {(i, j): 0.0 if zero((i, j)) else 1e9 for i in range(i0, i1 + 1) for j in range(j0, j1 + 1)}
+    diag = math.sqrt(2)
+    fwd = ((-1, 0, 1.0), (0, -1, 1.0), (-1, -1, diag), (-1, 1, diag))
+    bwd = ((1, 0, 1.0), (0, 1, 1.0), (1, 1, diag), (1, -1, diag))
+    for steps, irange, jrange in (
+        (fwd, range(i0, i1 + 1), range(j0, j1 + 1)),
+        (bwd, range(i1, i0 - 1, -1), range(j1, j0 - 1, -1)),
+    ):
+        for i in irange:
+            for j in jrange:
+                v = d[(i, j)]
+                if v == 0.0:
+                    continue
+                for di, dj, w in steps:
+                    q = d.get((i + di, j + dj))
+                    if q is not None and q + w < v:
+                        v = q + w
+                d[(i, j)] = v
+    return d
+
+
+def _neck_ok(net: str, layer: str, a, b, width: float) -> bool:
+    pcb = layout.load("main2")
+    pa = pcb.footprints[a[0]].pads_named(a[1])[0]
+    pb = pcb.footprints[b[0]].pads_named(b[1])[0]
+    m = 4.0
+    x0, y0 = min(pa.xy[0], pb.xy[0]) - m, min(pa.xy[1], pb.xy[1]) - m
+    x1, y1 = max(pa.xy[0], pb.xy[0]) + m, max(pa.xy[1], pb.xy[1]) + m
+    s = NECK_STEP
+    win = (math.ceil(x0 / s), math.ceil(y0 / s), math.floor(x1 / s), math.floor(y1 / s))
+    inwin = lambda c: win[0] <= c[0] <= win[2] and win[1] <= c[1] <= win[3]  # noqa: E731
+    cu = set()
+    for poly in _fills(layer, net):
+        bx = _box(poly)
+        if bx[2] < x0 or bx[0] > x1 or bx[3] < y0 or bx[1] > y1:
+            continue
+        cu |= {c for c in _raster(poly, s) if inwin(c)}
+    for t in pcb.tracks:
+        if t.net == net and t.layer == layer:
+            for q in _samples(t, s):
+                r = int(t.width / 2 / s)
+                ci, cj = round(q[0] / s), round(q[1] / s)
+                cu |= {
+                    (ci + di, cj + dj)
+                    for di in range(-r, r + 1)
+                    for dj in range(-r, r + 1)
+                    if di * di + dj * dj <= r * r
+                }
+    cu = {c for c in cu if inwin(c)}
+    pads = set()
+    ends = []
+    for f in pcb.footprints.values():
+        for p in f.pads:
+            if p.net != net or not ("*.Cu" in p.layers or layer in p.layers):
+                continue
+            w, h = p.size if round(f.rotation) % 180 == 0 else p.size[::-1]
+            cells = {
+                (i, j)
+                for i in range(math.ceil((p.xy[0] - w / 2) / s), math.floor((p.xy[0] + w / 2) / s) + 1)
+                for j in range(math.ceil((p.xy[1] - h / 2) / s), math.floor((p.xy[1] + h / 2) / s) + 1)
+            }
+            pads |= cells
+            if p is pa or p is pb:
+                ends.append(cells)
+    r = width / 2 / s
+    inner = _chamfer(win, lambda c: c not in cu)
+    core = {c for c, v in inner.items() if v > r}
+    reach = _chamfer(win, lambda c: c in core)
+    opened = {c for c in cu if reach[c] <= r} if core else set()
+    ok = opened | pads
+    start, goal = ends[0], ends[1]
+    seen, todo = set(start), list(start)
+    while todo:
+        i, j = todo.pop()
+        for q in ((i + 1, j), (i - 1, j), (i, j + 1), (i, j - 1)):
+            if q in ok and q not in seen:
+                if q in goal:
+                    return True
+                seen.add(q)
+                todo.append(q)
+    return False
+
+
+@pytest.mark.parametrize("net,layer,a,b", POUR_PATHS)
+def test_battery_pours_keep_their_width(net, layer, a, b):
+    assert _neck_ok(net, layer, a, b, POUR_NECK), f"{net} on {layer} necks under {POUR_NECK:.2f} mm between {a} and {b}"
+
+
+# --- Analog tracks keep NOISY_GAP from the battery-side supplies on the same layer (VBAT and VSYS
+# carry the bridges' and the fan's PWM ripple): a run closer than that may not exceed NOISY_RUN.
+NOISY_GAP = 0.3  # mm
+NOISY_RUN = 1.0  # mm
+
+
+def test_analog_keeps_clear_of_noisy_supplies():
+    pcb = layout.load("main2")
+    an = [t for t in pcb.tracks if t.net in nets.ANALOG]
+    sup = [t for t in pcb.tracks if t.net in nets.NOISY_SUPPLY]
+    runs = {}
+    for a in an:
+        for f in sup:
+            if a.layer == f.layer and _gap(a, f) < NOISY_GAP:
+                runs[(a.net, f.net)] = runs.get((a.net, f.net), 0.0) + _run_within(a, f, NOISY_GAP)
+    problems = [
+        f"{a} runs {r:.1f} mm within {NOISY_GAP} mm of {f}" for (a, f), r in sorted(runs.items()) if r > NOISY_RUN
+    ]
+    assert not problems, "\n".join(problems)

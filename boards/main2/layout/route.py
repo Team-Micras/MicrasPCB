@@ -2017,6 +2017,11 @@ def _stitch(d: float, hole: float) -> tuple[int, list[str]]:
             forbid.BooleanAdd(_disk(xy(t.GetPosition()), t.GetDrillValue() / 2e6 + STITCH_VIA_GAP + hole / 2))
             if t.GetNetname() == "GND":
                 anchors.append(xy(t.GetPosition()))
+    for z in B.Zones():  # keep-outs that forbid vias (the screw holes' countersinks)
+        if z.GetIsRuleArea() and z.GetDoNotAllowVias():
+            k = z.Outline().CloneDropTriangulation()
+            k.Inflate(mm(r), pcbnew.CORNER_STRATEGY_ROUND_ALL_CORNERS, err)
+            forbid.BooleanAdd(k)
     legal.BooleanSubtract(forbid)
     loose.BooleanSubtract(forbid)
     spots = _parts(legal)

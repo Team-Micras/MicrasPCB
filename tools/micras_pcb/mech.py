@@ -755,6 +755,12 @@ def main2_json(s: dict, root: sexpr.Node) -> dict:
         "holes": [
             {"name": h["path"].split(".")[0], "pos": [h["x"], h["y"]], "drill": s["holes"]["diameter"]} for h in holes
         ],
+        "countersink": {
+            "diameter": s["countersink"]["diameter"],
+            "angle": s["countersink"]["angle"],
+            "side": s["countersink"]["side"],
+            "fabricated": s["countersink"]["fabricated"],
+        },
         "encoder_slots": [
             {
                 "name": path.split(".")[1],

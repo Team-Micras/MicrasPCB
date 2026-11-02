@@ -50,12 +50,18 @@ ANALOG = {
     "3V3_A",
     "VDDA",
 }
+# The battery-side supplies: the pack's current with the bridges' and the fan's PWM ripple on it
+NOISY_SUPPLY = {"BAT_P", "GND_BAT", "VBAT", "VSYS", "5V_IN", "REGULATORS.LDO_IN"}
 ANALOG_GAP = 0.5  # mm of copper-free gap, same layer (the ground planes shield one outer layer from the other)
 # The STM32's and the ESP32's digital lines with fast edges or clocks: SPI's clock, the addressable
-# LED's 800 kHz data, the encoders' quadrature and SPI lines and the ESP32-C5 link's clock and data
+# LED's 800 kHz data, the encoders' quadrature and SPI lines, the ESP32-C5 link's clock and data, and
+# the PWM lines: the fan's 400 kHz (TIM14) and the bridges' 100 kHz EN inputs (TIM1/TIM8)
 FAST_DIGITAL = {
     "SPI_SCK",
     "LED_ARGB",
+    "Fan_PWM",
+    "Motor_Left_EN",
+    "Motor_Right_EN",
     *(f"Encoder_{s}_{n}" for s in ("Left", "Right") for n in ("ABI_A", "ABI_B", "CSn")),
     "ESP_SCK",
     "ESP_DATA",
@@ -79,12 +85,11 @@ SLOW_DIGITAL = {
     "ESP_CSn",
     "ESP_Flow",
     "Fan_Enable",
-    "Fan_PWM",
     "Fan_TOFF",
     "IMU_INT",
     "IMU_SPI_CSn",
     "LED_Red",
-    *(f"Motor_{s}_{n}" for s in ("Left", "Right") for n in ("EN", "PH")),
+    *(f"Motor_{s}_PH" for s in ("Left", "Right")),
     "Motors_Enable",
     "Motors_nFault",
     "Reset",

@@ -44,6 +44,19 @@ shoulder_radius = { value = 5.0, source = "boards/main Edge.Cuts: R5 arcs centre
 # M2 screws of the drive blocks, as on boards/main.
 diameter = { value = 2.4, source = "spec/main.toml [holes] diameter; MicrasHardware Board.hole_d" }
 
+[countersink]
+# The board's M2 screws come from under the board, their flat heads in 90 deg countersinks cut in
+# each screw hole from the bottom side. The owner cuts them by hand (a countersink costs extra at
+# JLCPCB): they are not fabricated, and the board only keeps its copper out of them. The layout draws
+# them on User.1, a layer the fab outputs never plot (tools/micras_pcb/jlc.py
+# gerber_layers), and keep-outs hold every layer's copper off them.
+diameter = { value = 4.4, source = "MicrasHardware micras/params.py Board.countersink_d" }
+angle = { value = 90, source = "MicrasHardware micras/fasteners.py: flat-head M2 screws from under the board, heads in the board's countersinks; 90 deg, the M2 flat head's (ISO 10642)" }
+side = { value = "bottom", source = "MicrasHardware micras/fasteners.py: the screws come from under the board" }
+fabricated = { value = false, source = "the owner (2026-11-02): cut by hand, not ordered from JLCPCB" }
+clearance_outer = { value = 2.3, source = "diameter / 2 + 0.1 mm: the cone is 2.2 mm in radius at the bottom face (B.Cu) and 1.95 mm at In2.Cu, 0.25 mm above it (boards/main2/main2.zen stackup: 0.035 mm copper + 0.2104 mm prepreg); the keep-out radius on B.Cu and In2.Cu" }
+clearance_in1 = { value = 1.6, source = "the cone's radius at In1.Cu, 0.76-0.78 mm above the bottom face (boards/main2/main2.zen stackup: 0.035 + 0.2104 + 0.0175 + 0.5 mm), is 1.42-1.44 mm; with margin, the keep-out radius on In1.Cu. F.Cu, 1.0 mm up, meets the 1.2 mm hole: it keeps the hole's own clearance" }
+
 [h1]
 x = { value = 2.5, source = "spec/main.toml [h1]; MicrasHardware Board.front_hole" }
 y = { value = 11.75, source = "spec/main.toml [h1]; MicrasHardware Board.front_hole" }

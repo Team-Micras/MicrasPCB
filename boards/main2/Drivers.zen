@@ -41,8 +41,12 @@ boards/main2/test/test_drivers.zen.
 - nFAULT: open drain, both wire-ORed on Motors_nFault (PD2) with R60 10 kOhm to 3V3_D (0.33 mA,
   <= 5 mA, section 6.3).
 - VM on VBAT, all ceramic: C82/C91 100 nF at the pin (CVM1, Table 1) and four 10 uF 50 V X7R 1210
-  per bridge (CVM2, VM-rated; section 9.1 leaves its value to the system): C83/C84 within a few
-  mm of the pin, C87/C111 and C96/C112 as the bulk beside them (C92/C93 for the left bridge). The
+  per bridge (CVM2, VM-rated; section 9.1 leaves its value to the system). On the VBAT pour beside
+  the bridges, each with vias into it: C83 (5 mm from IC8's VM pin) and C84 (10 mm, behind L4)
+  for the right bridge, C93 (14 mm, the pour's left appendage) for the left; the rest sit where
+  the pour's surroundings leave a 2.5 mm part room (the 1.5 mm drive-block zones cover the bridges'
+  sides): C87, C92, C111 and C36 in the middle off a 0.4 mm B.Cu spur of the pour (C87/C92 by its
+  0.5 mm branch), C96/C112 in front of the fan hole. The
   board's VBAT bulk is all ceramic on merit (research Power tree: a solid-polymer part would
   add only bench-supply damping and hold-up the board does not need) and every 10 uF on VBAT is
   the one 1210 part (a 1206 holds half the
