@@ -39,9 +39,12 @@ input at which the output is specified (page 3). `VOUT` is `Power(3.234 V to 3.3
 library (MicrasMainBoard) with a generic SOT-89-3 STEP. Pads:
 
 - 1 and 3: 1.575 x 0.672 mm leads;
-- 2: a custom polygon covering the tab and the centre lead (no paste aperture), plus a 0.38 mm
-  round anchor pad with paste at the tab centre. Both carry pad number 2, so the whole tab is on
-  the OUTPUT net.
+- 2: a custom polygon covering the tab and the centre lead, with a paste opening of the same
+  shape, plus a 0.38 mm round anchor pad at the tab centre. Both carry pad number 2, so the whole
+  tab is on the OUTPUT net.
+
+Courtyard: F.CrtYd rectangle around the body outline (User.15) and the pads with the IPC-7351B
+nominal (density level B) courtyard excess of 0.25 mm.
 
 `pcb rectify check` reports a 0.33 mm in-plane model offset; a KiCad 3D render shows the model
 leads and tab on their pads, so the transform is kept.

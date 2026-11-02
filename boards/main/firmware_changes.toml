@@ -1,0 +1,19 @@
+# Firmware changes this board needs that MicrasFirmware does not have yet. tests/test_firmware.py
+# checks the board against firmware.toml with these applied, and flags an entry the firmware
+# already has, so it is dropped when firmware.toml is regenerated. Format: tools/micras_pcb/firmware.py.
+
+[[change]]
+id = "C1"
+summary = "Battery voltage on PA5 (ADC1/ADC2 channel 19, analog, no pull) through the 100 kOhm / 27 kOhm divider, replacing the internal VBAT/4 channel: the VBAT pin is on 3V3. PA5 stops being Encoder_Left_ABI_I (S_TIM2_ETR with GPIO_PULLUP in MicrasFirmware cube/micras_v0.ioc; micras_v1.ioc leaves it unassigned): the encoder's index output is not connected on this board, and a 30-50 kOhm pull (DS13311 Table 55) on the divider's 21 kOhm tap would shift the reading"
+pins = { "PA5" = { signal = "ADCx_INP19", label = "Battery_Voltage", pull = "none" } }
+battery = { channel = "pin", divider = 4.703704 }
+
+[[change]]
+id = "M11"
+summary = "USB VBUS sensing on PH0 (33 kOhm / 82 kOhm divider from VBUS, AN4879 2.6.1): a GPIO input, read by a USB device stack"
+pins = { "PH0-OSC_IN" = { signal = "GPIO_Input", label = "USB_VBUS_Sense", pull = "none" } }
+
+[[change]]
+id = "m17"
+summary = "UART4_RX (PA11, USB D-) with the internal pull-up (GPIO_PULLUP), so the receiver idles high while the Bluetooth module is unplugged and its contact is open; a USB device stack takes the pin without the pull"
+pins = { "PA11" = { signal = "UART4_RX", pull = "up" } }

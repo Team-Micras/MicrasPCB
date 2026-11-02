@@ -20,3 +20,6 @@ so they always land on one net.
 
 The embedded STEP is a C&K PTS810 model: same 4.2 x 3.2 mm body and pad layout, not this part's exact
 actuator.
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.15) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).

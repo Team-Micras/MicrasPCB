@@ -239,46 +239,6 @@
 		(layer "User.13")
 		(uuid "09c4c890-4f0a-446e-b2fa-1125e9034900")
 	)
-	(fp_line
-		(start -4.318 -3.302)
-		(end -4.318 2.667)
-		(stroke
-			(width 0.1)
-			(type solid)
-		)
-		(layer "User.15")
-		(uuid "606fb79d-b9bb-4182-ae31-60d764a89497")
-	)
-	(fp_line
-		(start 2.286 -3.302)
-		(end -4.318 -3.302)
-		(stroke
-			(width 0.1)
-			(type solid)
-		)
-		(layer "User.15")
-		(uuid "3c00c499-fbf5-4cec-a6c7-1bd652a79f7f")
-	)
-	(fp_line
-		(start 2.286 -3.302)
-		(end 2.286 2.667)
-		(stroke
-			(width 0.1)
-			(type solid)
-		)
-		(layer "User.15")
-		(uuid "218c8f07-27f0-421d-a04d-478993e8f6f2")
-	)
-	(fp_line
-		(start 2.286 2.667)
-		(end -4.318 2.667)
-		(stroke
-			(width 0.1)
-			(type solid)
-		)
-		(layer "User.15")
-		(uuid "c07748fd-0f83-4917-8539-9b119b3e4664")
-	)
 	(fp_text user "${REFERENCE}"
 		(at 0 0 0)
 		(layer "F.Fab")
@@ -289,6 +249,17 @@
 				(thickness 0.15)
 			)
 		)
+	)
+	(fp_rect
+		(start -4.51 -3.55)
+		(end 2.51 2.79)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "49c7e55d-cecf-4c52-900d-1fdfb00f7690")
 	)
 	(pad "1" thru_hole circle
 		(at 0 0)

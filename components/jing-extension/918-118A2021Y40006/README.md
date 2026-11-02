@@ -43,4 +43,5 @@ of eight 0.4 x 0.79 mm pads at 0.8 mm pitch, 2.54 mm apart, and the two fixing l
 
 - The embedded STEP is the Altium library's `USB-C-SMD_TC-005.step`; `pcb rectify check`: model
   transform OK.
-- The footprint has no silkscreen, fab outline or courtyard.
+- The F.CrtYd courtyard is the pads and fixing legs with 0.25 mm around them (+-4.75 x +-1.92
+  mm), which also covers the 8.25 x 2.40 mm shell. The footprint has no silkscreen or fab outline.

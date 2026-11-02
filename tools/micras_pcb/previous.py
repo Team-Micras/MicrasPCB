@@ -3,8 +3,8 @@
 The main, encoder and Bluetooth boards are replicated from their previous revisions (Altium,
 in `hw_debug`). `snapshot` reads a board's previous revision once and writes
 `boards/<board>/previous/board.json`, so the checks never need `hw_debug`. `compare` proves the
-new board connects exactly what the old one did, except for the changes declared in
-`boards/<board>/changes.toml`.
+new board connects exactly what the old one did, and names its nets as the old one did, except
+for the changes declared in `boards/<board>/changes.toml`.
 
     MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot            # (re)write main's board.json
     MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot encoder    # the encoder's
@@ -59,8 +59,26 @@ later uses join it). A pad or net that does not exist is an error, so a typo can
     remove_parts = ["U3"]                            # the part and its pads disappear
     rename_parts = { "20V" = "TP1" }                 # same part, new designator
 
+    [[change]]
+    id = "m15"
+    summary = "Current sense nets named after the motor they measure"
+    rename_nets = { "Current_Sensor_Left" = "Current_Sensor_Right", "Current_Sensor_Right" = "Current_Sensor_Left" }
+                                                     # renames apply at once, so two nets can swap names
+
+    [[change]]
+    id = "m2"
+    summary = "Boost feedback divider for 18.8 V"
+    part_numbers = { R39 = "0603WAF1004T5E", R40 = "0603WAF6802T5E" }   # same pads, another part
+    dnp = ["C22"]                                    # the footprint stays, the part is not fitted
+
 Within one change the actions run in the order rename_parts, remove_parts, add_parts, isolate,
-move, merge. An added part's pads not listed are unconnected.
+move, merge, rename_nets. An added part's pads not listed are unconnected. part_numbers and dnp
+change no connectivity; they declare what the part-number check (tests/test_main.py) expects,
+and name parts the board must have.
+
+Net names are part of the comparison: a net the previous board named (not an Altium automatic
+name such as "NetR25_1") whose pads form the same net on the new board must carry the same name
+there, unless a change renames it.
 
     from micras_pcb import previous
     snap = previous.load("main")                        # board.json as a dict
@@ -553,8 +571,9 @@ def from_snapshot(snap: dict) -> Connectivity:
 
 
 def from_netlist(nl) -> Connectivity:
-    """From a micras_pcb.netlist.Netlist (the generated schematic, as LVS reads it)."""
-    nets = {name: frozenset((p.ref, p.pin) for p in pins) for name, pins in nl.nets.items()}
+    """From a micras_pcb.netlist.Netlist (the generated schematic, as LVS reads it). KiCad's
+    leading "/" on a root-sheet net name is dropped."""
+    nets = {name.lstrip("/"): frozenset((p.ref, p.pin) for p in pins) for name, pins in nl.nets.items()}
     return Connectivity(set(nl.parts), nets)
 
 
@@ -572,7 +591,17 @@ class ChangeError(ValueError):
     pass
 
 
-ACTIONS = ("rename_parts", "remove_parts", "add_parts", "isolate", "move", "merge")
+ACTIONS = (
+    "rename_parts",
+    "remove_parts",
+    "add_parts",
+    "isolate",
+    "move",
+    "merge",
+    "rename_nets",
+    "part_numbers",
+    "dnp",
+)
 KEYS = {"id", "summary", "review", *ACTIONS}
 
 
@@ -587,6 +616,9 @@ class Change:
     isolate: list[str] = field(default_factory=list)
     move: dict[str, str] = field(default_factory=dict)
     merge: list[list[str]] = field(default_factory=list)
+    rename_nets: dict[str, str] = field(default_factory=dict)
+    part_numbers: dict[str, str] = field(default_factory=dict)
+    dnp: list[str] = field(default_factory=list)
 
 
 def parse_changes(text: str) -> list[Change]:
@@ -702,7 +734,45 @@ def apply_changes(conn: Connectivity, changes: list[Change]) -> Connectivity:
             for other in {where_is[p] for p in pads[1:]} - {keep}:
                 for p in list(nets[other]):
                     put(p, keep)
+        if c.rename_nets:
+            for old in c.rename_nets:
+                if old not in nets:
+                    raise ChangeError(f"{w}: rename of unknown net {old!r}")
+            for new in c.rename_nets.values():
+                if new in nets and new not in c.rename_nets:
+                    raise ChangeError(f"{w}: rename target {new!r} is an existing net")
+            if len(set(c.rename_nets.values())) != len(c.rename_nets):
+                raise ChangeError(f"{w}: two nets renamed to one name")
+            renamed = {new: nets.pop(old) for old, new in c.rename_nets.items()}
+            nets.update(renamed)
+            for new, pads in renamed.items():
+                for p in pads:
+                    where_is[p] = new
+            known_nets.update(renamed)
+        for ref in [*c.part_numbers, *c.dnp]:
+            if ref not in parts:
+                raise ChangeError(f"{w}: part number or dnp of unknown part {ref}")
     return Connectivity(parts, {k: frozenset(v) for k, v in nets.items()})
+
+
+def part_numbers(snap: dict, changes: list[Change]) -> dict[str, str | None]:
+    """The MPN each part of the new board must have: the previous board's, then the declared
+    part_numbers in order; parts added by a change have none unless declared."""
+    out: dict[str, str | None] = {r: p["mpn"] for r, p in snap["parts"].items()}
+    for c in changes:
+        for old, new in c.rename_parts.items():
+            out[new] = out.pop(old, None)
+        for ref in c.remove_parts:
+            out.pop(ref, None)
+        for ref in c.add_parts:
+            out[ref] = None
+        out.update(c.part_numbers)
+    return out
+
+
+def dnp_parts(changes: list[Change]) -> set[str]:
+    """The parts the declared changes leave unfitted."""
+    return {ref for c in changes for ref in c.dnp}
 
 
 # ---------------------------------------------------------------------------------------------
@@ -719,10 +789,11 @@ class Report:
     only_actual: list[str] = field(default_factory=list)  # parts the new board adds
     splits: list[tuple[str, dict[str, frozenset[Pad]]]] = field(default_factory=list)
     joins: list[tuple[str, dict[str, frozenset[Pad]]]] = field(default_factory=list)
+    renamed: list[tuple[str, str]] = field(default_factory=list)  # (expected name, name on the new board)
 
     @property
     def ok(self) -> bool:
-        return not (self.only_expected or self.only_actual or self.splits or self.joins)
+        return not (self.only_expected or self.only_actual or self.splits or self.joins or self.renamed)
 
     def lines(self) -> list[str]:
         out = [f"  part missing from the new board: {r}" for r in self.only_expected]
@@ -733,6 +804,9 @@ class Report:
         for name, dist in self.joins:
             out.append(f"  joined: new net {name} joins pads of {len(dist)} expected nets:")
             out += [f"      {old}: {_fmt_pads(pads)}" for old, pads in dist.items()]
+        out += [
+            f"  renamed: net {old} is {new} on the new board (declare it in rename_nets)" for old, new in self.renamed
+        ]
         return out
 
     def __str__(self) -> str:
@@ -748,12 +822,22 @@ def _distribution(pads, net_of: dict[Pad, str], multi: set[str], absent: str) ->
     return {k: frozenset(dist[k]) for k in sorted(dist, key=natural_key)}
 
 
+# Altium's automatic names for unnamed nets ("NetR25_1"): nobody chose them, so they are not compared.
+AUTO_NAMED = re.compile(r"Net[A-Z]+\d+_\d+$")
+
+
+def named(name: str) -> bool:
+    """A net name someone chose: not Altium's automatic name, not an unconnected pad."""
+    return not AUTO_NAMED.match(name) and not name.startswith("unconnected-")
+
+
 def diff(expected: Connectivity, actual: Connectivity) -> Report:
-    """Every way actual connects pads differently from expected, in net names a human can act on.
+    """Every way actual connects or names pads differently from expected, in terms a human can act on.
 
     A split: the pads of one expected net end up on several new nets (or unconnected). A join: one
     new net holds pads of several expected nets (or pads expected unconnected). A pad that moved
-    from net A to net B shows as a split of A and a join of B.
+    from net A to net B shows as a split of A and a join of B. A rename: an expected net with a
+    chosen name (see `named`) is the same set of pads on the new board under another name.
     """
     rep = Report(
         only_expected=sorted(expected.parts - actual.parts, key=natural_key),
@@ -777,6 +861,11 @@ def diff(expected: Connectivity, actual: Connectivity) -> Report:
         dist = _distribution(g, exp_net, exp_multi, "(pad absent on the previous board)")
         if len(dist) > 1:
             rep.joins.append((name, dist))
+    act_name = {g: n for n, g in actual.nets.items() if len(g) > 1}
+    for name in sorted(exp_multi, key=natural_key):
+        new = act_name.get(expected.nets[name])
+        if named(name) and new is not None and new != name:
+            rep.renamed.append((name, new))
     return rep
 
 

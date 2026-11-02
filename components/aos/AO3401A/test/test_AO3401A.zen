@@ -1,0 +1,43 @@
+"""Package-level facts of the AO3401A (AOS AO3401A Rev 3.1)."""
+
+AO3401A = Module("../AO3401A.zen")
+
+
+def part(module):
+    return module.components()["AO3401A"]
+
+
+def net_of(module, pin):
+    for name, ports in module.nets().items():
+        for path, p in ports:
+            if path.endswith(".AO3401A") and p == pin:
+                return name
+    error("AO3401A." + pin + " is not connected")
+
+
+def orderable_part(module, inputs):
+    c = part(module)
+    check(c.mpn == "AO3401A", "MPN must be AO3401A, got " + str(c.mpn))
+    check(c.prefix == "Q", "reference prefix must be Q")
+
+
+def gate_source_drain(module, inputs):
+    # p.1 SOT23 top view: gate, source, drain; high-side switch wiring (source on the supply)
+    check(sorted(part(module).pins.keys()) == ["D", "G", "S"], "pins must be G, S, D")
+    check(net_of(module, "G") == "GATE", "G io must reach the gate pin")
+    check(net_of(module, "S") == "SUPPLY", "S io must reach the source pin")
+    check(net_of(module, "D") == "LOAD", "D io must reach the drain pin")
+
+
+TestBench(
+    name="AO3401A_high_side",
+    module=AO3401A,
+    test_cases={
+        "high_side": {
+            "G": Net("GATE"),
+            "S": Power("SUPPLY", voltage="3.3V"),
+            "D": Net("LOAD"),
+        },
+    },
+    checks=[orderable_part, gate_source_drain],
+)

@@ -1,0 +1,35 @@
+"""PZ254V-11-05P package: pins 1-5 on P1-P5, P prefix by default, configurable prefix."""
+
+HEADER = Module("../PZ254V-11-05P.zen")
+
+
+def pins_in_order(module, inputs):
+    nets = module.nets()
+    for i in range(1, 6):
+        check([pin for _, pin in nets["N%d" % i]] == [str(i)], "pin %d must be on P%d" % (i, i))
+
+
+def prefix_is(expected):
+    def _check(module, inputs):
+        c = module.components()["HEADER"]
+        check(c.prefix == expected, "designator prefix must be " + expected + ", got " + c.prefix)
+        check(c.mpn == "PZ254V-11-05P", "MPN must be PZ254V-11-05P")
+
+    return _check
+
+
+NETS = {"P%d" % i: Net("N%d" % i) for i in range(1, 6)}
+
+TestBench(
+    name="PZ254V_05P_default_prefix",
+    module=HEADER,
+    test_cases={"default": NETS},
+    checks=[pins_in_order, prefix_is("P")],
+)
+
+TestBench(
+    name="PZ254V_05P_j_prefix",
+    module=HEADER,
+    test_cases={"j": dict(NETS, prefix="J")},
+    checks=[pins_in_order, prefix_is("J")],
+)

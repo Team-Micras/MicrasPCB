@@ -60,5 +60,6 @@ pitch, the two rows 13.5 mm apart, the origin on the module's bottom edge 1 mm b
 - The embedded STEP is the Altium library's `HM-19.STEP`. `pcb rectify check` reports a 9.2 mm
   offset because the body is not centred on the pads: the antenna end extends 7 mm beyond pad 1.
   A KiCad 3D render shows the body on the pads with that end off the pad rows, as drawn in 6.6.
-- The body outline is on User.15 (Altium mechanical layer); there is no F.CrtYd courtyard and no
-  silkscreen.
+- The body outline is on User.15 (Altium mechanical layer). The F.CrtYd courtyard is the body
+  (antenna end included) and the pads with 0.25 mm around them: x +-7.77 mm, y -18.8 to +0.3 mm.
+  There is no silkscreen.

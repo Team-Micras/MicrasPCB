@@ -201,6 +201,17 @@
 			)
 		)
 	)
+	(fp_rect
+		(start -3.49 -2.51)
+		(end 2.4 2.56)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "0583bfa9-344c-42ef-93c4-f1e01261d373")
+	)
 	(pad "1" smd rect
 		(at 1.35623 1.5)
 		(size 1.575 0.67201)
@@ -210,7 +221,7 @@
 	(pad "2" smd custom
 		(at -2.28321 -0.94983 90)
 		(size 0.000001 0.000001)
-		(layers "F.Cu" "F.Mask")
+		(layers "F.Cu" "F.Mask" "F.Paste")
 		(solder_mask_margin 0.05001)
 		(thermal_bridge_angle 90)
 		(options

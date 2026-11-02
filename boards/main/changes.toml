@@ -23,3 +23,161 @@ rename_parts = { "FAN_PWM" = "FAN_PWM1", "FAN_ENABLE" = "FAN_ENABLE1", "FAN_OVER
 id = "H"
 summary = "The four M2 screw holes (previous/board.json unnamed NONAME1-NONAME4, footprints without a designator) are circuit parts H1-H4, placed by spec/main.toml"
 add_parts = { H1 = {}, H2 = {}, H3 = {}, H4 = {} }
+
+[[change]]
+id = "M5"
+review = "hw_debug/schematic_review.md M5, rework O3"
+summary = "Battery switch slew: R43 100 kOhm from SW4 to Q6's gate and C58 47 nF from gate to drain hold the VBAT switch-on to 2.7 V/ms, below the STSPIN958's 0.5 V/us dVS/dt rating"
+move = { "SW4.3" = "net:REGULATORS.BAT_SW_DRIVE" }
+add_parts = { R43 = { "1" = "new:REGULATORS.BAT_SW_DRIVE", "2" = "Q6.1" }, C58 = { "1" = "net:GND", "2" = "Q6.1" } }
+
+[[change]]
+id = "C1-battery"
+review = "hw_debug/schematic_review.md C1, rework R1"
+summary = "Battery measurement after C1: R44 100 kOhm / R45 27 kOhm from VBAT with C59 100 nF into PA5 (ADC12_INP19), 2.68 V at 12.6 V"
+add_parts = { R44 = { "1" = "net:VBAT", "2" = "IC1.24" }, R45 = { "1" = "net:GND", "2" = "IC1.24" }, C59 = { "1" = "net:GND", "2" = "IC1.24" } }
+
+[[change]]
+id = "C3"
+review = "hw_debug/schematic_review.md C3, section 4"
+summary = "The 3V3 buck IC7 (now the L6981C33 low-consumption variant, which does not sink) on its own input VSYS, fed by the TPS2121 power mux U4 from the battery or USB VBUS: its body diode reaches neither"
+part_numbers = { IC7 = "L6981C33DR" }
+move = { "IC7.7" = "net:REGULATORS.VSYS", "IC7.5" = "net:REGULATORS.VSYS", "C52.2" = "net:REGULATORS.VSYS", "C53.2" = "net:REGULATORS.VSYS" }
+add_parts = { U4 = { "1" = "new:REGULATORS.VSYS", "8" = "net:REGULATORS.VSYS", "7" = "net:VBAT", "2" = "net:+5V", "3" = "net:GND", "4" = "net:GND", "5" = "net:GND", "6" = "net:GND", "9" = "net:GND", "12" = "net:GND", "10" = "new:REGULATORS.MUX_ILM", "11" = "new:REGULATORS.MUX_SS" }, R46 = { "1" = "net:GND", "2" = "net:REGULATORS.MUX_ILM" }, C61 = { "1" = "net:GND", "2" = "net:REGULATORS.MUX_SS" }, C62 = { "1" = "net:GND", "2" = "net:VBAT" }, C63 = { "1" = "net:GND", "2" = "net:+5V" } }
+
+[[change]]
+id = "m7"
+review = "hw_debug/schematic_review.md m7"
+summary = "SWD connector P1 with NRST on pin 5, so a probe connects under reset: a JST SH 5-pin top-entry header (BM05B-SRSS-TB) by the board edge, its reinforcement pads on GND"
+part_numbers = { P1 = "BM05B-SRSS-TB(LF)(SN)" }
+remove_parts = ["P1"]
+add_parts = { P1 = { "1" = "new:SWD_VDD", "2" = "net:GND", "3" = "net:SWDIO", "4" = "net:SWCLK", "5" = "net:Reset", "MP" = "net:GND" } }
+
+[[change]]
+id = "C5"
+review = "hw_debug/schematic_review.md C5, M3, section 4"
+summary = "One regulated source on 3V3: the USB LDO U3 is removed (USB feeds the buck through U4), and the SWD probe's pin reaches 3V3 through the LM66100 ideal diode U5 (C64 1 uF at its input)"
+remove_parts = ["U3"]
+add_parts = { U5 = { "1" = "net:SWD_VDD", "2" = "net:GND", "3" = "net:3V3", "5" = "net:GND", "6" = "net:3V3" }, C64 = { "1" = "net:GND", "2" = "net:SWD_VDD" } }
+
+[[change]]
+id = "C4"
+review = "hw_debug/schematic_review.md C4, M15"
+summary = "The 20 V boost U1 (now the auto-PFM TPS61178) enabled by Motors_Enable instead of its input: it runs only while the firmware enables the motors"
+part_numbers = { U1 = "TPS61178RNWR" }
+move = { "U1.11" = "IC1.45" }
+
+[[change]]
+id = "m12"
+review = "hw_debug/schematic_review.md m12, rework O7"
+summary = "R49 100 kOhm pulls Motors_Enable (PA10) low on the MCU side of R35, so the bridges and the boost stay off while the MCU is in reset"
+add_parts = { R49 = { "1" = "net:GND", "2" = "IC1.45" } }
+
+[[change]]
+id = "M1"
+review = "hw_debug/schematic_review.md M1, rework R5"
+summary = "C60 from BOOT0 to GND instead of 3V3, so the 3V3 ramp no longer boots the MCU into its bootloader"
+move = { "C60.2" = "net:GND" }
+
+[[change]]
+id = "M7"
+review = "hw_debug/schematic_review.md M7, rework O2"
+summary = "STSPIN958 PWM2/PH (IC6 pin 12) on GND, the phase that goes with the fan wired between OUT and LSS"
+move = { "IC6.12" = "net:GND" }
+
+[[change]]
+id = "M11"
+review = "hw_debug/schematic_review.md M11"
+summary = "USB data lines without external parts (R10 D+ pull-up, R8/R9 0 Ohm and the 18 pF C22/C23 removed: D+/D- on plain copper from the receptacle to PA12/PA11) and VBUS sensing: R47 33 kOhm / R48 82 kOhm into PH0"
+remove_parts = ["R10", "R8", "R9", "C22", "C23"]
+merge = [["IC1.47", "U2.A6"], ["IC1.46", "U2.A7"]]
+add_parts = { R47 = { "1" = "net:+5V", "2" = "IC1.10" }, R48 = { "1" = "net:GND", "2" = "IC1.10" } }
+
+[[change]]
+id = "M12"
+review = "hw_debug/schematic_review.md M12, m5"
+summary = "USB ESD protection at the receptacle: USBLC6-2SC6 U6 on D+/D- (rail pin on 3V3, bypassed by C79 100 nF: DocID 11265 Figure 18) and the 5 V TVS D8 on VBUS"
+add_parts = { U6 = { "1" = "U2.A6", "6" = "U2.A6", "3" = "U2.A7", "4" = "U2.A7", "2" = "net:GND", "5" = "net:3V3" }, C79 = { "1" = "net:GND", "2" = "net:3V3" }, D8 = { "1" = "net:GND", "2" = "net:+5V" } }
+
+[[change]]
+id = "M6"
+review = "hw_debug/schematic_review.md M6"
+summary = "The SBU supply of the Bluetooth module switched by Q7 (AO3401A) only while the module's signature is on CC1: the module ties CC to D+ (the UART4 TX, idle high), which lifts CC1 above any level a USB Type-C source makes across Rd (R2.0 Tables 4-35, 4-36); R50/D13/C77/R51 hold its peak, U7 (TLV7041) compares it with two thirds of 3V3 (R52/R53, hysteresis R54) and pulls Q7's gate (R55 to 3V3) low; C78 bypasses U7"
+move = { "F1.1" = "net:PERIPHERALS.SBU_SW" }
+add_parts = { R50 = { "1" = "U2.A5", "2" = "new:PERIPHERALS.SBU_DET_A" }, D13 = { "1" = "new:PERIPHERALS.SBU_DET", "2" = "R50.2" }, C77 = { "1" = "net:GND", "2" = "D13.1" }, R51 = { "1" = "net:GND", "2" = "D13.1" }, R52 = { "1" = "net:3V3", "2" = "new:PERIPHERALS.SBU_VREF" }, R53 = { "1" = "net:GND", "2" = "R52.2" }, R54 = { "1" = "R52.2", "2" = "new:PERIPHERALS.SBU_EN_N" }, U7 = { "1" = "R54.2", "2" = "net:GND", "3" = "R52.2", "4" = "D13.1", "5" = "net:3V3" }, C78 = { "1" = "net:GND", "2" = "net:3V3" }, R55 = { "1" = "net:3V3", "2" = "R54.2" }, Q7 = { "1" = "R54.2", "2" = "net:3V3", "3" = "new:PERIPHERALS.SBU_SW" } }
+
+
+[[change]]
+id = "M13"
+review = "hw_debug/schematic_review.md M13, rework O1"
+summary = "WS2815C-2020 LEDs D1/D2 and their capacitors C18/C19 on VBAT (9.9-12.6 V), inside the LEDs' 9.5-13.5 V supply range"
+move = { "D1.4" = "net:VBAT", "D2.4" = "net:VBAT", "C18.2" = "net:VBAT", "C19.2" = "net:VBAT" }
+
+[[change]]
+id = "m9"
+review = "hw_debug/schematic_review.md m9"
+summary = "VDDA (the ADC reference on this package) from 3V3 through the ferrite bead FB1, with C10/C11 at the pin"
+move = { "IC1.16" = "net:VDDA", "C10.2" = "net:VDDA", "C11.2" = "net:VDDA" }
+add_parts = { FB1 = { "1" = "net:3V3", "2" = "new:VDDA" } }
+
+[[change]]
+id = "M8"
+review = "hw_debug/schematic_review.md M8, rework O4"
+summary = "C65/C66 10 uF 50 V ceramics at the L6205 supply pins"
+add_parts = { C65 = { "1" = "net:GND", "2" = "net:+20V" }, C66 = { "1" = "net:GND", "2" = "net:+20V" } }
+
+[[change]]
+id = "M9"
+review = "hw_debug/schematic_review.md M9, rework O5"
+summary = "100 nF at each TSC2020 supply: C67 (IC3), C68 (IC4)"
+add_parts = { C67 = { "1" = "net:GND", "2" = "net:3V3" }, C68 = { "1" = "net:GND", "2" = "net:3V3" } }
+
+[[change]]
+id = "m19"
+review = "hw_debug/schematic_review.md m19"
+summary = "1 uF + 100 nF on 3V3 at each encoder slot: C69/C70 (EC1), C71/C72 (EC2)"
+add_parts = { C69 = { "1" = "net:GND", "2" = "net:3V3" }, C70 = { "1" = "net:GND", "2" = "net:3V3" }, C71 = { "1" = "net:GND", "2" = "net:3V3" }, C72 = { "1" = "net:GND", "2" = "net:3V3" } }
+
+[[change]]
+id = "M14"
+review = "hw_debug/schematic_review.md M14, rework O8"
+summary = "Wall emitters: 1206 resistors R13/R17/R21/R25 (250 mW), and each emitter gate AC-coupled (C73-C76 220 nF in series, D9-D12 1N4148WS clamps) so a gate held high turns the emitter off"
+part_numbers = { R13 = "1206W4F100JT5E", R17 = "1206W4F100JT5E", R21 = "1206W4F100JT5E", R25 = "1206W4F100JT5E" }
+move = { "R11.1" = "net:SENSORS.WALL0_DRIVE", "R15.1" = "net:SENSORS.WALL1_DRIVE", "R19.1" = "net:SENSORS.WALL2_DRIVE", "R23.1" = "net:SENSORS.WALL3_DRIVE" }
+add_parts = { C73 = { "1" = "new:SENSORS.WALL0_DRIVE", "2" = "Q2.1" }, C74 = { "1" = "new:SENSORS.WALL1_DRIVE", "2" = "Q3.1" }, C75 = { "1" = "new:SENSORS.WALL2_DRIVE", "2" = "Q4.1" }, C76 = { "1" = "new:SENSORS.WALL3_DRIVE", "2" = "Q5.1" }, D9 = { "1" = "Q2.1", "2" = "net:GND" }, D10 = { "1" = "Q3.1", "2" = "net:GND" }, D11 = { "1" = "Q4.1", "2" = "net:GND" }, D12 = { "1" = "Q5.1", "2" = "net:GND" } }
+
+[[change]]
+id = "m16"
+review = "hw_debug/schematic_review.md m16"
+summary = "Buzzer resistor R3 in 1206 (250 mW): 151 mW at the firmware's 50 % duty with a 9 Ohm coil"
+part_numbers = { R3 = "1206W4F100JT5E" }
+
+[[change]]
+id = "m1"
+review = "hw_debug/schematic_review.md m1"
+summary = "C56 22 uF instead of 220 uF, so 3V3 stays within the 30.5-145 uF the L6981 compensation supports"
+part_numbers = { C56 = "CL21A226MAQNNNE" }
+
+[[change]]
+id = "m2"
+review = "hw_debug/schematic_review.md m2"
+summary = "Boost divider R39 1 MOhm / R40 68 kOhm: +20V at 18.19-19.42 V, below the TPS61178's 20 V maximum output, with RDOWN below 100 kOhm"
+part_numbers = { R39 = "0603WAF1004T5E", R40 = "0603WAF6802T5E" }
+
+[[change]]
+id = "M4"
+review = "hw_debug/schematic_review.md M4, rework O11"
+summary = "Boost frequency resistor R36 140 kOhm (1.24 MHz): L2's ripple below 4 A"
+part_numbers = { R36 = "0402WGF1403TCE" }
+
+[[change]]
+id = "m14"
+review = "hw_debug/schematic_review.md m14, m15"
+summary = "Net names follow the firmware's pin labels: PB13 Fan_TOFF (the current-limiter flag), PB12 LED_Red, PA10 Motors_Enable"
+rename_nets = { "Fan_Overcurrent" = "Fan_TOFF", "LED_Blue" = "LED_Red", "Motor_Enable" = "Motors_Enable" }
+
+[[change]]
+id = "m15"
+review = "hw_debug/schematic_review.md m15"
+summary = "Current sense nets named after the motor they measure: bridge A drives the left motor M1 through R32, read by IC4 on PC0 (Current_Sensor_Left); bridge B the right motor M2 through R33, read by IC3 on PC1"
+rename_nets = { "Current_Sensor_Left" = "Current_Sensor_Right", "Current_Sensor_Right" = "Current_Sensor_Left", "Motor_L_Sense+" = "Motor_R_Sense+", "Motor_R_Sense+" = "Motor_L_Sense+", "Motor_L_Sense-" = "Motor_R_Sense-", "Motor_R_Sense-" = "Motor_L_Sense-" }

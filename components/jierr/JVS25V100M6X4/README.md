@@ -27,3 +27,6 @@ the VT1C221M0605 (3.0 x 1.2 mm pads at 4.84 mm pitch; page 2 lists the 6.6 x 6.6
 7.3 mm land span for D6.3), from the Micras Altium library (MicrasMainBoard), with the
 JVS25V100M6X4 STEP embedded. Pad 1 (+) sits on the chamfered side, next to the "+" mark.
 `pcb rectify check` passes.
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.15) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).

@@ -4,13 +4,14 @@ The placement-dependent checks skip, with the reason, while a board's layout has
 then the footprints sit where the netlist sync packed them, which says nothing about the design.
 """
 
+import json
 import math
 import shutil
 import tomllib
 
 import pytest
-from micras_pcb import layout, spec
-from micras_pcb.paths import ROOT, boards
+from micras_pcb import layout, sexpr, spec
+from micras_pcb.paths import ROOT, board_pcb, boards, layout_dir
 
 from .conftest import needs_kicad
 from .design import design
@@ -181,7 +182,9 @@ def slot_findings(pcb: layout.Board, refs: list[str]) -> list[str]:
         if w < JLC_MIN_SLOT_MM - 1e-6:
             problems.append(f"{ref}: slot {w:.2f} mm wide, below JLCPCB's {JLC_MIN_SLOT_MM} mm minimum non-plated slot")
         if w < tab_t - 1e-6:
-            problems.append(f"{ref}: slot {w:.2f} mm wide for a {tab_t:.2f} mm thick encoder board (0.8 mm + 0.1 mm)")
+            problems.append(
+                f"{ref}: slot {w:.2f} mm wide for a {tab_t:.2f} mm thick encoder board (spec thickness + 0.1 mm)"
+            )
         # the tab's corner (tab_w / 2, tab_t / 2) must lie inside the slot's rounded end
         cx, cy = length / 2 - r, w / 2 - r
         ex, ey = max(tab_w / 2 - cx, 0.0), max(tab_t / 2 - cy, 0.0)
@@ -354,6 +357,57 @@ def test_every_assembled_footprint_has_an_embedded_3d_model(board):
         for m in f.models:
             if m.startswith("kicad-embed://") and m.removeprefix("kicad-embed://") not in pcb.embedded_files:
                 problems.append(f"{f.ref}: {m} is not embedded in the board")
+    assert not problems, "\n".join(problems)
+
+
+# --- silkscreen text ------------------------------------------------------------------------------
+
+SILK_LAYERS = {"F.SilkS", "B.SilkS", "F.Silkscreen", "B.Silkscreen"}
+
+
+def _hidden(node: sexpr.Node) -> bool:
+    for n in (node, node.child("effects")):
+        if n is None:
+            continue
+        if "hide" in n.atoms():
+            return True
+        h = n.child("hide")
+        if h is not None and h.atoms()[:1] in ([], ["yes"]):
+            return True
+    return False
+
+
+def _silk_texts(node: sexpr.Node, owner: str = ""):
+    """(where, text, height, width, stroke) of every visible silkscreen text: board texts,
+    footprint texts and footprint fields."""
+    for child in node.children():
+        if child.head == "footprint":
+            yield from _silk_texts(child, child.prop("Reference") or "?")
+        elif child.head in ("gr_text", "fp_text", "property"):
+            layer = child.child("layer")
+            font = child.child("effects") and child.child("effects").child("font")
+            if layer is None or layer.atoms()[0] not in SILK_LAYERS or font is None or _hidden(child):
+                continue
+            h, w = (float(v) for v in font.child("size").atoms()[:2])
+            t = float(font.child("thickness").atoms()[0]) if font.child("thickness") else h * 0.15
+            text = child.atoms()[{"property": -1, "fp_text": 1}.get(child.head, 0)]
+            where = f"{owner} " if owner else "board "
+            yield where + child.head, text, h, w, t
+
+
+# The board's silkscreen limits, written into its .kicad_pro: the height by Zener
+# (<board>.zen Silkscreen), the stroke by `micras-pcb rules` (rules/kicad-severities.toml
+# [design.<board>]). KiCad's stroke font draws a text's stroke at most a quarter of its smaller
+# size, so the stroke that reaches the Gerbers is min(thickness, size / 4).
+@pytest.mark.parametrize("board", ["main", "bluetooth"])
+def test_silkscreen_text_meets_the_board_minimum(board):
+    rules = json.loads((layout_dir(board) / f"{board}.kicad_pro").read_text())["board"]["design_settings"]["rules"]
+    min_h, min_t = rules["min_text_height"], rules["min_text_thickness"]
+    problems = []
+    for where, text, h, w, t in _silk_texts(sexpr.parse(board_pcb(board).read_text())):
+        stroke = min(t, min(h, w) / 4)
+        if min(h, w) < min_h - 1e-6 or stroke < min_t - 1e-6:
+            problems.append(f"{where} {text!r}: {h} x {w} mm, stroke {stroke:.3f} mm (minimum {min_h} mm, {min_t} mm)")
     assert not problems, "\n".join(problems)
 
 

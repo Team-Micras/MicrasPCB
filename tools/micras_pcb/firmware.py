@@ -19,6 +19,20 @@ Contract (`firmware.toml`):
     [drive]    duty cycles the firmware drives loads with, where the board's ratings depend on them:
                wall_emitter (config/targets/v1/target.hpp emitter_duty_cycle) and buzzer
                (micras-lib Buzzer::play, set_duty_cycle)
+
+Firmware changes the board needs (`boards/<board>/firmware_changes.toml`). A board change can
+need the firmware to follow (a new ADC pin, a new input). Until MicrasFirmware has it, the change
+is declared here, and the board is tested against the contract with the declared changes applied
+(`apply_changes`). A declared change the snapshot already contains is stale (`stale_changes`), so
+the entry is dropped when firmware.toml is regenerated.
+
+    [[change]]
+    id = "C1"                                  # required, unique: the board change it follows
+    summary = "Battery voltage on PA5"         # required
+    pins = { "PA5" = { signal = "ADCx_INP19", label = "Battery_Voltage" } }   # pins set or replaced
+    battery = { channel = "pin", divider = 4.7037 }                          # sections merged key by key
+
+Sections other than pins (supply, battery, drive) merge key by key into the contract.
 """
 
 from __future__ import annotations
@@ -47,6 +61,56 @@ def default_source() -> Path:
 
 def load(board: str = "main") -> dict:
     return tomllib.loads(contract_path(board).read_text())
+
+
+def changes_path(board: str = "main") -> Path:
+    return BOARDS / board / "firmware_changes.toml"
+
+
+CHANGE_SECTIONS = ("pins", "supply", "battery", "drive")
+
+
+def load_changes(board: str = "main", path: Path | None = None) -> list[dict]:
+    """The declared firmware changes, checked for shape (id, summary, known sections, unique ids)."""
+    path = path or changes_path(board)
+    if not path.is_file():
+        return []
+    raw = tomllib.loads(path.read_text())
+    if set(raw) - {"change"}:
+        raise ValueError(f"{path.name}: unknown top-level keys {sorted(set(raw) - {'change'})}")
+    seen = set()
+    for i, c in enumerate(raw.get("change", []), 1):
+        where = f"{path.name} change #{i} ({c.get('id', 'no id')})"
+        if not c.get("id") or not c.get("summary"):
+            raise ValueError(f"{where}: needs id and summary")
+        if c["id"] in seen:
+            raise ValueError(f"{where}: duplicate id")
+        seen.add(c["id"])
+        extra = set(c) - {"id", "summary", *CHANGE_SECTIONS}
+        if extra or not any(c.get(s) for s in CHANGE_SECTIONS):
+            raise ValueError(f"{where}: unknown keys {sorted(extra)} or no change ({', '.join(CHANGE_SECTIONS)})")
+    return raw.get("change", [])
+
+
+def apply_changes(contract: dict, changes: list[dict]) -> dict:
+    """The contract the board must meet: the firmware's, with the declared changes applied in order."""
+    out = {k: dict(v) if isinstance(v, dict) else v for k, v in contract.items()}
+    for c in changes:
+        for section in CHANGE_SECTIONS:
+            for key, value in (c.get(section) or {}).items():
+                out.setdefault(section, {})[key] = value
+    return out
+
+
+def stale_changes(contract: dict, changes: list[dict]) -> list[str]:
+    """Declared changes (or parts of them) the firmware snapshot already has."""
+    stale = []
+    for c in changes:
+        for section in CHANGE_SECTIONS:
+            for key, value in (c.get(section) or {}).items():
+                if contract.get(section, {}).get(key) == value:
+                    stale.append(f"{c['id']}: {section}.{key} is already in firmware.toml")
+    return stale
 
 
 def _commit(repo: Path) -> str:

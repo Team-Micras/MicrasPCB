@@ -1,70 +1,124 @@
-"""Battery input, battery switch, 3.3 V buck, 20 V boost and the USB 3.3 V LDO.
+"""Battery input and switch, battery measurement, supply selection, 3.3 V buck and 20 V boost.
+
+Power tree. Three sources can power the board, and each reaches the rails through one path:
+- Battery (J1, 3S LiPo): VBAT feeds the 20 V boost U1, the fan driver (drivers sheet), the
+  addressable LEDs (peripherals sheet) and input IN1 of the power mux U4.
+- USB (U2 VBUS, +5V): input IN2 of U4.
+- SWD probe (P1 pin 1, SWD_VDD): the ideal diode U5 onto 3V3.
+U4 puts the higher of VBAT and +5V on VSYS, which only feeds the 3V3 buck IC7. 3V3 then has
+two sources: IC7, and U5 when the probe's supply is above it. The buck's high-side body diode
+(DS13554 Figure 19) lifts VSYS from 3V3 to about 2.6-2.9 V when the probe alone powers the board
+(known and accepted, boards/main/layout/README.md Power), but VSYS carries nothing else besides C52/C53,
+and U4 blocks it from VBAT and +5V; VBAT and +5V are never powered from 3V3. With USB or the probe alone, VBAT stays
+at 0 V, so the boost, the motor bridges and the fan driver are off: the motors cannot run in
+the debug modes.
 
 Battery input and switch. J1 takes the 3S LiPo: pack + on VBAT, pack - on GND_BAT. Q6
-(HSBB3072, 30 V N-MOSFET) is a low-side switch from GND_BAT to the board GND, its gate
-pulled to GND_BAT by R41 (100 kOhm) and switched to VBAT by the slide switch SW4. The gate
-then sits at the pack voltage, inside the +-20 V VGS rating (HSBB3072 p1); the body diode
-points from GND_BAT to GND, so the switch blocks battery current when off.
+(HSBB3072, 30 V N-MOSFET) is a low-side switch from GND_BAT to the board GND, its gate pulled
+to GND_BAT by R41 (100 kOhm); the slide switch SW4 drives it from VBAT through R43 (100 kOhm),
+so VGS settles at VBAT / 2 (4.95-6.3 V; RDS(on) 3.8 mOhm max at 4.5 V, HSBB3072 p2) and stays
+within the +-20 V rating. C58 (47 nF, gate to drain) sets the turn-on slew: on the Miller
+plateau the drain moves at IG / CGD <= VBAT / (R43 x (C58 + Crss)) = 12.6 V / (100 kOhm x
+47.2 nF) = 2.7 V/ms (Crss 229 pF, HSBB3072 p2), below the STSPIN958's 0.5 V/us dVS/dt rating
+(DS14341 Table 1) on VBAT, and the inrush into the VBAT capacitors is about 2.7 V/ms x 288 uF
+= 0.8 A. The body diode points from GND_BAT to GND, so the switch blocks battery current when
+off.
 
-3V3 buck, IC7 (L6981N33DR, fixed 3.3 V, DS13554). VIN and EN on VBAT, so the converter runs
-whenever the switch is on and VBAT is above the EN threshold (1.2 V typ, Table 6 p7).
-Integrator parts per DS13554 Table 1 p3 and Table 2 p4:
+Battery measurement: R44 100 kOhm / R45 27 kOhm from VBAT to GND into Battery_Voltage (PA5,
+ADC12_INP19, DS13311 Table 8), C59 100 nF at the pin: 12.6 V x 27 / 127 = 2.68 V, below VDDA;
+Thevenin 21.3 kOhm with 100 nF (2.1 ms) holds the pin for the ADC sample (CADC 4 pF, DS13311
+Table 84) and filters the motor ripple. The firmware divides by 127 / 27 = 4.704.
+
+Power mux, U4 (TPS2121RUXR, SLVSEA3F): IN1 on VBAT, IN2 on +5V, OUT on VSYS. PR1 and CP2 on
+GND select VCOMP mode, the higher input powers the output (section 9.3.8, Table 9-3): the
+battery whenever it is switched on, USB otherwise, with seamless switchover. OV1/OV2 on GND
+(no overvoltage cut-off) and ST on GND (not read), as the pin table allows. Each channel is a
+back-to-back FET pair with opposed body diodes (Figure 9-2), on only for the selected valid
+input, so VSYS reaches neither input: the selected channel blocks a back-driven output (reverse
+current blocking, section 9.3.6), and with no input above UVLO (2.4-2.8 V, Table 7.5) the output
+is Hi-Z (Table 9-3), an off channel leaking at most 1 uA at 25 C, 5 uA to 85 C (Table 7.5,
+ILK). R46 39 kOhm sets the current limit, Eq. 2: ILM = 65.2 / 39^0.861 = 2.8 A typ; Table 7.5
+gives 2-3 A at 44.2 kOhm and 3-4 A at 29.8 kOhm, so at least 2 A, above the 1.3 A the buck
+draws at 1.5 A out from 4.4 V. C61 100 nF on SS: 780-800 V/s output slew
+(Table 9-1). Bypass at the pins (section 11): C62 1 uF on IN1, C63 10 uF on IN2 (the VBUS
+bulk, at the 10 uF a USB device may put on VBUS, USB 2.0 section 7.2.4.1), C52/C53 on OUT.
+
+3V3 buck, IC7 (L6981C33DR, fixed 3.3 V, low-consumption mode, DS13554). VIN and EN on VSYS.
+In LCM the converter skips pulses at light load and turns its low side off at zero inductor
+current (section 6.4.1, p10-11), and stops switching while FB is above its LCM threshold, 1.8 %
+over the set point; it sinks current only in output overvoltage (section 6.6.1), so it does not
+fight the probe's supply on 3V3. The datasheet does not cover VIN below its 3.5 V minimum with
+the output held up, the probe-only state (README Open items: a bench check). Integrator parts per DS13554
+Table 1 p3 and Table 2 p4:
 - C55 100 nF BOOT to SW (100 nF typ);
 - C54 1 uF on VCC (>= 1 uF);
 - L3 22 uH (YSPIA0645-220M, 4.5 A Isat). Ripple by Eq. 36: 0.26-0.28 A for VIN 11.1-12.6 V,
   18 % of the 1.5 A rating, below the 20-40 % target of section 8.4.2 p27 (a target, not a
   limit: the Eq. 39 peak, 1.64 A, stays under the 2.0 A minimum current limit);
-- input: C52 10 uF + C53 1 uF next to IC7, besides the boost input bank on VBAT;
-- output: C56 220 uF 6.3 V 1206 and C57 22 uF 25 V on 3V3. Eq. 42/43 bound the output
-  capacitance the internal compensation supports to 30.5-145 uF at 3.3 V.
+- input: C52 10 uF + C53 1 uF on VSYS next to IC7 (CIN 10 uF typ, Table 2);
+- output: C56 and C57 22 uF on 3V3. With every capacitor on 3V3 the rail carries 71.8 uF
+  nominal, inside the 30.5-145 uF that Eq. 42/43 allow the internal compensation at 3.3 V.
 
-20 V boost, U1 (TPS611781RNWR, SLVSDA7E). VIN and EN on VBAT, VOUT on +20V for the L6205
-bridges. Integrator parts:
-- R36 150 kOhm FREQ/SYNC to GND: Eq. 2-3 p13-14, 1.15 MHz measured on the bench;
-- R37 56 kOhm ILIMIT to GND: Eq. 1 p12, 745 / 56 = 13.3 A for the TPS61178, about 0.8 A
-  lower for the TPS611781 (p13);
-- R39 2 MOhm / R40 130 kOhm FB divider: Eq. 4 p17, VOUT = 1.198 V x (1 + 2000 / 130) =
-  19.63 V typ, 18.99-20.32 V over VREF and resistor tolerance;
+20 V boost, U1 (TPS61178RNWR, auto PFM, SLVSDA7E). VIN on VBAT, VOUT on +20V for the L6205
+bridges, EN on Motors_Enable (PA10): the boost runs only while the firmware enables the
+motors, and its internal 800 kOhm pull-down (REN, section 7.5 p6) with R49 on the drivers
+sheet hold it off in reset. In PFM it skips cycles at light load (section 8.4.2) instead of
+switching at full frequency. Integrator parts:
+- R36 140 kOhm FREQ/SYNC to GND: Eq. 2-3 p13-14, 1 / (3 x 1.8 pF x 140 kOhm + 50 ns) =
+  1.24 MHz;
+- R37 56 kOhm ILIMIT to GND: Eq. 1 p12, 745 / 56 = 13.3 A typ;
+- R39 1 MOhm / R40 68 kOhm FB divider: Eq. 4 p17, VOUT = 1.198 V x (1 + 1000 / 68) =
+  18.82 V typ, 18.19-19.42 V over VREF (1.180-1.210 V, section 7.5), 1 % resistors and the
+  60 nA FB leakage through R39: below the 20 V maximum output (section 7.3) and the 20.5 V
+  overvoltage threshold, with RDOWN below 100 kOhm (section 9.2.4 p18);
+- L2 1 uH (XAL6030-102, 23 A Isat): ripple by Eq. 5, VIN x (1 - VIN / VOUT) / (L x fSW),
+  3.78 A p-p at 9.9 V and less at higher VIN, below the 4 A of section 9.2.4.1 p19;
 - R38 68 kOhm + C42 470 pF COMP network (section 9.2.4.4 p21-24; CP omitted, which p24
   allows below 10 pF);
 - C43 220 nF BST to SW (0.1-1 uF, >= 10 V: section 8.3.12 p14);
 - C48 4.7 uF on VCC (> 1 uF, pin table p3);
-- L2 1 uH (XAL6030-102, 23 A Isat);
 - input C49-C51 3 x 22 uF on VBAT (section 9.2.4.3 p21), output C44/C45 10 uF 50 V and
   C46/C47 22 uF 35 V on +20V (section 9.2.4.2 p21);
-- DISDRV unconnected: there is no output-disconnect FET (pin table p3).
+- DISDRV unconnected: there is no output-disconnect FET (pin table p3). With EN low, +20V
+  follows VBAT through the high-side body diode, and the bridges stay disabled by the same
+  Motors_Enable.
 
-USB LDO, U3 (CJA1117B-3.3): +5V from the USB-C VBUS to 3V3, so the board runs from USB with
-the battery switch off. Its output shares 3V3 with IC7.
+SWD probe supply, U5 (LM66100DCKR ideal diode, SLVSEZ8A): VIN on SWD_VDD (P1 pin 1), VOUT on
+3V3, CE on VOUT for always-on reverse current blocking (section 8.3.2): the probe powers 3V3
+only while its supply is above 3V3, and the board never drives the probe's supply. ST on GND
+(pin table p3). C64 1 uF on VIN (section 10).
 """
 
 load(
     "./passives.zen",
     "C_100N_0402",
     "C_10U_0603",
-    "C_10U_0805",
     "C_1U_0402",
     "C_220N_0603",
-    "C_220U_1206",
     "C_22U_0805_25V",
     "C_22U_0805_35V",
     "C_470P_0402",
+    "C_47N_0603",
     "C_4U7_0805",
+    "C_10U_0805",
     "R_100K_0402",
-    "R_130K_0603",
-    "R_150K_0402",
-    "R_2M_0603",
+    "R_140K_0402",
+    "R_1M_0603",
+    "R_27K_0402",
+    "R_39K_0402",
     "R_56K_0402",
     "R_68K_0402",
+    "R_68K_0603",
 )
 
 Capacitor = Module("@stdlib/generics/Capacitor.zen")
 Resistor = Module("@stdlib/generics/Resistor.zen")
 B02B_PASK = Module("github.com/Team-Micras/MicrasPCB/components/jst/B02B-PASK/B02B-PASK.zen")
-CJA1117B = Module("github.com/Team-Micras/MicrasPCB/components/cj/CJA1117B/CJA1117B.zen")
 HSBB3072 = Module("github.com/Team-Micras/MicrasPCB/components/huashuo/HSBB3072/HSBB3072.zen")
 L6981 = Module("github.com/Team-Micras/MicrasPCB/components/st/L6981/L6981.zen")
+LM66100 = Module("github.com/Team-Micras/MicrasPCB/components/ti/LM66100/LM66100.zen")
 MK_12D18_G040 = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/MK-12D18-G040/MK-12D18-G040.zen")
+TPS2121 = Module("github.com/Team-Micras/MicrasPCB/components/ti/TPS2121/TPS2121.zen")
 TPS61178 = Module("github.com/Team-Micras/MicrasPCB/components/ti/TPS61178/TPS61178.zen")
 XAL6030_102 = Module("github.com/Team-Micras/MicrasPCB/components/coilcraft/XAL6030-102/XAL6030-102.zen")
 YSPIA0645_220M = Module("github.com/Team-Micras/MicrasPCB/components/yjycoin/YSPIA0645-220M/YSPIA0645-220M.zen")
@@ -72,14 +126,26 @@ YSPIA0645_220M = Module("github.com/Team-Micras/MicrasPCB/components/yjycoin/YSP
 # Its own sheet in the board schematic (layout/main.kicad_sch); the layout stays the board's.
 Project(name="Regulators", path="layout", layout=False)
 
+# A signal port takes the name of the board net it carries (the firmware's pin label) wherever
+# that name is an identifier, so its sheet pin and hierarchical label match the root's label:
+# KiCad's ERC flags labels whose names differ only in case (similar_labels).
 VBAT = io(Power)
 V3V3 = io(Power)
 V5V = io(Power)
 V20V = io(Power)
+SWD_VDD = io(Power)
 GND = io(Ground)
 GND_BAT = io(Ground)
+Motors_Enable = io(Net)
+Battery_Voltage = io(Net)
 
+# The buck's input: VBAT or +5V through U4, whichever is higher (USB 4.4-5.25 V, battery up to
+# 12.6 V); the RCB release keeps it within 50 mV of the input in use (SLVSEA3F Table 7.5).
+VSYS = Power("VSYS", voltage="4.4V to 12.6V")
+BAT_SW_DRIVE = Net("BAT_SW_DRIVE")
 BAT_SW_GATE = Net("BAT_SW_GATE")
+MUX_ILM = Net("MUX_ILM")
+MUX_SS = Net("MUX_SS")
 BUCK_SW = Net("BUCK_SW")
 BUCK_BOOT = Net("BUCK_BOOT")
 # The L6981 VCC LDO output, 3.3 V typ (DS13554 Table 6 p7).
@@ -96,25 +162,67 @@ BOOST_COMP_RC = Net("BOOST_COMP_RC")
 
 # Battery input and switch.
 B02B_PASK(name="J1", prefix="J", P1=VBAT, P2=GND_BAT)
-MK_12D18_G040(name="SW4", A=NotConnected(), COM=VBAT, B=BAT_SW_GATE)
+MK_12D18_G040(name="SW4", A=NotConnected(), COM=VBAT, B=BAT_SW_DRIVE)
+Resistor(name="R43", P1=BAT_SW_DRIVE, P2=BAT_SW_GATE, **R_100K_0402)
 HSBB3072(name="Q6", G=BAT_SW_GATE, S=GND_BAT, D=GND)
 Resistor(name="R41", P1=GND_BAT, P2=BAT_SW_GATE, **R_100K_0402)
+Capacitor(name="C58", P1=GND, P2=BAT_SW_GATE, **C_47N_0603)
+
+# Battery measurement.
+Resistor(name="R44", P1=VBAT, P2=Battery_Voltage, **R_100K_0402)
+Resistor(name="R45", P1=GND, P2=Battery_Voltage, **R_27K_0402)
+Capacitor(name="C59", P1=GND, P2=Battery_Voltage, **C_100N_0402)
+
+# Supply selection.
+TPS2121(
+    name="U4",
+    IN1=VBAT,
+    IN2=V5V,
+    OUT=VSYS,
+    GND=GND,
+    PR1=GND,
+    CP2=GND,
+    OV1=GND,
+    OV2=GND,
+    ST=GND,
+    ILM=MUX_ILM,
+    SS=MUX_SS,
+)
+Resistor(name="R46", P1=GND, P2=MUX_ILM, **R_39K_0402)
+Capacitor(name="C61", P1=GND, P2=MUX_SS, **C_100N_0402)
+Capacitor(name="C62", P1=GND, P2=VBAT, **C_1U_0402)
+Capacitor(name="C63", P1=GND, P2=V5V, **C_10U_0603)
 
 # 3V3 buck.
-L6981(name="IC7", VIN=VBAT, EN=VBAT, VOUT=V3V3, VCC=BUCK_VCC, GND=GND, SW=BUCK_SW, BOOT=BUCK_BOOT)
+L6981(
+    name="IC7",
+    mpn="L6981C33DR",
+    VIN=VSYS,
+    EN=VSYS,
+    VOUT=V3V3,
+    VCC=BUCK_VCC,
+    GND=GND,
+    SW=BUCK_SW,
+    BOOT=BUCK_BOOT,
+)
 Capacitor(name="C55", P1=BUCK_BOOT, P2=BUCK_SW, **C_100N_0402)
 Capacitor(name="C54", P1=GND, P2=BUCK_VCC, **C_1U_0402)
 YSPIA0645_220M(name="L3", P1=BUCK_SW, P2=V3V3)
-Capacitor(name="C52", P1=GND, P2=VBAT, **C_10U_0603)
-Capacitor(name="C53", P1=GND, P2=VBAT, **C_1U_0402)
-Capacitor(name="C56", P1=GND, P2=V3V3, **C_220U_1206)
+Capacitor(name="C52", P1=GND, P2=VSYS, **C_10U_0603)
+Capacitor(name="C53", P1=GND, P2=VSYS, **C_1U_0402)
+Capacitor(name="C56", P1=GND, P2=V3V3, **C_22U_0805_25V)
 Capacitor(name="C57", P1=GND, P2=V3V3, **C_22U_0805_25V)
+
+# SWD probe supply.
+LM66100(name="U5", VIN=SWD_VDD, VOUT=V3V3, CE=V3V3, ST=GND, GND=GND)
+Capacitor(name="C64", P1=GND, P2=SWD_VDD, **C_1U_0402)
 
 # 20 V boost.
 TPS61178(
     name="U1",
+    mpn="TPS61178RNWR",
     VIN=VBAT,
-    EN=VBAT,
+    EN=Motors_Enable,
     VOUT=V20V,
     VCC=BOOST_VCC,
     GND=GND,
@@ -126,10 +234,10 @@ TPS61178(
     ILIMIT=BOOST_ILIM,
     DISDRV=NotConnected(),
 )
-Resistor(name="R36", P1=GND, P2=BOOST_FREQ, **R_150K_0402)
+Resistor(name="R36", P1=GND, P2=BOOST_FREQ, **R_140K_0402)
 Resistor(name="R37", P1=GND, P2=BOOST_ILIM, **R_56K_0402)
-Resistor(name="R39", P1=BOOST_FB, P2=V20V, **R_2M_0603)
-Resistor(name="R40", P1=GND, P2=BOOST_FB, **R_130K_0603)
+Resistor(name="R39", P1=BOOST_FB, P2=V20V, **R_1M_0603)
+Resistor(name="R40", P1=GND, P2=BOOST_FB, **R_68K_0603)
 Resistor(name="R38", P1=BOOST_COMP_RC, P2=BOOST_COMP, **R_68K_0402)
 Capacitor(name="C42", P1=GND, P2=BOOST_COMP_RC, **C_470P_0402)
 Capacitor(name="C43", P1=BOOST_SW, P2=BOOST_BST, **C_220N_0603)
@@ -142,6 +250,3 @@ Capacitor(name="C44", P1=GND, P2=V20V, **C_10U_0805)
 Capacitor(name="C45", P1=GND, P2=V20V, **C_10U_0805)
 Capacitor(name="C46", P1=GND, P2=V20V, **C_22U_0805_35V)
 Capacitor(name="C47", P1=GND, P2=V20V, **C_22U_0805_35V)
-
-# USB LDO.
-CJA1117B(name="U3", VIN=V5V, VOUT=V3V3, GND=GND)
