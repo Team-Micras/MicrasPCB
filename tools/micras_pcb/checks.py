@@ -31,8 +31,10 @@ SEVERITIES = ROOT / "rules" / "kicad-severities.toml"
 def _with_severities(project: dict, board_name: str, layout: bool = True) -> dict:
     """The reviewed rule severities, and the board's design-rule constraints that Zener cannot
     set ([design.<board>], written into the project's board.design_settings.rules). A
-    schematic-only project takes the ERC severities alone."""
+    schematic-only project takes the ERC severities alone. The project's meta.filename is its
+    own file name, which KiCad otherwise only rewrites when it saves the project."""
     sev = tomllib.loads(SEVERITIES.read_text())
+    project.setdefault("meta", {})["filename"] = f"{board_name}.kicad_pro"
     project.setdefault("erc", {}).setdefault("rule_severities", {}).update(sev.get("erc", {}))
     if not layout:
         return project
