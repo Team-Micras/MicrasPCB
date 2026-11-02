@@ -641,12 +641,8 @@ def test_switch_nodes_are_compact():
 
 # --- stubs, detours, analog neighbours, track widths (review A6, A7, B3, C4) ------------------
 
-# The connections the owner routes by hand (layout README, Open items): their partial routes end open
-# until then, so their dangling ends are not stubs
-HAND_ROUTED = {
-    "Encoder_Left_ABI_A",
-    "LED_ARGB",
-}
+# Connections left for routing by hand (layout README, Open items), whose partial routes end open: none
+HAND_ROUTED: set[str] = set()
 
 
 @needs_kicad

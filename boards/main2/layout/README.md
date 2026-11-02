@@ -215,7 +215,7 @@ at boot and its interrupts all routed to INT1.
 [`place.py`](place.py) places every part and [`route.py`](route.py) pours the planes and routes
 the board; their docstrings give the rules they follow. The `.kicad_pcb` holds their result with
 the connections they left routed by rip-up scripts and by hand, under the same rules. Every
-connection is routed but the 2 listed under Open items.
+connection is routed.
 
 - **Placement**: every part on the top side. The spec places what mates with the robot or the
   outline; the ESP32-C5-MINI-1 sits in the rear-right corner (spec `[u13]`), its pads on the board
@@ -261,7 +261,7 @@ connection is routed but the 2 listed under Open items.
   locked; signals are 0.15 mm, 0.12 mm where they leave a fine-pitch pin and nowhere narrower,
   at 0.10-0.11 mm clearance. A switching net keeps 0.5 mm from an analog net on the same layer,
   tracks, pads and pours alike, but for the pin pairs and nose lines in Open items.
-  No track ends open but the partial routes of the hand-routed connections (Open items).
+  No track or via ends open.
 - **The ESP32-C5 link**: ESP_SCK, ESP_CSn and ESP_DATA leave the STM32's rear-right row (pins
   54-56) on F.Cu, R95 in line with the clock's escape, and run as a bus along the fan hole's right
   side, through the right half of the waist between the encoder slot EC1 and the board's edge and
@@ -306,8 +306,8 @@ connection is routed but the 2 listed under Open items.
   from IC7's pin 1 past C55 to L3. R58 (the 3V3_A LDO's input RC) sits by C80 and U8, VSYS running to it
   along the right wheel cut-out beside CURRENT_R_AMP; the VBAT pour leaves a notch under R75 where
   Motor_L_Sense+ leaves the shunt on B.Cu (OUT1 and SHUNT close F.Cu round its pad).
-- **In2.Cu hops**: an exception where F.Cu and B.Cu have no room, not a routing layer: 15 mm on
-  four nets (LED_ARGB, Motor_Left_EN, Reset, Wall_Sensor_PWM_0), 200 mm at most in all. A hop carries a digital line of the STM32 or the ESP32
+- **In2.Cu hops**: an exception where F.Cu and B.Cu have no room, not a routing layer: 14 mm on
+  five nets (LED_ARGB, Motor_Left_EN, Reset, Switch_0, Wall_Sensor_PWM_0), 200 mm at most in all. A hop carries a digital line of the STM32 or the ESP32
   only; it keeps 0.25 mm (plan view) from every switching, analog and battery-side supply track on
   B.Cu (`nets.SWITCHING` includes the fan's low-side sources, bootstrap and charge pump, the
   bridges' charge pumps and the INA241s' Kelvin lines), stays off every B.Cu pour but ground and out
@@ -387,14 +387,6 @@ Each is a visible TODO in the sheet that owns it.
   175 mA (Figure 2 or a measurement) and a cold check of the AC-coupled selectors' margin; the
   firmware's DAC timing against the selectors.
 - Fan: the REF setting for the chosen motor.
-- Routing: 2 connections on 2 nets are not routed, left for routing by hand:
-  - LED_ARGB, from IC1.19's escape via to D1's In2.Cu hop: the emitter sink's analog block (SINK_SET,
-    SINK_FB, SINK_GATE, SINK_SENSE, 3V3_A, EMITTER_SINK; x 44 to 48 in front of the STM32) lies
-    between them, and with the 0.45 mm gap from analog copper no F.Cu/B.Cu path exists; round it
-    the line is 48 mm, over its 38 mm detour limit. PA2 is its only TIM15_CH1 pin (DMA), so no GPIO
-    swap moves it;
-  - Encoder_Left_ABI_A (PA0, TIM5_CH1), from pin 17's escape via to EC2.7: the via is closed by
-    Switch_0 and Switch_1 on B.Cu and VDDA on F.Cu, and EC2.7 sits behind the IMU's hub.
 - Analog copper within 0.5 mm of a switching node's pad or pour: 17 pairs, 0.18-0.49 mm, each a
   pin pair the parts put side by side (the INA241's IN+ beside VS, the DRV8874's VREF and IPROPI
   beside OUT1, the emitter sink's op-amp beside Q9), a nose line beside the emitter sink, whose
@@ -411,11 +403,8 @@ Each is a visible TODO in the sheet that owns it.
   capacitors C102 and C105 sit 9-14 mm from their pins, where ST AN2834 section 4.2.8 asks for the
   pin: no 0402 fits within 3 mm of IC1.14 or IC1.30 outside the escape rows (the test is marked as
   an expected failure until they move).
-- Routing, after the hand routing: rerun the pour joins, stitching and pruning (`route.py`
-  `unprune()`, `relief()`, then `stitch()`, `prune()` and `teardrops()` on KiCad's refilled zones)
-  so the new tracks' ground keeps its vias; C72.1 (EC2's 100 nF) and C8.1 (the STM32's VBAT
-  100 nF) reach ground only through the pour round them, boxed in by other nets' tracks
-  (`PRUNE_SPARE`).
+- Routing: C72.1 (EC2's 100 nF) reaches ground only through the pour round it, boxed in by other
+  nets' tracks (`PRUNE_SPARE`).
 - ADC pins: the CubeMX check of the ADC set-up on the swapped pins; R_iso + C_f stability.
 - 3V3_A: the LDO's board-level thermal limit at about 0.33 W.
 - 3V3_D: the L6981's slope-compensation bound (Eq. 38): read literally (ISLOPE = 1 A) it puts
