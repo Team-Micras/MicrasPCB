@@ -1,7 +1,10 @@
-"""STM32H725RGV6 (IC1) application circuit: supplies, boot and reset, debug header and USB.
+"""STM32H725RGV6 (IC1) application circuit and its links to the ESP32-C5 (U13): supplies, boot
+and reset, SWD, the SPI2/UART4 link, the IMU interrupt, the pin budget.
 
-Sources: ST DS13311 Rev 5 (datasheet), AN5419 Rev 3 (hardware getting started), AN4879 Rev 12
-(USB hardware guidelines), RM0468 Rev 3 (reference manual).
+Sources: ST DS13311 Rev 5, AN5419 Rev 3, RM0468 Rev 3; Espressif ESP32-C5-MINI-1 datasheet v1.4
+(Tables 3-1, 4-1), the ESP32-C5 Series Datasheet v1.5 (section 2.3.5) and Technical Reference
+Manual v1.1 (Table 8.13-1); ST DS13476 Rev 5 (LSM6DSV); research/next-revision (H7 pin budget,
+ESP32 radio, A.6).
 """
 
 load(
@@ -14,6 +17,7 @@ load(
     "other_net",
     "refs_on",
     "report",
+    "series_to",
     "touching",
     "two_terminal",
 )
@@ -21,6 +25,12 @@ load(
 MAIN = Module("../main.zen")
 
 MCU = "IC1"
+ESP = "U13"
+# The ESP32-C5's GPIOs free of any restriction (ESP32-C5 Series Datasheet v1.5 section 2.3.5,
+# priority 2: no strapping, pad-JTAG, UART0, USB or flash role), each with its input and output
+# off and no pull at reset (TRM v1.1 Table 8.13-1, Reset 0). Neither document lists a power-up
+# glitch for any C5 pin. Every MCU link lands on one of them.
+FREE = ["IO0", "IO1", "IO6", "IO8", "IO9", "IO10", "IO23", "IO24"]
 
 
 def _caps_to_gnd(b, name, value):
@@ -29,35 +39,26 @@ def _caps_to_gnd(b, name, value):
 
 
 def direct_smps_core_supply(module, inputs):
-    # AN5419 Figure 5 p10 "Direct SMPS supply" and Table 2 p7-8 (the VFQFPN68 package has no
-    # VDDLDO pin, so the core runs from the SMPS): VFBSMPS and all VCAP pins on one node, a 2.2 uH
-    # inductor from VLXSMPS to that node, 2 x 10 uF on it and 100 nF close to each VCAP pin.
+    # AN5419 Figure 5 p10 "Direct SMPS supply" and Table 2 p7-8: VFBSMPS and all VCAP pins on
+    # one node, a 2.2 uH inductor from VLXSMPS to it, 2 x 10 uF on it and 100 nF at each VCAP.
     b = index(module)
     p = []
     core = net(b, MCU, "VFBSMPS")
     for pin in ["VCAP1", "VCAP2", "VCAP3"]:
         if net(b, MCU, pin) != core:
             p.append("IC1 " + pin + " is on " + net(b, MCU, pin) + ", not on the VFBSMPS node " + core)
-    lx = net(b, MCU, "VLXSMPS")
-    coils = two_terminal(b, "inductor", lx, core)
-    if len(coils) != 1:
-        p.append("expected one inductor from VLXSMPS (" + lx + ") to " + core + ", found " + str(coils))
-    elif abs(b.parts[coils[0]].inductance.value - 2.2e-6) > 0.05 * 2.2e-6:
-        p.append(coils[0] + " is " + eng(b.parts[coils[0]].inductance.value, "H") + ", AN5419 Table 2 asks 2.2 uH")
-    bulk = [r for r in two_terminal(b, "capacitor", core, "GND") if farads(b, r) >= 10e-6 * 0.99]
-    if len(bulk) < 2:
-        p.append(core + " has " + str(bulk) + " of the 2 x 10 uF AN5419 Table 2 asks")
+    coils = two_terminal(b, "inductor", net(b, MCU, "VLXSMPS"), core)
+    if len(coils) != 1 or abs(b.parts[coils[0]].inductance.value - 2.2e-6) > 0.05 * 2.2e-6:
+        p.append("expected one 2.2 uH inductor from VLXSMPS to " + core + ", found " + str(coils))
+    if len([r for r in two_terminal(b, "capacitor", core, "GND") if farads(b, r) >= 10e-6 * 0.99]) < 2:
+        p.append(core + " needs 2 x 10 uF (AN5419 Table 2)")
     if len(_caps_to_gnd(b, core, 100e-9)) < 3:
-        p.append(
-            core + " has " + str(_caps_to_gnd(b, core, 100e-9)) + ", AN5419 asks 100 nF at each of the 3 VCAP pins"
-        )
+        p.append(core + " needs 100 nF at each of the 3 VCAP pins")
     report(p)
 
 
 def vdd_decoupling(module, inputs):
-    # AN5419 Table 2 p7: "100 nF ceramic, for each VDD as close as possible of the pins. A 4.7 uF
-    # ceramic connected to one of the VDD pin"; VDDSMPS at the VDD level with 4.7 uF (DS13311
-    # Table 16 p120). The package has five VDD pins (9, 22, 35, 51, 68; DS13311 Table 8).
+    # AN5419 Table 2 p7: 100 nF per VDD pin (five on VFQFPN68) and one 4.7 uF; VDDSMPS = VDD.
     b = index(module)
     p = []
     vdd = net(b, MCU, "VDD")
@@ -65,120 +66,176 @@ def vdd_decoupling(module, inputs):
         p.append("VDDSMPS must be on the VDD supply (DS13311 section 3.7.1)")
     if len(_caps_to_gnd(b, vdd, 100e-9)) < 5:
         p.append(vdd + " needs five 100 nF, one per VDD pin")
-    if len([r for r in two_terminal(b, "capacitor", vdd, "GND") if farads(b, r) >= 4.7e-6 * 0.99]) < 1:
+    if not [r for r in two_terminal(b, "capacitor", vdd, "GND") if farads(b, r) >= 4.7e-6 * 0.99]:
         p.append(vdd + " needs a 4.7 uF")
     report(p)
 
 
-def vdda_decoupling(module, inputs):
-    # AN5419 Table 2 p7: VDDA "1 uF ceramic and 100 nF as close as possible of the pin". On the
-    # VFQFPN68 package VREF+ is VDDA (DS13311 Figures 46-47 note 1), so VDDA is the ADC reference.
-    b = index(module)
-    vdda = net(b, MCU, "VDDA")
-    report(
-        [vdda + " needs 1 uF + 100 nF (AN5419 Table 2), found " + str(two_terminal(b, "capacitor", vdda, "GND"))]
-        if not (_caps_to_gnd(b, vdda, 1e-6) and _caps_to_gnd(b, vdda, 100e-9))
-        else [],
-    )
-
-
-def vbat_on_vdd(module, inputs):
-    # The board has no backup battery. AN5419 Table 2 p7: VBAT "to be connected to VDD when not
-    # used", 1 uF + 100 nF close to the pin; RM0468 section 6.4.4 p245. The pin's absolute maximum
-    # is 4.0 V (DS13311 Table 10 p114).
+def vdda_from_the_analog_rail(module, inputs):
+    # AN5419 Table 2 p7: VDDA 1 uF + 100 nF at the pin. Research Power tree: VDDA from 3V3_A (the
+    # ADP7142 LDO) through a 0 Ohm link or a bead of 50 mOhm or less, never from 3V3_D; VREF+ is
+    # VDDA on this package (DS13311 Figures 46-47 note 1).
     b = index(module)
     p = []
-    if net(b, MCU, "VBAT") != net(b, MCU, "VDD"):
-        p.append("IC1 VBAT (pin 1) is on " + net(b, MCU, "VBAT") + ", it must be on VDD (" + net(b, MCU, "VDD") + ")")
+    vdda = net(b, MCU, "VDDA")
+    if not (_caps_to_gnd(b, vdda, 1e-6) and _caps_to_gnd(b, vdda, 100e-9)):
+        p.append(vdda + " needs 1 uF + 100 nF (AN5419 Table 2)")
+    links = [r for r in touching(b, "resistor", vdda) if ohms(b, r) <= 0.05]
+    source = [other_net(b, r, vdda) for r in links]
+    if not source or net(b, "U8", "VOUT") not in source:
+        p.append(vdda + " must come from U8 VOUT (3V3_A) through a 0-50 mOhm link, found " + str(source))
+    if net(b, MCU, "VDD") in source:
+        p.append(vdda + " is fed from VDD")
     report(p)
 
 
-def boot0_pulled_down_without_supply_coupling(module, inputs):
-    # BOOT0 selects the system bootloader when high at reset release (RM0468 section 2.6 p142:
-    # latched on the 4th SYSCLK edge after reset; VIH >= 0.17 VDD + 0.6 V, DS13311 Table 55).
-    # AN5419 Figure 19 p30 pulls it to VSS with 10 kOhm. A capacitor from BOOT0 to a supply
-    # couples the supply's power-up ramp onto BOOT0: with 10 kOhm it decays with 1 ms per 100 nF,
-    # longer than the 377-550 us reset temporisation (DS13311 Table 20), so the MCU boots into
-    # the bootloader, which drives motor and buzzer pins (AN2606 Table 133).
+def vbat_on_vdd(module, inputs):
+    # AN5419 Table 2 p7: VBAT to VDD when no backup battery is used.
+    b = index(module)
+    report([] if net(b, MCU, "VBAT") == net(b, MCU, "VDD") else ["IC1 VBAT must be on VDD"])
+
+
+def boot0_pulled_down(module, inputs):
+    # AN5419 Figure 19 p30: BOOT0 to VSS through 10 kOhm; no capacitor from BOOT0 to a supply
+    # (its power-up ramp would boot the system bootloader, AN2606). Nothing else touches BOOT0:
+    # the MCU always starts from its flash (boards/main/firmware_changes.toml, flash).
     b = index(module)
     boot = net(b, MCU, "BOOT0")
     p = []
     downs = [r for r in two_terminal(b, "resistor", boot, "GND") if ohms(b, r) <= 10e3 * 1.01]
     if not downs:
-        p.append("BOOT0 (" + boot + ") needs a pull-down to GND of at most 10 kOhm (AN5419 Figure 19)")
+        p.append("BOOT0 (" + boot + ") needs a pull-down to GND of at most 10 kOhm")
     for r in touching(b, "capacitor", boot):
-        other = other_net(b, r, boot)
-        if other != "GND":
-            p.append(r + " couples BOOT0 to " + other + ": connect it to GND or remove it")
+        if other_net(b, r, boot) != "GND":
+            p.append(r + " couples BOOT0 to " + other_net(b, r, boot))
+    others = sorted(
+        [r for r in refs_on(b, boot) if r != MCU and r not in downs and r not in touching(b, "capacitor", boot)]
+    )
+    if others:
+        p.append("BOOT0 must be left to its pull-down, but it also reaches " + str(others))
+    report(p)
+
+
+def swd_header(module, inputs):
+    # The owner's ST-Link backstop, in his clone ST-Link lead's order: SWD1 pads 1 SWDIO (PA13),
+    # 2 GND, 3 SWCLK (PA14), 4 5V_IN (the probe's 5 V pin, into VSYS through D17), no NRST
+    # (main.zen). The pins are checked here by name; the SwdHeader4 symbol maps them to the pads,
+    # and tests/test_main.py checks the pad numbers in the netlist.
+    b = index(module)
+    p = []
+    want = {"GND": "GND", "SWDIO": net(b, MCU, "PA13"), "SWCLK": net(b, MCU, "PA14"), "VDD": "5V_IN"}
+    for pin, n in want.items():
+        if net(b, "SWD", pin) != n:
+            p.append("SWD1 " + pin + " must be on " + n + ", is " + net(b, "SWD", pin))
     report(p)
 
 
 def nrst_protection(module, inputs):
-    # DS13311 Figure 27 p168 "Recommended NRST pin protection": 0.1 uF from NRST to VSS; the
-    # pull-up is internal (RPU 30-50 kOhm, Table 61 p167).
+    # DS13311 Figure 27 p168: 0.1 uF from NRST to VSS; internal pull-up (Table 61).
     b = index(module)
     nrst = net(b, MCU, "NRST")
-    report([] if _caps_to_gnd(b, nrst, 100e-9) else ["NRST (" + nrst + ") needs 100 nF to GND (DS13311 Figure 27)"])
+    report([] if _caps_to_gnd(b, nrst, 100e-9) else ["NRST (" + nrst + ") needs 100 nF to GND"])
 
 
-def debug_header_carries_reset(module, inputs):
-    # AN5419 Figure 21 p33 wires the debug connector's nSRST to NRST. Without it a probe cannot
-    # connect under reset, the only way in when firmware remaps PA13/PA14, sleeps, or locks the
-    # supply configuration (PWR_CR3 is written once per power-on reset, RM0468 section 6.8.4).
+def esp_is_the_debug_probe(module, inputs):
+    # Research ESP32 radio and A.6: the ESP32-C5 is the debug probe (SWD1 is the ST-Link backstop)
+    # and the MCU's link: SWDIO (PA13), SWCLK (PA14) and NRST reach C5 GPIOs (directly or through
+    # one series resistor of 220 Ohm or less), so it can connect under reset (AN5419 Figure 21);
+    # the SPI3 link, ESP_SCK (PC10, SPI3_SCK), ESP_DATA (PC12, the data line on the MOSI pad) and
+    # ESP_CSn (PC11), and ESP_Flow (PA11) reach C5 GPIOs too. Each lands on a free pin (FREE),
+    # so none of them is a strapping pin or drives the line before the firmware does.
     b = index(module)
-    # the header: whatever carries both SWDIO and SWCLK besides the MCU (test points carry one)
-    swd = [r for r in refs_on(b, net(b, MCU, "PA13")) if r != MCU and r in refs_on(b, net(b, MCU, "PA14"))]
-    nrst = net(b, MCU, "NRST")
     p = []
-    for r in swd:
-        if r not in refs_on(b, nrst):
-            p.append(r + " carries SWDIO/SWCLK but not NRST (" + nrst + "): add the reset line to the debug header")
-    if not swd:
-        p.append("no debug connector on SWDIO")
+    esp_nets = {}
+    for pin, n in b.parts[ESP].pins.items():
+        esp_nets[n.name] = pin
+    links = {
+        "PA13": "SWDIO",
+        "PA14": "SWCLK",
+        "NRST": "NRST",
+        "PC10": "ESP_SCK (UART4_TX in the fallback)",
+        "PC12": "ESP_DATA",
+        "PC11": "ESP_CSn (UART4_RX in the fallback)",
+        "PA11": "ESP_Flow",
+    }
+    for mcu_pin, what in links.items():
+        m = net(b, MCU, mcu_pin)
+        hit = [esp_nets[n] for n in esp_nets if n != "" and series_to(b, m, n, 220)]
+        if len(hit) != 1:
+            p.append(mcu_pin + " (" + what + ") must reach one ESP32-C5 pin, reaches " + str(hit))
+        for pin in hit:
+            if pin not in FREE:
+                p.append(mcu_pin + " lands on the ESP32-C5's " + pin + ", not a restriction-free pin")
     report(p)
 
 
-def usb_data_lines_without_external_parts(module, inputs):
-    # DS13311 Table 118 p243: the USB FS PHY embeds the D+ pull-up (RPUI 0.9-1.6 kOhm) and its
-    # driver impedance (ZDRV 28-44 Ohm); note 2: "No external termination series resistors are
-    # required". AN4879 section 3.1.1 p13-14: the D+ pull-up is connected only while VBUS is
-    # present. An external pull-up keeps the port attached with no VBUS and doubles the
-    # pull-up; a series resistor moves the driver impedance out of 28-44 Ohm.
+# The link's series resistors: (MCU pin, ohms low, ohms high, the end the layout puts it at).
+LINK_RESISTORS = [("PC10", 22, 33, "IC1"), ("PC12", 220, 220, "U13"), ("PC11", 22, 150, "U13")]
+
+
+def esp_link_series_resistors(module, inputs):
+    # A source series resistor on the clock at its driver, PC10 (checklist, SPI: a series resistor
+    # on the clock trace; the UART4_TX resistor in the fallback); on the shared data line 220 Ohm
+    # against the two drivers overlapping while the direction changes (RM0468 Rev 3 Figure 643
+    # note 3: 3.346 V / 218 Ohm = 15.4 mA, under DS13311 Table 11's 20 mA per pin), at the C5; ESP_CSn its UART-fallback TX resistor at the C5 (schematic checklist,
+    # UART), and a 100 kOhm pull-up to 3V3_D so the select idles high while nobody drives it. Which
+    # end each resistor sits at is the layout's (boards/main/layout/README.md).
     b = index(module)
     p = []
-    for pin, conn_pin in [("PA12", "D+"), ("PA11", "D-")]:
-        line = net(b, MCU, pin)
-        conn = net(b, "U2", conn_pin)
-        for r in touching(b, "resistor", line):
-            other = other_net(b, r, line)
-            if other == conn and ohms(b, r) > 0:
-                p.append(
-                    r
-                    + " ("
-                    + eng(ohms(b, r), "Ohm")
-                    + ") in series between U2 "
-                    + conn_pin
-                    + " and "
-                    + pin
-                    + ": use 0 Ohm"
-                )
-            elif other != conn and other != "GND":
-                p.append(r + " pulls " + pin + " (" + line + ") to " + other + ": the PHY's pull-up is internal")
+    for mcu_pin, lo, hi, _end in LINK_RESISTORS:
+        m = net(b, MCU, mcu_pin)
+        rs = [
+            r
+            for r in refs_on(b, m)
+            if b.parts[r].type == "resistor"
+            and other_net(b, r, m) != net(b, MCU, "VDD")
+            and ESP in refs_on(b, other_net(b, r, m))
+        ]
+        if len(rs) != 1 or ohms(b, rs[0]) < lo * 0.99 or ohms(b, rs[0]) > hi * 1.01:
+            p.append(
+                mcu_pin + " needs one " + str(lo) + "-" + str(hi) + " Ohm resistor to the ESP32-C5, found " + str(rs)
+            )
+        elif mcu_pin == "PC12" and 3.346 / (ohms(b, rs[0]) * 0.99) > 0.020:
+            # both ends driving against each other: 3V3_D's top across the resistor at -1 %
+            p.append(rs[0] + " lets " + eng(3.346 / (ohms(b, rs[0]) * 0.99), "A") + " through PC12, above 20 mA")
+    cs = net(b, MCU, "PC11")
+    ups = [r for r in two_terminal(b, "resistor", cs, net(b, MCU, "VDD")) if abs(ohms(b, r) - 100e3) <= 1e3]
+    if len(ups) != 1:
+        p.append("ESP_CSn (PC11) needs one 100 kOhm pull-up to 3V3_D, found " + str(ups))
     report(p)
 
 
-def usb_vbus_sensing(module, inputs):
-    # AN4879 section 2.6 p11: "The device is self-powered. VBUS sensing is mandatory"; section
-    # 2.6.1: a divider from VBUS into a GPIO keeps the pin within its rating (33 kOhm / 82 kOhm
-    # for VDD 3.0-3.6 V). The board is self-powered from its battery.
+def imu_interrupt_line(module, inputs):
+    # DS13476 Rev 5: INT1 (pin 4) alone drives IMU_INT on PC7, push-pull at its defaults; the
+    # firmware moves the INT2 interrupts onto it (CTRL4 INT2_on_INT1, Table 58), and INT2 (pin 9),
+    # an output forced to ground by default (Table 22), is left open.
     b = index(module)
-    vbus = net(b, "U2", "VBUS")
-    found = []
-    for r in touching(b, "resistor", vbus):
-        tap = other_net(b, r, vbus)
-        if MCU in refs_on(b, tap) and two_terminal(b, "resistor", tap, "GND"):
-            found.append(r)
-    report([] if found else ["no VBUS sensing: VBUS (" + vbus + ") reaches no MCU pin through a divider (AN4879 2.6)"])
+    p = []
+    line = net(b, MCU, "PC7")
+    if net(b, "IC2", "INT1") != line:
+        p.append("IC2 INT1 must be on PC7's " + line)
+    if net(b, "IC2", "INT2") != "":
+        p.append("IC2 INT2 must be left open, is on " + net(b, "IC2", "INT2"))
+    others = [r for r in refs_on(b, line) if r not in [MCU, "IC2"]]
+    if others:
+        p.append(line + " carries " + str(others) + "; INT1 drives it alone")
+    report(p)
+
+
+def pin_budget(module, inputs):
+    # Research H7 pin budget: every MCU GPIO is used; the two the v1 main board left open carry
+    # Motors_nFault (both DRV8874 nFAULT, on PD2) and the ESP32-C5's ESP_Flow (PA11).
+    b = index(module)
+    p = []
+    for pin, n in b.parts[MCU].pins.items():
+        if pin[:1] == "P" and pin[1:2] in "ABCDH" and n.name == "":
+            p.append("IC1 " + pin + " is unconnected")
+    fault = net(b, MCU, "PD2")
+    if sorted([r for r in refs_on(b, fault) if r.startswith("IC") and r != MCU]) != ["IC8", "IC9"]:
+        p.append("PD2 must carry both DRV8874 nFAULT outputs")
+    if ESP not in refs_on(b, net(b, MCU, "PA11")):
+        p.append("PA11 must reach the ESP32-C5")
+    report(p)
 
 
 TestBench(
@@ -188,12 +245,14 @@ TestBench(
     checks=[
         direct_smps_core_supply,
         vdd_decoupling,
-        vdda_decoupling,
+        vdda_from_the_analog_rail,
         vbat_on_vdd,
-        boot0_pulled_down_without_supply_coupling,
+        boot0_pulled_down,
+        swd_header,
         nrst_protection,
-        debug_header_carries_reset,
-        usb_data_lines_without_external_parts,
-        usb_vbus_sensing,
+        esp_is_the_debug_probe,
+        esp_link_series_resistors,
+        imu_interrupt_line,
+        pin_budget,
     ],
 )

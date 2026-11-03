@@ -21,10 +21,14 @@ spec geometry). Each check cites its source and names the parts in its failure m
 
 `boards/main/firmware.toml` is the firmware's pin map and drive settings. When MicrasFirmware
 changes them, regenerate it (`MICRAS_FIRMWARE=<checkout> uv run micras-pcb firmware snapshot`);
-`tests/test_firmware.py` then shows what the board must change. A board change the firmware
-must follow (a new ADC pin, a new input) goes in `boards/main/firmware_changes.toml`, which the
-tests apply on top of `firmware.toml` until MicrasFirmware has it; list it in the board README's
-"Firmware changes".
+`tests/test_main.py` then shows what the board must change. A board change the firmware
+must follow (a new ADC pin, a new input, a new drive mode) goes in
+`boards/<board>/firmware_changes.toml`, which the tests apply on top of `firmware.toml` until
+MicrasFirmware has it; list it in the board README's "Firmware changes".
+
+A new board can start as a schematic only: its root declares `Project(layout = False)` (no
+`Board()`), `make gen` writes no `.kicad_pcb`, and the layout gates skip it with that reason. When
+placement starts, `Project()` becomes `Board(...)` with the stackup and rules, and a spec joins.
 
 People own three things: footprint and pin-1 checks, placement and routing, and the fab order.
 Prepare these for review; never sign them off.
@@ -75,6 +79,10 @@ stay out of the BOM, the CPL and `parts/jlc.toml`.
 - `<board>-cpl-jlcpcb.csv`: Designator, Mid X, Mid Y, Layer, Rotation; KiCad's placement plus the
   part's `rotation` offset. Zener's own JLC export applies no rotation corrections, which is why
   this one exists.
+- `<board>-hand-assembly.csv`: the parts the team buys and solders itself, marked `assembly = "hand"`
+  (with `hand_why`) in `parts/jlc.toml`: they stay out of the JLCPCB BOM and CPL. The main board's
+  ST parts (sponsor), ESP32 module (AliExpress), through-hole parts and the extended parts that are
+  easy to solder by hand are on it, for an Economic PCBA order.
 
 KiCad and JLCPCB disagree on the zero rotation of some packages, and no database of offsets is
 complete. The user checks each part once in JLCPCB's placement preview, then sets
@@ -216,9 +224,10 @@ not list.
 
 Origin, mechanically critical parts and the board outline come from `spec/<board>.toml`, every
 value `{value, source}`. `make gen` writes them into the layout (parts locked) and exports
-`build/<board>/<board>_mech.json` for MicrasHardware, micras-simulation and the firmware. The
-outlines are layout geometry (the boards keep their previous revisions'), and `micras-pcb mech`
-checks each has every interface feature of its spec (`spec/encoder.toml`: tab, reliefs, shoulder,
-tapers, corners, extents; `spec/main.toml`: encoder slots, screw holes, USB-C peg holes, fan hole,
-wheel notches, extents; `spec/bluetooth.toml`: extents, the HM-19's position). Change a mechanical number in the spec, never in the layout or in
-another repo; an outline change goes in both.
+`build/<board>/<board>_mech.json` for MicrasHardware, micras-simulation and the firmware. The main
+board's outline is the spec's (`spec/main.toml`: nose, wheel notches, encoder slots, fan hole,
+antenna and switch notches; `micras-pcb mech` draws it, `mech.OUTLINES`). The encoder's outline is
+layout geometry (the board keeps its previous revision's), and `micras-pcb mech` checks it has
+every interface feature of its spec (`spec/encoder.toml`: tab, reliefs, shoulder, tapers,
+corners, extents). Change a mechanical number in the spec, never in the layout or in another repo; a
+layout-owned outline change goes in both.

@@ -1,86 +1,209 @@
-# Main board: mechanical single source of truth for its interface to the robot.
+# Main board: mechanical single source of truth.
 #
-# The Edge.Cuts outline itself is layout geometry (boards/main/layout/main.kicad_pcb, from the
-# Altium MicrasMainBoard.PcbDoc). This file holds the numbers other parts mate with, and
-# `micras-pcb mech main`:
-#   - writes the aux/grid origin and the screw holes H1-H4 (locked footprints) into the layout,
-#   - checks that the outline has every feature below where this file says (fails on drift),
-#   - exports build/main/main_mech.json for MicrasHardware, micras-simulation and the firmware.
+# The spec owns this board's whole Edge.Cuts outline (`micras-pcb mech main` draws it), the
+# aux/grid origin, and the footprints it places (screw holes, battery switch, ESP32 module, wall
+# sensors: written locked). It also holds the zones the drive blocks of MicrasHardware take
+# on the board, which the layout tests check. `micras-pcb mech main` exports
+# build/main/main_mech.json for MicrasHardware, micras-simulation and the firmware.
 #
-# Frame: the robot frame of MicrasHardware and the firmware. Origin at the wheel-axle midpoint
-# (midway between the two encoder slot centres) on the board's bottom surface; x forward, y left,
-# z up; millimetres. On the KiCad sheet: x_kicad = origin_x - y, y_kicad = origin_y - x.
+# Frame: the robot frame (MicrasHardware, the firmware). Origin at the wheel-axle
+# midpoint on the board's bottom surface; x forward, y left, z up; millimetres. On the KiCad sheet:
+# x_kicad = origin_x - y, y_kicad = origin_y - x.
+#
+# The middle of the board (wheel notches, encoder slots, screw holes, fan hole) and the nose (the
+# wall sensors and their front outline) are the v1 main board's, so the wheels, drive blocks, fan
+# mount and sensor caps of MicrasHardware fit both boards. "v1 board" in the sources below is
+# MicrasPCB e34fb9a (its boards/main and spec/main.toml). The owner's brief (2026-10-17): at most
+# 100 x 50 mm, rounded corners, a fan hole, wheel cut-outs, a switch cut-out, room for the drive
+# blocks, four screw holes, no USB cut-out (no Bluetooth module), no part-free ring around the fan
+# hole (the fan sits higher), and no parts on the bottom.
 #
 # Every value is {value, source}, as in micras-simulation's robot.toml.
 
 [pcb]
-thickness = { value = 1.0412, source = "Altium MicrasMainBoard.PcbDoc layer stack: 1.0212 mm of copper and dielectric, plus the KiCad stackup's 10 um solder mask a side (Altium's 15.24 um resist gives 1.0517 mm); ordered as JLCPCB's 1.0 mm board (boards/main/previous/board.json board.thickness; MicrasHardware micras/params.py Board.thickness)" }
-copper_layers = { value = 4, source = "Altium MicrasMainBoard.PcbDoc layer stack" }
+thickness = { value = 1.0412, source = "boards/main/main.zen Board() stackup: the v1 board's 4-layer 1.0 mm JLCPCB stackup" }
+copper_layers = { value = 4, source = "boards/main/main.zen Board(layers = 4)" }
+via_in_pad = { value = "open", source = "the owner (2026-10-25): no via-in-pad process (JLCPCB PCB Capabilities, accessed 2026-10-25: its Via-in-Pad Process fills vias with epoxy or copper paste and plates them over, the default only from 6 layers). The exposed pads' thermal vias are 0.2 mm holes (TI SLVSF66A land pattern 4223595/B; a smaller via loses less solder, TI SLUA271C 3.4.1) left open on both sides (tenting a pad's via from the back traps air, SLUA271C 3.4.1), and the pads' paste is split into windows clear of them (the footprints; 50-70 % coverage, SLUA271C 4.4)" }
 
 [kicad]
-origin_x = { value = 148.5011, source = "MicrasHardware tools/export_board.py AXLE_KX: midway between the encoder slot centres of the Altium MicrasMainBoard.PcbDoc Edge.Cuts" }
-origin_y = { value = 113.5036, source = "MicrasHardware tools/export_board.py AXLE_KY: the encoder slot centre line of the Altium MicrasMainBoard.PcbDoc Edge.Cuts" }
-aux_origin_x = { value = 148.501075, source = "Altium MicrasMainBoard.PcbDoc origin (Board6 ORIGINX 3526.0144 mil), the rear edge centre: drill and placement origin of the fab outputs, as in the Altium CAM output" }
-aux_origin_y = { value = 150.00362, source = "Altium MicrasMainBoard.PcbDoc origin (Board6 ORIGINY 2205.1646 mil), on the rear edge" }
+origin_x = { value = 148.5011, source = "v1 board spec/main.toml [kicad] origin_x: the same sheet position" }
+origin_y = { value = 113.5036, source = "v1 board spec/main.toml [kicad] origin_y: the same sheet position" }
+aux_origin_x = { value = 148.5011, source = "the rear edge centre, as the v1 board's drill and placement origin" }
+aux_origin_y = { value = 160.0036, source = "the rear edge centre: origin_y - [outline] rear" }
 
 [outline]
-front = { value = 53.5, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts extents (board.json edge_cuts_bbox, KiCad y = 60.0036)" }
-rear = { value = -36.5, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts extents (board.json edge_cuts_bbox, KiCad y = 150.0036)" }
-width = { value = 50.0, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts extents (board.json edge_cuts_bbox, KiCad x = 123.5011 to 173.5011)" }
+# A 100 x 50 mm board: the v1 board's nose and middle, its rear 10 mm longer and square.
+front = { value = 53.5, source = "v1 board spec/main.toml [outline] front: its nose" }
+rear = { value = -46.5, source = "front - 100 mm, the owner's maximum length (2026-10-17); the rear corners turn inside the nose's 55.2 mm in-place envelope (research/next-revision/README.md, ESP placement)" }
+width = { value = 50.0, source = "the owner's maximum width (2026-10-17); v1 board spec/main.toml [outline] width" }
+nose_half_width = { value = 15.0, source = "v1 board layout Edge.Cuts: the front edge and the nose chamfers meet at y = +-15.0 (their lines through (53.5, 13.455)-(52.118, 15.691) and (34.556, 24.472))" }
+nose_shoulder_x = { value = 33.5, source = "v1 board layout Edge.Cuts: the nose chamfer meets the side y = +-25 at x = 33.5 (slope 1/2)" }
+front_corner_radius = { value = 2.5, source = "v1 board layout Edge.Cuts: R2.5 arcs centred at (51.0, +-13.455)" }
+shoulder_radius = { value = 5.0, source = "v1 board layout Edge.Cuts: R5 arcs centred at (32.32, +-20.0)" }
 
 [holes]
-diameter = { value = 2.4, source = "Altium MicrasMainBoard.PcbDoc screw holes: 2.4 mm NPTH (board.json unnamed); MicrasHardware Board.hole_d" }
+# M2 screws of the drive blocks, as on the v1 board.
+diameter = { value = 2.4, source = "v1 board spec/main.toml [holes] diameter; MicrasHardware Board.hole_d" }
+
+[countersink]
+# The board's M2 screws come from under the board, their flat heads in 90 deg countersinks cut in
+# each screw hole from the bottom side. The owner cuts them by hand (a countersink costs extra at
+# JLCPCB): they are not fabricated, and the board only keeps its copper out of them. The layout draws
+# them on User.1, a layer the fab outputs never plot (tools/micras_pcb/jlc.py
+# gerber_layers), and keep-outs hold every layer's copper off them.
+diameter = { value = 4.4, source = "MicrasHardware micras/params.py Board.countersink_d" }
+angle = { value = 90, source = "MicrasHardware micras/fasteners.py: flat-head M2 screws from under the board, heads in the board's countersinks; 90 deg, the M2 flat head's (ISO 10642)" }
+side = { value = "bottom", source = "MicrasHardware micras/fasteners.py: the screws come from under the board" }
+fabricated = { value = false, source = "the owner (2026-11-02): cut by hand, not ordered from JLCPCB" }
+clearance_outer = { value = 2.3, source = "diameter / 2 + 0.1 mm: the cone is 2.2 mm in radius at the bottom face (B.Cu) and 1.95 mm at In2.Cu, 0.25 mm above it (boards/main/main.zen stackup: 0.035 mm copper + 0.2104 mm prepreg); the keep-out radius on B.Cu and In2.Cu" }
+clearance_in1 = { value = 1.6, source = "the cone's radius at In1.Cu, 0.76-0.78 mm above the bottom face (boards/main/main.zen stackup: 0.035 + 0.2104 + 0.0175 + 0.5 mm), is 1.42-1.44 mm; with margin, the keep-out radius on In1.Cu. F.Cu, 1.0 mm up, meets the 1.2 mm hole: it keeps the hole's own clearance" }
 
 [h1]
-x = { value = 2.5, source = "Altium MicrasMainBoard.PcbDoc unnamed footprint NONAME1 (board.json); MicrasHardware Board.front_hole" }
-y = { value = 11.75, source = "Altium MicrasMainBoard.PcbDoc unnamed footprint NONAME1 (board.json); MicrasHardware Board.front_hole" }
+x = { value = 2.5, source = "v1 board spec/main.toml [h1]; MicrasHardware Board.front_hole" }
+y = { value = 11.75, source = "v1 board spec/main.toml [h1]; MicrasHardware Board.front_hole" }
 rotation = { value = 0, source = "round hole" }
 path = { value = "H1.MH", source = "boards/main/main.zen instance path" }
 
 [h2]
-x = { value = 2.5, source = "Altium MicrasMainBoard.PcbDoc unnamed footprint NONAME2 (board.json); MicrasHardware Board.front_hole" }
-y = { value = -11.75, source = "Altium MicrasMainBoard.PcbDoc unnamed footprint NONAME2 (board.json); MicrasHardware Board.front_hole" }
+x = { value = 2.5, source = "v1 board spec/main.toml [h2]; MicrasHardware Board.front_hole" }
+y = { value = -11.75, source = "v1 board spec/main.toml [h2]; MicrasHardware Board.front_hole" }
 rotation = { value = 0, source = "round hole" }
 path = { value = "H2.MH", source = "boards/main/main.zen instance path" }
 
 [h3]
-x = { value = -15.5, source = "Altium MicrasMainBoard.PcbDoc unnamed footprint NONAME3 (board.json); MicrasHardware Board.rear_hole" }
-y = { value = 19.25, source = "Altium MicrasMainBoard.PcbDoc unnamed footprint NONAME3 (board.json); MicrasHardware Board.rear_hole" }
+x = { value = -15.5, source = "v1 board spec/main.toml [h3]; MicrasHardware Board.rear_hole" }
+y = { value = 19.25, source = "v1 board spec/main.toml [h3]; MicrasHardware Board.rear_hole" }
 rotation = { value = 0, source = "round hole" }
 path = { value = "H3.MH", source = "boards/main/main.zen instance path" }
 
 [h4]
-x = { value = -15.5, source = "Altium MicrasMainBoard.PcbDoc unnamed footprint NONAME4 (board.json); MicrasHardware Board.rear_hole" }
-y = { value = -19.25, source = "Altium MicrasMainBoard.PcbDoc unnamed footprint NONAME4 (board.json); MicrasHardware Board.rear_hole" }
+x = { value = -15.5, source = "v1 board spec/main.toml [h4]; MicrasHardware Board.rear_hole" }
+y = { value = -19.25, source = "v1 board spec/main.toml [h4]; MicrasHardware Board.rear_hole" }
 rotation = { value = 0, source = "round hole" }
 path = { value = "H4.MH", source = "boards/main/main.zen instance path" }
 
 [encoder_slots]
-# One slot per wheel, long along x, centred on the axle line; the EncoderSlot footprint
-# (components/micras/EncoderSlot) of each sits on its centre. The encoder board's tab
-# (spec/encoder.toml [tab], [pcb]) stands in it. A milled slot: straight sides, ends rounded by
-# the cutter.
-y = { value = 6.9, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts slot centres (KiCad x = 155.4011 and 141.6011); MicrasHardware Board.encoder_slot_y" }
-length = { value = 5.8, source = "the 5.0 mm tab (spec/encoder.toml [tab] width) with its corners inside the rounded ends at the 0.79 mm encoder board + 0.1 mm thickness tolerance (tests/test_layout.py slot_findings), plus 0.1 mm JLCPCB outline tolerance per end" }
-width = { value = 1.0, source = "JLCPCB PCB capabilities (jlcpcb.com/capabilities/pcb-capabilities, read 2026-10-14): minimum non-plated slot width 1.0 mm" }
-corner_radius = { value = 0.5, source = "a 1.0 mm cutter mills the slot, so its ends are half circles of the slot width (JLCPCB: rectangular slots without rounded corners are not supported)" }
+y = { value = 6.9, source = "v1 board spec/main.toml [encoder_slots] y; MicrasHardware Board.encoder_slot_y" }
+length = { value = 5.8, source = "the 5.0 mm tab (spec/encoder.toml [tab] width) with its corners inside the rounded ends at the 0.79 mm encoder board + 0.1 mm thickness tolerance (tests/test_layout.py slot_findings), plus 0.1 mm JLCPCB outline tolerance per end; v1 board spec/main.toml [encoder_slots] length" }
+width = { value = 1.0, source = "JLCPCB PCB capabilities (jlcpcb.com/capabilities/pcb-capabilities, read 2026-10-14): minimum non-plated slot width 1.0 mm; v1 board spec/main.toml [encoder_slots] width" }
+corner_radius = { value = 0.5, source = "a 1.0 mm cutter mills the slot, so its ends are half circles of the slot width (JLCPCB: rectangular slots without rounded corners are not supported); v1 board spec/main.toml [encoder_slots] corner_radius" }
 right_path = { value = "SENSORS.EC1.SLOT", source = "boards/main/Sensors.zen: EC1 takes the right wheel's encoder board (y < 0)" }
 left_path = { value = "SENSORS.EC2.SLOT", source = "boards/main/Sensors.zen: EC2 takes the left wheel's encoder board (y > 0)" }
 
-[usb_pegs]
-# Holes for the two plastic positioning pegs of the USB-C receptacle U2 (GT-USB-7010ASV), drawn
-# as 16-point polygons on Edge.Cuts.
-x = { value = -25.4409, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts peg polygons (KiCad y = 138.9445)" }
-left_y = { value = 1.15, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts peg polygon (KiCad x = 147.3511)" }
-right_y = { value = -4.64, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts peg polygon (KiCad x = 153.1411)" }
-diameter = { value = 0.65, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts peg polygons (0.65 mm across the flats)" }
-
 [fan_hole]
-x = { value = 17.5, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts circle (four arcs); MicrasHardware Board.fan_hole_x" }
-diameter = { value = 15.0, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts circle; MicrasHardware Board.fan_hole_d" }
+# No part-free ring around it: the fan sits higher than on the v1 board (owner, 2026-10-17).
+x = { value = 17.5, source = "v1 board spec/main.toml [fan_hole] x; MicrasHardware Board.fan_hole_x" }
+diameter = { value = 15.0, source = "v1 board spec/main.toml [fan_hole] diameter; MicrasHardware Board.fan_hole_d" }
 
 [wheel_notches]
-# A rectangular notch for each wheel, both sides of the board, round-cornered.
-inner_y = { value = 17.25, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts; MicrasHardware Board.notch_inner_y" }
-half_length = { value = 8.5, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts; MicrasHardware Board.notch_x" }
-corner_radius = { value = 2.0, source = "Altium MicrasMainBoard.PcbDoc Edge.Cuts notch arcs" }
+inner_y = { value = 17.25, source = "v1 board spec/main.toml [wheel_notches] inner_y; MicrasHardware Board.notch_inner_y" }
+half_length = { value = 8.5, source = "v1 board spec/main.toml [wheel_notches] half_length; MicrasHardware Board.notch_x" }
+corner_radius = { value = 2.0, source = "v1 board spec/main.toml [wheel_notches] corner_radius (inner and outer corners)" }
+
+[switch_notch]
+# The rear-left corner, cut back so SW4's lever lies inside the board's outline and a finger
+# reaches it from the rear and the side, as on the v1 board (whose notch is in the rear-right
+# corner: this board takes the mirror image, the rear-right corner holding the ESP32's antenna notch).
+side = { value = "left", source = "the owner (2026-10-31): the antenna notch takes the rear-right corner (the ESP32-C5-MINI-1's antenna ground point at its pin-1 end, [antenna_notch]), so the battery switch and the power input move to the rear-left, mirrored" }
+depth = { value = 6.0, source = "SK-12D29-G060 lever length (components/g-switch/SK-12D29-G060/README.md: 6.0 mm): the lever tip ends on the rear edge's line" }
+width = { value = 8.5, source = "v1 board spec/main.toml: its switch notch (y -16.5 to -25.0, here mirrored to +16.5 to +25.0); the lever's travel (3.5 mm) plus a fingertip" }
+corner_radius = { value = 0.8, source = "v1 board layout Edge.Cuts: switch notch arcs (R0.8)" }
+
+[sw4]
+# Battery switch, lever rearwards (KiCad rotation 0 points the footprint's lever along -x): the
+# body's front face on the notch's inner edge, the frame legs' pads 0.2 mm inside the left edge.
+# The footprint is symmetric about the lever's axis (pads 1-3 at -2, 0, +2 mm and the frame legs at
+# +-4.15 mm on the pin row, body, silkscreen and courtyard alike: SW-TH_SK-12D29-G060.kicad_mod), so
+# the same rotation mirrors the v1 board's position; pin 3 (B, the ON end) now faces the board's
+# centre line, and the silkscreen's ON follows the lever to that end.
+x = { value = -37.85, source = "rear + [switch_notch] depth + 2.65 mm: the body's lever face is 2.65 mm from the pin row (SW-TH_SK-12D29-G060.kicad_mod F.Fab)" }
+y = { value = 19.75, source = "25 - 0.2 mm copper to edge - 0.9 mm leg pad radius - 4.15 mm leg offset (SW-TH_SK-12D29-G060.kicad_mod)" }
+rotation = { value = 0, source = "lever along -x into the switch notch" }
+path = { value = "REGULATORS.SW4.SK-12D29-G060", source = "boards/main/Regulators.zen instance path" }
+
+[antenna_notch]
+# The rear-right corner, cut away under and beside the antenna of the ESP32-C5-MINI-1 (U13). Where
+# the antenna cannot overhang the board's edge, Espressif cuts the board away below it and on both
+# sides of it, with ground copper and dense ground vias along the cut (ESP32-C5 Hardware Design
+# Guidelines, Positioning a Module on a Base Board, and its figure Keepout Zone for ESP32-C5
+# Module's Antenna: at most 2 mm from the antenna's ground-point side to the board's side edge, at
+# least 15 mm cut away beyond the other, open end, the antenna end at most 1 mm inside the board's
+# edge line). The C5-MINI-1's antenna has its ground point at the module's pin-1 end (the pad-62
+# corner) and its open, loaded end at the pin-45 end: Espressif's STEP model (its parts
+# ANT-C5-MINI-1-top and ANT-C5-MINI-1-buttom), the datasheet v1.4 cover image, and the guidelines'
+# "GND Point" figure on the ESP32-C5-WROOM-1's antenna, the same design mirrored. The pin-1 end faces the right edge, the
+# open end the board's centre. The module's pads stay on the board; its antenna end overhangs the
+# notch.
+side = { value = "right", source = "the owner (2026-10-31): the antenna's ground-point (pin-1) end at the right edge, the mirror of the earlier rear-left placement, whose ground point faced the board centre" }
+depth = { value = 6.4, source = "[u13] x - 7.7 mm - [outline] rear: the notch's inner edge on the module's antenna boundary, the 5.85 mm antenna area beyond its 15.45 mm of pads (ESP32-C5-MINI-1 datasheet v1.4 Figures 10-1 and 11-1; the footprint's keep-out ends 7.7 mm from the centre). The ground pads reach 7.4 mm from the centre: 0.3 mm to the edge (rules/jlcpcb.kicad_dru: 0.2 mm)" }
+width = { value = 31.1, source = "[outline] width / 2 + ([u13] y + 7.7 mm) + 15.0 mm: from the right edge (y -25.0) past the antenna's open end ([u13] y + 7.7 mm = -8.9) by the 15 mm of Espressif's keep-out figure (Min 15) to y +6.1; the ground-point side is 0.7 mm from the right edge, within that figure's 2 mm maximum" }
+corner_radius = { value = 0.8, source = "as [switch_notch] corner_radius (the v1 board's notch arcs, R0.8); U13's corner pad 62 keeps 0.26 mm from the outer corner's arc" }
+
+[u13]
+# ESP32-C5-MINI-1, antenna rearwards (KiCad rotation 180) over the [antenna_notch].
+x = { value = -32.4, source = "[outline] rear + 13.6 mm + 0.5 mm: the module's antenna end (13.6 mm behind its centre, footprint F.Fab; 21.3 mm module, Figure 10-1) 0.5 mm inside the rear edge's line, within the keep-out figure's 1 mm" }
+y = { value = -16.6, source = "-[outline] width / 2 + 7.7 mm + 0.7 mm: the module's side (15.4 mm wide, Figure 10-1) 0.7 mm inside the right edge, the antenna's ground-point (pin-1) end at the corner" }
+rotation = { value = 180, source = "antenna along -x; its ground-point end (pin 1, the pad-62 corner, Figure 3-1) toward the right edge, its open end (pin 45) toward the board centre" }
+path = { value = "ESP.U13.ESP32-C5-MINI-1", source = "boards/main/Esp.zen instance path" }
+
+# Wall sensors: the v1 board's positions, which MicrasHardware's sensor caps (micras/front.py) and the
+# firmware's sensor geometry use.
+[w1]
+x = { value = 36.27, source = "v1 board layout W1 (MicrasHardware front.SENSORS)" }
+y = { value = 18.2, source = "v1 board layout W1" }
+rotation = { value = 0, source = "v1 board layout W1" }
+path = { value = "SENSORS.W1.WALL", source = "boards/main/Sensors.zen instance path" }
+
+[w2]
+x = { value = 47.549, source = "v1 board layout W2 (MicrasHardware front.SENSORS)" }
+y = { value = 10.207, source = "v1 board layout W2" }
+rotation = { value = 45, source = "v1 board layout W2" }
+path = { value = "SENSORS.W2.WALL", source = "boards/main/Sensors.zen instance path" }
+
+[w3]
+x = { value = 47.57, source = "v1 board layout W3 (MicrasHardware front.SENSORS)" }
+y = { value = -10.186, source = "v1 board layout W3" }
+rotation = { value = -45, source = "v1 board layout W3" }
+path = { value = "SENSORS.W3.WALL", source = "boards/main/Sensors.zen instance path" }
+
+[w4]
+x = { value = 36.27, source = "v1 board layout W4 (MicrasHardware front.SENSORS)" }
+y = { value = -18.2, source = "v1 board layout W4" }
+rotation = { value = 0, source = "v1 board layout W4" }
+path = { value = "SENSORS.W4.WALL", source = "boards/main/Sensors.zen instance path" }
+
+[chassis]
+open_height = { value = 8.0, source = "MicrasHardware model: off the drive-block zones the chassis leaves 9 mm and more over the board (the fan mount aside, which the raised fan replaces); 8.0 mm takes the tallest part off the wall sensors (B02B-PASK, 7.7 mm) with Layout.clearance (0.3 mm)" }
+
+[encoder_boards]
+# The encoder boards standing in their slots (spec/encoder.toml): 0.79 mm thick, 8.0 mm wide at the
+# shoulder on this board's top, 9.6 mm from 7.5 mm up, parts on the chip face (outwards) from 2.5 mm
+# up. Part-free, as [drive_blocks] zones, but for the slot footprints EC1/EC2 themselves.
+left = { value = [-4.5, 4.5, 6.2, 8.6, 0.0], source = "spec/encoder.toml [outline] base_width 8.0 (taper to 9.6 from taper_start 7.46) with 0.5 mm a side; [pcb] thickness 0.79 at [encoder_slots] y 6.9, with 0.3 mm inboard and 1.3 mm outboard for its chip-face parts (boards/encoder layout R1-R3, C1: 0.4-0.6 mm off the face)" }
+right = { value = [-4.5, 4.5, -8.6, -6.2, 0.0], source = "as left, mirrored (MicrasHardware layout.encoders: the right board turned 180 deg, chip outwards)" }
+
+[drive_blocks]
+# What MicrasHardware's drive blocks and motors take over the board, from its model (micras/drive.py,
+# layout.py, params.py at 6b48d17): the lowest chassis part above each 0.5 mm cell of the board top,
+# sectioned at 0.3-12 mm. Each zone is [x_min, x_max, y_min, y_max, max_part_height]; a part inside
+# a zone stays at or below its height (0: part-free), which leaves MicrasHardware Layout.clearance
+# (0.3 mm) under the chassis. The sides differ: the left motor sits low behind its axle
+# (Layout.motor_angle_left = 180 deg) and its can reaches past the centre line, the right one high
+# (112 deg). Outside the zones the chassis leaves 12 mm and more, up to the battery. The owner may
+# reshape the blocks (2026-10-17): these zones are the current blocks'.
+feet_left = { value = [-18.0, 8.0, 13.5, 17.25, 0.0], source = "MicrasHardware model: block_L's plate stands on the board (0.3 mm level) from x -17.75 to 7.75, y 13.75 to the notch" }
+feet_right = { value = [-18.0, 8.0, -17.25, -13.5, 0.0], source = "MicrasHardware model: block_R's plate on the board, as block_L's" }
+front_boss_left = { value = [-0.75, 5.75, 8.5, 13.5, 0.0], source = "MicrasHardware model: block_L's front screw boss round H1 (2.5, 11.75), 0.3 mm level from y 9.25" }
+front_boss_right = { value = [-0.75, 5.75, -13.5, -8.5, 0.0], source = "MicrasHardware model: block_R's front screw boss round H2 (2.5, -11.75)" }
+rear_boss_left = { value = [-18.0, -12.75, 13.5, 25.0, 0.0], source = "MicrasHardware model: block_L's rear screw boss round H3 (-15.5, 19.25), 0.3 mm level from x -12.75 to -17.75" }
+rear_boss_right = { value = [-18.0, -12.75, -25.0, -13.5, 0.0], source = "MicrasHardware model: block_R's rear screw boss round H4 (-15.5, -19.25)" }
+body_left = { value = [-22.0, 8.0, 9.0, 13.5, 1.5], source = "MicrasHardware model: block_L's body inboard of its plate, 1.8 mm level" }
+body_right = { value = [-22.0, 8.0, -13.5, -12.0, 1.5], source = "MicrasHardware model: block_R's body inboard of its plate, 1.8 mm level from y -12" }
+tail_left = { value = [-22.0, -12.75, 13.5, 25.0, 1.5], source = "MicrasHardware model: block_L behind and beside its rear boss and over the notch's rear corner, 1.8 mm level" }
+tail_right = { value = [-22.0, -12.75, -25.0, -13.5, 1.5], source = "MicrasHardware model: block_R behind and beside its rear boss, 1.8 mm level" }
+notch_left = { value = [-12.75, -8.5, 17.25, 25.0, 1.5], source = "MicrasHardware model: block_L beside the wheel notch's rear corner, 1.8 mm level" }
+notch_right = { value = [-12.75, -8.5, -25.0, -17.25, 1.5], source = "MicrasHardware model: block_R beside the wheel notch's rear corner" }
+left_motor = { value = [-17.0, -3.5, 0.0, 9.0, 2.7], source = "MicrasHardware model: the left motor's ring over the left side, 3.0 mm level" }
+left_motor_can = { value = [-17.0, -3.5, -13.1, 0.0, 3.7], source = "MicrasHardware model: the left motor's can past the centre line, 4.0 mm level; lengthened for the maxon DCX 10 L (catalogue p100 drawing: 25.2 mm can from the flange, 1.95 mm terminals, against the model's 20 + 2 mm): the can's rear moves from y -5.6 to -10.8 and its terminals reach -12.8, plus Layout.clearance 0.3 mm. MicrasHardware still models the 20 mm motor; the owner reshapes the chassis" }
+magnet_right = { value = [-3.5, -0.75, -12.0, -9.0, 1.5], source = "MicrasHardware model: block_R and the right magnet cup beside the encoder slot, 1.8 mm level" }
+left_tail = { value = [-22.0, -17.0, 0.0, 9.0, 7.2], source = "MicrasHardware model: block_L behind its motor ring, 7.5 mm level" }

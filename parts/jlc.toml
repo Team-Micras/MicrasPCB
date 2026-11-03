@@ -5,15 +5,33 @@
 # rotation           degrees added to KiCad's rotation in the CPL; check each part once in JLC's
 #                    placement preview, then set rotation_verified = true
 # source             where the mapping was checked
+# why_extended       an extended resistor or capacitor on the main board: why no basic part does (a value
+#                    or rating the datasheet fixes, a tolerance, a package); tests/test_main.py
+# assembly = "hand"  the team buys and solders the part itself: `make fab` leaves it out of the JLCPCB BOM
+#                    and CPL and lists it in <board>-hand-assembly.csv; hand_why says why
 #
 # `micras-pcb parts` fails when a board uses an MPN missing here; `--online` adds stock and type.
 
-[parts."0402B471K500NT"]
-lcsc = "C1537"
-type = "extended"
+[parts."0402B223K500NT"]
+lcsc = "C1532"
+type = "basic"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 575 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+source = "jlcpcb.com parts search 2026-10-15: basic, 717 k in stock; 22 nF 50 V X7R 0402"
+
+[parts."0402B102K500NT"]
+lcsc = "C1523"
+type = "basic"
+rotation = 0
+rotation_verified = false
+source = "jlcpcb.com parts search 2026-11-02: basic, 2.37 M in stock; 1 nF 10 % 50 V X7R 0402 (Fenghua)"
+
+[parts."0402WGF0000TCE"]
+lcsc = "C17168"
+type = "basic"
+rotation = 0
+rotation_verified = false
+source = "jlcpcb.com parts search 2026-10-15: basic, 9.2 M in stock; 0 Ohm 0402"
 
 [parts."0402WGF1000TCE"]
 lcsc = "C25076"
@@ -21,6 +39,14 @@ type = "basic"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: basic, 8.6 M in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+
+[parts."0402WGF1500TCE"]
+lcsc = "C25082"
+type = "extended"
+rotation = 0
+rotation_verified = false
+source = "jlcpcb.com parts search 2026-10-25: extended, 995 k in stock; 150 Ohm 1 % 0402 (UNI-ROYAL)"
+why_extended = "R_iso of the INA241A2 outputs (R78/R79): 150 Ohm damps the ring of the amplifier's inductive output impedance with C_f 1 nF, so the ADC kickback settles under 1 mA from 0.64 us in every corner of TI's model; with the basic 100 Ohm part it takes 0.87 us and still leaves 1.24 mA at 0.8 us (research/next-revision/calculations/current_sense/ina241_riso_out.txt)"
 
 [parts."0402WGF1001TCE"]
 lcsc = "C11702"
@@ -43,19 +69,19 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: basic, 10.1 M in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
 
-[parts."0402WGF1403TCE"]
-lcsc = "C270645"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 118 k in stock"
-
-[parts."0402WGF1004TCE"]
-lcsc = "C26083"
+[parts."0402WGF2001TCE"]
+lcsc = "C4109"
 type = "basic"
 rotation = 0
 rotation_verified = false
-source = "jlcsearch.tscircuit.com 2026-10-14: basic (stock not reported); 1 MOhm 1 % 0402, 62.5 mW 50 V (the SBU detector's R51 hold bleed and R54 hysteresis)"
+source = "jlcpcb.com parts search 2026-10-15: basic, 7.7 M in stock; 2 kOhm 1 % 0402"
+
+[parts."0402WGF2002TCE"]
+lcsc = "C25765"
+type = "basic"
+rotation = 0
+rotation_verified = false
+source = "jlcpcb.com parts search 2026-10-15: basic, 2.4 M in stock; 20 kOhm 1 % 0402"
 
 [parts."0402WGF2003TCE"]
 lcsc = "C25764"
@@ -71,26 +97,19 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: basic, 1.3 M in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
 
-[parts."0402WGF2402TCE"]
-lcsc = "C25769"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 66 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
-
-[parts."0402WGF2702TCE"]
-lcsc = "C25771"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 201 k in stock"
-
-[parts."0402WGF3302TCE"]
-lcsc = "C25779"
+[parts."0402WGF2202TCE"]
+lcsc = "C25768"
 type = "basic"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: basic, 1.1 M in stock"
+source = "jlcpcb.com parts search 2026-10-15: basic, 1.1 M in stock; 22 kOhm 1 % 0402"
+
+[parts."0402WGF220JTCE"]
+lcsc = "C25092"
+type = "basic"
+rotation = 0
+rotation_verified = false
+source = "jlcpcb.com parts search 2026-10-15: basic, 4.1 M in stock; 22 Ohm 1 % 0402"
 
 [parts."0402WGF3902TCE"]
 lcsc = "C25783"
@@ -98,90 +117,37 @@ type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: extended, 191 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+why_extended = "a Preferred Extended part (no fee on Economic PCBA), and 39 kOhm is DS14341 Table 12's REN, which sets the STSPIN958's EN/nFAULT timing with CEN 10 nF; no basic 39 kOhm 0402"
 
-[parts."0402WGF5101TCE"]
-lcsc = "C25905"
+[parts."0402WGF4701TCE"]
+lcsc = "C25900"
 type = "basic"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: basic, 5.5 M in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
-
-[parts."0402WGF5601TCE"]
-lcsc = "C25908"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 138 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
-
-[parts."0402WGF5602TCE"]
-lcsc = "C25796"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 200 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+source = "jlcpcb.com parts search 2026-10-22: basic, 14.9 M in stock; 4.7 kOhm 1 % 0402"
 
 [parts."0402WGF6800TCE"]
 lcsc = "C25130"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 0 in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+source = "jlcpcb.com parts search 2026-10-22: extended (Preferred), 358 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+why_extended = "a Preferred Extended part (no fee on Economic PCBA); R5 of the red power LED D5: the basic 1 kOhm would run the KT-0603R at 0.9 mA at its 2.4 V VF maximum on the 3.284 V rail minimum"
 
-[parts."0402WGF6802TCE"]
-lcsc = "C36871"
+[parts."0501012.WR1"]
+lcsc = "C207005"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 196 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+source = "jlcpcb.com parts search 2026-10-22: extended, 798 in stock; Littelfuse 501 series 12 A 1206"
 
-[parts."0402WGF7502TCE"]
-lcsc = "C25798"
+[parts."0603WAF330KT5E"]
+lcsc = "C22979"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 31 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
-
-[parts."0402WGF8202TCE"]
-lcsc = "C4142"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 27 k in stock"
-
-[parts."0603WAF1001T5E"]
-lcsc = "C21190"
-type = "basic"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: basic, 24.8 M in stock; JLCPCB-basic equivalent of the MicrasBluetoothModule's RC0603FR-071KL (C22548, extended): 1 kOhm 1 % 0603, 100 mW 75 V"
-
-[parts."0603WAF1002T5E"]
-lcsc = "C25804"
-type = "basic"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: basic, 31.0 M in stock; 10 kOhm 1 % 0603, 100 mW 75 V (the Bluetooth module's RESETB pull-up R4)"
-
-[parts."0603WAF1004T5E"]
-lcsc = "C22935"
-type = "basic"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: basic, 5.9 M in stock"
-
-[parts."0603WAF6800T5E"]
-lcsc = "C23228"
-type = "basic"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: basic, 2.2 M in stock; JLCPCB-basic equivalent of the MicrasBluetoothModule's RC0603FR-07680RL (C112310, extended): 680 Ohm 1 % 0603, 100 mW 75 V"
-
-[parts."0603WAF6802T5E"]
-lcsc = "C23231"
-type = "basic"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: basic, 706 k in stock"
+source = "jlcpcb.com parts search 2026-10-15: extended, 268 k in stock; 3.3 Ohm 1 % 0603"
+why_extended = "the emitter resistor limits a failed sink's current within the SFH 4550 pulse rating (Sensors.zen): the basic 2.2 Ohm lets 0.44 A through, above the 0.38 A rating, and the basic 4.7 Ohm leaves the selector 0.41 V; no basic 3.3 Ohm"
 
 [parts."1206W4F100JT5E"]
 lcsc = "C17903"
@@ -190,13 +156,6 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: basic, 1.2 M in stock"
 
-[parts."1N4148W"]
-lcsc = "C7420318"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 5.0 M in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
-
 [parts."1N4148WS"]
 lcsc = "C2128"
 type = "basic"
@@ -204,12 +163,13 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: basic, 2.8 M in stock"
 
-[parts."918-118A2021Y40006"]
-lcsc = "C399938"
+
+[parts."ADP7142ACPZN3.3-R7"]
+lcsc = "C659360"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 676 in stock; LCSC number from the MicrasBluetoothModule SchDoc"
+source = "jlcpcb.com parts search 2026-10-15: extended, 3043 in stock; ADP7142ACPZN3.3-R7, LFCSP-6-EP(2x2)"
 
 [parts."AFE201612S2R2MBT"]
 lcsc = "C41347750"
@@ -225,13 +185,6 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: basic, 791 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
 
-[parts."AO3401A"]
-lcsc = "C15127"
-type = "basic"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: basic, 615 k in stock"
-
 [parts."AS5047U-HTSM"]
 lcsc = "C2153630"
 type = "extended"
@@ -245,34 +198,15 @@ type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: extended, 10 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+assembly = "hand"
+hand_why = "through-hole: soldered by the team, saving JLCPCB's feeder fee and hand-soldering charge (owner, 2026-11-02)"
 
-[parts."BLM15AX601SN1D"]
-lcsc = "C76886"
-type = "extended"
+[parts."B5819W"]
+lcsc = "C8598"
+type = "basic"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 458 k in stock"
-
-[parts."BAT54HT1G"]
-lcsc = "C21107"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 108 k in stock; onsemi BAT54HT1/D (the SBU detector's peak-hold diode D13)"
-
-[parts."BM05B-SRSS-TB(LF)(SN)"]
-lcsc = "C160391"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-15: C160391 BM05B-SRSS-TB(LF)(SN) JST, extended, 39306 in stock"
-
-[parts."C2012X5R1V226MT000E"]
-lcsc = "C338080"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 43 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+source = "jlcpcb.com parts search 2026-10-15: basic, 380 k in stock; listed as B5819W SL (JCET, SOD-123)"
 
 [parts."CC0603KRX7R9BB104"]
 lcsc = "C14663"
@@ -323,27 +257,6 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: basic, 2.9 M in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
 
-[parts."CL10B224KA8NNNC"]
-lcsc = "C21120"
-type = "basic"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: basic, 871 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
-
-[parts."CL10B473KB8NNNC"]
-lcsc = "C1622"
-type = "basic"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: basic, 540 k in stock"
-
-[parts."CL10B474KA8NNNC"]
-lcsc = "C1623"
-type = "basic"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: basic, 834 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
-
 [parts."CL21A226MAQNNNE"]
 lcsc = "C45783"
 type = "basic"
@@ -351,19 +264,34 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: basic, 3.4 M in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
 
-[parts."CL21A475KAQNNNE"]
-lcsc = "C1779"
+[parts."CL21B105KBFNNNE"]
+lcsc = "C28323"
 type = "basic"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: basic, 2.5 M in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+source = "jlcpcb.com parts search 2026-10-22: basic, 2.1 M in stock; 1 uF 50 V X7R 0805"
 
-[parts."CL21B224KBFNNNE"]
-lcsc = "C5378"
+[parts."CL21B474KBFNNNE"]
+lcsc = "C13967"
 type = "basic"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: basic, 763 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+source = "jlcpcb.com parts search 2026-10-22: basic, 400 k in stock; 470 nF 50 V X7R 0805"
+
+[parts."CL32B106KBJNNNE"]
+lcsc = "C138687"
+type = "extended"
+rotation = 0
+rotation_verified = false
+source = "jlcpcb.com parts search 2026-10-17: extended, 79 k in stock; 10 uF 50 V X7R 1210"
+why_extended = "10 uF 50 V X7R 1210 on VBAT: twice the 1206's capacitance at 16.8 V (Samsung DC-bias curves, passives.zen); no basic 10 uF 50 V X7R"
+
+[parts."DRV8874PWPR"]
+lcsc = "C1855818"
+type = "extended"
+rotation = 0
+rotation_verified = false
+source = "jlcpcb.com parts search 2026-10-15: extended, 25583 in stock"
 
 [parts."DSHP04TJGER"]
 lcsc = "C3293150"
@@ -372,19 +300,21 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: extended, 3559 in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
 
-[parts."FUET-5030"]
-lcsc = "C391031"
+[parts."ESP32-C5-MINI-1-N4"]
+lcsc = "C54951860"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 517 in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+source = "jlcpcb.com parts search 2026-10-31: extended, 0 in stock (listed as ESP32-C5-MINI-1-N4-V1.2, SMD 21.3 x 15.4 mm Wi-Fi module); zero stock is accepted, the module can be consigned"
+assembly = "hand"
+hand_why = "bought from AliExpress (owner, 2026-11-02)"
 
-[parts."GRM21BR61H106KE43L"]
-lcsc = "C440198"
-type = "basic"
+[parts."FUET-5025"]
+lcsc = "C391030"
+type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: basic, 1.4 M in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+source = "jlcpcb.com parts search 2026-11-02: extended, 682 in stock; the FUET-5030 (C391031, 1 in stock) in a 2.5 mm body, same land and ratings"
 
 [parts."GT-TC048B-H025-L1"]
 lcsc = "C778165"
@@ -393,26 +323,14 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: extended, 386 in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
 
-[parts."GT-USB-7010ASV"]
-lcsc = "C2988369"
+[parts."HC-PZ127-7.2L-2x3PS"]
+lcsc = "C27985144"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 83 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
-
-[parts."HGC0603R5106K350NTHJ"]
-lcsc = "C22367826"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 35.8 k in stock; LCSC number from the MicrasBluetoothModule SchDoc; kept, as the basic 10 uF 0603 this repository uses (CL10A106MA8NRNC) is rated 25 V"
-
-[parts."HM-19"]
-lcsc = "C9900145630"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 0 in stock (JLCPCB Assembly listing 'HM-19, LCC-16_13.5x18.5mm'); the team sources the module and consigns it"
+source = "jlcpcb.com parts search 2026-10-31: extended, 9753 in stock; Hong Cheng 2x3P 1.27 mm SMD vertical pin header"
+assembly = "hand"
+hand_why = "soldered by the team, saving the extended-part fee (owner, 2026-11-02)"
 
 [parts."HSBB3072"]
 lcsc = "C2903562"
@@ -421,26 +339,29 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: extended, 895 in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
 
-[parts."HoLLR2512-3W-50mR-1%"]
-lcsc = "C2994645"
+[parts."HoLLR1206-1W-25mR-1%"]
+lcsc = "C2988651"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 5782 in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+source = "jlcpcb.com parts search 2026-10-15: extended, 3604 in stock; 25 mOhm 1 % 1 W 1206 alloy"
+why_extended = "25 mOhm 1 W current sense (the STSPIN958's RSNS, DS14341 Eq. 1); no basic part of this value and rating"
 
-[parts."JVS25V100M6X4"]
-lcsc = "C51953404"
+[parts."INA241A2QDGKRQ1"]
+lcsc = "C31766589"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 49 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+source = "jlcpcb.com parts search 2026-11-02: extended, 9 in stock; the AEC-Q100 grade of the INA241A2IDGKR (C36752877, 2 in stock), same DGK package and pinout"
 
-[parts."KASML010"]
-lcsc = "C42441131"
+[parts."KT-0603B"]
+lcsc = "C2288"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 16 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+source = "jlcpcb.com parts search 2026-10-25: extended (not Preferred), 174 k in stock; JLCPCB's six basic LEDs are red, white, yellow and green, none blue; datasheet https://www.lcsc.com/datasheet/lcsc_datasheet_1810220913_Hubei-KENTO-Elec-KT-0603B_C2288.pdf"
+assembly = "hand"
+hand_why = "soldered by the team from its own stock (owner, 2026-11-02): JLCPCB has no basic or preferred blue 0603 LED"
 
 [parts."KT-0603R"]
 lcsc = "C2286"
@@ -449,33 +370,14 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: basic, 8.0 M in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
 
-[parts."L6205D013TR"]
-lcsc = "C962257"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 1314 in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
-
 [parts."L6981C33DR"]
 lcsc = "C5268096"
 type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: extended, 1 in stock"
-
-[parts."LM66100DCKR"]
-lcsc = "C2869734"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 30 k in stock"
-
-[parts."LR2512-22R040F4"]
-lcsc = "C154679"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 711 in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+assembly = "hand"
+hand_why = "an ST part: the team gets it from its sponsor (owner, 2026-11-02)"
 
 [parts."LSM6DSVTR"]
 lcsc = "C5267399"
@@ -483,35 +385,32 @@ type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: extended, 0 in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+assembly = "hand"
+hand_why = "an ST part: the team gets it from its sponsor (owner, 2026-11-02); also Standard PCBA only at JLCPCB"
 
-[parts."MK-12D18-G040"]
-lcsc = "C963202"
+[parts."RT0603BRD071R2L"]
+lcsc = "C5197514"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 804 in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+source = "jlcpcb.com parts search 2026-10-15: extended, 4315 in stock; Yageo RT0603 1.2 Ohm 0.1 % 25 ppm/C thin film"
+why_extended = "1.2 Ohm is fixed by the emitter sink's scaling and no basic 1.2 Ohm exists, so the fee is paid either way and the 0.1 % 25 ppm/C thin film costs nothing more (passives.zen)"
 
-[parts."NCD0603Y2"]
-lcsc = "C89811"
+[parts."SK-12D29-G060"]
+lcsc = "C2848877"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 197 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+source = "jlcpcb.com parts search 2026-10-17: extended, 531 in stock"
+assembly = "hand"
+hand_why = "through-hole: soldered by the team (owner, 2026-11-02); JLCPCB had 16 in stock on 2026-11-02"
 
-[parts."PESD5V0S1BL,315"]
-lcsc = "C84374"
+[parts."SMAJ18A"]
+lcsc = "C148219"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 127 k in stock"
-
-
-[parts."SMLD12BN1WT86"]
-lcsc = "C2837822"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 357 in stock; LCSC number from the MicrasBluetoothModule SchDoc"
+source = "jlcpcb.com parts search 2026-10-17: extended, 12 k in stock; Littelfuse"
 
 [parts."STM32H725RGV6"]
 lcsc = "C5271073"
@@ -519,6 +418,8 @@ type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: extended, 1 in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+assembly = "hand"
+hand_why = "an ST part: the team gets it from its sponsor (owner, 2026-11-02)"
 
 [parts."STSPIN958TR"]
 lcsc = "C20033901"
@@ -526,62 +427,44 @@ type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: extended, 0 in stock; LCSC number from the MicrasMainBoard JLCPCB BOM (listed there as STSPIN958)"
+assembly = "hand"
+hand_why = "an ST part: the team gets it from its sponsor (owner, 2026-11-02)"
 
-[parts."TLV7041DBVR"]
-lcsc = "C702122"
+[parts."TLV9001IDBVR"]
+lcsc = "C398363"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 37 in stock; TI SLVSE13J (the SBU detector's comparator U7)"
+source = "jlcpcb.com parts search 2026-10-15: extended, 39 k in stock"
 
-[parts."TPS2121RUXR"]
-lcsc = "C485916"
+[parts."WS2812C-2427-V6"]
+lcsc = "C55109524"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 29 k in stock"
+source = "jlcpcb.com parts search 2026-11-02: extended, 150 in stock, Economic PCBA; the WS2812C-2020-V6 (C55109522) had 4, and its /W reel (C55160508) is Standard PCBA only"
 
-[parts."TPS61178RNWR"]
-lcsc = "C127918"
+[parts."WSK2512R0100FEA"]
+lcsc = "C3985410"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 2 k in stock"
+source = "jlcpcb.com parts search 2026-10-15: extended, 4955 in stock"
+why_extended = "a true 4-terminal (Kelvin) 10 mOhm shunt for the INA241 (Drivers.zen); no basic equivalent"
 
-[parts."TSC2020IYST"]
-lcsc = "C27345609"
+[parts."MTQH707050S470MGT"]
+lcsc = "C53235274"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 80 in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+source = "jlcpcb.com parts search 2026-11-02: extended, 677 in stock; 47 uH 7.0 x 7.0 x 5.0 mm molded choke (MetalLions), replacing the XAL7070-473MEC (C3911413, 0 in stock)"
 
-[parts."USBLC6-2SC6"]
-lcsc = "C7519"
+[parts."XAL5030-472MEC"]
+lcsc = "C7432409"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 38 k in stock"
-
-[parts."VT1C221M0605"]
-lcsc = "C22383774"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 15 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
-
-[parts."WS2815C-2020-4P"]
-lcsc = "C22371529"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 74 k in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
-
-[parts."XAL6030-102MEB"]
-lcsc = "C2938919"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-14: extended, 0 in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+source = "jlcpcb.com parts search 2026-11-02: extended, 11 in stock; 4.7 uH Coilcraft XAL5030 on the same land, replacing the XGL5030-472MEC (C3911503, 0 in stock)"
 
 [parts."YSPIA0645-220M"]
 lcsc = "C2839926"

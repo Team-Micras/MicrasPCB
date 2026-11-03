@@ -1,0 +1,49 @@
+"""SMAJ18A package facts (Littelfuse SMAJ series, revised 11/20/15) across a 4S pack."""
+
+TVS = Module("../SMAJ18A.zen")
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def pins(module):
+    got = {}
+    for net, ports in module.nets().items():
+        for path, pin in ports:
+            got[pin] = net
+    return got
+
+
+def datasheet_limits(module, inputs):
+    # p2 table, SMAJ18A row; p1 maximum ratings.
+    c = part(module)
+    check(c.mpn == "SMAJ18A", "MPN")
+    check(c.manufacturer == "Littelfuse", "manufacturer")
+    check(c.prefix == "D", "reference prefix D")
+    check(c.type == "tvs", "type")
+    check(c.properties["reverse_standoff_voltage"].matches("18V"), "VR 18 V")
+    check(c.properties["breakdown_voltage"].matches("20V to 22.1V"), "VBR 20.0-22.1 V at 1 mA")
+    check(c.properties["clamping_voltage"].matches("29.2V"), "VC 29.2 V at 13.7 A")
+    check(c.properties["peak_pulse_power"].matches("400W"), "PPPM 400 W")
+
+
+def standoff_covers_the_pack(module, inputs):
+    # The cathode on the pack's + terminal, the anode on its - terminal; the 17.4 V HV pack stays
+    # below VR, where IR is 1 uA max.
+    c = part(module)
+    check(pins(module) == {"A": "PACK_N", "K": "PACK_P"}, "pinout changed: " + str(pins(module)))
+    v = c.pins["K"].voltage.max - c.pins["A"].voltage.min
+    check(v <= c.properties["reverse_standoff_voltage"].value, "the pack exceeds VR")
+
+
+TestBench(
+    name="SMAJ18A",
+    module=TVS,
+    test_cases={
+        "4s_hv": {"K": Power("PACK_P", voltage="0V to 17.4V"), "A": Ground("PACK_N")},
+    },
+    checks=[datasheet_limits, standoff_covers_the_pack],
+)

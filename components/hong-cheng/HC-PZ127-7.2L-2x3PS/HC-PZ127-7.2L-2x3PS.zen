@@ -1,0 +1,45 @@
+"""HC-PZ127-7.2L-2x3PS - 2x03 pin header, 1.27 mm pitch, SMD vertical, gold-flashed brass square
+pins. Bare part.
+
+Datasheet: Shenzhen Hong Cheng (hcdz2017.com) drawing HC-PZ127-7.2L-2x3PS rev A (the URL in
+pcb.toml); JLCPCB/LCSC C27985144. The size table's row: PA 4.0 mm (pin above the insulator), PB
+1.5 mm (insulator top over the board), PC 5.5 mm, L 7.2 mm (pin length), H 1.0 mm. PC labels the
+side view's 5.50 +-0.20 mm, the span across the two rows' SMD feet, tip to tip, not a height; the
+pin tips stand PA + PB = 5.5 mm over the board, the same number. The insulator is 3.81 x 3.40 mm
+(dimension B for 3 pins a row, the 3.40 width). 0.40 mm square pins at 1.27 mm in both
+directions, 1.0 A, 20 mOhm contact resistance, AC 500 V withstanding, -40 to +105 C
+(Specifications). Insulator: the Specifications say polyester and "Standard: PA6T", the parts
+table PA6T (a high-temperature nylon), natural colour; the drawing does not settle which.
+Contacts brass (the parts table: copper), gold flash. Reflow: the drawing's maximum processing
+temperature is 200 C for 30-60 s (255 C for 5 s), below a lead-free reflow profile's peak (IPC/JEDEC
+J-STD-020 classifies small SMD parts at a 260 C peak), and the drawing rates the part for no
+reflow profile. Assembled on JLCPCB's reflow line it runs past that rating: check the first boards'
+insulators, or leave it out of the assembly and solder it by hand.
+
+Pins: the drawing numbers none; the footprint and symbol take the 2-row convention of KiCad's
+PinHeader_2x03 and of IDC ribbon sockets: odd pins 1, 3, 5 on one row, even 2, 4, 6 on the other,
+1 and 2 side by side, pin 1 marked on the silkscreen. The pins mate a 1.27 mm 2x3 IDC socket, such
+as the ribbon cable of Espressif's ESP-Prog Program interface (1.27 mm version), which plugs into
+"2*3-PIN male shrouded box header" (ESP-Prog user guide); this header has no shroud, so the
+cable's key does not set its orientation: pin 1 does.
+
+Footprint: the drawing's recommended layout, 0.74 x 2.50 mm pads at 1.27 mm pitch, 6.5 mm over
+both rows (pad centres 2.0 mm off the axis), on KiCad's PinHeader_2x03_P1.27mm_Vertical_SMD
+outline (the same 3.41 x 3.81 mm body).
+"""
+
+P1 = io(Net)
+P2 = io(Net)
+P3 = io(Net)
+P4 = io(Net)
+P5 = io(Net)
+P6 = io(Net)
+
+Component(
+    name="J",
+    prefix="J",
+    symbol=Symbol(library="HC-PZ127-7.2L-2x3PS.kicad_sym"),
+    footprint=File("HC-PZ127-7.2L-2x3PS.kicad_mod"),
+    part=Part(mpn="HC-PZ127-7.2L-2x3PS", manufacturer="Hong Cheng"),
+    pins={"Pin_1": P1, "Pin_2": P2, "Pin_3": P3, "Pin_4": P4, "Pin_5": P5, "Pin_6": P6},
+)

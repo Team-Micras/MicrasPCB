@@ -23,11 +23,23 @@ G = io(Net)
 D = io(Net)
 S = io(Net)
 
+# The exposed pad's stencil (TI SLUA271C 4.4: 50-70 % paste coverage on an exposed pad, in windows
+# that let it outgas): "whole", one aperture as drawn; "split", windows round the thermal-via sites
+# drawn on Cmts.User (0.2 mm), for vias left open in the pad.
+Paste = enum("whole", "split")
+paste = config(
+    Paste, default="whole", help="the exposed drain pad's paste: one aperture, or windows round the thermal vias"
+)
+FOOTPRINT = {
+    "whole": "PRPAK-8_L3.0-W3.0-P0.65-BL-EP.kicad_mod",
+    "split": "PRPAK-8_L3.0-W3.0-P0.65-BL-EP_SplitPaste.kicad_mod",
+}
+
 Component(
     name="HSBB3072",
     prefix="Q",
     symbol=Symbol(library="HSBB3072.kicad_sym"),
-    footprint=File("PRPAK-8_L3.0-W3.0-P0.65-BL-EP.kicad_mod"),
+    footprint=File(FOOTPRINT[paste.value]),
     part=Part(mpn="HSBB3072", manufacturer="HUASHUO"),
     pins={
         "G": G,

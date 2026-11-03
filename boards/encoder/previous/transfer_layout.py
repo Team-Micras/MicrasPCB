@@ -12,7 +12,7 @@ boards/encoder/layout/encoder.kicad_pcb, and rewrites the layout:
    copied byte for byte. The board keeps the previous net names, so every net stays as it was
    (checked by pad membership, see `check_nets`). Each copied item gets a UUID derived from its
    content, since the Altium import draws new random ones on every run. Teardrops become plain
-   zones of the same outline, as on the main board (boards/main/previous/transfer_layout.py
+   zones of the same outline, as on the v1 main board (MicrasPCB e34fb9a boards/main/previous/transfer_layout.py
    `teardrop_to_zone`: KiCad does not save a teardrop's UUID, so a board with teardrop zones is
    never byte-stable). The pours keep the Altium neck widths (`POUR_MIN_WIDTH`). The Edge.Cuts
    line shorter than 1 um is left out (`outline_snaps`), and the board-level STEP files no

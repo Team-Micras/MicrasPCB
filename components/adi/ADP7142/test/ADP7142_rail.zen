@@ -1,0 +1,24 @@
+"""ADP7142 application circuit for the test bench: the LDO with its input and output capacitors.
+
+ADI ADP7142 Rev. H, Table 2 and Capacitor Selection (p14): >= 2.2 uF X5R/X7R on VIN and on
+VOUT, close to the pins. The values are the bench's, not a board's: the main board's own bench
+checks the capacitors it places.
+"""
+
+load("@stdlib/units.zen", "Capacitance")
+
+c_in = config(Capacitance, default="10uF")
+c_out = config(Capacitance, default="4.7uF")
+
+VIN = io(Power(voltage="2.7V to 40V"))
+VOUT = io(Power(voltage="3.24V to 3.36V"))
+EN = io(Net)
+SS = io(Net)
+GND = io(Ground)
+
+ADP7142 = Module("../ADP7142.zen")
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+
+ADP7142(name="LDO", VIN=VIN, VOUT=VOUT, GND=GND, EN=EN, SS=SS)
+Capacitor(name="CIN", P1=VIN, P2=GND, value=c_in, package="0805", voltage="50V", dielectric="X5R")
+Capacitor(name="COUT", P1=VOUT, P2=GND, value=c_out, package="0603", voltage="10V", dielectric="X5R")

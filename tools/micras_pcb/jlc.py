@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 import shutil
 import subprocess
 import tomllib
@@ -19,11 +20,25 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from .paths import ROOT, board_pcb, board_zen, boards, build_dir
+from .paths import ROOT, SCHEMATIC_ONLY, board_pcb, board_zen, boards, build_dir, has_layout
 from .tools import kicad_cli, pcb
 
 PARTS_FILE = ROOT / "parts" / "jlc.toml"
-GERBER_LAYERS = ["F.Cu", "B.Cu", "F.Paste", "B.Paste", "F.Silkscreen", "B.Silkscreen", "F.Mask", "B.Mask", "Edge.Cuts"]
+NON_COPPER_LAYERS = ["F.Paste", "B.Paste", "F.Silkscreen", "B.Silkscreen", "F.Mask", "B.Mask", "Edge.Cuts"]
+_COPPER = re.compile(r'^\s*\(\d+ "((?:F|B|In\d+)\.Cu)" (?:signal|power|mixed|jumper)\b', re.M)
+
+
+def copper_layers(board: str) -> list[str]:
+    """The board's copper layers from its layer table, top to bottom (F.Cu, In1.Cu, ..., B.Cu)."""
+    text = board_pcb(board).read_text()
+    found = _COPPER.findall(text[: text.index("(setup")])
+    inner = sorted((name for name in found if name.startswith("In")), key=lambda name: int(name[2:-3]))
+    return ["F.Cu", *inner, "B.Cu"]
+
+
+def gerber_layers(board: str) -> list[str]:
+    """Every layer the fab needs: all copper layers (inner planes included), mask, paste, silk, outline."""
+    return [*copper_layers(board), *NON_COPPER_LAYERS]
 
 
 def parts_db() -> dict[str, dict]:
@@ -42,25 +57,43 @@ def design_bom(board: str) -> list[dict]:
     return json.loads(out.stdout)
 
 
-def jlc_bom(board: str) -> tuple[list[dict], list[str]]:
-    db, rows, errors = parts_db(), [], []
+def _bom_lines(board: str) -> tuple[list[tuple[dict, dict]], list[str]]:
+    """Every fitted BOM line as (row, parts/jlc.toml entry). DNP members stay out (the CPL leaves
+    them out too), and a line with no fitted member is dropped."""
+    db, lines, errors = parts_db(), [], []
     for line in design_bom(board):
-        member = line["members"][0]
+        fitted = [m for m in line["members"] if not m.get("dnp")]
+        if not fitted:
+            continue
+        member = fitted[0]
+        designators = [m["designator"] for m in fitted]
         mpn = member.get("mpn")
         entry = db.get(mpn) if mpn else None
         if entry is None:
-            errors.append(f"{', '.join(line['designators'])}: MPN {mpn!r} has no entry in parts/jlc.toml")
+            errors.append(f"{', '.join(designators)}: MPN {mpn!r} has no entry in parts/jlc.toml")
             continue
-        rows.append(
-            {
-                "Comment": member.get("value") or mpn,
-                "Designator": ",".join(line["designators"]),
-                "Footprint": member.get("package") or entry.get("package", ""),
-                "LCSC Part #": entry["lcsc"],
-                "MPN": mpn,
-            }
-        )
-    return rows, errors
+        row = {
+            "Comment": member.get("value") or mpn,
+            "Designator": ",".join(designators),
+            "Footprint": member.get("package") or entry.get("package", ""),
+            "LCSC Part #": entry["lcsc"],
+            "MPN": mpn,
+        }
+        lines.append((row, entry))
+    return lines, errors
+
+
+def jlc_bom(board: str) -> tuple[list[dict], list[str]]:
+    """The assembler's BOM: every fitted part JLCPCB places, one row per BOM line. Parts marked
+    `assembly = "hand"` in parts/jlc.toml stay out (`hand_bom`)."""
+    lines, errors = _bom_lines(board)
+    return [row for row, entry in lines if entry.get("assembly") != "hand"], errors
+
+
+def hand_bom(board: str) -> list[dict]:
+    """The fitted parts the team buys and solders itself (`assembly = "hand"`), with the reason."""
+    lines, _ = _bom_lines(board)
+    return [{**row, "Why": entry.get("hand_why", "")} for row, entry in lines if entry.get("assembly") == "hand"]
 
 
 def rotation_offsets(board: str) -> dict[str, float]:
@@ -138,7 +171,7 @@ def gerbers(board: str, out: Path) -> Path:
             "export",
             "gerbers",
             "-l",
-            ",".join(GERBER_LAYERS),
+            ",".join(gerber_layers(board)),
             "--subtract-soldermask",
             "--use-drill-file-origin",
             "--check-zones",
@@ -184,13 +217,24 @@ def fab(board: str) -> int:
     if errors:
         print("BOM has unsourced parts:\n  " + "\n  ".join(errors))
         return 1
+    if not has_layout(board):
+        bom = out / f"{board}-bom-jlcpcb.csv"
+        _write_csv(bom, rows, ["Comment", "Designator", "Footprint", "LCSC Part #", "MPN"])
+        print(f"  {bom.relative_to(ROOT)}")
+        print(f"{board}: gerbers and CPL skipped: {SCHEMATIC_ONLY}")
+        return 0
     packages = {r["Ref"]: r["Package"] for r in positions(board, out)}
     for row in rows:
         row["Footprint"] = row["Footprint"] or packages.get(row["Designator"].split(",")[0], "")
     bom = out / f"{board}-bom-jlcpcb.csv"
     _write_csv(bom, rows, ["Comment", "Designator", "Footprint", "LCSC Part #", "MPN"])
     refs = {d for row in rows for d in row["Designator"].split(",")}
-    produced = [gerbers(board, out), bom, cpl(board, out, refs)]
+    hand_rows = hand_bom(board)
+    for row in hand_rows:
+        row["Footprint"] = row["Footprint"] or packages.get(row["Designator"].split(",")[0], "")
+    hand = out / f"{board}-hand-assembly.csv"
+    _write_csv(hand, hand_rows, ["Comment", "Designator", "Footprint", "LCSC Part #", "MPN", "Why"])
+    produced = [gerbers(board, out), bom, cpl(board, out, refs), hand]
     unverified = [
         m for m, e in parts_db().items() if not e.get("rotation_verified") and any(m == r["MPN"] for r in rows)
     ]

@@ -1,0 +1,45 @@
+"""B5819W - Schottky barrier diode, 40 V, 1 A, SOD-123.
+
+Datasheet: Jiangsu Changjiang Electronics Technology (JCET) B5817W-B5819W, D, March 2015,
+2 pages, LCSC C8598 ("DS"). LCSC lists the part as "B5819W SL", SL being its marking (DS p.1).
+
+Maximum ratings (DS p.1, Ta = 25 C): VRM 40 V; VRRM, VRWM, VR 40 V; VR(RMS) 28 V; IO 1 A
+average; IFSM 9 A (8.3 ms); IFRM 1.5 A; Pd 500 mW, derated linearly to 0 at 125 C (DS p.2
+power derating curve); RthJA 200 C/W; TJ 125 C max; Tstg -55 to 150 C.
+Electrical characteristics (DS p.1, Ta = 25 C): V(BR) 40 V min at 1 mA; IR 1 mA max at 40 V;
+VF max 0.6 V at 1 A, 0.9 V at 3 A; CD 120 pF max at 4 V, 1 MHz.
+Typical curves (DS p.2, read at 250 dpi): Forward Characteristics, VF about 0.30 V at 0.1 A and
+0.48 V at 1 A at 25 C, 0.22 V and 0.43 V at 100 C (about -1.2 mV/C at 0.13 A); Reverse
+Characteristics, at VR 1 / 5 / 17 V about 5 / 6 / 12 uA at 25 C, 55 / 64 / 110 uA at 75 C and
+0.42 / 0.59 / 0.92 mA at 100 C (log-interpolated: about 140 uA at 85 C and a few volts).
+Polarity (DS p.1 package view): the marking bar indicates the cathode.
+
+Pins: pad 1 cathode (K), pad 2 anode (A): KiCad's D_SOD-123 footprint numbers the cathode pad 1
+and marks it with its silkscreen bar. The datasheet gives no package drawing or land pattern; the
+footprint is the KiCad library's SOD-123 land.
+
+Application on the next main board (research/next-revision, power path; A.4; boards/main
+Regulators.zen): the OR-ing diodes into VSYS, D14 from VBAT and D17 from 5V_IN (a programmer's 5 V
+pin). The 4S pack (17.4 V with HV cells) sits at 44 % of VRRM. Forward: about 0.13 A at 14.8 V
+(L6981 and the analog LDO), about 40 mW with VF 0.32 V, +8 K at 200 C/W; up to 0.55 A from 5V_IN.
+Reverse: D17 blocks the pack's VSYS (up to the 24.2 V clamp, 61 % of VRRM), D14 blocks 5V_IN's VSYS
+(under 5.25 V) with the pack out; D14's leakage then lifts the otherwise floating VBAT node, which
+the board's 22 kOhm battery divider holds down.
+
+This is the stdlib Rectifier generic's part, packaged because the generic cannot carry an MPN.
+"""
+
+A = io(Net)
+K = io(Net)
+
+Component(
+    name="D",
+    prefix="D",
+    symbol=Symbol(library="B5819W.kicad_sym"),
+    footprint=File("D_SOD-123.kicad_mod"),
+    part=Part(mpn="B5819W", manufacturer="JCET"),
+    pins={
+        "A": A,
+        "K": K,
+    },
+)

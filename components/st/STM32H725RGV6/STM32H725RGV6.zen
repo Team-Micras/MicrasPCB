@@ -116,10 +116,21 @@ PD2 = io(Net)
 PH0 = io(Net)
 PH1 = io(Net)
 
+# The exposed pad's stencil (TI SLUA271C 4.4: 50-70 % paste coverage on an exposed pad, in windows
+# that let it outgas): "whole", one aperture as drawn; "split", windows round the thermal-via sites
+# drawn on Cmts.User (0.2 mm), for vias left open in the pad.
+Paste = enum("whole", "split")
+paste = config(Paste, default="whole", help="the exposed pad's paste: one aperture, or windows round the thermal vias")
+FOOTPRINT = {
+    "whole": "QFN-68-1EP_8x8mm_P0.4mm_EP6.5x6.5mm.kicad_mod",
+    "split": "QFN-68-1EP_8x8mm_P0.4mm_EP6.5x6.5mm_SplitPaste.kicad_mod",
+}
+
 Component(
     name="STM32H725RGV6",
     prefix="IC",
     symbol=Symbol(library="STM32H725RGV6.kicad_sym"),
+    footprint=File(FOOTPRINT[paste.value]),
     part=Part(mpn="STM32H725RGV6", manufacturer="STMicroelectronics"),
     pins={
         "VBAT": VBAT,

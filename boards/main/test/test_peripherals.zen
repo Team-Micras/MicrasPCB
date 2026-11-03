@@ -1,226 +1,102 @@
-"""USB-C receptacle U2 and the user-interface parts.
+"""The ESP32-C5 module's support circuit U13 and its flashing header J2, the status LEDs and the
+buzzer.
 
-Sources: USB Type-C Cable and Connector Specification Release 2.0 (August 2019), ST DS13311
-Rev 5, ST DS13554 Rev 3, onsemi BAT54HT1/D Rev. 9, TI SLVSE13J, ST AN4879
-Rev 12 (USB hardware guidelines), Fusheng FUET-5030 specification (2018-08-28), Hongjiacheng
-1N4148W Rev 2.0.
+Sources: Espressif ESP32-C5-MINI-1 datasheet v1.4 (Tables 4-1, 4-3, 6-2; section 9, Figure 9-1),
+the ESP32-C5 hardware design guidelines (schematic checklist) and the ESP-Prog user guide (Program
+Interface), Worldsemi WS2812C-2427-V6 V1.0, Fusheng FUET-5025 specification.
 """
 
-load("./helpers.zen", "eng", "index", "net", "ohms", "other_net", "refs_on", "report", "touching", "two_terminal")
+load(
+    "./helpers.zen",
+    "all_two_terminal",
+    "eng",
+    "farads",
+    "index",
+    "net",
+    "ohms",
+    "refs_on",
+    "report",
+    "touching",
+    "two_terminal",
+)
 
 MAIN = Module("../main.zen")
 
-USBC = "U2"
+ESP = "U13"
 
 
-def usb_c_sink_terminations(module, inputs):
-    # Type-C R2.0 section 4.5.1.3.2 and Table 4-25 p236: a sink presents Rd = 5.1 kOhm to GND on
-    # each CC pin (+-20 %, or +-10 % to detect the source's current capability).
+def esp_supply_and_enable(module, inputs):
+    # Figure 9-1 and section 9: 3V3 decoupled at the module (22 uF + 0.1 uF); EN never floating,
+    # with the RC delay "usually R = 10 kOhm and C = 1 uF"; the checklist (Strapping Pins) asks for
+    # a pull-up on GPIO28, the boot strap (Tables 4-1, 4-3: low at reset enters the download mode),
+    # and no large capacitor on it.
     b = index(module)
     p = []
-    for pin in ["CC1", "CC2"]:
-        rd = [
-            r for r in two_terminal(b, "resistor", net(b, USBC, pin), "GND") if abs(ohms(b, r) - 5.1e3) <= 0.1 * 5.1e3
-        ]
-        if len(rd) != 1:
-            p.append("U2 " + pin + " needs one 5.1 kOhm Rd to GND, found " + str(rd))
+    v = net(b, ESP, "3V3")
+    caps = two_terminal(b, "capacitor", v, "GND")
+    if not [r for r in caps if abs(farads(b, r) - 22e-6) <= 2.2e-6] or not [
+        r for r in caps if abs(farads(b, r) - 100e-9) <= 10e-9
+    ]:
+        p.append(v + " needs 22 uF + 100 nF at the ESP32-C5 (Figure 9-1)")
+    en, boot = net(b, ESP, "EN"), net(b, ESP, "IO28")
+    if not [r for r in two_terminal(b, "resistor", en, v) if abs(ohms(b, r) - 10e3) <= 0.1e3]:
+        p.append("EN needs 10 kOhm to 3V3 (section 9)")
+    if not [r for r in two_terminal(b, "capacitor", en, "GND") if abs(farads(b, r) - 1e-6) <= 0.1e-6]:
+        p.append("EN needs 1 uF to GND (section 9)")
+    if not two_terminal(b, "resistor", boot, v):
+        p.append("GPIO28 needs a pull-up (schematic checklist, Strapping Pins)")
+    for r in two_terminal(b, "capacitor", boot, "GND"):
+        if farads(b, r) > 1e-9:
+            p.append(r + ": no large capacitor on GPIO28 (schematic checklist)")
     report(p)
 
 
-def _sbu_switch(b, sbu):
-    """The SBU supply path: [fuse or resistor, P-MOSFET] from the SBU net to its source net, or None."""
-    for f in refs_on(b, sbu):
-        if f == USBC or len(b.parts[f].pins) != 2:
-            continue
-        mid = other_net(b, f, sbu)
-        for q in refs_on(b, mid):
-            pins = b.parts[q].pins
-            if q != f and "G" in pins and "S" in pins and "D" in pins and pins["D"].name == mid:
-                return struct(fuse=f, switch=q, gate=pins["G"].name, source=pins["S"].name)
-    return None
+# ESP-Prog user guide, Program Interface: 1 ESP_EN, 2 VDD, 3 ESP_TXD, 4 GND, 5 ESP_RXD, 6 ESP_IO0;
+# on the C5 the ROM's UART0 is TX0/RX0 (GPIO11/GPIO12) and the boot strap GPIO28 (Table 4-3).
+HEADER = "J2"
+PROGRAM = {"Pin_1": "EN", "Pin_3": "TX0", "Pin_5": "RX0", "Pin_6": "IO28"}
 
 
-def _detector(b, gate):
-    """The comparator whose output drives the gate, its - input's peak-hold diode and the CC net
-    feeding that diode through a resistor; None if the gate has no such driver."""
-    for u in refs_on(b, gate):
-        pins = b.parts[u].pins
-        if not ("OUT" in pins and "+" in pins and "-" in pins) or pins["OUT"].name != gate:
-            continue
-        hold = pins["-"].name
-        for d in refs_on(b, hold):
-            dp = b.parts[d].pins
-            if not ("A" in dp and "K" in dp) or dp["K"].name != hold:
-                continue
-            for r in touching(b, "resistor", dp["A"].name):
-                cc = other_net(b, r, dp["A"].name)
-                if cc in [net(b, USBC, "CC1"), net(b, USBC, "CC2")]:
-                    return struct(comparator=u, ref=pins["+"].name, hold=hold, diode=d, series=r, cc=cc)
-    return None
-
-
-def usb_c_sbu_open(module, inputs):
-    # Type-C R2.0 section 4.3 p139: "The SBU pins on a port shall either be open circuit or have
-    # a weak pull-down to ground no stronger than zSBUTermination", Table 4-28 p236: >= 950 kOhm.
-    # A full-featured cable wires SBU through to the other port (an Alternate Mode host, an Audio
-    # Adapter Accessory), which must not find a supply there. The Bluetooth module takes its
-    # supply from SBU (review M6), so SBU may carry a supply only through a switch that is off by
-    # default and that only the module's CC signature turns on: a gate pull-up to the switch's
-    # source, and a comparator, the sole other driver of the gate, sensing a CC contact through a
-    # series resistor and a peak-hold diode (sbu_signature_detector checks its levels).
+def esp_flashing_header(module, inputs):
+    # The radio flashes and recovers through its ROM's UART download mode: J2 wired as the
+    # ESP-Prog's Program interface, its VDD pin on 5V_IN (the programmer's 5 V, into VSYS through
+    # D17, REGULATORS sheet; never the module's 3V3), GND on GND.
     b = index(module)
     p = []
-    for pin in ["SBU1", "SBU2"]:
-        sbu = net(b, USBC, pin)
-        sw = _sbu_switch(b, sbu)
-        for r in refs_on(b, sbu):
-            if r == USBC or (sw and r == sw.fuse):
-                continue
-            c = b.parts[r]
-            if c.type == "resistor" and other_net(b, r, sbu) == "GND" and ohms(b, r) >= 950e3:
-                continue
-            p.append(
-                "U2 "
-                + pin
-                + " ("
-                + sbu
-                + ") connects to "
-                + r
-                + " ("
-                + ", ".join([n.name for n in c.pins.values()])
-                + ")"
-            )
-        if not sw:
-            continue
-        ups = two_terminal(b, "resistor", sw.gate, sw.source)
-        if not ups:
-            p.append(
-                sw.switch
-                + " gate ("
-                + sw.gate
-                + ") has no pull-up to its source "
-                + sw.source
-                + ": it is not off by default"
-            )
-        det = _detector(b, sw.gate)
-        if not det:
-            p.append(
-                sw.switch + " gate (" + sw.gate + ") is not driven by a comparator sensing CC through a peak-hold diode"
-            )
-            continue
-        drivers = [r for r in refs_on(b, sw.gate) if r not in [sw.switch, det.comparator] + ups]
-        drivers = [r for r in drivers if not (b.parts[r].type == "resistor" and other_net(b, r, sw.gate) == det.ref)]
-        if drivers:
-            p.append(sw.switch + " gate (" + sw.gate + ") is also driven by " + str(drivers))
-    report(sorted(set(p)))
-
-
-# USB Type-C R2.0 Table 4-36: vRd-Connect max 2.04 V, the highest CC voltage a source makes across
-# a +-10 % Rd. STM32H725 DS13311 Table 56: VOH >= VDD - 0.4 V at 8 mA (CMOS port); L6981C33
-# DS13554 Rev 3 p6: 3.27-3.33 V at 25 C. BAT54H (BAT54HT1/D p2): VF <= 0.24 V at 0.1 mA.
-# TLV7041 (SLVSE13J 5.7): offset +-8 mV, hysteresis up to 17 mV.
-VRD_MAX = 2.04
-V3V3_MIN = 3.27
-V3V3_MAX = 3.33
-VOH_DROP = 0.4
-VF_MAX = 0.24
-CMP_ERR = 0.008 + 0.017 / 2
-
-
-def sbu_signature_detector(module, inputs):
-    # The detector closes the SBU switch only for the Bluetooth module's signature: the MCU's
-    # UART4 TX (PA12, idle high) on the CC contacts through the module (boards/bluetooth). Its
-    # switch-on threshold must sit above the highest level a USB Type-C source makes across Rd,
-    # and below the module's level; its switch-off threshold below the module's level while
-    # PA12 sends back-to-back 0x00 bytes (one high bit in ten).
-    b = index(module)
-    sw = _sbu_switch(b, net(b, USBC, "SBU1"))
-    if not sw:
-        report(["no SBU switch"])
-        return
-    det = _detector(b, sw.gate)
-    if not det:
-        report(["no signature detector on " + sw.gate])
-        return
-    ref = det.ref
-    top = two_terminal(b, "resistor", ref, "3V3")
-    bot = two_terminal(b, "resistor", ref, "GND")
-    hyst = two_terminal(b, "resistor", ref, sw.gate)
-    up = two_terminal(b, "resistor", sw.gate, sw.source)
-    bleed = two_terminal(b, "resistor", det.hold, "GND")
-    p = []
-    if len(top) != 1 or len(bot) != 1 or len(hyst) != 1 or len(up) != 1 or len(bleed) != 1:
-        report(
-            [
-                "reference "
-                + ref
-                + ": top "
-                + str(top)
-                + ", bottom "
-                + str(bot)
-                + ", hysteresis "
-                + str(hyst)
-                + ", gate pull-up "
-                + str(up)
-                + ", hold bleed "
-                + str(bleed)
-            ]
-        )
-        return
-    rt, rb, rh, ru, rl, rs = (
-        ohms(b, top[0]),
-        ohms(b, bot[0]),
-        ohms(b, hyst[0]),
-        ohms(b, up[0]),
-        ohms(b, bleed[0]),
-        ohms(b, det.series),
-    )
-    # output high impedance (switch off): the hysteresis resistor and the pull-up add to the top
-    top_off = 1.0 / (1.0 / rt + 1.0 / (rh + ru))
-    on_min = V3V3_MIN * rb / (rb + top_off) - CMP_ERR
-    on_max = V3V3_MAX * rb / (rb + top_off) + CMP_ERR
-    # output low (switch on): the hysteresis resistor parallels the bottom
-    bot_on = 1.0 / (1.0 / rb + 1.0 / rh)
-    off_max = V3V3_MAX * bot_on / (bot_on + rt) + CMP_ERR
-    if on_min <= VRD_MAX:
-        p.append("switch-on threshold " + str(on_min) + " V does not clear a source's " + str(VRD_MAX) + " V")
-    # module idle: the hold sits at VOH - VF, less the bleed current across the series resistor
-    v = V3V3_MIN - VOH_DROP - VF_MAX
-    idle = v * rl / (rl + rs)
-    if idle <= on_max:
-        p.append("module level " + str(idle) + " V does not clear the switch-on threshold " + str(on_max) + " V")
-    # back-to-back 0x00: charge through the series resistor 10 % of the time, bleed all the time
-    zeros = v * 0.1 * rl / (0.1 * rl + rs)
-    if zeros <= off_max:
-        p.append(
-            "hold with 0x00 bytes " + str(zeros) + " V does not clear the switch-off threshold " + str(off_max) + " V"
-        )
+    for pin, esp_pin in PROGRAM.items():
+        if net(b, HEADER, pin) != net(b, ESP, esp_pin):
+            p.append(HEADER + " " + pin + " must be the ESP32-C5's " + esp_pin + ", is " + net(b, HEADER, pin))
+    if net(b, HEADER, "Pin_2") != "5V_IN":
+        p.append(HEADER + " Pin_2 (VDD) must be 5V_IN, is " + net(b, HEADER, "Pin_2"))
+    if net(b, HEADER, "Pin_2") == net(b, ESP, "3V3"):
+        p.append(HEADER + " Pin_2 must not be the module's 3V3")
+    if net(b, HEADER, "Pin_4") != "GND":
+        p.append(HEADER + " Pin_4 must be GND")
+    if net(b, "D17", "A") != net(b, HEADER, "Pin_2"):
+        p.append(HEADER + " Pin_2 must reach VSYS through D17")
     report(p)
 
 
-def usb_esd_protection(module, inputs):
-    # AN4879 section 2.3 p9-10: protection against ESD is needed (IEC 61000-4-2); dedicated
-    # components are placed as close as possible to the receptacle, Table 11 lists for USB FS a
-    # USBLC6-2 on D+/D- and an ESDA7P60-1U1M on VBUS. The receptacle is user-accessible. A
-    # protection part is a stdlib Tvs/Zener or a package that declares type "tvs" or "esd".
+def status_leds_on_3v3(module, inputs):
+    # WS2812C-2427-V6 V1.0 p3: VDD 3.3-5.3 V, DI VIH 0.55 x VDD, 100 nF on VDD (p5). The research
+    # puts them on 3V3_D (no 5 V rail), driven from PA2.
     b = index(module)
     p = []
-    for pin in ["D+", "D-", "VBUS"]:
-        line = net(b, USBC, pin)
-        clamps = [
-            r
-            for r in refs_on(b, line)
-            if b.parts[r].type in ["tvs", "zener", "esd"] and "GND" in [n.name for n in b.parts[r].pins.values()]
-        ]
-        if not clamps:
-            p.append("U2 " + pin + " (" + line + ") has no ESD protection to GND")
+    vdd = net(b, "IC1", "VDD")
+    for led in ["D1", "D2"]:
+        if net(b, led, "VDD") != vdd:
+            p.append(led + " VDD is on " + net(b, led, "VDD") + ", not 3V3_D")
+    if net(b, "D1", "DI") != net(b, "IC1", "PA2"):
+        p.append("D1 DI is not on PA2")
+    if net(b, "D2", "DI") != net(b, "D1", "DO"):
+        p.append("D1 DO does not chain to D2 DI")
+    if len([r for r in two_terminal(b, "capacitor", vdd, "GND") if abs(farads(b, r) - 100e-9) <= 10e-9]) < 2:
+        p.append("the LEDs need 100 nF each on VDD")
     report(p)
 
 
 def buzzer_flyback_diode(module, inputs):
-    # The FUET-5030 is an electromagnetic (coil) buzzer driven by a low-side switch (FUET-5030
-    # specification p2, coil 12 +- 3 Ohm). A diode across the coil, cathode on the supply, clamps
-    # the switch-off spike.
+    # FUET-5025 coil buzzer on a low-side switch: a diode across the coil, cathode on the supply.
     b = index(module)
     supply, coil = net(b, "BZ1", "+"), net(b, "BZ1", "-")
     clamps = [r for r in refs_on(b, coil) if r.startswith("D") and net(b, r, "A") == coil and net(b, r, "K") == supply]
@@ -231,5 +107,10 @@ TestBench(
     name="main_peripherals",
     module=MAIN,
     test_cases={"board": {}},
-    checks=[usb_c_sink_terminations, usb_c_sbu_open, sbu_signature_detector, usb_esd_protection, buzzer_flyback_diode],
+    checks=[
+        esp_supply_and_enable,
+        esp_flashing_header,
+        status_leds_on_3v3,
+        buzzer_flyback_diode,
+    ],
 )

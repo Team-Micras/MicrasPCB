@@ -1,0 +1,120 @@
+"""ESP32-C5-MINI-1-N4 - ESP32-C5 dual-band (2.4 and 5 GHz) Wi-Fi 6 and Bluetooth LE 5 module, 4 MB
+flash, PCB antenna, 15.4 x 21.3 x 2.4 mm, 65 pads. Bare part.
+
+Datasheet: Espressif ESP32-C5-MINI-1 & MINI-1U Datasheet v1.4 (the URL in pcb.toml), with the
+ESP32-C5 Series Datasheet v1.5, the ESP32-C5 Technical Reference Manual v1.1 and the ESP32-C5
+Hardware Design Guidelines (schematic checklist, PCB layout design). Ordering code
+ESP32-C5-MINI-1-N4: 4 MB quad flash in the ESP32-C5HF4 package, no PSRAM (Table 1-1); JLCPCB/LCSC
+C54951860. The -N8R2 ties IO15 to its PSRAM (Table 3-1 note 2) and its ESP32-C5NF8R2LA is not yet
+in mass production (ESP32-C5 Series Datasheet, Table 1-1); on the -N4 IO15 is a GPIO, but an SPI0/1
+flash pin that the chip datasheet does not recommend for general use (section 2.3.5, priority 4).
+
+Pins (Table 3-1, Figure 3-1): GND 1, 2, 42, 43, 46-48 and 50-65 (61 is the exposed pad, nine
+1.2 mm squares in the footprint; 62-65 the corner pads); 3V3 3; EN 45; IO28 4; IO2-IO6 6-10; IO0,
+IO1 16, 17; IO7-IO10 19-22; IO13, IO14 23, 24 (USB_D-, USB_D+ of the USB Serial/JTAG controller);
+IO15 26; IO23-IO27 31-35; TX0 39 (U0TXD, GPIO11); RX0 40 (U0RXD, GPIO12). NC: 5, 11-15, 18, 25,
+27-30, 36-38, 41, 44, 49 (no pin in the Zener API). The module puts a 499 Ohm resistor in series
+with U0TXD inside its shield (Figure 8-1, R2), the series resistor the schematic checklist (UART)
+asks of the TXD0 line.
+
+Supply (Tables 6-1, 6-2): VDD33 3.0-3.6 V (3.6 V absolute maximum), and the external supply must
+deliver at least 0.6 A. Peak currents (Tables 6-4, 6-5): 5 GHz TX 426 mA (802.11a at 16.5 dBm),
+388-407 mA (n/ac/ax); 2.4 GHz TX 338 mA (802.11b at 19 dBm); RX 87-113 mA. I/O (Table 6-3): VIH
+0.75 x VDD, VIL 0.25 x VDD, VOH 0.8 x VDD, VOL 0.1 x VDD, 45 kOhm internal pull-up/pull-down; EN
+resets the chip below 0.25 x VDD (VIL_nRST) and releases it above 0.75 x VDD (VIH_nRST), held low
+at least 50 us to reset (Table 4-8).
+
+Strapping pins (Table 4-1, sections 4.1-4.4), sampled when EN rises and held tH = 3 ms (Table
+4-2): GPIO28 (weak pull-up) and GPIO27 (weak pull-up) select the boot mode, GPIO26 (floating)
+only with GPIO27 low: GPIO28 high is SPI boot, GPIO28 low with GPIO27 high Joint Download Boot 0
+(UART0 or USB, Table 4-3); GPIO27 also gates UART0's ROM messages (Table 4-5); GPIO25 and MTDI
+(GPIO3) set the SDIO slave's edges (Table 4-4); GPIO7 selects the JTAG source only once
+EFUSE_JTAG_SEL_ENABLE is burned (Table 4-7: with the default eFuses the source is the USB
+Serial/JTAG controller whatever GPIO7 is); MTMS (GPIO2) is listed floating. The checklist
+(Strapping Pins) asks for a pull-up on GPIO28, room for an unfitted capacitor there, and no large
+capacitor on it. GPIO2-GPIO5 are also the pad JTAG pins and GPIO11/GPIO12 UART0; the chip
+datasheet ranks GPIO0, GPIO1, GPIO6, GPIO8-GPIO10, GPIO23 and GPIO24 as free of any restriction
+(section 2.3.5, priority 2). At reset (TRM Table 8.13-1) GPIO0, GPIO1, GPIO6, GPIO8-GPIO10, GPIO23
+and GPIO24 have their input and output off and no pull; GPIO11 (U0TXD) is an output, GPIO12 an
+input; GPIO4, GPIO27 and GPIO28 have the weak pull-up; GPIO14 the USB D+ pull-up.
+
+Integrator-owned circuitry (Figure 9-1, section 9; hardware design guidelines, schematic
+checklist):
+- 3V3: 22 uF and 0.1 uF in Figure 9-1; the board picks its bulk to suit its regulator.
+- EN: never floating (Table 3-1); an RC delay, "usually R = 10 kOhm and C = 1 uF" (section 9), so
+  EN rises after the 3.3 V rail; a reset button or pad to GND.
+- GPIO28: the pull-up above; a download pad or header pin to GND.
+- UART: UART0 for download and logs; use a UART other than UART0 for application data, with a
+  series resistor on its TX line (checklist, UART).
+- Antenna (layout): the module edge with the antenna at the board edge, no copper, traces or
+  parts under the antenna area on any layer (the footprint carries Espressif's keep-out), and
+  clearance around it (PCB layout design guidelines). The antenna's ground point is at the pin-1
+  end, its open end at the pin-45 end (README).
+- GPIO27: the chip datasheet's section 2.3.5 (priority 3) calls GPIO27 "the VDD_SPI pin", the
+  supply of an off-package flash, while its Table 2-1 (Pin Overview) puts VDD_SPI on chip pin 29; on the
+  -N4's ESP32-C5HF4 the flash is in the package and VDD_SPI is not connected (Table 2-1 note 6). The
+  module brings GPIO27 out as a plain I/O and a strapping pin (Tables 3-1, 4-1); left open, as the
+  boot mode wants it, the question does not arise.
+"""
+
+# Table 6-2: VDD33 3.0-3.6 V.
+V3V3 = io(Power(voltage="3.0V to 3.6V"))
+GND = io(Ground)
+EN = io(Net)
+IO0 = io(Net, help="XTAL_32K_P; no pull at reset")
+IO1 = io(Net, help="XTAL_32K_N; no pull at reset")
+IO2 = io(Net, help="MTMS: strapping pin (floating), pad JTAG")
+IO3 = io(Net, help="MTDI: strapping pin (SDIO edges, floating), pad JTAG")
+IO4 = io(Net, help="MTCK: pad JTAG, weak pull-up after reset")
+IO5 = io(Net, help="MTDO: pad JTAG")
+IO6 = io(Net)
+IO7 = io(Net, help="strapping pin, JTAG source once EFUSE_JTAG_SEL_ENABLE is burned (no pull)")
+IO8 = io(Net)
+IO9 = io(Net)
+IO10 = io(Net)
+IO11 = io(Net, help="TX0, U0TXD: UART0 transmit (ROM messages, download), 499 Ohm in the module")
+IO12 = io(Net, help="RX0, U0RXD: UART0 receive (download)")
+IO13 = io(Net, help="USB_D- of the USB Serial/JTAG controller")
+IO14 = io(Net, help="USB_D+ of the USB Serial/JTAG controller (USB pull-up at reset)")
+IO15 = io(Net, help="SPI0/1 flash pin SPICS1, not recommended for general use")
+IO23 = io(Net)
+IO24 = io(Net)
+IO25 = io(Net, help="strapping pin, SDIO edges (floating)")
+IO26 = io(Net, help="strapping pin, boot mode with GPIO27 low (floating)")
+IO27 = io(Net, help="strapping pin, boot mode and UART0 ROM printing (weak pull-up); VDD_SPI note in the docstring")
+IO28 = io(Net, help="strapping pin, boot mode: low at reset enters the download mode (weak pull-up)")
+
+Component(
+    name="ESP32-C5-MINI-1",
+    prefix="U",
+    symbol=Symbol(library="ESP32-C5-MINI-1.kicad_sym"),
+    footprint=File("ESP32-C5-MINI-1.kicad_mod"),
+    part=Part(mpn="ESP32-C5-MINI-1-N4", manufacturer="Espressif Systems"),
+    pins={
+        "GND": GND,
+        "3V3": V3V3,
+        "EN": EN,
+        "IO0": IO0,
+        "IO1": IO1,
+        "IO2": IO2,
+        "IO3": IO3,
+        "IO4": IO4,
+        "IO5": IO5,
+        "IO6": IO6,
+        "IO7": IO7,
+        "IO8": IO8,
+        "IO9": IO9,
+        "IO10": IO10,
+        "TX0": IO11,
+        "RX0": IO12,
+        "IO13": IO13,
+        "IO14": IO14,
+        "IO15": IO15,
+        "IO23": IO23,
+        "IO24": IO24,
+        "IO25": IO25,
+        "IO26": IO26,
+        "IO27": IO27,
+        "IO28": IO28,
+    },
+)

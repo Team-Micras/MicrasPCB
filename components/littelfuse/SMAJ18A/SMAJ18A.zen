@@ -1,0 +1,54 @@
+"""SMAJ18A - unidirectional TVS diode, 400 W, 18 V standoff, DO-214AC (SMA). Bare part.
+
+Datasheet: Littelfuse SMAJ series, "Surface Mount - 400W > SMAJ series", revised 11/20/15
+(6 pages), LCSC C148219.
+
+Maximum ratings (p1, TA = 25 C): PPPM 400 W for a 10/1000 us pulse (Fig. 2, derated above
+TJ 25 C per Fig. 3); PD 3.3 W on an infinite heat sink at TL = 50 C; IFSM 60 A (8.3 ms);
+TJ -65 to 150 C; RthJL 30 C/W, RthJA 120 C/W (5.0 x 5.0 mm copper per terminal, note 2).
+Electrical characteristics (p2 table, SMAJ18A row; marking BT): VR 18.0 V standoff; VBR
+20.00 V min, 22.10 V max at IT 1 mA; VC 29.2 V max at IPP 13.7 A; IR 1 uA max at VR.
+Failure mode: typically a short when over-specified (p1 features).
+
+Package (p5, DO-214AC): body 3.99-4.60 x 2.40-2.79 mm, 1.90-2.29 mm high, 4.80-5.28 mm over
+the leads; solder pads at least 2.1 x 1.8 mm, at most 2.3 mm apart. Polarity: the colour band
+marks the cathode (p5 physical specifications).
+
+Pins: pad 1 cathode (K), pad 2 anode (A), as KiCad's D_SMA footprint numbers them; its land
+(2.5 x 1.8 mm pads, 1.5 mm apart) is inside the datasheet's pad limits.
+
+This is the stdlib Tvs generic's part, packaged to carry its datasheet limits for the board's
+test benches (breakdown and clamping voltages).
+"""
+
+load("@stdlib/units.zen", "Voltage")
+load("@stdlib/units.zen", Watts="Power")
+
+A = io(Net)
+K = io(Net)
+
+# p2 table, SMAJ18A row; p1 maximum ratings.
+reverse_standoff_voltage = Voltage("18V")
+breakdown_voltage = Voltage("20V to 22.1V")
+clamping_voltage = Voltage("29.2V")  # max at IPP 13.7 A, 10/1000 us
+peak_pulse_power = Watts("400W")
+
+Component(
+    name="D",
+    prefix="D",
+    symbol=Symbol(library="SMAJ18A.kicad_sym"),
+    footprint=File("D_SMA.kicad_mod"),
+    part=Part(mpn="SMAJ18A", manufacturer="Littelfuse"),
+    pins={
+        "A": A,
+        "K": K,
+    },
+    properties={
+        "value": "18V TVS 400W",
+        "reverse_standoff_voltage": reverse_standoff_voltage,
+        "breakdown_voltage": breakdown_voltage,
+        "clamping_voltage": clamping_voltage,
+        "peak_pulse_power": peak_pulse_power,
+    },
+    type="tvs",
+)

@@ -45,3 +45,8 @@ Sourcing and assembly:
   and CPL do not list it. Order 4 + 4 parts separately for a main board.
 
 The series resistor, the emitter switch and the phototransistor load are board circuitry.
+
+The component carries the SFH 4550's pulse rating for a board check: `emitter_pulse_current`
+(0.38 A, the datasheet's Permissible Pulse Handling Capability at TA = 25 C, D = 0.2, tp =
+150 us; it holds for any shorter pulse or lower duty, and falls with temperature, see the
+docstring).

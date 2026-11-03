@@ -71,6 +71,12 @@ from the Micras Altium library (MicrasLib), with its STEP model (`STSPIN958.stp`
 0.80 x 0.25 mm pads, 4.06 mm inner span): its pads are 0.80 x 0.30 mm centred 2.5 mm from the
 package centre (4.2 mm inner span). The exposed pad matches (3.80 mm).
 
+`paste` (config, default `"whole"`): `"split"` takes
+`QFN50P500X500X100-33N-D_SplitPaste.kicad_mod`, the same land (Figure 25 gives no stencil) with
+the exposed pad's paste in four 1.09 x 1.7 mm windows (51 % of the pad) clear of three 0.36 mm
+lanes at x = -1.45, 0, +1.45 mm that hold nine via sites, 0.2 mm circles on Cmts.User, where the
+layout places its vias (TI SLUA271C (QFN and SON PCB Attachment) section 4.4: exposed-pad paste in windows covering 50-70 % of the pad, which lets it outgas; section 3.4.1: a smaller via loses less solder, and tenting a pad's via from the back traps air).
+
 Courtyard: an F.CrtYd rectangle around the body outline (User.13) and the pads, 0.25 mm, the
 IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).
 

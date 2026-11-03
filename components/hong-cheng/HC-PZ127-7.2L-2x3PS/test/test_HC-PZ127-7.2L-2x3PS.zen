@@ -1,0 +1,30 @@
+"""HC-PZ127-7.2L-2x3PS package facts: the orderable part and its six pins on their own nets."""
+
+HEADER = Module("../HC-PZ127-7.2L-2x3PS.zen")
+
+
+def orderable_part(module, inputs):
+    c = module.components()["J"]
+    check(c.mpn == "HC-PZ127-7.2L-2x3PS", "MPN must be HC-PZ127-7.2L-2x3PS, got " + str(c.mpn))
+    check(c.manufacturer == "Hong Cheng", "manufacturer")
+    check(not c.skip_bom, "the header is a BOM line (JLCPCB places it)")
+
+
+def pinout(module, inputs):
+    # Pin_n on the net Pn: one pin each (odd/even rows, the module docstring).
+    nets = module.nets()
+    for n in range(1, 7):
+        name = "P" + str(n)
+        check([pin for _, pin in nets[name]] == ["Pin_" + str(n)], name + " must be on Pin_" + str(n))
+
+
+CASE = {}
+for n in range(1, 7):
+    CASE["P" + str(n)] = Net("P" + str(n))
+
+TestBench(
+    name="HC_PZ127_2x3",
+    module=HEADER,
+    test_cases={"default": CASE},
+    checks=[orderable_part, pinout],
+)

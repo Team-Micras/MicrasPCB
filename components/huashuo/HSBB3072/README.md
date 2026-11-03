@@ -35,3 +35,10 @@ AOS AON7611 DFN 3x3 model, the same outline class but not this exact part.
 
 Courtyard: an F.CrtYd rectangle around the body outline (User.15) and the pads, 0.25 mm, the
 IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).
+
+`paste` (config, default `"whole"`): `"split"` takes
+`PRPAK-8_L3.0-W3.0-P0.65-BL-EP_SplitPaste.kicad_mod`, the same land with the drain paste split for
+thermal vias left open in the exposed pad: the source leads' apertures as drawn, the drain leads'
+and side tabs' apertures on their own, and the 2.6 x 2.0 mm pad in four windows (61 % of it)
+round a 0.4 mm cross that holds four via sites, 0.2 mm circles on Cmts.User, where the layout
+places its vias (TI SLUA271C (QFN and SON PCB Attachment) section 4.4: exposed-pad paste in windows covering 50-70 % of the pad, which lets it outgas; section 3.4.1: a smaller via loses less solder, and tenting a pad's via from the back traps air).

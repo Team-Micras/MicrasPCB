@@ -1,0 +1,225 @@
+"""ESP32-C5-MINI-1-N4: the radio, the MCU's debug probe and its data link (research/next-revision,
+ESP32 radio and ESP32 form factor, A.6).
+
+The module, U13 (Espressif ESP32-C5-MINI-1 & MINI-1U datasheet v1.4), flashes and debugs the MCU
+over SWD (a CMSIS-DAP-over-TCP or Black Magic probe over Wi-Fi), carries the MCU's link (SPI3
+half-duplex, UART4 as a fallback on the same pins) and relays Wi-Fi telemetry. The C5 is
+Espressif's dual-band (2.4 and 5 GHz, 5180-5885 MHz, Table 7-7) Wi-Fi 6 part with a 240 MHz
+RISC-V core (Features). The board has no USB: the radio flashes over its UART0 header J2 and over
+the air, and the root sheet's SWD header SWD1 takes an ST-Link when the radio cannot reach the MCU.
+Both headers take the programmer's 5 V pin as 5V_IN, which powers the board without the pack
+(REGULATORS sheet, D17).
+
+MINI-1 (PCB antenna) rather than MINI-1U (external antenna): every metal part of the robot is
+18.1 mm or more from the antenna (drive blocks 18.1 mm, the left motor's can, past the centre
+line, 23 mm, the M2 screw H4 25 mm, the LiPo pack 35 mm; MicrasHardware params.py,
+spec/main.toml [drive_blocks]), beyond Espressif's 15 mm clearance (ESP32-C5
+Hardware Design Guidelines, Positioning a Module on a Base Board); the exception is the dielectric
+floor 2.2-3 mm below. No published measurement quantifies that detuning, so the link is sized for
+it: at 20 m, 15.5 dBm (the lowest 802.11a power, 54 Mbit/s, Table 7-8) arrives at -58.3 dBm at
+5.825 GHz (73.8 dB free-space loss, 0 dBi antennas) against -90.5 dBm sensitivity at 12 Mbit/s
+(Table 7-10): 32.2 dB of margin, 27.2 dB at 24 Mbit/s (research/next-revision/calculations/esp/
+link_budget.py), so 10 dB of detuning and 15-20 dB of obstruction still leave the link at 12-24
+Mbit/s PHY rates. The MINI-1 holds FCC ID 2AC7Z-ESPC5MINI1 and a CE (RED) EU-type certificate (Espressif
+certificates page); the MINI-1U lists none.
+
+Placement (spec/main.toml [u13], [antenna_notch]): the rear-right corner, the module at 180
+degrees with its 5.85 mm antenna area (Figures 10-1 and 11-1) over a notch cut out of the board
+under it and beside it, its pads on the board. The antenna's ground point is at the module's pin-1
+end (the pad-62 corner), its open, loaded end at the pin-45 end (Espressif's STEP model, parts
+ANT-C5-MINI-1-top and -buttom; the datasheet v1.4 cover; the Hardware Design Guidelines' "GND
+Point" figure on the ESP32-C5-WROOM-1's antenna, the same design mirrored): the pin-1 end faces
+the right edge, 0.7 mm in (the keep-out figure's 2 mm at most), and the board is cut away 15 mm
+beyond the open end (its minimum), the antenna end 0.5 mm inside the rear edge's line (its 1 mm at
+most) (Hardware Design Guidelines, Positioning a Module on a Base Board, Keepout Zone for ESP32-C5
+Module's Antenna). Keep the module away from the bridges, and dense GND vias along the module's
+ground edge and the notch.
+
+Supply (Table 6-2: 3.0-3.6 V, at least 0.6 A; 5 GHz TX peaks 426 mA, Table 6-5): 3V3_D from the
+L6981C33 (1.5 A), with C109 22 uF and C108 100 nF on the module's 3V3 pin (Figure 9-1: 22 uF +
+0.1 uF) and C107 10 uF on its 3V3_D feed, off the antenna notch; the pin faces the board's edge, so
+the two sit off the module's front-right corner on a 1 mm strap from it (layout README); the module
+decouples its chip itself (Figure 8-1). 3V3_D carries about 104 uF in all, inside the buck's 30.5-145 uF window
+(boards/main/test/test_power.zen). The EPAD is on GND.
+
+EN: R89 10 kOhm to 3V3_D and C110 1 uF to GND, the RC delay of section 9 ("usually R = 10 kOhm and
+C = 1 uF"), so EN rises after 3V3_D (tSTBL 50 us, Table 4-8). J2 pin 1 pulls it to GND (reset).
+Strapping pins (Tables 4-1 to 4-7):
+- GPIO28 (ESP_BOOT): R90 10 kOhm to 3V3_D, the pull-up the schematic checklist recommends
+  (Strapping Pins), with J2 pin 6 to GND for the download mode. No capacitor: the checklist leaves
+  room for an unfitted one and warns that a large one enters the download mode.
+- GPIO27 (weak pull-up, high: GPIO28 alone picks SPI boot or Joint Download Boot 0, Table 4-3;
+  UART0 ROM messages per Table 4-5) and GPIO26 (read only with GPIO27 low) stay open.
+- GPIO25 and MTDI (GPIO3), the SDIO slave's edges (Table 4-4), MTMS (GPIO2) and GPIO7 stay open:
+  this board has no SDIO, and GPIO7 picks the JTAG source only once EFUSE_JTAG_SEL_ENABLE is
+  burned (Table 4-7; with the default eFuses JTAG is the USB Serial/JTAG controller). The firmware
+  enables the internal pull on every open pin (checklist, GPIO: high-impedance pins draw current).
+Flashing header J2 (HC-PZ127-7.2L-2x3PS, 2x3 1.27 mm), wired as Espressif's ESP-Prog Program
+interface (ESP-Prog user guide, Program Interface: 1 ESP_EN, 2 VDD, 3 ESP_TXD, 4 GND, 5 ESP_RXD,
+6 ESP_IO0), so the ESP-Prog's 1.27 mm cable plugs straight in: 1 EN, 2 5V_IN, 3 TX0 (GPIO11, the
+module's U0TXD, with the 499 Ohm series resistor the checklist's UART section asks for already in
+the module, Figure 8-1 R2), 4 GND, 5 RX0 (GPIO12), 6 GPIO28. Pin 2 is the programmer's 5 V, into
+VSYS through D17 (REGULATORS sheet): an ESP-Prog with its PROG PWR SEL jumper at 5 V, or any
+USB-serial adapter's 5 V pin, runs the whole board without the pack; with the pack in, D17 blocks
+it. A 3.3 V supply pin there leaves VSYS at about 3.0 V, under the L6981's 3.5 V minimum: the buck
+may still start (its VCC rising threshold is 2.3-3.3 V, DS13554 Table 6) and run in dropout, 3V3_D
+about 2.8-2.9 V, below the module's 3.0 V (Table 6-2), so the radio may not run; nothing is damaged.
+3V3_D has no connector pin at all. Recovery: hold pin 6 low and pulse pin 1; the ROM's UART
+download mode is in mask ROM, and only burned eFuses defeat it. Any USB-serial adapter with 3.3 V
+logic does it (esptool's own reset sequence needs DTR/RTS on EN and GPIO28, as the ESP-Prog wires
+them; with a plain adapter hold pin 6 to GND by hand and pulse pin 1). The header has no shroud:
+pin 1 on the silkscreen sets the cable's way round.
+
+Links to the MCU (A.6). The C5 pins are those the chip datasheet ranks free of any restriction
+(ESP32-C5 Series Datasheet v1.5, section 2.3.5, priority 2: GPIO0, GPIO1, GPIO6, GPIO8-GPIO10,
+GPIO23, GPIO24), none a strapping, pad-JTAG, UART0 or USB pin; their SPI2 and UART1 signals reach
+them through the GPIO matrix (section 2.3.1). At reset each has its input and output off and no
+pull (ESP32-C5 TRM v1.1 Table 8.13-1, Reset 0), and neither the datasheet nor the TRM lists a
+power-up glitch on any pin (the ESP32-S3 datasheet's Table 2-2 has no C5 counterpart), so none
+drives a line before the firmware does.
+- SWD: GPIO0 to SWDIO (PA13); GPIO1 to SWCLK (PA14) through R86 22 Ohm (checklist, SPI: a series
+  resistor on the clock trace).
+- NRST: GPIO23 to Reset, driven open-drain by the firmware (NRST has its 30-50 kOhm pull-up, SW3
+  and C21; DS13311 Table 61); high-Z until then, so the radio never holds the MCU in reset.
+- SPI3 half-duplex, three wires (the MCU the master, the C5 its spi_slave_hd 3-wire slave):
+  ESP_SCK from PC10 (SPI3_SCK) to GPIO10 through R95 22 Ohm at PC10, the driver's end (a source
+  series resistor on the clock trace, checklist SPI; it is the TX resistor of UART4_TX in the
+  fallback too); ESP_DATA between PC12 (SPI3_MOSI pad, the master's half-duplex data line, IOSWP =
+  0) and GPIO8 through R96
+  220 Ohm at the C5: RM0468 Rev 3 Figure 643 note 3 asks for a series resistance on the shared data
+  line against the two drivers fighting while the direction changes (the figure draws 1 kOhm), and
+  220 Ohm holds that current to 3.346 V / 218 Ohm = 15.4 mA at most (3V3_D's top, R96 at -1 %),
+  under the 20 mA per pin of DS13311 Table 11, before counting either driver's own resistance; the
+  firmware turns the line round with both drivers off, so this is only a fault bound
+  (firmware_changes.toml link). Its cost is an RC on the read direction, the C5 driving through
+  R96 into the line and PC12: 220 Ohm x about 13 pF (CIO 5 pF, DS13311 Table 55; the C5's CIN 2 pF,
+  module Table 6-3; about 6 pF of trace and pads, an estimate) = 2.9 ns, 3.5 ns to the MCU's
+  0.7 VDD input high (Table 55) and 8.6 ns to settle (3 RC). At the /8 start (15.6 MHz: half a
+  clock, 32 ns, from the C5's launch edge to the MCU's sampling edge in mode 0) that is 11 % of
+  the half clock to VIH; at /4 (31.25 MHz, the fastest prescaler under the C5's 40 MHz slave
+  limit, ESP32-C5 Series Datasheet v1.5 section 4.2.1.2) 22 % of its 16 ns, beside the C5's own
+  GPIO-matrix delays, which the bit-error test the firmware runs before raising the clock covers
+  (firmware_changes.toml link_spi); /2 (62.5 MHz) is above that limit. Writing, the MCU drives the
+  line directly and R96 charges only the C5's pin (220 Ohm x about 3 pF, under 1 ns). ESP_CSn
+  from PC11 (a GPIO) to GPIO9 through R88 100 Ohm, with R97 100 kOhm to 3V3_D on the line so the
+  select idles high (no transaction) while neither end drives it, through resets and before the
+  firmware runs; it is also UART4_RX's idle in the fallback. In the UART4 fallback the same pins
+  carry UART4_TX (PC10) into GPIO10 (U1RXD) and the C5's U1TXD (GPIO9) into UART4_RX (PC11)
+  through R88, the TX series resistor of the checklist's UART section.
+- ESP_Flow: GPIO24 to PA11 (EXTI11), the C5's credit and attention line toward the MCU (PA11 has
+  its pull-down: low until the C5 drives it).
+"""
+
+load(
+    "./passives.zen",
+    "C_100N_0402",
+    "C_10U_0603",
+    "C_1U_0402",
+    "C_22U_0805_25V",
+    "R_100K_0402",
+    "R_100_0402",
+    "R_10K_0402",
+    "R_220_0402",
+    "R_22_0402",
+)
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+ESP32_C5_MINI_1 = Module("github.com/Team-Micras/MicrasPCB/components/espressif/ESP32-C5-MINI-1/ESP32-C5-MINI-1.zen")
+HC_PZ127_2x3 = Module(
+    "github.com/Team-Micras/MicrasPCB/components/hong-cheng/HC-PZ127-7.2L-2x3PS/HC-PZ127-7.2L-2x3PS.zen"
+)
+
+# Its own sheet in the board schematic (layout/main.kicad_sch).
+Project(name="Esp", path="layout", layout=False)
+
+# A signal port takes the name of the board net it carries (the firmware's pin label) wherever
+# that name is an identifier, so its sheet pin and hierarchical label match the root's label:
+# KiCad's ERC flags labels whose names differ only in case (similar_labels).
+V5V_IN = io(Power)
+V3V3_D = io(Power)
+GND = io(Ground)
+SWDIO = io(Net)
+SWCLK = io(Net)
+Reset = io(Net)
+ESP_SCK = io(Net)
+ESP_CSn = io(Net)
+ESP_DATA = io(Net)
+ESP_Flow = io(Net)
+
+ESP_EN = Net("ESP_EN")
+ESP_BOOT = Net("ESP_BOOT")
+ESP_TXD0 = Net("ESP_TXD0")
+ESP_RXD0 = Net("ESP_RXD0")
+ESP_SWCLK = Net("ESP_SWCLK")
+ESP_SCK_IO = Net("ESP_SCK_IO")
+ESP_CSN_IO = Net("ESP_CSn_IO")
+ESP_DATA_IO = Net("ESP_DATA_IO")
+
+NC = NotConnected
+
+ESP32_C5_MINI_1(
+    name="U13",
+    V3V3=V3V3_D,
+    GND=GND,
+    EN=ESP_EN,
+    IO0=SWDIO,
+    IO1=ESP_SWCLK,
+    IO2=NC(),
+    IO3=NC(),
+    IO4=NC(),
+    IO5=NC(),
+    IO6=NC(),
+    IO7=NC(),
+    IO8=ESP_DATA_IO,
+    IO9=ESP_CSN_IO,
+    IO10=ESP_SCK_IO,
+    IO11=ESP_TXD0,
+    IO12=ESP_RXD0,
+    IO13=NC(),
+    IO14=NC(),
+    IO15=NC(),
+    IO23=Reset,
+    IO24=ESP_Flow,
+    IO25=NC(),
+    IO26=NC(),
+    IO27=NC(),
+    IO28=ESP_BOOT,
+)
+
+# Supply.
+Capacitor(name="C107", P1=GND, P2=V3V3_D, **C_10U_0603)
+Capacitor(name="C108", P1=GND, P2=V3V3_D, **C_100N_0402)
+Capacitor(name="C109", P1=GND, P2=V3V3_D, **C_22U_0805_25V)
+
+# EN and GPIO28: RC delay and pull-up.
+Resistor(name="R89", P1=V3V3_D, P2=ESP_EN, **R_10K_0402)
+Capacitor(name="C110", P1=GND, P2=ESP_EN, **C_1U_0402)
+Resistor(name="R90", P1=V3V3_D, P2=ESP_BOOT, **R_10K_0402)
+
+# Flashing header, ESP-Prog Program interface order.
+HC_PZ127_2x3(
+    name="J2",
+    P1=ESP_EN,
+    P2=V5V_IN,
+    P3=ESP_TXD0,
+    P4=GND,
+    P5=ESP_RXD0,
+    P6=ESP_BOOT,
+)
+
+# MCU links.
+Resistor(name="R86", P1=ESP_SWCLK, P2=SWCLK, **R_22_0402)
+# R95 sits at PC10 (the clock's driver), R96 and R88 at the C5.
+Resistor(name="R95", P1=ESP_SCK_IO, P2=ESP_SCK, **R_22_0402)
+Resistor(name="R96", P1=ESP_DATA_IO, P2=ESP_DATA, **R_220_0402)
+Resistor(name="R88", P1=ESP_CSN_IO, P2=ESP_CSn, **R_100_0402)
+Resistor(name="R97", P1=V3V3_D, P2=ESP_CSn, **R_100K_0402)
+
+# Schematic placement hints for `micras-pcb sch --draft` (pcb evaluates and ignores this value).
+SCHEMATIC_HINTS = {
+    "blocks": [
+        {"title": "EN RC delay and GPIO28 pull-up", "parts": ["R89", "C110", "R90"], "anchor": "R89"},
+        {"title": "Flashing header J2 (ESP-Prog Program interface)", "parts": ["J2"], "anchor": "J2"},
+    ],
+}

@@ -35,6 +35,10 @@ hysteresis; VDDth(ON) 2.7 V; RDS(ON) 165 mohm per switch; VIH 2 V, VIL 0.8 V;
 VIH(EN) 2.55 V, VIL(EN) 0.4 V; EN/nFAULT pull-down 5 uA; input pull-downs
 570 kohm, MODE1-3 pull-ups 570 kohm; amplifier gain ACL 9.5 / 10 / 10.5 V/V;
 overcurrent threshold IOC 7-14 A; thermal shutdown 150 C, 30 C hysteresis.
+Not published in Rev 1 (the only revision found): RDS(on) against temperature, the dead time
+(section 5.2 names one, Table 5 gives only the 50 ns HS/LS delay matching), the VS operating
+current, and the current limiter's blanking time (section 5.6.3 names it) and comparator delay;
+a board sizes them with bounds.
 
 Driving mode (Table 8): MODE1/MODE2/MODE3 strapped to GND, VDD or left open
 (internal pull-ups), never changed during operation:
@@ -110,10 +114,17 @@ REF = io(Net)
 TOFF = io(Net)
 SR = io(Net)
 
+# The exposed pad's stencil (TI SLUA271C 4.4: 50-70 % paste coverage on an exposed pad, in windows
+# that let it outgas): "whole", one aperture as drawn; "split", windows round the thermal-via sites
+# drawn on Cmts.User (0.2 mm), for vias left open in the pad.
+Paste = enum("whole", "split")
+paste = config(Paste, default="whole", help="the exposed pad's paste: one aperture, or windows round the thermal vias")
+FOOTPRINT = {"whole": "QFN50P500X500X100-33N-D.kicad_mod", "split": "QFN50P500X500X100-33N-D_SplitPaste.kicad_mod"}
+
 Component(
     name="STSPIN958",
     symbol=Symbol(library="STSPIN958.kicad_sym"),
-    footprint=File("QFN50P500X500X100-33N-D.kicad_mod"),
+    footprint=File(FOOTPRINT[paste.value]),
     part=Part(mpn="STSPIN958TR", manufacturer="STMicroelectronics"),
     prefix="IC",
     pins={
