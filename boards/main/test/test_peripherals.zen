@@ -3,7 +3,7 @@ buzzer.
 
 Sources: Espressif ESP32-C5-MINI-1 datasheet v1.4 (Tables 4-1, 4-3, 6-2; section 9, Figure 9-1),
 the ESP32-C5 hardware design guidelines (schematic checklist) and the ESP-Prog user guide (Program
-Interface), Worldsemi WS2812C-2020-V6 V1.1, Fusheng FUET-5030 specification.
+Interface), Worldsemi WS2812C-2427-V6 V1.0, Fusheng FUET-5025 specification.
 """
 
 load(
@@ -78,7 +78,7 @@ def esp_flashing_header(module, inputs):
 
 
 def status_leds_on_3v3(module, inputs):
-    # WS2812C-2020-V6 V1.1 p3: VDD 3.3-5.3 V, DI VIH 0.55 x VDD, 100 nF on VDD (p5). The research
+    # WS2812C-2427-V6 V1.0 p3: VDD 3.3-5.3 V, DI VIH 0.55 x VDD, 100 nF on VDD (p5). The research
     # puts them on 3V3_D (no 5 V rail), driven from PA2.
     b = index(module)
     p = []
@@ -96,7 +96,7 @@ def status_leds_on_3v3(module, inputs):
 
 
 def buzzer_flyback_diode(module, inputs):
-    # FUET-5030 coil buzzer on a low-side switch: a diode across the coil, cathode on the supply.
+    # FUET-5025 coil buzzer on a low-side switch: a diode across the coil, cathode on the supply.
     b = index(module)
     supply, coil = net(b, "BZ1", "+"), net(b, "BZ1", "-")
     clamps = [r for r in refs_on(b, coil) if r.startswith("D") and net(b, r, "A") == coil and net(b, r, "K") == supply]

@@ -126,8 +126,8 @@ ANCHORS = {
     # nose; the MCU turned 45 degrees, as on the previous board: its pin rows face the diagonals,
     # their escapes fan out into widening wedges and the corners of its square stay free
     "IC1": (36.0, 0.0, -135),
-    "D1": (51.25, 2.2, 180),
-    "D2": (51.25, -2.2, 180),
+    "D1": (51.25, 2.2, 0),  # WS2812C-2427: DI, VDD, DO and GND on the sides they had at 180 on the 2020
+    "D2": (51.25, -2.2, 0),
     # each button on the side of the STM32 its pin faces: the user button (PA3, pin 20) on the
     # left, reset (NRST, pin 12) on the right; the other way round, both nets circled the chip
     "SW2": (35.9, 11.6, 180),

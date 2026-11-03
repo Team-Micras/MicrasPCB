@@ -2,32 +2,29 @@
 	(version 20251024)
 	(generator "micras")
 	(generator_version "10.0")
-	(symbol "FUET-5030"
-		(pin_names
-			(hide yes)
-		)
+	(symbol "WS2812C-2427-V6"
 		(exclude_from_sim yes)
 		(in_bom yes)
 		(on_board yes)
 		(in_pos_files yes)
 		(duplicate_pin_numbers_are_jumpers no)
-		(property "Reference" "BZ"
-			(at 0 5.08 0)
+		(property "Reference" "D"
+			(at 0 6.35 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "FUET-5030"
-			(at 0 -5.08 0)
+		(property "Value" "WS2812C-2427-V6"
+			(at 0 -3.81 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Footprint" "BUZ-SMD_FST-5030.kicad_mod"
+		(property "Footprint" "LED-SMD_4P-L2.7-W2.4-P1.30_WS2812C-2427-V6.kicad_mod"
 			(at 0 -6.35 0)
 			(hide yes)
 			(effects
@@ -36,7 +33,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.lcsc.com/product-detail/C391031.html"
+		(property "Datasheet" "https://www.lcsc.com/product-detail/C55109524.html"
 			(at 0 0 0)
 			(hide yes)
 			(effects
@@ -45,7 +42,7 @@
 				)
 			)
 		)
-		(property "Description" "4 kHz passive electromagnetic buzzer, 3 Vo-p rated, 12 ohm coil, 5 x 5 x 3 mm SMD (pad 3 mechanical, no electrical function stated)"
+		(property "Description" "3.3-5.3 V addressable RGB LED, single-wire data in/out, 2.7 x 2.4 mm SMD-4P (pinout per WS2812C-2427-V6 V1.0 p.2)"
 			(at 0 0 0)
 			(hide yes)
 			(effects
@@ -54,7 +51,7 @@
 				)
 			)
 		)
-		(property "ki_keywords" "buzzer magnetic transducer passive"
+		(property "ki_keywords" "RGB LED addressable WS2812"
 			(at 0 0 0)
 			(hide yes)
 			(effects
@@ -63,61 +60,24 @@
 				)
 			)
 		)
-		(symbol "FUET-5030_0_1"
-			(polyline
-				(pts
-					(xy -1.651 1.905) (xy -1.143 1.905)
-				)
-				(stroke
-					(width 0)
-					(type default)
-				)
-				(fill
-					(type none)
-				)
-			)
-			(polyline
-				(pts
-					(xy -1.397 2.159) (xy -1.397 1.651)
-				)
-				(stroke
-					(width 0)
-					(type default)
-				)
-				(fill
-					(type none)
-				)
-			)
-			(arc
-				(start 0 3.175)
-				(mid 3.175 0)
-				(end 0 -3.175)
+		(symbol "WS2812C-2427-V6_0_1"
+			(rectangle
+				(start -7.62 5.08)
+				(end 7.62 -2.54)
 				(stroke
 					(width 0.254)
 					(type default)
 				)
 				(fill
-					(type none)
-				)
-			)
-			(polyline
-				(pts
-					(xy 0 3.175) (xy 0 -3.175)
-				)
-				(stroke
-					(width 0.254)
-					(type default)
-				)
-				(fill
-					(type none)
+					(type background)
 				)
 			)
 		)
-		(symbol "FUET-5030_1_1"
-			(pin passive line
-				(at -2.54 2.54 0)
+		(symbol "WS2812C-2427-V6_1_1"
+			(pin input line
+				(at -10.16 2.54 0)
 				(length 2.54)
-				(name "+"
+				(name "DI"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -132,10 +92,10 @@
 					)
 				)
 			)
-			(pin passive line
-				(at -2.54 -2.54 0)
+			(pin power_in line
+				(at -10.16 0 0)
 				(length 2.54)
-				(name "-"
+				(name "VDD"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -150,10 +110,10 @@
 					)
 				)
 			)
-			(pin no_connect line
-				(at 5.08 0 180)
-				(length 1.905)
-				(name "NC"
+			(pin output line
+				(at 10.16 2.54 180)
+				(length 2.54)
+				(name "DO"
 					(effects
 						(font
 							(size 1.27 1.27)
@@ -161,6 +121,24 @@
 					)
 				)
 				(number "3"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin power_in line
+				(at 10.16 0 180)
+				(length 2.54)
+				(name "GND"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number "4"
 					(effects
 						(font
 							(size 1.27 1.27)

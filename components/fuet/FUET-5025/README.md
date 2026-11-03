@@ -1,11 +1,11 @@
-# FUET-5030
+# FUET-5025
 
-FUET (Fusheng) FUET-5030 (LCSC C391031): 4 kHz passive electromagnetic buzzer, 5.0 x 5.0 x 3.0 mm SMD,
+FUET (Fusheng) FUET-5025 (LCSC C391030), the FUET-5030 in a 2.5 mm body: 4 kHz passive electromagnetic buzzer, 5.0 x 5.0 x 2.5 mm SMD,
 3 Vo-p rated (2-4 Vo-p), 110 mA max, 12 +/- 3 ohm coil, 80 dB min at 10 cm. Evidence is in the
-docstring of [`FUET-5030.zen`](FUET-5030.zen).
+docstring of [`FUET-5025.zen`](FUET-5025.zen).
 
 ```python
-Buzzer = Module("github.com/Team-Micras/MicrasPCB/components/fuet/FUET-5030/FUET-5030.zen")
+Buzzer = Module("github.com/Team-Micras/MicrasPCB/components/fuet/FUET-5025/FUET-5025.zen")
 
 Buzzer(name="BZ1", POS=V3V3, NEG=BUZZER_SWITCH)
 ```

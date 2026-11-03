@@ -859,7 +859,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "FUET-5030"
+		(symbol "FUET-5025"
 			(pin_names
 				(hide yes)
 			)
@@ -878,7 +878,7 @@
 					)
 				)
 			)
-			(property "Value" "FUET-5030"
+			(property "Value" "FUET-5025"
 				(at 0 -5.08 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -888,7 +888,7 @@
 					)
 				)
 			)
-			(property "Footprint" "BUZ-SMD_FST-5030.kicad_mod"
+			(property "Footprint" "BUZ-SMD_FST-5025.kicad_mod"
 				(at 0 -6.35 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -899,7 +899,7 @@
 					)
 				)
 			)
-			(property "Datasheet" "https://www.lcsc.com/product-detail/C391031.html"
+			(property "Datasheet" "https://www.lcsc.com/product-detail/C391030.html"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -932,7 +932,7 @@
 					)
 				)
 			)
-			(symbol "FUET-5030_0_1"
+			(symbol "FUET-5025_0_1"
 				(polyline
 					(pts
 						(xy -1.651 1.905) (xy -1.143 1.905)
@@ -982,7 +982,7 @@
 					)
 				)
 			)
-			(symbol "FUET-5030_1_1"
+			(symbol "FUET-5025_1_1"
 				(pin passive line
 					(at -2.54 2.54 0)
 					(length 2.54)
@@ -2002,7 +2002,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "WS2812C-2020-V6"
+		(symbol "WS2812C-2427-V6"
 			(exclude_from_sim yes)
 			(in_bom yes)
 			(on_board yes)
@@ -2018,7 +2018,7 @@
 					)
 				)
 			)
-			(property "Value" "WS2812C-2020-V6"
+			(property "Value" "WS2812C-2427-V6"
 				(at 0 -3.81 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -2028,7 +2028,7 @@
 					)
 				)
 			)
-			(property "Footprint" "LED-SMD_4P-L2.2-W2.0-P1.00_WS2812C-2020-V6.kicad_mod"
+			(property "Footprint" "LED-SMD_4P-L2.7-W2.4-P1.30_WS2812C-2427-V6.kicad_mod"
 				(at 0 -6.35 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -2039,7 +2039,7 @@
 					)
 				)
 			)
-			(property "Datasheet" "https://www.lcsc.com/product-detail/C55109522.html"
+			(property "Datasheet" "https://www.lcsc.com/product-detail/C55109524.html"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -2050,7 +2050,7 @@
 					)
 				)
 			)
-			(property "Description" "3.3-5.3 V addressable RGB LED, single-wire data in/out, 2.2 x 2.0 mm SMD-4P (pinout per WS2812C-2020-V6 V1.0 p.2)"
+			(property "Description" "3.3-5.3 V addressable RGB LED, single-wire data in/out, 2.7 x 2.4 mm SMD-4P (pinout per WS2812C-2427-V6 V1.0 p.2)"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -2072,7 +2072,7 @@
 					)
 				)
 			)
-			(symbol "WS2812C-2020-V6_0_1"
+			(symbol "WS2812C-2427-V6_0_1"
 				(rectangle
 					(start -7.62 5.08)
 					(end 7.62 -2.54)
@@ -2085,11 +2085,11 @@
 					)
 				)
 			)
-			(symbol "WS2812C-2020-V6_1_1"
-				(pin output line
-					(at 10.16 2.54 180)
+			(symbol "WS2812C-2427-V6_1_1"
+				(pin input line
+					(at -10.16 2.54 0)
 					(length 2.54)
-					(name "DO"
+					(name "DI"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2105,9 +2105,9 @@
 					)
 				)
 				(pin power_in line
-					(at 10.16 0 180)
+					(at -10.16 0 0)
 					(length 2.54)
-					(name "GND"
+					(name "VDD"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2122,10 +2122,10 @@
 						)
 					)
 				)
-				(pin input line
-					(at -10.16 2.54 0)
+				(pin output line
+					(at 10.16 2.54 180)
 					(length 2.54)
-					(name "DI"
+					(name "DO"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2141,9 +2141,9 @@
 					)
 				)
 				(pin power_in line
-					(at -10.16 0 0)
+					(at 10.16 0 180)
 					(length 2.54)
-					(name "VDD"
+					(name "GND"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2163,7 +2163,7 @@
 		)
 	)
 	(symbol
-		(lib_id "WS2812C-2020-V6")
+		(lib_id "WS2812C-2427-V6")
 		(at 119.38 101.6 0)
 		(unit 1)
 		(body_style 1)
@@ -2184,7 +2184,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "WS2812C-2020-V6"
+		(property "Value" "WS2812C-2427-V6"
 			(at 111.76 94.615 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -2195,7 +2195,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Team-Micras_MicrasPCB_components_worldsemi_WS2812C-2020:LED-SMD_4P-L2.2-W2.0-P1.00_WS2812C-2020-V6"
+		(property "Footprint" "Team-Micras_MicrasPCB_components_worldsemi_WS2812C-2427:LED-SMD_4P-L2.7-W2.4-P1.30_WS2812C-2427-V6"
 			(at 119.38 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -2206,7 +2206,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.lcsc.com/product-detail/C55109522.html"
+		(property "Datasheet" "https://www.lcsc.com/product-detail/C55109524.html"
 			(at 119.38 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -2217,7 +2217,7 @@
 				)
 			)
 		)
-		(property "Description" "3.3-5.3 V addressable RGB LED, single-wire data in/out, 2.2 x 2.0 mm SMD-4P (pinout per WS2812C-2020-V6 V1.0 p.2)"
+		(property "Description" "3.3-5.3 V addressable RGB LED, single-wire data in/out, 2.7 x 2.4 mm SMD-4P (pinout per WS2812C-2427-V6 V1.0 p.2)"
 			(at 119.38 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -2261,7 +2261,7 @@
 		)
 	)
 	(symbol
-		(lib_id "FUET-5030")
+		(lib_id "FUET-5025")
 		(at 167.64 38.1 0)
 		(unit 1)
 		(body_style 1)
@@ -2282,7 +2282,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "FUET-5030"
+		(property "Value" "FUET-5025"
 			(at 165.989 33.02 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -2293,7 +2293,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Team-Micras_MicrasPCB_components_fuet_FUET-5030:BUZ-SMD_FST-5030"
+		(property "Footprint" "Team-Micras_MicrasPCB_components_fuet_FUET-5025:BUZ-SMD_FST-5025"
 			(at 167.64 38.1 0)
 			(hide yes)
 			(show_name no)
@@ -2304,7 +2304,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.lcsc.com/product-detail/C391031.html"
+		(property "Datasheet" "https://www.lcsc.com/product-detail/C391030.html"
 			(at 167.64 38.1 0)
 			(hide yes)
 			(show_name no)
@@ -3000,7 +3000,7 @@
 		)
 	)
 	(symbol
-		(lib_id "WS2812C-2020-V6")
+		(lib_id "WS2812C-2427-V6")
 		(at 60.96 101.6 0)
 		(unit 1)
 		(body_style 1)
@@ -3021,7 +3021,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "WS2812C-2020-V6"
+		(property "Value" "WS2812C-2427-V6"
 			(at 53.34 94.615 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -3032,7 +3032,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Team-Micras_MicrasPCB_components_worldsemi_WS2812C-2020:LED-SMD_4P-L2.2-W2.0-P1.00_WS2812C-2020-V6"
+		(property "Footprint" "Team-Micras_MicrasPCB_components_worldsemi_WS2812C-2427:LED-SMD_4P-L2.7-W2.4-P1.30_WS2812C-2427-V6"
 			(at 60.96 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -3043,7 +3043,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.lcsc.com/product-detail/C55109522.html"
+		(property "Datasheet" "https://www.lcsc.com/product-detail/C55109524.html"
 			(at 60.96 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -3054,7 +3054,7 @@
 				)
 			)
 		)
-		(property "Description" "3.3-5.3 V addressable RGB LED, single-wire data in/out, 2.2 x 2.0 mm SMD-4P (pinout per WS2812C-2020-V6 V1.0 p.2)"
+		(property "Description" "3.3-5.3 V addressable RGB LED, single-wire data in/out, 2.7 x 2.4 mm SMD-4P (pinout per WS2812C-2427-V6 V1.0 p.2)"
 			(at 60.96 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -4900,7 +4900,7 @@
 	)
 	(wire
 		(pts
-			(xy 71.12 101.6) (xy 73.66 101.6)
+			(xy 50.8 99.06) (xy 48.26 99.06)
 		)
 		(stroke
 			(width 0)
@@ -4910,7 +4910,7 @@
 	)
 	(wire
 		(pts
-			(xy 50.8 99.06) (xy 48.26 99.06)
+			(xy 71.12 101.6) (xy 73.66 101.6)
 		)
 		(stroke
 			(width 0)
@@ -7435,7 +7435,7 @@
 		)
 		(uuid "660b04a7-c129-51bf-9ba8-d576f0fa16ae")
 	)
-	(text "Addressable LEDs: WS2812C-2020 chain"
+	(text "Addressable LEDs: WS2812C-2427 chain"
 		(exclude_from_sim no)
 		(at 11.43 87.63 0)
 		(effects

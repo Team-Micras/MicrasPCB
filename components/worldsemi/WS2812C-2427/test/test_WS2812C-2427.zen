@@ -1,6 +1,6 @@
-"""WS2812C-2020-V6 package facts (WS-DS V1.0 p.2-3) on a 3.3 V rail driven by a 3.3 V MCU."""
+"""WS2812C-2427-V6 package facts (WS-DS V1.0 p.2-3) on a 3.3 V rail driven by a 3.3 V MCU."""
 
-WS2812C = Module("../WS2812C-2020.zen")
+WS2812C = Module("../WS2812C-2427.zen")
 
 # The data comes from an STM32H725 output on the same rail: VOH >= VDD - 0.4 V at 8 mA
 # (DS13311 Table 56, as boards/main/Peripherals.zen cites it).
@@ -25,6 +25,12 @@ def one_part(module, inputs):
     check(len(module.components()) == 1, "the package is the LED alone")
 
 
+def supply_range(module, inputs):
+    # p.3 maximum ratings: VDD +3.3 to +5.3 V; the rail must stay inside it.
+    vdd = led(module).pins["VDD"].voltage
+    check(vdd.min >= 3.3 and vdd.max <= 5.3, "VDD outside 3.3-5.3 V")
+
+
 def data_high_level(module, inputs):
     # p.3: VIH 0.55 x VDD min; the driver shares the rail, so its VOH tracks VDD.
     vdd = led(module).pins["VDD"].voltage
@@ -33,7 +39,7 @@ def data_high_level(module, inputs):
 
 def sourcing(module, inputs):
     c = led(module)
-    check(c.mpn == "WS2812C-2020-V6", "MPN")
+    check(c.mpn == "WS2812C-2427-V6", "MPN")
     check(c.manufacturer == "Worldsemi", "manufacturer")
     check(c.prefix == "D", "reference prefix D")
 
@@ -49,5 +55,5 @@ TestBench(
             "DO": Net("DOUT"),
         },
     },
-    checks=[pins_by_function, one_part, data_high_level, sourcing],
+    checks=[pins_by_function, one_part, supply_range, data_high_level, sourcing],
 )

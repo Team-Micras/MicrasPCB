@@ -1,6 +1,6 @@
-"""FUET-5030 package facts (BZ-DS p.2): + on pad 1, - on pad 2, pad 3 left without a net."""
+"""FUET-5025 package facts (BZ-DS p.2): + on pad 1, - on pad 2, pad 3 left without a net."""
 
-Buzzer = Module("../FUET-5030.zen")
+Buzzer = Module("../FUET-5025.zen")
 
 
 def polarity(module, inputs):
@@ -17,12 +17,12 @@ def polarity(module, inputs):
 
 def sourcing(module, inputs):
     bz = [c for path, c in module.components().items() if path.endswith("BUZZER")][0]
-    check(bz.mpn == "FUET-5030", "MPN")
+    check(bz.mpn == "FUET-5025", "MPN")
     check(bz.prefix == "BZ", "reference prefix BZ")
 
 
 TestBench(
-    name="FUET5030",
+    name="FUET5025",
     module=Buzzer,
     test_cases={"default": {"POS": Net("BZ_POS"), "NEG": Net("BZ_NEG")}},
     checks=[polarity, sourcing],

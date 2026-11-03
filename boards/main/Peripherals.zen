@@ -10,35 +10,34 @@ boots from flash; there is no BOOT0 button.
 SW1, a 4-way DIP switch, pulls Switch_0..3 to GND (Switch_0 on PH0, Switch_1-3 on PH1, PC15, PC14,
 all with the MCU's internal pull-ups).
 
-Buzzer: BZ1 (FUET-5030, 3 V electromagnetic, externally driven) from 3V3_D through R3 10 Ohm to
+Buzzer: BZ1 (FUET-5025, 3 V electromagnetic, externally driven) from 3V3_D through R3 10 Ohm to
 the low-side switch Q1 (AO3400A), driven from Buzzer (PB9, TIM17) through R1 220 Ohm with R2
 10 kOhm gate pull-down; D3 (1N4148WS, the board's clamp diode, D9-D12) clamps the coil: at most
 the 174 mA coil current below, decaying, against its 300 mA IFM and 2 A IFSM at 1 us. R3 is a 1206 (250 mW): at the firmware's
 50 % duty and low tones the coil current approaches 3.3 V / (9 + 10) Ohm = 174 mA with the 9 Ohm
-minimum coil (FUET-5030 p2), 151 mW in R3.
+minimum coil (FUET-5025 p2), 151 mW in R3.
 
 LEDs:
-- D1, D2: WS2812C-2020-V6 addressable LEDs in a chain on 3V3_D (research IR emitters and status
-  LEDs; A.4), replacing the v1 main board's WS2815C-2020, whose 9.5-13.5 V supply range fits
-  neither 4S nor 3.3 V. DI of D1 on LED_ARGB (PA2, TIM15_CH1), D1 DO to D2 DI. VDD 3.3-5.3 V and
-  DI VIH 0.55 x VDD, 1.81-1.84 V on this rail, VIL 0.7 V (Worldsemi WS2812C-2020-V6 datasheet
-  V1.1 p3), so PA2 (VOH >= VDD - 0.4 V, VOL <= 0.4 V, DS13311 Table 56) drives it directly with
-  1 V and 0.3 V of margin; C19 (D1) and C18 (D2) 100 nF on VDD (p5 typical application). The bit
-  timing caps T0L and T1L at 1 us and asks 1.25 us a bit (V1.1 p4), against the WS2815C's 5 us
-  (boards/main/firmware_changes.toml, leds).
-  3.3 V operation: the datasheet's tables are at VDD = 5 V; its supply range is 3.3-5.3 V (p3) and
-  its features "3.3 V power supply is supported" (p1). Each channel's constant-current sink holds
-  4.95-4.99 mA from 0.4 V across it, 4.07 mA at 0.3 V (the Chinese V1.1 p5 "VF" curve, read from
-  the figure), so a channel keeps its full 5 mA while its LED's VF is at most VDD - 0.4 V, 2.884 V
-  at the rail's 3.284 V minimum. Worldsemi gives no per-colour VF; a comparable InGaN RGB part reads
-  2.76 V blue and 2.88 V green at 5 mA (Everlight EAST1616RGBA4 Rev 1, Figures p7-8, typical), so
-  red and blue keep full current and green sits at the knee: 4.95 mA for a typical die, about 4.1 mA
-  (-18 %) for one 0.1 V higher. At worst white and yellow lean slightly away from green; the colours
-  stay recognisable, and the IC starts (rated from 3.3 V, the rail 16 mV below; send the first frame
-  1 ms or more after power-up). No addressable LED of this size rates its supply below 3.3 V in its
-  electrical table (SK6805-EC20 3.5-5.5 V, XL-2020RGBC-2812B 3.5-5.5 V, SK6812-EC20 3.7-5.5 V,
-  WS2816A/C-1313 3.3-5.5 V), and the 12 mA WS2812B-2020-V6 needs more headroom, so the WS2812C
-  stays.
+- D1, D2: WS2812C-2427-V6 addressable LEDs (2.7 x 2.4 mm) in a chain on 3V3_D (research IR emitters
+  and status LEDs; A.4), replacing the v1 main board's WS2815C-2020, whose 9.5-13.5 V supply range
+  fits neither 4S nor 3.3 V. DI of D1 on LED_ARGB (PA2, TIM15_CH1), D1 DO to D2 DI. VDD 3.3-5.3 V,
+  DI VIH 0.55 x VDD, 1.81-1.84 V on this rail, and VIL 0.3 x VDD, 0.99 V (Worldsemi WS2812C-2427-V6
+  datasheet V1.0 p3), so PA2 (VOH >= VDD - 0.4 V, VOL <= 0.4 V, DS13311 Table 56) drives it
+  directly with 1 V and 0.59 V of margin; C19 (D1) and C18 (D2) 100 nF on VDD (p5). The bit timing
+  caps T0L and T1L at 1 us and asks 1.25 us a bit (p4), against the WS2815C's 5 us
+  (boards/main/firmware_changes.toml, leds); it is the WS2812C-2020-V6's.
+  3.3 V operation: the datasheet's tables are at VDD = 5 V; its supply range is 3.3-5.3 V (p3).
+  Each channel's constant-current sink holds its 5 mA from 0.4 V across it (p6 curve), so a channel
+  keeps its full current while its LED's VF is at most VDD - 0.4 V, 2.884 V at the rail's 3.284 V
+  minimum. Worldsemi gives no per-colour VF; a comparable InGaN RGB part reads 2.76 V blue and
+  2.88 V green at 5 mA (Everlight EAST1616RGBA4 Rev 1, Figures p7-8, typical), so red and blue keep
+  full current and green sits at the knee: about -18 % for a die 0.1 V above typical. At worst
+  white and yellow lean slightly away from green; the colours stay recognisable, and the IC starts
+  (rated from 3.3 V, the rail 16 mV below; send the first frame 1 ms or more after power-up). No
+  addressable LED of this size rates its supply below 3.3 V in its electrical table (SK6805-EC20
+  3.5-5.5 V, XL-2020RGBC-2812B 3.5-5.5 V, SK6812-EC20 3.7-5.5 V), and of the WS2812C family JLCPCB
+  stocks the 2427-V6 for Economic assembly (the 2020-V6 had 4 in stock on 2026-11-02, its /W reel
+  is Standard PCBA only).
 - D5 (red) from 3V3_D through R5 680 Ohm, the power indicator: (3.3 V - VF) / 680 Ohm is
   1.3-2.2 mA for the KT-0603R's VF 1.8-2.4 V (LCSC C2286 listing, at its rated current; VF is
   lower at 2 mA), an indicator's brightness at a tenth of its 20 mA rating.
@@ -75,9 +74,9 @@ Resistor = Module("@stdlib/generics/Resistor.zen")
 AO3400A = Module("github.com/Team-Micras/MicrasPCB/components/aos/AO3400A/AO3400A.zen")
 D1N4148WS = Module("github.com/Team-Micras/MicrasPCB/components/cj/1N4148WS/1N4148WS.zen")
 DSHP04TJGER = Module("github.com/Team-Micras/MicrasPCB/components/kangshen/DSHP04TJGER/DSHP04TJGER.zen")
-FUET_5030 = Module("github.com/Team-Micras/MicrasPCB/components/fuet/FUET-5030/FUET-5030.zen")
+FUET_5025 = Module("github.com/Team-Micras/MicrasPCB/components/fuet/FUET-5025/FUET-5025.zen")
 GT_TC048B = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/GT-TC048B-H025-L1/GT-TC048B-H025-L1.zen")
-WS2812C = Module("github.com/Team-Micras/MicrasPCB/components/worldsemi/WS2812C-2020/WS2812C-2020.zen")
+WS2812C = Module("github.com/Team-Micras/MicrasPCB/components/worldsemi/WS2812C-2427/WS2812C-2427.zen")
 
 # Its own sheet in the board schematic (layout/main.kicad_sch).
 Project(name="Peripherals", path="layout", layout=False)
@@ -126,7 +125,7 @@ DSHP04TJGER(
 )
 
 # Buzzer.
-FUET_5030(name="BZ1", POS=V3V3_D, NEG=BUZZER_COIL)
+FUET_5025(name="BZ1", POS=V3V3_D, NEG=BUZZER_COIL)
 Resistor(name="R3", P1=BUZZER_DRAIN, P2=BUZZER_COIL, **R_10_1206)
 AO3400A(name="Q1", G=BUZZER_GATE, S=GND, D=BUZZER_DRAIN)
 Resistor(name="R1", P1=BUZZER_GATE, P2=Buzzer, **R_220_0402)
@@ -134,7 +133,7 @@ Resistor(name="R2", P1=GND, P2=BUZZER_GATE, **R_10K_0402)
 D1N4148WS(name="D3", A=BUZZER_COIL, K=V3V3_D)
 
 # LEDs. Accepted build warning: 3V3_D's range (3.284-3.346 V, DS13554 Table 6) dips 16 mV below
-# the WS2812C's 3.3 V minimum (V1.1 p3); the owner's choice of LED, its 3.3 V operation above.
+# the WS2812C's 3.3 V minimum (WS2812C-2427-V6 V1.0 p3); the owner's choice of LED, its 3.3 V operation above.
 # Only the LEDs see the rail as 3.3-3.346 V, so the build warns for any other part below its range.
 LED_VDD = Power(V3V3_D, voltage="3.3V to 3.346V")
 WS2812C(name="D1", VDD=LED_VDD, GND=GND, DI=LED_ARGB, DO=LED_CHAIN)
