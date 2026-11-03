@@ -71,7 +71,10 @@ R_25M_1206 = {
 }
 
 # Multilayer ceramic capacitors.
-C_1N_0402_C0G = _c("1nF 5%", "0402", "50V", "C0G", "0402CG102J500NT", manufacturer=FENGHUA)
+# 1 nF X7R, a JLCPCB basic part (no C0G 1 nF is basic or preferred): the INA241 output filters, the
+# emitter sink's compensation and Q6's gate-drain capacitor are checked over X7R's +-10 % and +-15 %
+# over temperature (Sensors.zen, Regulators.zen, test_power.zen).
+C_1N_0402 = _c("1nF 10%", "0402", "50V", "X7R", "0402B102K500NT", manufacturer=FENGHUA)
 C_10N_0402 = _c("10nF 10%", "0402", "50V", "X7R", "CL05B103KB5NNNC")
 C_22N_0402 = _c("22nF 10%", "0402", "50V", "X7R", "0402B223K500NT", manufacturer=FENGHUA)
 C_100N_0402 = _c("100nF 10%", "0402", "50V", "X7R", "CL05B104KB54PNC")

@@ -229,8 +229,8 @@ def plug_in_keeps_q6_off(module, inputs):
     # and couples to its gate through the gate-drain capacitance; the gate-source capacitance holds
     # it down. Q6 must stay below VGS(th) min, 1.0 V at 25 C (HSBB3072 p2), so that it turns on only
     # through SW4, slewed (STSPIN958 dVS/dt 0.5 V/us, DS14341 Table 1). Worst case: the drain rings
-    # up to the D15 clamp (24.2 V), the external gate-drain capacitors at +tolerance, the
-    # gate-source ones at -tolerance. Q6's own Crss is nonlinear: the charge it passes from 0 to
+    # up to the D15 clamp (24.2 V), the external gate-drain capacitors at their largest (C114, X7R:
+    # +10 % tolerance and +15 % over -55 to 125 C, EIA X7R), the gate-source ones at -10 %. Q6's own Crss is nonlinear: the charge it passes from 0 to
     # 24.2 V is 10.7 nC (Fig. 7, integrated: 1600 pF at 0 V to 125 pF at 25 V); Cgs is Ciss - Crss,
     # 2.63 nF (p2: 2860 - 229 pF at 15 V). Also at the hottest board, VGS(th) falls to 0.75 x
     # (Fig. 5 at 85 C): the 17.4 V pack must stay below 0.75 V there.
@@ -239,7 +239,7 @@ def plug_in_keeps_q6_off(module, inputs):
     cgd = [r for r in two_terminal(b, "capacitor", gate, drain)]
     cgs = [r for r in two_terminal(b, "capacitor", gate, source)]
 
-    cgd_max = total([farads(b, r) * (1 + 0.1) for r in cgd])
+    cgd_max = total([farads(b, r) * (1 + 0.1 + 0.15) for r in cgd])
     cgs_min = total([farads(b, r) * (1 - 0.1) for r in cgs])
     p = []
     for v, qrss, vth, case in [
@@ -427,14 +427,16 @@ def battery_fuse(module, inputs):
 def battery_switch_slew(module, inputs):
     # STSPIN958 VS on VBAT: dVS/dt at most 0.5 V/us (DS14341 Table 1). Q6's drain slews at the
     # Miller plateau with IG / CGD: dV/dt <= VBAT / (RG x (Crss + external CGD)), Crss 229 pF
-    # (HSBB3072 p2).
+    # (HSBB3072 p2), the external CGD at its smallest: C114 is X7R, -10 % tolerance, -15 % over
+    # temperature (EIA X7R) and ASSUMED -10 % from DC bias at the 17.4 V pack (no curve published
+    # for the 1 nF 0402 part).
     b = index(module)
     gate, drive = net(b, "Q6", "G"), net(b, "SW4", "B")
     rg = two_terminal(b, "resistor", drive, gate)
     if len(rg) != 1:
         report(["Q6 gate: expected one series resistor from SW4 to " + gate + ", found " + str(rg)])
         return
-    cgd = 229e-12 + total([farads(b, r) for r in two_terminal(b, "capacitor", gate, net(b, "Q6", "D"))])
+    cgd = 229e-12 + total([farads(b, r) * (1 - 0.35) for r in two_terminal(b, "capacitor", gate, net(b, "Q6", "D"))])
     vbat = b.parts["SW4"].pins["COM"].voltage.max
     slew = vbat / (ohms(b, rg[0]) * cgd)
     report([] if slew <= 0.5e6 else ["Q6 turn-on slews VBAT at up to " + eng(slew / 1e6, "V/us") + ", above 0.5 V/us"])

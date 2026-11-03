@@ -44,9 +44,10 @@
   zfig  220 Ohm + 0.47 nF  -0.52  +2.57  +3.27  +2.77  +1.84  +0.93  +0.24  -0.39  -0.38  -0.04   0.55 us
   zfig  100 Ohm + 2.2 nF  -9.00  -6.33  -4.18  -2.54  -1.34  -0.50  +0.03  +0.47  +0.46  +0.13   0.52 us
 
-== 4. Tolerance corners, both output impedances: C_f +-5 % (C0G), RADC 50 / 1000 Ohm (not
+== 4. Tolerance corners, both output impedances: C_f +-25 % (X7R: +-10 % and +-15 % over
+   temperature), RADC 50 / 1000 Ohm (not
    published), pin + trace 2 / 10 pF, VCM 0 / 16.8 V; worst error at each sampling time, worst settling
-  100 Ohm + 1 nF           4.16   6.88   7.38   6.60   5.01   3.56   2.16   0.93   1.24   0.45   0.87 us
-  150 Ohm + 1 nF           8.87   4.72   2.31   1.45   1.78   1.68   1.34   0.55   0.22   0.19   0.64 us
+  100 Ohm + 1 nF          10.31  11.05   9.54   6.76   4.06   3.47   2.62   2.04   1.40   0.50   0.84 us
+  150 Ohm + 1 nF          11.34   7.36   4.66   3.95   3.20   2.19   1.24   0.37   0.51   0.18   0.61 us
 
-   at the firmware's 0.7 us: 0.93 mA with 100 Ohm, 0.55 mA with 150 Ohm (budget 1 mA)
+   at the firmware's 0.7 us: 2.04 mA with 100 Ohm, 0.37 mA with 150 Ohm (budget 1 mA)

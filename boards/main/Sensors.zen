@@ -11,32 +11,33 @@ Mode 1: SDx and SCx grounded, OCS_Aux and SDO_Aux open (Table 2 p10). C24
 and C25 100 nF on Vdd and Vdd_IO (Table 2 note 1, Figure 27 p44). On 3V3_D, as on the v1 main board
 (the research keeps it there: +0.65 mA on 3V3_A if it moves).
 
-Motor current, U10 (right motor) and U11 (left motor): INA241A2IDGKR, gain 20 V/V (TI SBOSA30D;
-research Current sensing and A.3), across the 10 mOhm 4-terminal shunts R65 / R75 on the drivers
-sheet, IN+ on the bridge-side sense terminal and IN- on the motor side, with no input filter (the
-25-45 uA input bias makes any series resistance an error, section 6.5). VS on 3V3_A with C100 /
-C103 100 nF at the pin (section 8.3.1, the one bypass capacitor of Figure 8-3); REF1, the pin
-beside VS, on the same 3V3_A node, so that capacitor holds it too, and REF2 on GND: the
+Motor current, U10 (right motor) and U11 (left motor): INA241A2QDGKRQ1, gain 20 V/V (TI SBOSA30D,
+SBOSA31D; research Current sensing and A.3), across the 10 mOhm 4-terminal shunts R65 / R75 on the
+drivers sheet, IN+ on the bridge-side sense terminal and IN- on the motor side, with no input
+filter (the 25-45 uA input bias makes any series resistance an error, section 6.5). VS on 3V3_A
+with C100 / C103 100 nF at the pin (section 8.3.1, the one bypass capacitor of Figure 8-3); REF1,
+the pin beside VS, on the same 3V3_A node, so that capacitor holds it too, and REF2 on GND: the
 bidirectional mid-supply output of section 7.4.3.2, VOUT = 20 x 10 mOhm x I + 3V3_A / 2,
 ratiometric to VDDA, which 3V3_A also feeds. Range: (3.3 V - 0.2 V - 1.65 V) / 0.2 V/A = +7.25 A
 and (1.65 V - 0.02 V) / 0.2 V/A = -8.15 A (output swing, section 6.5), above the 2.97 A ITRIP plus
 its overshoot. The output drives the ADC through R78 / R79 150 Ohm (R_iso) with C102 / C105 1 nF
-C0G after it, on the ADC line (Current_Sensor_Right on PC1, a slow ADC channel,
-Current_Sensor_Left on PB1, a fast one; main.zen's pin budget). Section 6.5 rates 1 nF straight
-on OUT ("no sustained oscillations", no isolation resistor); TI's INA241A2 PSpice model (SBOMC92)
+X7R after it, on the ADC line (Current_Sensor_Right on PC1, a slow ADC channel,
+Current_Sensor_Left on PB1, a fast one; main.zen's pin budget). Section 6.5 rates 1 nF straight on
+OUT ("no sustained oscillations", no isolation resistor); TI's INA241A2 PSpice model (SBOMC92)
 gives 4.2 dB of peaking and 26 % overshoot there, and behind 150 Ohm a flat response at the pin
-(-3 dB at 0.93 MHz, no overshoot; research/next-revision/calculations/current_sense/ina241_riso.py,
-ina241_riso_out.txt). The resistor also takes the ADC's sampling charge: the 4 pF sample capacitor
-(DS13311 Table 84) arrives at another channel's voltage (the wall sensors and the battery share
-ADC1/ADC2) and kicks C_f by up to 13 mV (66 mA), and since the INA241's output impedance rises to
-about 55 Ohm at 1 MHz (Figure 6-24) the pin rings back instead of settling as R_iso x C_f. 150 Ohm
-damps that ring: the error stays under 1 mA from 0.64 us on in every corner of the model (C_f
-+-5 %, the ADC switch resistance, which DS13311 does not publish, 50-1000 Ohm, 2-10 pF on the
-pin, VCM 0-16.8 V, and the model's output impedance raised to Figure 6-24's), against 0.87 us
-with the basic 100 Ohm part, which still leaves 1.24 mA at 0.8 us. The firmware samples PB1/PC1
-for at least 0.7 us (boards/main/firmware_changes.toml, current; tests/test_main.py). Each C0G sits
-beside its resistor, 10-14 mm of track from the pin. On the slow channel one conversion per
-PWM centre still fits (research H7 pin budget).
+(-3 dB at 0.93 MHz, no overshoot;
+research/next-revision/calculations/current_sense/ina241_riso.py, ina241_riso_out.txt). The
+resistor also takes the ADC's sampling charge: the 4 pF sample capacitor (DS13311 Table 84)
+arrives at another channel's voltage (the wall sensors and the battery share ADC1/ADC2) and kicks
+C_f by up to 13 mV (66 mA), and since the INA241's output impedance rises to about 55 Ohm at 1 MHz
+(Figure 6-24) the pin rings back instead of settling as R_iso x C_f. 150 Ohm damps that ring: the
+error stays under 1 mA from 0.61 us on in every corner of the model (C_f +-25 %, X7R's +-10 % and
++-15 % over temperature, the ADC switch resistance, which DS13311 does not publish, 50-1000 Ohm,
+2-10 pF on the pin, VCM 0-16.8 V, and the model's output impedance raised to Figure 6-24's),
+against 0.84 us with the basic 100 Ohm part, which still leaves 1.40 mA at 0.8 us. The firmware
+samples PB1/PC1 for at least 0.7 us (boards/main/firmware_changes.toml, current;
+tests/test_main.py). Each capacitor sits beside its resistor, 10-14 mm of track from the pin. On
+the slow channel one conversion per PWM centre still fits (research H7 pin budget).
 
 Wall sensors W1-W4 (SFH 4550 emitter over a TPS601A phototransistor) with a shared constant-
 current emitter sink whose set-point the MCU's DAC writes (research IR emitters and A.4; the model
@@ -51,19 +52,21 @@ is research/next-revision/calculations/emitter/emitter_sink.py, its results emit
   VDDA, 3V3_A, on this package (DS13311 Figures 46-47 note 1), so the emitter current is
   ratiometric to the ADC reference. At reset and with the DAC off, PA5 is a floating input
   (DS13311 Table 7 notes) and R81 holds IN+ at 0 V: the sink is off.
-- Compensation: IN- (SINK_FB) is R93 1 kOhm from SINK_SENSE, with C113 1 nF C0G from OUT
-  to IN-, so the loop is an integrator the TLV9001 drives into Q9's 630 pF Ciss (AO3400A p2;
-  SBOS833R rates 500 pF); R94 200 kOhm from 3V3_A puts 3.3 V x 1 / 201 = 16.4 mV on IN-, beyond
-  the +-2 mV input offset over temperature (SBOS833R 7.10), so a zero set-point drives Q9 off
-  instead of leaving U12 at Q9's threshold. The current is I = (1.005 x IN+ - 16.4 mV) / 1.2 Ohm:
-  code 3258 gives 175 mA at RO 13 kOhm (172.7-177.3 mA over RO 10.3-16 kOhm), code 4095 223 mA,
-  58 uA per code (emitter_sink_out.txt section 4). Static errors, the DAC's +-12 LSB total
-  unadjusted error and +-1 % gain error (buffer off, DS13311 Table 91), RO, R80/R81 1 %, the
-  op-amp offset and R83 0.1 %, are a gain each sensor's calibration takes in; 3V3_D and the
-  emitter's VF do not enter. What a calibration cannot take in is RO's drift after it, which
-  DS13311 does not give; but Table 90's 10.3-16 kOhm bounds RO over every operating condition, so
-  the drift of one part stays inside 172.7-177.3 mA, +-1.3 % about the typical 13 kOhm (2.6 % if
-  a part swung end to end), against the emitter's own -0.5 %/K (SFH 4550 v1.9 p5, TCI).
+- Compensation: IN- (SINK_FB) is R93 1 kOhm from SINK_SENSE, with C113 1 nF X7R from OUT to IN-,
+  so the loop is an integrator the TLV9001 drives into Q9's 630 pF Ciss (AO3400A p2; SBOS833R
+  rates 500 pF), and over C113's X7R spread (+-10 %, +-15 % over temperature) it settles within
+  1 % in 28.3 us at the latest with the same peaks (emitter_sink_out.txt section 3c); R94 200 kOhm
+  from 3V3_A puts 3.3 V x 1 / 201 = 16.4 mV on IN-, beyond the +-2 mV input offset over
+  temperature (SBOS833R 7.10), so a zero set-point drives Q9 off instead of leaving U12 at Q9's
+  threshold. The current is I = (1.005 x IN+ - 16.4 mV) / 1.2 Ohm: code 3258 gives 175 mA at RO
+  13 kOhm (172.7-177.3 mA over RO 10.3-16 kOhm), code 4095 223 mA, 58 uA per code
+  (emitter_sink_out.txt section 4). Static errors, the DAC's +-12 LSB total unadjusted error and
+  +-1 % gain error (buffer off, DS13311 Table 91), RO, R80/R81 1 %, the op-amp offset and R83 0.1
+  %, are a gain each sensor's calibration takes in; 3V3_D and the emitter's VF do not enter. What
+  a calibration cannot take in is RO's drift after it, which DS13311 does not give; but Table 90's
+  10.3-16 kOhm bounds RO over every operating condition, so the drift of one part stays inside
+  172.7-177.3 mA, +-1.3 % about the typical 13 kOhm (2.6 % if a part swung end to end), against
+  the emitter's own -0.5 %/K (SFH 4550 v1.9 p5, TCI).
 - Emitter n: R13/R17/R21/R25 3.3 Ohm 0603 from 3V3_D to the LED anode; the LED cathode on the
   drain of its selector Q2-Q5 (AO3400A), whose source is EMITTER_SINK. At VF max (1.79 V at
   175 mA between the SFH 4550's maximum points, p5) and 3V3_D at 3.229 V (its 3.284 V minimum
@@ -149,7 +152,7 @@ load("@stdlib/interfaces.zen", "Spi")
 load(
     "./passives.zen",
     "C_100N_0402",
-    "C_1N_0402_C0G",
+    "C_1N_0402",
     "C_1U_0402",
     "C_220N_0402",
     "R_100_0402",
@@ -258,7 +261,7 @@ def current_amplifier(side, amp, c_vs, r_iso, c_f, sense_p, sense_n, adc):
     )
     Capacitor(name=c_vs, P1=GND, P2=V3V3_A, **C_100N_0402)
     Resistor(name=r_iso, P1=out, P2=adc, **R_150_0402)
-    Capacitor(name=c_f, P1=GND, P2=adc, **C_1N_0402_C0G)
+    Capacitor(name=c_f, P1=GND, P2=adc, **C_1N_0402)
 
 
 current_amplifier("R", "U10", "C100", "R78", "C102", MOTOR_R_SENSE_P, MOTOR_R_SENSE_N, Current_Sensor_Right)
@@ -270,7 +273,7 @@ Capacitor(name="C106", P1=GND, P2=V3V3_A, **C_100N_0402)
 Resistor(name="R80", P1=Wall_Emitter_Set, P2=SINK_SET, **R_200K_0402)
 Resistor(name="R81", P1=GND, P2=SINK_SET, **R_20K_0402)
 Resistor(name="R93", P1=SINK_SENSE, P2=SINK_FB, **R_1K_0402)
-Capacitor(name="C113", P1=SINK_OUT, P2=SINK_FB, **C_1N_0402_C0G)
+Capacitor(name="C113", P1=SINK_OUT, P2=SINK_FB, **C_1N_0402)
 Resistor(name="R94", P1=V3V3_A, P2=SINK_FB, **R_200K_0402)
 Resistor(name="R82", P1=SINK_OUT, P2=SINK_GATE, **R_100_0402)
 AO3400A(name="Q9", G=SINK_GATE, S=SINK_SENSE, D=EMITTER_SINK)

@@ -1,4 +1,4 @@
-"""INA241A2IDGKR package facts (TI SBOSA30D): pinout, legal reference wiring, common-mode range,
+"""INA241A2QDGKRQ1 package facts (TI SBOSA30D): pinout, legal reference wiring, common-mode range,
 and the in-line motor current range of the next main-board revision (research/next-revision
 appendix A.3: WSK2512 10 mOhm shunt, VS = REF1 = 3V3_A, REF2 = GND)."""
 
@@ -29,9 +29,9 @@ def net_of(module, pin):
 
 
 def orderable_part(module, inputs):
-    # Table 4-1 and the Package Option Addendum: INA241A2IDGKR = gain 20, VSSOP-8 (DGK).
+    # INA241A2QDGKRQ1 = INA241A2-Q1, gain 20, VSSOP-8 (DGK) (SBOSA31D; LCSC C31766589).
     c = part(module)
-    check(c.mpn == "INA241A2IDGKR", "MPN must be INA241A2IDGKR, got " + str(c.mpn))
+    check(c.mpn == "INA241A2QDGKRQ1", "MPN must be INA241A2QDGKRQ1, got " + str(c.mpn))
     check(c.manufacturer == "Texas Instruments", "manufacturer must be Texas Instruments")
     check(c.prefix == "U", "reference prefix must be U")
 

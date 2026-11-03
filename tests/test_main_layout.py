@@ -645,20 +645,19 @@ def test_switch_nodes_are_compact():
 HAND_ROUTED: set[str] = set()
 
 
-@needs_kicad
-def test_no_dangling_copper(tmp_path):
-    # a track end or via that meets no copper of its net is an open stub, an antenna (TI SCAA082A);
-    # KiCad's DRC flags them as track_dangling / via_dangling
+@pytest.fixture(scope="module")
+def drc_violations(tmp_path_factory) -> list[dict]:
+    """KiCad's DRC of the main board (zones refilled), its violations as kicad-cli reports them."""
     import json
-    import re
     import subprocess
 
     from micras_pcb.tools import kicad_cli
 
+    d = tmp_path_factory.mktemp("drc")
     pcb = board_pcb("main")
     for ext in (".kicad_pcb", ".kicad_pro", ".kicad_dru"):
-        shutil.copy(pcb.with_suffix(ext), tmp_path / f"main{ext}")
-    report = tmp_path / "drc.json"
+        shutil.copy(pcb.with_suffix(ext), d / f"main{ext}")
+    report = d / "drc.json"
     cmd = [
         kicad_cli(),
         "pcb",
@@ -668,15 +667,38 @@ def test_no_dangling_copper(tmp_path):
         "json",
         "-o",
         str(report),
-        str(tmp_path / "main.kicad_pcb"),
+        str(d / "main.kicad_pcb"),
     ]
     subprocess.run(cmd, check=True, capture_output=True)
+    return json.loads(report.read_text())["violations"]
+
+
+@needs_kicad
+def test_no_dangling_copper(drc_violations):
+    # a track end or via that meets no copper of its net is an open stub, an antenna (TI SCAA082A);
+    # KiCad's DRC flags them as track_dangling / via_dangling
+    import re
+
     found = sorted(
         f"{i['description']} at ({i['pos']['x']:.2f}, {i['pos']['y']:.2f})"
-        for v in json.loads(report.read_text())["violations"]
+        for v in drc_violations
         if v["type"] in ("track_dangling", "via_dangling")
         for i in v["items"]
         if re.search(r"\[(.*?)\]", i["description"]).group(1) not in HAND_ROUTED
+    )
+    assert not found, "\n".join(found)
+
+
+@needs_kicad
+def test_reference_labels_clear_pads_edges_and_other_silkscreen(drc_violations):
+    # boards/main/layout/silk.py places every reference clear of the solder mask openings (JLCPCB clips
+    # silkscreen off exposed copper), the board edge and the other silkscreen, or hides it; KiCad's DRC
+    # reports a label that is not as silk_over_copper, silk_edge_clearance or silk_overlap
+    found = sorted(
+        f"{v['type']}: {', '.join(i['description'] for i in v['items'])}"
+        for v in drc_violations
+        if v["type"] in ("silk_over_copper", "silk_edge_clearance", "silk_overlap")
+        and any(i["description"].startswith("Reference field") for i in v["items"])
     )
     assert not found, "\n".join(found)
 

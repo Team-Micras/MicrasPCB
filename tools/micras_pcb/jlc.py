@@ -57,10 +57,10 @@ def design_bom(board: str) -> list[dict]:
     return json.loads(out.stdout)
 
 
-def jlc_bom(board: str) -> tuple[list[dict], list[str]]:
-    """The assembler's BOM: every fitted part, one row per BOM line. DNP members stay out (the CPL
-    leaves them out too), and a line with no fitted member is dropped."""
-    db, rows, errors = parts_db(), [], []
+def _bom_lines(board: str) -> tuple[list[tuple[dict, dict]], list[str]]:
+    """Every fitted BOM line as (row, parts/jlc.toml entry). DNP members stay out (the CPL leaves
+    them out too), and a line with no fitted member is dropped."""
+    db, lines, errors = parts_db(), [], []
     for line in design_bom(board):
         fitted = [m for m in line["members"] if not m.get("dnp")]
         if not fitted:
@@ -72,16 +72,28 @@ def jlc_bom(board: str) -> tuple[list[dict], list[str]]:
         if entry is None:
             errors.append(f"{', '.join(designators)}: MPN {mpn!r} has no entry in parts/jlc.toml")
             continue
-        rows.append(
-            {
-                "Comment": member.get("value") or mpn,
-                "Designator": ",".join(designators),
-                "Footprint": member.get("package") or entry.get("package", ""),
-                "LCSC Part #": entry["lcsc"],
-                "MPN": mpn,
-            }
-        )
-    return rows, errors
+        row = {
+            "Comment": member.get("value") or mpn,
+            "Designator": ",".join(designators),
+            "Footprint": member.get("package") or entry.get("package", ""),
+            "LCSC Part #": entry["lcsc"],
+            "MPN": mpn,
+        }
+        lines.append((row, entry))
+    return lines, errors
+
+
+def jlc_bom(board: str) -> tuple[list[dict], list[str]]:
+    """The assembler's BOM: every fitted part JLCPCB places, one row per BOM line. Parts marked
+    `assembly = "hand"` in parts/jlc.toml stay out (`hand_bom`)."""
+    lines, errors = _bom_lines(board)
+    return [row for row, entry in lines if entry.get("assembly") != "hand"], errors
+
+
+def hand_bom(board: str) -> list[dict]:
+    """The fitted parts the team buys and solders itself (`assembly = "hand"`), with the reason."""
+    lines, _ = _bom_lines(board)
+    return [{**row, "Why": entry.get("hand_why", "")} for row, entry in lines if entry.get("assembly") == "hand"]
 
 
 def rotation_offsets(board: str) -> dict[str, float]:
@@ -217,7 +229,12 @@ def fab(board: str) -> int:
     bom = out / f"{board}-bom-jlcpcb.csv"
     _write_csv(bom, rows, ["Comment", "Designator", "Footprint", "LCSC Part #", "MPN"])
     refs = {d for row in rows for d in row["Designator"].split(",")}
-    produced = [gerbers(board, out), bom, cpl(board, out, refs)]
+    hand_rows = hand_bom(board)
+    for row in hand_rows:
+        row["Footprint"] = row["Footprint"] or packages.get(row["Designator"].split(",")[0], "")
+    hand = out / f"{board}-hand-assembly.csv"
+    _write_csv(hand, hand_rows, ["Comment", "Designator", "Footprint", "LCSC Part #", "MPN", "Why"])
+    produced = [gerbers(board, out), bom, cpl(board, out, refs), hand]
     unverified = [
         m for m, e in parts_db().items() if not e.get("rotation_verified") and any(m == r["MPN"] for r in rows)
     ]

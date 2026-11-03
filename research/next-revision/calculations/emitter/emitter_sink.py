@@ -3,7 +3,7 @@
 
 The circuit: the four emitters share one constant-current sink, U12 (TLV9001) driving Q9
 (AO3400A) over R83 1.2 ohm. The set-point comes from the DAC (PA5, DAC1_OUT2, output buffer off)
-through R80 200 kOhm / R81 20 kOhm; R93 1 kOhm and C113 1 nF compensate the loop, R94 200 kOhm
+through R80 200 kOhm / R81 20 kOhm; R93 1 kOhm and C113 1 nF (X7R) compensate the loop, R94 200 kOhm
 from 3V3_A to IN- biases the op-amp off when the set-point is 0. Each emitter's selector (Q2-Q5,
 AO3400A) is AC-coupled: PWM pin -> 220 ohm -> 220 nF -> gate, 22 kOhm gate to GND, 1N4148WS clamp
 from GND to the gate. One selector stands for the four (the sink is shared).
@@ -116,6 +116,7 @@ def netlist(
     dac_on=2,  # us after the selector's edge
     dac_off=-2,  # us after the selector's falling edge
     vos=0.0,
+    c113="1n",  # C113, 1 nF X7R: +-25 % over tolerance and temperature in section 3c
     stuck=False,
     tran="5.2m",
 ):
@@ -159,7 +160,7 @@ R80 pa5 setd 200k
 R81 setd 0 20k
 Vos set setd {vos}
 {amp}R93 sense inm 1k
-C113 drive inm 1n
+C113 drive inm {c113}
 R94 v3a inm 200k
 R82 drive gq 100
 {q9dev}
@@ -256,6 +257,17 @@ def main():
             f"  DAC up {on:+d} us / down {off:+d} us: peak {r['ipk'] * 1e3:4.0f} mA, at 75 us {r['i75'] * 1e3:6.2f} mA, "
             f"within 1 % after {settle:4.1f} us"
         )
+    print("\n== 3c. C113 over X7R's spread (1 nF +-10 %, +-15 % over temperature): the section 3 cases,")
+    print("   the largest peak and the slowest settling of each")
+    for c113 in ("0.75n", "1n", "1.25n"):
+        peak, slow = 0.0, 0.0
+        for q9, temp in ((1.01, 25), (1.41, 25), (1.94, 25), ("l3", -40), ("l3", 25), ("l3", 85)):
+            for vos in (-0.002, 0.002):
+                for on, off in ((2, -2), (0, 0), (-5, 5)):
+                    kw = dict(q9=q9, temp=temp, vos=vos, dac_on=on, dac_off=off, period="200u", tran="2.2m")
+                    r, settle = pulse(c113=c113, **kw)
+                    peak, slow = max(peak, r["ipk"]), max(slow, settle)
+        print(f"  C113 {c113:>5s}F: peak {peak * 1e3:4.0f} mA, within 1 % after {slow:4.1f} us at the latest")
     print("\n== 4. DAC output resistance spread and full scale (pin at the 175 mA code, RO 13 kOhm)")
     for ro in ("10.3k", "13k", "16k"):
         r = run(WINDOW, ro=ro)

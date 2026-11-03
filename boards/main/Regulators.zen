@@ -59,20 +59,21 @@ VBAT through R43 100 kOhm with R41 100 kOhm to GND_BAT, so VGS settles at VBAT /
 (RDS(on) 3.8 mOhm max at 4.5 V, HSBB3072 p2), inside +-20 V; VDS 30 V is 1.72x the 17.4 V pack.
 Its gate network keeps it off when the pack is plugged in and slews it when SW4 turns it on:
 - Plug-in: the pack's edge lands on Q6's drain (the board's GND, held to VBAT by the bulk) and
-  reaches the gate through the gate-drain capacitance, C114 1 nF C0G plus Q6's own Crss (10.7 nC
-  from 0 to 24.2 V, Fig. 7); C58 100 nF from gate to source holds it: at most 0.40 V at the
-  24.2 V clamp, below VGS(th) min 1.0 V (p2), and below the 0.75 V it falls to at 85 C (Fig. 5) for
-  the 17.4 V pack (test_power.zen plug_in_keeps_q6_off). Q6 stays off, the board sees no edge
-  (VBAT slews 0.002 V/us at most), and the pack charges only Q6's output capacitance, which
-  rings Q6's VDS to at most 23.9 V, under D15's clamp and the 30 V rating. With C58 alone from
-  gate to drain, as on the v1 main board, the edge turned Q6 on at 3.3-3.6 V and VBAT slewed at
-  1.3-2.0 V/us at 89-135 A, above the STSPIN958's 0.5 V/us dVS/dt absolute maximum (DS14341
-  Table 1).
+  reaches the gate through the gate-drain capacitance, C114 1 nF X7R plus Q6's own Crss (10.7 nC
+  from 0 to 24.2 V, Fig. 7); C58 100 nF from gate to source holds it: at most 0.44 V at the 24.2 V
+  clamp with C114 at its largest (+10 % tolerance, +15 % over temperature), below VGS(th) min
+  1.0 V (p2), and below the 0.75 V it falls to at 85 C (Fig. 5) for the 17.4 V pack
+  (test_power.zen plug_in_keeps_q6_off). Q6 stays off, the board sees no edge (VBAT slews
+  0.002 V/us at most), and the pack charges only Q6's output capacitance, which rings Q6's VDS to
+  at most 23.9 V, under D15's clamp and the 30 V rating. With C58 alone from gate to drain, as on
+  the v1 main board, the edge turned Q6 on at 3.3-3.6 V and VBAT slewed at 1.3-2.0 V/us at
+  89-135 A, above the STSPIN958's 0.5 V/us dVS/dt absolute maximum (DS14341 Table 1).
 - SW4 on: the gate charges through R43 || R41 (50 kOhm) to the plateau, and VBAT starts rising
   1.7 ms after SW4 closes; then C114 + Crss set the slew, IG / CGD <= 17.4 V / (100 kOhm x
-  1.23 nF) = 0.14 V/us, under the 0.5 V/us (test_power.zen battery_switch_slew). Simulated, VBAT
-  rises 10-90 % in 0.40 ms at 0.042 V/us with a 5.8 A load, with 51 W peak and 21 mJ in Q6,
-  inside its SOA (Fig. 8: about 130 W for 1 ms at TC 25 C).
+  0.88 nF) = 0.20 V/us with C114 at its smallest (0.65 nF: -10 % tolerance, -15 % over temperature
+  and an assumed -10 % from DC bias), under the 0.5 V/us (test_power.zen battery_switch_slew).
+  Simulated, VBAT rises 10-90 % in 0.40 ms at 0.042 V/us with a 5.8 A load, with 51 W peak and
+  21 mJ in Q6, inside its SOA (Fig. 8: about 130 W for 1 ms at TC 25 C).
 - SW4 off: the gate falls through R41 to the plateau, and VBAT starts falling 12.9 ms after SW4
   opens, then falls in 2.1 ms under a 5.8 A load at 0.008 V/us: no inductive kick. (Simulated with
   Q6's model fitted to its typical curves, vbat_bulk.py Q6_MODEL: Miller plateau 2.8 V at 20 A.)
@@ -256,7 +257,7 @@ load(
     "C_100N_0402",
     "C_10U_0603",
     "C_10U_1210_50V",
-    "C_1N_0402_C0G",
+    "C_1N_0402",
     "C_1U_0402",
     "C_1U_0805_50V",
     "C_22U_0805_25V",
@@ -318,7 +319,7 @@ HSBB3072(
 )
 Resistor(name="R41", P1=GND_BAT, P2=BAT_SW_GATE, **R_100K_0402)
 Capacitor(name="C58", P1=GND_BAT, P2=BAT_SW_GATE, **C_100N_0402)
-Capacitor(name="C114", P1=GND, P2=BAT_SW_GATE, **C_1N_0402_C0G)
+Capacitor(name="C114", P1=GND, P2=BAT_SW_GATE, **C_1N_0402)
 
 # Battery measurement.
 Resistor(name="R44", P1=VBAT, P2=Battery_Voltage, **R_20K_0402)

@@ -1,6 +1,6 @@
-"""XGL5030-472MEC (Coilcraft Doc 1576, revised 02/19/26): ratings, and the fan-choke requirement."""
+"""XAL5030-472MEC (Coilcraft Doc 908, 908-1 revised 06/23/23): ratings, and the fan-choke requirement."""
 
-INDUCTOR = Module("../XGL5030-472.zen")
+INDUCTOR = Module("../XAL5030-472.zen")
 
 
 def part(module):
@@ -10,31 +10,33 @@ def part(module):
 
 
 def ratings(module, inputs):
-    # Doc 1576-2, XGL5030-472ME_ row
+    # Doc 908-1, XAL5030-472ME_ row; the 20 % point from the Doc 908-2 plot (XAL5030-472.zen)
     c = part(module)
     check(c.type == "inductor", "type")
-    check(c.mpn == "XGL5030-472MEC", "MPN")
+    check(c.mpn == "XAL5030-472MEC", "MPN")
     check(c.manufacturer == "Coilcraft", "manufacturer")
     check(c.prefix == "L", "reference prefix must be L")
     check(len(c.pins) == 2, "two terminals")
     check(c.properties["inductance"].matches("4.7uH 20%"), "inductance")
     check(c.properties["isat"].matches("6.7A"), "Isat (30 % drop)")
-    check(c.properties["isat_20"].matches("4.8A"), "Isat (20 % drop)")
-    check(c.properties["irms"].matches("8.5A"), "Irms (40 C rise)")
-    check(c.properties["dcr"].matches("24.5mOhm"), "DCR max")
+    check(c.properties["isat_20"].matches("5.0A"), "Isat (20 % drop)")
+    check(c.properties["irms"].matches("5.9A"), "Irms (40 C rise)")
+    check(c.properties["dcr"].matches("40mOhm"), "DCR max")
 
 
 def fan_choke_requirement(module, inputs):
-    # Next-revision proposal, Fan: 4.7-10 uH, Isat at or above the REF limit of up to 5 A.
+    # Next-revision proposal, Fan: 4.7-10 uH; at most a 20 % drop at the REF limit's 4.31 A top
+    # (boards/main/test/test_drivers.zen); Isat (30 %) at the 5 A top of the research's range.
     c = part(module)
     check(c.properties["inductance"].value >= 4.7e-6 - 1e-9, "4.7-10 uH")
     check(c.properties["inductance"].value <= 10e-6, "4.7-10 uH")
+    check(c.properties["isat_20"].value >= 4.31, "the 20 % point must lie above the 4.31 A REF limit")
     check(c.properties["isat"].value >= 5.0, "Isat (30 % drop) must reach the 5 A fan limit")
     check(c.properties["irms"].value >= 5.0, "Irms must carry a 5 A fan current")
 
 
 TestBench(
-    name="XGL5030-472",
+    name="XAL5030-472",
     module=INDUCTOR,
     test_cases={"default": {"P1": Net("A"), "P2": Net("B")}},
     checks=[ratings, fan_choke_requirement],

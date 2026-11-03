@@ -35,7 +35,7 @@ The board files are in `boards/main/` (this README sits in its `layout/` folder)
 | [`erc.toml`](../erc.toml) | | nets supplied from off the board (BAT_P, GND, GND_BAT, 5V_IN) or through a passive part (VBAT, VSYS, 3V3_D, the LDO input, VDDA), the PWR_FLAG role for ERC; the two ERC warnings the module sheets leave until a pcb release includes [diodeinc/pcb#1522](https://github.com/diodeinc/pcb/pull/1522) (see [Known faults](#known-faults)) |
 | [`firmware_changes.toml`](../firmware_changes.toml) | | the firmware changes this board needs against the v1 firmware (see [Firmware changes](#firmware-changes)) |
 | [`test/`](../test) | | `pcb test` benches: MCU and ESP links, power, drivers, peripherals |
-| [`layout/`](.) | | this folder: the KiCad project; `main.kicad_sch` is the root sheet, with one sheet per module (`REGULATORS.kicad_sch`, ...); the `.kicad_pcb` holds placement and routing; `place.py` places every part and `route.py` pours the planes and routes the board (see [Layout](#layout)) |
+| [`layout/`](.) | | this folder: the KiCad project; `main.kicad_sch` is the root sheet, with one sheet per module (`REGULATORS.kicad_sch`, ...); the `.kicad_pcb` holds placement and routing; `place.py` places every part, `route.py` pours the planes and routes the board and `silk.py` places the reference designators (see [Layout](#layout)) |
 | [`spec/main.toml`](../../../spec/main.toml) | | mechanical interface: thickness, axle origin, outline, screw holes, encoder slots, fan hole, wheel, antenna and switch notches, the ESP32 module's, battery switch's and wall sensors' positions, the chassis zones; the via-in-pad order option |
 
 Each module is its own sheet of the KiCad schematic (`Project(..., layout=False)` in its `.zen`),
@@ -108,18 +108,18 @@ VBAT ─┬─ IC8/IC9 DRV8874 VM, IC6 STSPIN958 VS
   (PB7) with R49 100 kOhm to GND; nFAULT of both wire-ORed on Motors_nFault (PD2) with R60
   10 kOhm to 3V3_D. Per bridge: 100 nF + 4 x 10 uF 50 V X7R 1210 on VM, 100 nF VCP, 22 nF
   CPH-CPL.
-- **Motor path**: OUT1 -> 10 mOhm WSK2512 4-terminal shunt -> 47 uH XAL7070-473 choke -> motor
+- **Motor path**: OUT1 -> 10 mOhm WSK2512 4-terminal shunt -> 47 uH MTQH707050S470M choke -> motor
   connector; OUT2 -> connector.
-- **Current**: INA241A2 (gain 20) on each shunt, VS and REF1 on 3V3_A, REF2 on GND: 0.2 V/A
+- **Current**: INA241A2-Q1 (gain 20) on each shunt, VS and REF1 on 3V3_A, REF2 on GND: 0.2 V/A
   around VDDA / 2, about +7.1 / -8.0 A, into PB1 (left, a fast ADC channel) and PC1 (right)
-  through 150 Ohm (R78/R79, R_iso), with 1 nF C0G beside the resistor; the firmware samples them
+  through 150 Ohm (R78/R79, R_iso), with 1 nF X7R beside the resistor; the firmware samples them
   for at least 0.7 us, so the ADC's kickback from a wall-sensor conversion settles below 1 mA.
 
 ## Fan
 
 STSPIN958 in parallel half-bridge mode, PWM trimming, on TIM14 at 400 kHz: R31 25 mOhm, REF from
 4.7k/2.0k on 3V3_D (current limit 3.94 A), RSR 1 kOhm (2 V/ns), 2 x 470 nF 50 V X7R 0805 +
-2 x 10 uF 50 V on VS, CBOOT 1 uF 50 V X7R (the IC runs hot), and a 4.7 uH XGL5030-472 choke between FAN_OUT and the motor. Fan_PWM on PA7 (TIM14_CH1), Fan_TOFF on PB10; Fan_Enable on PB12, driven open drain and read back as the driver's nFAULT.
+2 x 10 uF 50 V on VS, CBOOT 1 uF 50 V X7R (the IC runs hot), and a 4.7 uH XAL5030-472 choke between FAN_OUT and the motor. Fan_PWM on PA7 (TIM14_CH1), Fan_TOFF on PB10; Fan_Enable on PB12, driven open drain and read back as the driver's nFAULT.
 
 ## Sensors
 
@@ -212,8 +212,9 @@ at boot and its interrupts all routed to INT1.
 
 ## Layout
 
-[`place.py`](place.py) places every part and [`route.py`](route.py) pours the planes and routes
-the board; their docstrings give the rules they follow. The `.kicad_pcb` holds their result with
+[`place.py`](place.py) places every part, [`route.py`](route.py) pours the planes and routes
+the board, and [`silk.py`](silk.py) sizes and places the reference designators; their docstrings
+give the rules they follow. The `.kicad_pcb` holds their result with
 the connections they left routed by rip-up scripts and by hand, under the same rules. Every
 connection is routed.
 
@@ -453,7 +454,11 @@ Each is a visible TODO in the sheet that owns it.
   between it and SW4's peg hole.
 - Silkscreen: the KiCad library passives (stdlib 0402-1210, 0603 LED) keep their 0.12 mm outlines;
   U13's outline and SW4's run past the board's edge (the module over its notch, the switch's
-  lever at the cut corner), where the fab clips them.
+  lever at the cut corner), where the fab clips them. The reference designators are 0.7 mm high
+  with a 0.15 mm stroke, each within 1 mm of its part's courtyard, clear of the mask openings, the
+  other silkscreen and the edge, and off every part's body (`silk.py`); 61 of the 190 have no such
+  spot (the passives round the MCU and in the nose) and are hidden: the fab drawing (F.Fab) names
+  every part.
 - STM32 SMPS: C1/C2 sit 3.8-4.6 mm from VDDSMPS and C3/C4 6.5-7.1 mm from L1 and VFBSMPS (AN5419
   Rev 3 Table 2 asks for them "close"); `tests/test_layout.py` holds them to those reaches.
 - VBAT bulk: C87, C92, C111 and C36 sit in the middle, off a 0.4 mm B.Cu spur of the pour, where the

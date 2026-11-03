@@ -177,8 +177,8 @@ boards/<board>/schematic/  one placement file per schematic sheet (micras-pcb sc
                        drafted entries marked auto = true
 boards/<board>/previous/  snapshot of the board's previous revision (board.json) for the connectivity comparison,
                        and the script that builds its layout from that revision (transfer_layout.py): the encoder
-boards/main/layout/*.py  the main board's placement and routing scripts (place.py, route.py; its layout README
-                       says what each does) and their 45-degree grid router (router.py)
+boards/main/layout/*.py  the main board's placement, routing and silkscreen scripts (place.py, route.py, silk.py;
+                       its layout README says what each does) and their 45-degree grid router (router.py)
 boards/main/firmware.toml  the firmware's pin map and drive settings (from MicrasFirmware), tested against the board
 boards/main/firmware_changes.toml  the firmware changes the board needs, applied on top of firmware.toml in the tests
 boards/<board>/test/   Zener test benches of the board's circuit

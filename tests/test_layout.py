@@ -650,5 +650,10 @@ def test_jlc_bom_excludes_dnp(board, tmp_path):
     members = [m for line in jlc.design_bom(board) for m in line["members"]]
     dnp = sorted(bom & {m["designator"] for m in members if m.get("dnp")})
     assert not dnp, f"DNP parts in the JLCPCB BOM: {', '.join(dnp)}"
+    # the parts the team solders by hand (assembly = "hand" in parts/jlc.toml) are placed but not ordered
+    hand = {d for row in jlc.hand_bom(board) for d in row["Designator"].split(",")}
+    assert not bom & hand, f"in both the JLCPCB BOM and the hand list: {sorted(bom & hand)}"
     placed = {r["Ref"] for r in jlc.positions(board, tmp_path)} & {m["designator"] for m in members}
-    assert bom == placed, f"BOM only: {sorted(bom - placed)}; CPL only: {sorted(placed - bom)}"
+    assert bom | hand == placed, (
+        f"BOM only: {sorted(bom - placed)}; placed but in no BOM: {sorted(placed - bom - hand)}"
+    )

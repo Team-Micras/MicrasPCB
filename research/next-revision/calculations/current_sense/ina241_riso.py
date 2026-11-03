@@ -210,13 +210,14 @@ def main():
         for riso, cf in CASES[1:]:
             errs, ts = kick(riso, cf, 3.3, 200, times=TIMES, zfig=zfig)
             print(f"  {'zfig ' if zfig else 'model'} {name(riso, cf):16s}" + row(errs) + f"  {ts:5.2f} us")
-    print("\n== 4. Tolerance corners, both output impedances: C_f +-5 % (C0G), RADC 50 / 1000 Ohm (not")
+    print("\n== 4. Tolerance corners, both output impedances: C_f +-25 % (X7R: +-10 % and +-15 % over")
+    print("   temperature), RADC 50 / 1000 Ohm (not")
     print("   published), pin + trace 2 / 10 pF, VCM 0 / 16.8 V; worst error at each sampling time, worst settling")
     worst_all = {}
     for riso in (100, CHOSEN[0]):
         worst_t, worst = 0.0, [0.0] * len(TIMES)
         for zfig in (False, True):
-            for cf in (0.95e-9, 1.05e-9):
+            for cf in (0.75e-9, 1.25e-9):
                 for radc in (50, 1000):
                     for cpin in (2e-12, 10e-12):
                         for vcm in (0.0, 16.8):

@@ -841,6 +841,183 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "MTQH707050S470MGT"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "L"
+				(at 0 2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "MTQH707050S470MGT"
+				(at 0 -1.905 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "L_MetalLions_MTQH707050S.kicad_mod"
+				(at 0 -15.24 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" "https://www.lcsc.com/datasheet/C53235274.pdf"
+				(at 0 -17.78 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "47 uH 20 % molded power inductor, MetalLions MTQH707050S, 7.2 x 7.0 x 5.0 mm"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "inductor choke coil power"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "L_MetalLions_MTQH707050S*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "MTQH707050S470MGT_0_1"
+				(arc
+					(start -2.54 0)
+					(mid -1.905 0.635)
+					(end -1.27 0)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start -1.27 0)
+					(mid -0.635 0.635)
+					(end 0 0)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start 0 0)
+					(mid 0.635 0.635)
+					(end 1.27 0)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start 1.27 0)
+					(mid 1.905 0.635)
+					(end 2.54 0)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "MTQH707050S470MGT_1_1"
+				(pin passive line
+					(at -5.08 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 0 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "R_Small"
 			(pin_numbers
 				(hide yes)
@@ -2011,7 +2188,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "XAL7070-473MEC"
+		(symbol "XAL5030-472MEC"
 			(pin_numbers
 				(hide yes)
 			)
@@ -2033,184 +2210,7 @@
 					)
 				)
 			)
-			(property "Value" "XAL7070-473MEC"
-				(at 0 -1.905 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" "L_Coilcraft_XAL7070-XXX.kicad_mod"
-				(at 0 -15.24 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Datasheet" "https://www.coilcraft.com/getmedia/1ba55433-bcc8-4838-9b21-382f497e12e0/xal7070.pdf"
-				(at 0 -17.78 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" "47 uH 20 % shielded power inductor, Coilcraft XAL7070, 7.2 x 7.5 x 7.0 mm"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "inductor choke coil power"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_fp_filters" "L_Coilcraft_XAL7070*"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "XAL7070-473MEC_0_1"
-				(arc
-					(start -2.54 0)
-					(mid -1.905 0.635)
-					(end -1.27 0)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(arc
-					(start -1.27 0)
-					(mid -0.635 0.635)
-					(end 0 0)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(arc
-					(start 0 0)
-					(mid 0.635 0.635)
-					(end 1.27 0)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(arc
-					(start 1.27 0)
-					(mid 1.905 0.635)
-					(end 2.54 0)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "XAL7070-473MEC_1_1"
-				(pin passive line
-					(at -5.08 0 0)
-					(length 2.54)
-					(name "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at 5.08 0 180)
-					(length 2.54)
-					(name "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
-		(symbol "XGL5030-472MEC"
-			(pin_numbers
-				(hide yes)
-			)
-			(pin_names
-				(hide yes)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "L"
-				(at 0 2.54 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "XGL5030-472MEC"
+			(property "Value" "XAL5030-472MEC"
 				(at 0 -1.905 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -2231,7 +2231,7 @@
 					)
 				)
 			)
-			(property "Datasheet" "https://www.coilcraft.com/getmedia/e64ac115-95f2-45c7-b798-1b3769b91583/xgl5030.pdf"
+			(property "Datasheet" "https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2311161804_Coilcraft-XAL5030-472MEC_C7432409.pdf"
 				(at 0 -17.78 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -2242,7 +2242,7 @@
 					)
 				)
 			)
-			(property "Description" "4.7 uH 20 % shielded power inductor, Coilcraft XGL5030, 5.28 x 5.48 x 3.1 mm"
+			(property "Description" "4.7 uH 20 % shielded power inductor, Coilcraft XAL5030, 5.28 x 5.48 x 3.1 mm"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -2275,7 +2275,7 @@
 					)
 				)
 			)
-			(symbol "XGL5030-472MEC_0_1"
+			(symbol "XAL5030-472MEC_0_1"
 				(arc
 					(start -2.54 0)
 					(mid -1.905 0.635)
@@ -2325,7 +2325,7 @@
 					)
 				)
 			)
-			(symbol "XGL5030-472MEC_1_1"
+			(symbol "XAL5030-472MEC_1_1"
 				(pin passive line
 					(at -5.08 0 0)
 					(length 2.54)
@@ -2458,96 +2458,6 @@
 			(project "main"
 				(path "/513d9cc1-d27a-514d-a37c-2f1ca04dddfa/8ca2c7f1-daca-5dc4-b728-5ae1084b8574"
 					(reference "R65")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "XAL7070-473MEC")
-		(at 205.74 138.43 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "060730ac-2044-5d23-a5d9-95fe4b4b4bb1")
-		(property "Reference" "L4"
-			(at 205.74 140.335 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "47uH 20% 4.1A"
-			(at 205.74 142.875 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Team-Micras_MicrasPCB_components_coilcraft_XAL7070-473:L_Coilcraft_XAL7070-XXX"
-			(at 205.74 138.43 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" "https://www.coilcraft.com/getmedia/1ba55433-bcc8-4838-9b21-382f497e12e0/xal7070.pdf"
-			(at 205.74 138.43 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "47uH 20% 4.1A"
-			(at 205.74 138.43 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Path" "DRIVERS.L4.XAL7070-473"
-			(at 205.74 138.43 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "e244a1ec-88c3-5398-b58d-7082da6e604e")
-		)
-		(pin "2"
-			(uuid "45cd68b0-39a3-5c1a-b778-92275976d5a9")
-		)
-		(instances
-			(project "main"
-				(path "/513d9cc1-d27a-514d-a37c-2f1ca04dddfa/8ca2c7f1-daca-5dc4-b728-5ae1084b8574"
-					(reference "L4")
 					(unit 1)
 				)
 			)
@@ -3935,98 +3845,6 @@
 		)
 	)
 	(symbol
-		(lib_id "XGL5030-472MEC")
-		(at 144.78 200.66 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "46000502-e8f8-57fd-8978-2366c3256ae8")
-		(property "Reference" "L6"
-			(at 137.16 194.31 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "4.7uH 20% 6.7A"
-			(at 137.16 196.85 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Team-Micras_MicrasPCB_components_coilcraft_XGL5030-472:L_Coilcraft_XAL5030-XXX"
-			(at 144.78 200.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" "https://www.coilcraft.com/getmedia/e64ac115-95f2-45c7-b798-1b3769b91583/xgl5030.pdf"
-			(at 144.78 200.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "4.7uH 20% 6.7A"
-			(at 144.78 200.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Path" "DRIVERS.L6.XGL5030-472"
-			(at 144.78 200.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "bf406ee9-2088-524c-973b-2e18f7c1e5c1")
-		)
-		(pin "2"
-			(uuid "cfac4ba6-e8e7-573a-a0e6-43194723c0d7")
-		)
-		(instances
-			(project "main"
-				(path "/513d9cc1-d27a-514d-a37c-2f1ca04dddfa/8ca2c7f1-daca-5dc4-b728-5ae1084b8574"
-					(reference "L6")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "R_Small")
 		(at 345.44 30.48 0)
 		(unit 1)
@@ -4947,6 +4765,186 @@
 		)
 	)
 	(symbol
+		(lib_id "MTQH707050S470MGT")
+		(at 205.74 138.43 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "796acd33-1304-5b25-b321-1e1f0006e237")
+		(property "Reference" "L4"
+			(at 205.74 140.335 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "47uH 20% 3A"
+			(at 205.74 142.875 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Team-Micras_MicrasPCB_components_metallions_MTQH707050S470M:L_MetalLions_MTQH707050S"
+			(at 205.74 138.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C53235274.pdf"
+			(at 205.74 138.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "47uH 20% 3A"
+			(at 205.74 138.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Path" "DRIVERS.L4.MTQH707050S470M"
+			(at 205.74 138.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "f97d6aa9-e4ba-5803-98e3-7cd1306e95bf")
+		)
+		(pin "2"
+			(uuid "968f24b3-5ca7-51a2-899b-a106173cf554")
+		)
+		(instances
+			(project "main"
+				(path "/513d9cc1-d27a-514d-a37c-2f1ca04dddfa/8ca2c7f1-daca-5dc4-b728-5ae1084b8574"
+					(reference "L4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "MTQH707050S470MGT")
+		(at 205.74 58.42 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "80acb662-db5b-520c-8635-c1a8a31c7c20")
+		(property "Reference" "L5"
+			(at 205.74 60.325 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "47uH 20% 3A"
+			(at 205.74 62.865 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Team-Micras_MicrasPCB_components_metallions_MTQH707050S470M:L_MetalLions_MTQH707050S"
+			(at 205.74 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C53235274.pdf"
+			(at 205.74 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "47uH 20% 3A"
+			(at 205.74 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Path" "DRIVERS.L5.MTQH707050S470M"
+			(at 205.74 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "67f3b70e-28fd-5900-9bc1-cea3ddaf9b6e")
+		)
+		(pin "2"
+			(uuid "511beb2e-87fd-5acf-80c9-36f4456ec2d7")
+		)
+		(instances
+			(project "main"
+				(path "/513d9cc1-d27a-514d-a37c-2f1ca04dddfa/8ca2c7f1-daca-5dc4-b728-5ae1084b8574"
+					(reference "L5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "R_Small")
 		(at 66.04 68.58 0)
 		(unit 1)
@@ -5217,6 +5215,98 @@
 			(project "main"
 				(path "/513d9cc1-d27a-514d-a37c-2f1ca04dddfa/8ca2c7f1-daca-5dc4-b728-5ae1084b8574"
 					(reference "R61")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "XAL5030-472MEC")
+		(at 144.78 200.66 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "8a68e95a-e6a7-5625-9382-b64d05f74892")
+		(property "Reference" "L6"
+			(at 137.16 194.31 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "4.7uH 20% 5.9A"
+			(at 137.16 196.85 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Team-Micras_MicrasPCB_components_coilcraft_XAL5030-472:L_Coilcraft_XAL5030-XXX"
+			(at 144.78 200.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2311161804_Coilcraft-XAL5030-472MEC_C7432409.pdf"
+			(at 144.78 200.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "4.7uH 20% 5.9A"
+			(at 144.78 200.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Path" "DRIVERS.L6.XAL5030-472"
+			(at 144.78 200.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "24a12649-7c58-53a5-8b54-f429ae2d9677")
+		)
+		(pin "2"
+			(uuid "a5b45ece-fe4e-5254-888a-9e203f321633")
+		)
+		(instances
+			(project "main"
+				(path "/513d9cc1-d27a-514d-a37c-2f1ca04dddfa/8ca2c7f1-daca-5dc4-b728-5ae1084b8574"
+					(reference "L6")
 					(unit 1)
 				)
 			)
@@ -6602,96 +6692,6 @@
 			(project "main"
 				(path "/513d9cc1-d27a-514d-a37c-2f1ca04dddfa/8ca2c7f1-daca-5dc4-b728-5ae1084b8574"
 					(reference "IC8")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "XAL7070-473MEC")
-		(at 205.74 58.42 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "f7b14706-44c6-53b1-a3ec-b6651ceb166e")
-		(property "Reference" "L5"
-			(at 205.74 60.325 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "47uH 20% 4.1A"
-			(at 205.74 62.865 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Team-Micras_MicrasPCB_components_coilcraft_XAL7070-473:L_Coilcraft_XAL7070-XXX"
-			(at 205.74 58.42 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" "https://www.coilcraft.com/getmedia/1ba55433-bcc8-4838-9b21-382f497e12e0/xal7070.pdf"
-			(at 205.74 58.42 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "47uH 20% 4.1A"
-			(at 205.74 58.42 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Path" "DRIVERS.L5.XAL7070-473"
-			(at 205.74 58.42 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "f6be38a5-6f52-5891-b8c0-f0f4038a60fc")
-		)
-		(pin "2"
-			(uuid "a36f47bf-aa25-51b3-8dd0-b8da5a3ed0e0")
-		)
-		(instances
-			(project "main"
-				(path "/513d9cc1-d27a-514d-a37c-2f1ca04dddfa/8ca2c7f1-daca-5dc4-b728-5ae1084b8574"
-					(reference "L5")
 					(unit 1)
 				)
 			)

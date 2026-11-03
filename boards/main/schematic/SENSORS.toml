@@ -197,7 +197,7 @@ stubs."EC2.6" = { point = "out" }
 title = "Motor current, right motor: U10 INA241A2, 20 V/V, mid-supply reference"
 at = [130, 74]
 size = [100, 46]
-parts.U10 = [34, 26]
+parts.U10 = { at = [34, 26], fields = [4, 10] }
 parts.C100 = [50, 14, 180]
 parts.R78 = [70, 26, 90]
 parts.C102 = [76, 30, 180]
@@ -217,7 +217,7 @@ wires = [
 title = "Motor current, left motor: U11 INA241A2, 20 V/V, mid-supply reference"
 at = [130, 122]
 size = [100, 46]
-parts.U11 = [34, 26]
+parts.U11 = { at = [34, 26], fields = [4, 10] }
 parts.C103 = [50, 14, 180]
 parts.R79 = [70, 26, 90]
 parts.C105 = [76, 30, 180]

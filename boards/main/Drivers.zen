@@ -80,21 +80,24 @@ boards/main/test/test_drivers.zen.
   service life at higher loads, and chokes are "strongly recommended" with CLL disks), article
   DCX10L01EBKL531 (ball bearings) or DCX10L01EBSL531 (sleeve), configured online before ordering:
   2.9 Ohm, 45.3 uH at 1 kHz, 2710 rpm/V (maxon product pages; catalogue Feb 2025 p100).
-- Chokes: L4 / L5 XAL7070-473MEC 47 uH +-20 % (Isat 4.2 A at a 30 % drop, Irms 4.1 A at 40 C
-  rise, DCR 97 mOhm max; Coilcraft Doc 856). An ironless winding's inductance falls with
+- Chokes: L4 / L5 MetalLions MTQH707050S470MGT 47 uH +-20 % (Isat 4.5 A rated, 5.3 A typ, at a
+  30 % drop; Irms 3.0 A rated at a 40 C rise; Rdc 140 mOhm max; MTQH707050S datasheet p2), on the
+  XAL7070 land: each 1.92 x 6.50 mm pad lies under one of the MTQH's 2.30 x 7.0 mm bottom
+  terminals (components/metallions/MTQH707050S470M). An ironless winding's inductance falls with
   frequency: 30-80 % of the 1 kHz value at 50-100 kHz (maxon's choke note, which designs with
   0.3), "as low as 20 %" at 100 kHz (Portescap, 2022). Over 0.2-1.0 x L, the choke at -20 % and
-  biased at 3 A (Coilcraft's saturation model of the part) and VBAT up to 17.4 V, the ripple is
-  at most 1.11 A pp, 0.30 W in the motor against its 1.28 W budget, and in a full-speed reversal
-  the current overshoots the band's 3.23 A top by at most 2.25 A within 1.5 x (tBLK + tDEG) with
-  the motor's inductance left out: 5.48 A, under the 6 A OCP minimum, which also needs 3 us above
-  it, and inside the INA241's +7.25 A; the choke keeps 60 % of its inductance there (soft
-  saturation). At the datasheet timing and maxon's 0.3 the overshoot is 0.94 A, 4.17 A, within
-  the 4.2 A Isat. Choke heat (Coilcraft Power Inductor tool, XAL7070-473 at 100 kHz with 1.1 A pp
-  of ripple, 40 C ambient, 2026-10-25): 330 mW in all and 49 C at a 1.0 A run current (L 42.3 uH
-  at the 1.6 A peak), 799 mW and 63 C at 2.5 A; research choke_check.py's bound (105 mW of DCR
-  plus at most 467 mW of core loss, +15 K) sits above it. Height 7.0 mm (7.13 mm with unreflowed terminations), within the 8.0 mm open
-  height of spec/main.toml and the 7.2 mm of the left_tail zone (research
+  biased at 3 A (the datasheet's typical L vs current plot, its 30 % drop moved to the rated
+  4.5 A) and VBAT up to 17.4 V, the ripple is at most 1.08 A pp, 0.28 W in the motor against its
+  1.28 W budget, and in a full-speed reversal the current overshoots the band's 3.23 A top by at
+  most 2.15 A within 1.5 x (tBLK + tDEG) with the motor's inductance left out: 5.37 A, under the
+  6 A OCP minimum, which also needs 3 us above it, and inside the INA241's +7.25 A; the choke
+  keeps 63 % of its inductance there (soft saturation). At the datasheet timing and maxon's 0.3
+  the overshoot is 0.91 A, 4.14 A, within the 4.5 A rated Isat. Choke heat at 32 K/W (the 40 C
+  rise at the rated Irms) from a 40 C board, Rdc at its maximum: 161 mW at a 1.0 A run current.
+  MetalLions publishes no core loss: with the bound used for a Coilcraft XAL7070-473 (434 mW at
+  the worst ripple) the part reaches 59 C, and up to 2.46 W of core loss keeps it under the
+  datasheet's 125 C (1.42 W at 2.5 A rms). Height 5.0 mm max, within the 8.0 mm open height of
+  spec/main.toml and the 7.2 mm of the left_tail zone (research
   calculations/drivetrain/choke_check.py). No capacitor across the motor: it would resonate with
   the choke (research, Series choke downsides).
 
@@ -106,14 +109,14 @@ Fan, IC6 (STSPIN958, DS14341 Rev 1), driving connector M3 at 400 kHz (research F
 - REF from R28 4.7 kOhm / R29 2.0 kOhm on 3V3_D (both JLCPCB basic parts, the 2.0 kOhm already
   on the board): 3.3 x 2.0 / 6.7 = 0.985 V; Eq. 1 (section 5.6), I_peak = VREF / (RSNS x 10) =
   3.94 A, 3.65-4.31 A over 3V3_D's range, 1 % resistors, ACL 9.5-10.5 and RSNS 1 %, below L6's
-  4.8 A (20 % drop) and the 7 A overcurrent shutdown. The divider's 1.4 kOhm source impedance
+  5.0 A (20 % drop) and the 7 A overcurrent shutdown. The divider's 1.4 kOhm source impedance
   makes the REF input current negligible. The limiter is also the soft start: a locked rotor
   draws 13-50 A from 16.8 V (fan study). Rule for the chosen motor, with I_run its running current
   at the highest duty the fan will use: I_peak = max(1.5 x I_run, (I_run + h) / 0.925), h the
-  ripple half-amplitude at the lowest plausible inductance (1.05 A for a 1S motor, 1.4 A for a
+  ripple half-amplitude at the lowest plausible inductance (1.00 A for a 1S motor, 1.33 A for a
   2S one), so the ripple peak stays under the bottom of the REF band; VREF = I_peak x 0.25 V/A;
   R29 = 4.7 kOhm x VREF / (3.3 V - VREF), the next E24 value up. The band's top (x 1.093) stays
-  at or below 4.8 A: I_peak up to 4.39 A, I_run up to 2.9 A (1S) or 2.66 A (2S). 2.0 kOhm suits
+  at or below 5.0 A: I_peak up to 4.57 A, I_run up to 3.05 A (1S) or 2.90 A (2S). 2.0 kOhm suits
   a 1S motor running at up to 2.5 A; a 2S motor at 2.5 A takes 2.2 kOhm (research
   calculations/fan/fan_choke_check.py, section 4).
 - SR: R30 1 kOhm, 2 V/ns (Table 7: 1 k / 2.2 k / 5.6 k / 10 kOhm -> 2 / 1.2 / 0.6 / 0.3 V/ns),
@@ -146,20 +149,22 @@ Fan, IC6 (STSPIN958, DS14341 Rev 1), driving connector M3 at 400 kHz (research F
   calculations/fan/fan_choke_check.py, section 3). On the board every one of the footprint's nine
   thermal-via sites holds a via to the ground planes: the LSS1-LSS2 join runs on B.Cu beside the
   exposed pad, not under it.
-- Choke L6, XGL5030-472MEC 4.7 uH +-20 % (Isat 4.8 A at a 20 % drop, 6.7 A at 30 %; DCR
-  24.5 mOhm max; Coilcraft Doc 1576), between FAN_OUT and the motor. No drone motor publishes its
-  inductance; the makers that do bound it: scaled by L ~ 1/kv^2 to 13,000-20,000 rpm/V, the DCX
-  10 L 1.5 V and Faulhaber 1024/0816/0615 windings give 0.6-14 uH at 1 kHz, and the ironless
-  drop at the PWM frequency (0.2-1.0) leaves 0.12-14 uH at 400 kHz (a 2S motor about 4 x more).
-  Over that range, with L6 at -20 % and DC-biased (Coilcraft's saturation model), R 0.2-1.2 Ohm
-  and VBAT 17.4 V, the ripple at 400 kHz stays within 2.1 A pp for a 1S motor and 2.8 A pp for a
-  2S one, the motor's ripple heat at most 0.76 W and L6's core loss at most 0.53 W (Coilcraft's
-  loss tool for this part), +17 K with the DCR at 2.5 A. A locked rotor at 400 kHz defeats the
-  cycle-by-cycle limiter for a low-resistance motor: the on-time cannot fall below the limiter's
-  blanking (unpublished; 280-500 ns, the minimum pulse and above), so a 0.2-0.5 Ohm stall averages
-  5-13 A and may trip the 7 A overcurrent shutdown. At 50 kHz the same on-time is an eighth of the
-  duty and every case up to 500 ns of blanking stays below 7 A (peaks 4.8-5.7 A, L6 keeping 72 %
-  of its inductance): the firmware starts the fan at 50 kHz and moves to 400 kHz once it spins
+- Choke L6, XAL5030-472MEC 4.7 uH +-20 % (Isat 6.7 A at a 30 % drop, 5.0 A at 20 % from the L vs
+  Current plot; Irms 5.9 A at a 40 C rise; DCR 40 mOhm max; Coilcraft Doc 908), between FAN_OUT and
+  the motor. No drone motor publishes its inductance; the makers that do bound it: scaled by L ~
+  1/kv^2 to 13,000-20,000 rpm/V, the DCX 10 L 1.5 V and Faulhaber 1024/0816/0615 windings give
+  0.6-14 uH at 1 kHz, and the ironless drop at the PWM frequency (0.2-1.0) leaves 0.12-14 uH at 400
+  kHz (a 2S motor about 4 x more). Over that range, with L6 at -20 % and DC-biased (Coilcraft's
+  saturation form fitted to the datasheet plot, its 30 % drop at the table's 6.7 A), R 0.2-1.2 Ohm
+  and VBAT 17.4 V, the ripple at 400 kHz stays within 2.0 A pp for a 1S motor and 2.7 A pp for a 2S
+  one, the motor's ripple heat at most 0.71 W and L6's core loss at most 0.49 W (Coilcraft's loss
+  tool for this part); at 31.9 K/W from a 40 C board L6 reaches 66 C at 2.5 A and 86 C with the
+  limiter's 4.31 A held. A locked rotor at 400 kHz defeats the cycle-by-cycle limiter for a
+  low-resistance motor: the on-time cannot fall below the limiter's blanking (unpublished; 280-500
+  ns, the minimum pulse and above), so a 0.2-0.5 Ohm stall averages 5-12 A and may trip the 7 A
+  overcurrent shutdown. At 50 kHz the same on-time is an eighth of the duty and every case up to 1
+  us of blanking stays below 7 A (peaks 4.9-6.8 A; up to 500 ns, 4.9-5.8 A with L6 keeping 75 % of
+  its inductance): the firmware starts the fan at 50 kHz and moves to 400 kHz once it spins
   (firmware_changes.toml, fan; research calculations/fan/fan_choke_check.py, sections 1-2). No
   capacitor across the fan motor.
 """
@@ -189,8 +194,8 @@ B02B_PASK = Module("github.com/Team-Micras/MicrasPCB/components/jst/B02B-PASK/B0
 DRV8874 = Module("github.com/Team-Micras/MicrasPCB/components/ti/DRV8874/DRV8874.zen")
 STSPIN958 = Module("github.com/Team-Micras/MicrasPCB/components/st/STSPIN958/STSPIN958.zen")
 WSK2512_HIGH = Module("github.com/Team-Micras/MicrasPCB/components/vishay/WSK2512-HIGH/WSK2512-HIGH.zen")
-XAL7070_473 = Module("github.com/Team-Micras/MicrasPCB/components/coilcraft/XAL7070-473/XAL7070-473.zen")
-XGL5030_472 = Module("github.com/Team-Micras/MicrasPCB/components/coilcraft/XGL5030-472/XGL5030-472.zen")
+XAL5030_472 = Module("github.com/Team-Micras/MicrasPCB/components/coilcraft/XAL5030-472/XAL5030-472.zen")
+MTQH707050S470M = Module("github.com/Team-Micras/MicrasPCB/components/metallions/MTQH707050S470M/MTQH707050S470M.zen")
 
 # Its own sheet in the board schematic (layout/main.kicad_sch).
 Project(name="Drivers", path="layout", layout=False)
@@ -272,7 +277,7 @@ def bridge(side, ic, en, ph, sense_p, sense_n, motor, refs):
     Resistor(name=refs["vref_top"], P1=V3V3_D, P2=vref, **R_4K7_0402)
     Resistor(name=refs["vref_bottom"], P1=vref, P2=GND, **R_20K_0402)
     WSK2512_HIGH(name=refs["shunt"], P1=out1, S1=sense_p, S2=sense_n, P2=shunt_out)
-    XAL7070_473(name=refs["choke"], P1=shunt_out, P2=terminal)
+    MTQH707050S470M(name=refs["choke"], P1=shunt_out, P2=terminal)
     B02B_PASK(name=motor, prefix="M", P1=out2, P2=terminal)
 
 
@@ -363,5 +368,5 @@ Resistor(name="R28", P1=V3V3_D, P2=FAN_REF, **R_4K7_0402)
 Resistor(name="R29", P1=GND, P2=FAN_REF, **R_2K_0402)
 Resistor(name="R30", P1=GND, P2=FAN_SR, **R_1K_0402)
 Resistor(name="R31", P1=FAN_LSS, P2=GND, **R_25M_1206)
-XGL5030_472(name="L6", P1=FAN_OUT, P2=FAN_MOTOR)
+XAL5030_472(name="L6", P1=FAN_OUT, P2=FAN_MOTOR)
 B02B_PASK(name="M3", prefix="M", P1=FAN_MOTOR, P2=FAN_LSS)

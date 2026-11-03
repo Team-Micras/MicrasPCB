@@ -79,6 +79,10 @@ stay out of the BOM, the CPL and `parts/jlc.toml`.
 - `<board>-cpl-jlcpcb.csv`: Designator, Mid X, Mid Y, Layer, Rotation; KiCad's placement plus the
   part's `rotation` offset. Zener's own JLC export applies no rotation corrections, which is why
   this one exists.
+- `<board>-hand-assembly.csv`: the parts the team buys and solders itself, marked `assembly = "hand"`
+  (with `hand_why`) in `parts/jlc.toml`: they stay out of the JLCPCB BOM and CPL. The main board's
+  ST parts (sponsor), ESP32 module (AliExpress), through-hole parts and the extended parts that are
+  easy to solder by hand are on it, for an Economic PCBA order.
 
 KiCad and JLCPCB disagree on the zero rotation of some packages, and no database of offsets is
 complete. The user checks each part once in JLCPCB's placement preview, then sets

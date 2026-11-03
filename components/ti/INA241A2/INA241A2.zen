@@ -1,9 +1,13 @@
-"""INA241A2IDGKR - -5 V to 110 V bidirectional current-sense amplifier with enhanced PWM
-rejection, gain 20 V/V, VSSOP-8 (DGK). Bare part.
+"""INA241A2QDGKRQ1 - -5 V to 110 V bidirectional current-sense amplifier with enhanced PWM
+rejection, gain 20 V/V, VSSOP-8 (DGK), AEC-Q100 grade 1. Bare part.
 
-Datasheet: TI SBOSA30D (March 2022, revised December 2024), INA241A/INA241B. Orderable part:
-INA241A2IDGKR = version A (precision grade), gain 20 V/V, VSSOP-8 (DGK), 2500 per reel
-(Table 4-1; Package Option Addendum, marking 2U7B).
+Datasheets: TI SBOSA30D (March 2022, revised December 2024), INA241A/INA241B, the commercial
+INA241A2IDGKR; TI SBOSA31D (February 2023, revised June 2025), INA241A-Q1/INA241B-Q1, the
+automotive grade this package orders, INA241A2QDGKRQ1 (LCSC C31766589: JLCPCB stocks it, not the
+commercial part). The -Q1 has the same pinout on the same DGK package (SBOSA31D Table 5-1) and the
+same numbers below: gain error +-0.01 %, A2 offset +-15 uV, CMRR 105 dB at 50 kHz, bandwidth
+1.1 MHz, slew 8 V/us, settling to 1 % in 1 us (SBOSA31D section 6.5), grade 1 (-40 to 125 C).
+Section and table numbers below are SBOSA30D's.
 
 Pins (section 5, Table 5-1, D/DDF/DGK packages): 1 IN-, 2 GND, 3 REF2, 4 NC, 5 OUT, 6 VS,
 7 REF1, 8 IN+. NC is "Reserved. Connect to ground." (type Ground): the symbol names it RSVD and
@@ -98,7 +102,7 @@ Component(
     prefix="U",
     symbol=Symbol(library="INA241A2.kicad_sym"),
     footprint=File("Texas_DGK0008A_VSSOP-8_3x3mm_P0.65mm.kicad_mod"),
-    part=Part(mpn="INA241A2IDGKR", manufacturer="Texas Instruments"),
+    part=Part(mpn="INA241A2QDGKRQ1", manufacturer="Texas Instruments"),
     pins={
         "IN-": IN_N,
         "GND": GND,

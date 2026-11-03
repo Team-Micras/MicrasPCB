@@ -1,4 +1,4 @@
-"""Fan path check: STSPIN958 (parallel half-bridge, PWM trimming, 400 kHz) + XGL5030-472 4.7 uH + a not
+"""Fan path check: STSPIN958 (parallel half-bridge, PWM trimming, 400 kHz) + XAL5030-472 4.7 uH + a not
 yet chosen drone-class brushed coreless motor, over the whole plausible range of the motor's
 inductance and resistance; the STSPIN958's heat with bounds on its unpublished data; the REF rule.
 
@@ -21,12 +21,16 @@ Sources and bounds:
     smaller than the JESD51 one); board ambient 40 C.
   * Limiter: on-time at least the blanking t_b (280 ns typical = the minimum pulse, 500 ns bound),
     plus a comparator delay of 200 ns (the amplifier's settling time, Table 5) after the crossing.
-- XGL5030-472 (Coilcraft Doc 1576): 4.7 uH +-20 %, DCR 24.5 mOhm max, Isat 3.1 / 4.8 / 6.7 A at
-  10 / 20 / 30 % drop. DC bias: Coilcraft's saturation SPICE model of the part (XGL5030-472_sat:
-  L 4.4984 uH, Is 13.0461 A, a 0.7097), relative drop applied to the -20 % part. AC loss: Coilcraft's
-  power-inductor loss tool for this part (as recorded in github.com/QY7/Power_toys,
-  power_toys/data/coilcraft_loss_for_training/XGL5030-472.txt): 71.6 mW x dIpp^1.99 at 0.408 MHz,
-  independent of the DC current, linear in f; part temperature rise 25.3 K/W (same tool).
+- XAL5030-472 (Coilcraft Doc 908-1, revised 06/23/23): 4.7 uH +-20 %, DCR 36.00 typ / 40.00 mOhm max,
+  Isat 6.7 A at a 30 % drop (no 10 / 20 % columns), Irms 4.3 / 5.9 A at 20 / 40 C rise. DC bias: the
+  Doc 908-2 L vs Current plot of the 4.7 uH part (97.7 / 95.0 / 91.5 / 87.2 / 82.2 / 76.6 % of 5.0 uH
+  at 1-6 A, 30 % at about 7.0 A), fitted with Coilcraft's saturation form (flux = L Is
+  tanh((I/Is)^a)^(1/a), Is 12.7 A, a 0.87) and its current axis compressed so the 30 % drop lands on
+  the table's 6.7 A: Is 12.06 A, a 0.87, 20 % at 5.05 A (package isat_20 5.0 A); relative drop
+  applied to the -20 % part. AC loss: Coilcraft's power-inductor loss tool for this part (as recorded
+  in github.com/QY7/Power_toys, power_toys/data/coilcraft_loss_for_training/XAL5030-472.txt, fitted
+  at 0.408 MHz): 99.5 mW x dIpp^1.635, independent of the DC current, nearly linear in f; part
+  temperature rise 31.9 K/W (LossRth, coilcraft_model/XAL5030-472.txt).
 - Motor (not chosen): R 0.2-1.2 ohm (fan study's drone motors); L at 1 kHz bounded from the
   makers that publish it, scaled to kv 13,000-20,000 rpm/V by L ~ 1/kv^2 (same frame, same turns
   law): maxon DCX 10 L 1.5 V 5 uH at 7870 rpm/V (catalogue p100) -> 0.77-1.8 uH; Faulhaber 1024 K
@@ -40,8 +44,9 @@ import math
 
 F = 400e3
 T = 1 / F
-SAT = dict(L=4.4984e-6, Is=13.0461, a=0.7097)
-L_NOM, TOL, DCR = 4.7e-6, 0.20, 24.5e-3
+SAT = dict(L=5.0e-6, Is=12.06, a=0.87)  # only the relative drop is used
+L_NOM, TOL, DCR = 4.7e-6, 0.20, 40.0e-3
+ISAT20, RTH_L = 5.0, 31.9
 RSNS, RDS25 = 25e-3, 0.165 / 2
 REF_TYP = 3.3 * 2.0 / 6.7
 I_LIM = REF_TYP / (RSNS * 10)
@@ -61,19 +66,20 @@ def l_choke(i, tol=-TOL):
 
 
 def ac_loss(dipp):
-    return 71.6e-3 * (F / 408e3) * dipp ** 1.99
+    return 99.5e-3 * (F / 408e3) * dipp ** 1.635
 
 
 def ripple_pp(v, d, l_tot):
     return v * d * (1 - d) * T / l_tot
 
 
-print("Fan path: STSPIN958 400 kHz + XGL5030-472 + drone coreless motor")
+print("Fan path: STSPIN958 400 kHz + XAL5030-472 + drone coreless motor")
 print(f"REF limit: typ {I_LIM:.2f} A, band {I_LIM_LO:.2f}-{I_LIM_HI:.2f} A (3V3_D 3.284-3.346 V, 1 % resistors, ACL 9.5-10.5,"
       " RSNS 1 %)")
-print("XGL5030-472 at -20 %, incremental L: " + ", ".join(f"{i:.0f} A {l_choke(i)*1e6:.2f} uH" for i in (0, 2, 3, 4, 5, 6, 7)))
+print("XAL5030-472 at -20 %, incremental L: " + ", ".join(f"{i:.0f} A {l_choke(i)*1e6:.2f} uH" for i in (0, 2, 3, 4, 5, 6, 7)))
 
 print("\n1. Running ripple at 400 kHz (choke -20 % and biased at the running current), worst VBAT 17.4 V")
+half = {"1S": 0.0, "2S": 0.0}
 print(f"   {'motor':>4} {'Lm uH':>6} {'I A':>4} {'D':>5} {'L tot':>6} {'dIpp':>5} {'peak':>5} {'limiter':>8} {'motor W':>7} {'choke mW':>8}")
 for cls, vavg in (("1S", 3.7), ("2S", 7.4)):
     for lm in LM_EFF:
@@ -85,11 +91,21 @@ for cls, vavg in (("1S", 3.7), ("2S", 7.4)):
             pk = i + pp / 2
             flag = "clips" if pk > I_LIM_LO else "ok"
             pm = pp ** 2 / 12 * 1.2
+            half[cls] = max(half[cls], pp / 2)
             print(f"   {cls:>4} {lm2*1e6:6.2f} {i:4.1f} {d:5.2f} {lt*1e6:6.2f} {pp:5.2f} {pk:5.2f} {flag:>8} {pm:7.3f} {ac_loss(pp)*1e3:8.1f}")
 print("   (motor W: ripple heat at the 1.2 ohm top of the range, an upper bound; 'clips': the peak reaches the")
 print("    lowest REF limit and the limiter trims the pulse, which lowers the mean current, not a fault)")
 print(f"   the worst: 1S, D = 0.5 never occurs; a 2S motor at D 0.43 with the lowest L: "
       f"{ripple_pp(17.4, 0.43, 0.48e-6 + l_choke(2.5)):.2f} A pp")
+print("   L6 temperature (Rth 31.9 K/W), DCR 40 mOhm max + 0.393 %/K copper on I^2 + dIpp^2/12, AC loss at the")
+print("   largest ripple of the table (2S, lowest L), board at 40 C; Irms 5.9 A is the 40 C-rise rating:")
+pp_w = ripple_pp(17.4, 0.43, 0.48e-6 + l_choke(2.5))
+for i in (1.0, 2.5, I_LIM_HI):
+    rise = 0.0
+    for _ in range(30):
+        p_dc = (i ** 2 + pp_w ** 2 / 12) * DCR * (1 + 0.00393 * (40 + rise - 20))
+        rise = (p_dc + ac_loss(pp_w)) * RTH_L
+    print(f"   {i:4.2f} A: DC {p_dc*1e3:4.0f} mW + AC {ac_loss(pp_w)*1e3:4.0f} mW -> +{rise:4.1f} K, {40 + rise:5.1f} C")
 
 print("\n2. Locked rotor (every start from rest, or a jammed fan): cycle-by-cycle limiter in PWM trimming, the")
 print("   firmware commanding any duty; on-time = max(t_b, crossing) + 200 ns, then low-side recirculation until")
@@ -180,15 +196,15 @@ print(f"   at 2.5 A bound: Tj {tj:.0f} C, board at the pad about {tj - p*17.4:.0
 print("\n4. REF for the chosen motor. I_run: its running current at the highest duty the fan will use.")
 k_lo = I_LIM_LO / I_LIM
 print(f"   I_peak = max(1.5 x I_run, (I_run + h) / {k_lo:.3f}), h the ripple half-amplitude at the lowest plausible")
-print("   inductance (section 1: 1.05 A for a 1S motor, 1.4 A for a 2S motor): 1.5x leaves the start-up and gust margin,")
+print(f"   inductance (section 1: {half['1S']:.2f} A for a 1S motor, {half['2S']:.2f} A for a 2S motor): 1.5x leaves the start-up and gust margin,")
 print("   the second term keeps the ripple peak under the bottom of the REF band (above it the limiter trims the pulse")
 print("   and the mean current falls short). VREF = I_peak x RSNS x ACL = I_peak x 0.25 V/A; R29 = R28 x VREF /")
 print("   (3.3 V - VREF), R28 4.7 kOhm, the nearest E24 value at or above. The band's top (x "
-      f"{I_LIM_HI/I_LIM:.3f}) stays at or below 4.8 A (L6's 20 % point):")
-ipk_max = 4.8 / (I_LIM_HI / I_LIM)
-print(f"   I_peak <= {ipk_max:.2f} A, so I_run <= {min(ipk_max/1.5, ipk_max*k_lo-1.05):.2f} A (1S) or {min(ipk_max/1.5, ipk_max*k_lo-1.4):.2f} A (2S);"
+      f"{I_LIM_HI/I_LIM:.3f}) stays at or below {ISAT20} A (L6's 20 % point):")
+ipk_max = ISAT20 / (I_LIM_HI / I_LIM)
+print(f"   I_peak <= {ipk_max:.2f} A, so I_run <= {min(ipk_max/1.5, ipk_max*k_lo-half['1S']):.2f} A (1S) or {min(ipk_max/1.5, ipk_max*k_lo-half['2S']):.2f} A (2S);"
       " above it the research's discrete half-bridge applies.")
-for cls, h in (("1S", 1.05), ("2S", 1.4)):
+for cls, h in (("1S", half["1S"]), ("2S", half["2S"])):
     for irun in (1.0, 1.5, 2.0, 2.5):
         ipk = max(1.5 * irun, (irun + h) / k_lo)
         vref = ipk * RSNS * 10
