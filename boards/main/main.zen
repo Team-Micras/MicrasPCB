@@ -101,22 +101,26 @@ AF1, PA0/PA1 TIM5 AF2, PA15/PB3 TIM2 AF1, PA7 TIM14_CH1 AF9, PB13-PB15 SPI2 AF5,
 PC12 SPI3_MOSI AF6, and in the fallback PC10/PC11 UART4_TX/UART4_RX AF8), each EXTI line is used
 once (4 Button, 6 Motors_nFault, 7 IMU_INT, 11 ESP_Flow, 12 Fan_Enable), and each timer serves one
 function (TIM1, TIM8 motors; TIM2, TIM5 encoders; TIM3 selectors; TIM14 fan; TIM15 LEDs; TIM17
-buzzer; TIM4 spare, the emitter DAC's trigger). The timer, DMA, DAC and ADC set-up, with the RM0468
-Rev 3 and ES0491 Rev 9 numbers, is boards/main/firmware_changes.toml (drive, current, emitters,
+buzzer; TIM4 spare, the emitter DAC's trigger; TIM24 spare, the Fan_TOFF sampling). The timer,
+DMA, DAC and ADC set-up, with the RM0468 Rev 3 and ES0491 Rev 9 numbers, is boards/main/firmware_changes.toml (drive, current, emitters,
 leds, buzzer, fan, sensor_bus).
-STM32CubeMX 6.18.1 (MCU database DB.6.0.181, STM32Cube FW_H7 V1.13.0) loaded that whole set-up as a
-project built from the firmware's micras_v1.ioc with the pins before the ADC swap above (the left
-current on PB1, Wall_Sensor_1 on PC4, Wall_Sensor_2 on PA6, Button on PA3), and generated its code
-without a conflict: every pin's alternate function as above, TIM8 gated on ITR0 and TIM4 gated on
-ITR2, TIM1 TRGO = enable and TRGO2 = update, ADC1/ADC2 dual injected simultaneous on channels 5 and
-11 triggered by TIM1 TRGO2 with ADC1's regular group, DAC1 channel 2 on PA5 triggered by TIM4 TRGO
-with its buffer off, channel 1 on-chip only beside PA4's ADC input, TIM14 at ARR 687 on the
-275 MHz APB1 timer clock, the EXTI3, EXTI9_5 and EXTI15_10 interrupts, and the DMA requests of
-ADC1, SPI3 (or UART4), SPI2, TIM15_UP and DAC1 channel 2, at the firmware's 550 MHz clock tree
-(275 MHz timer clocks). The swap keeps every pin in the same role (an ADC1/ADC2 input, a GPIO
-input on its own EXTI line), and the MCU database has each new function on its pin (PA6
-ADC1/2_INP3, PA3 ADC1/2_INP15, PB1 ADC1/2_INP5; PC4's EXTI4 used by no other pin). TODO: reload
-the set-up in STM32CubeMX with the swapped pins (injected channel 3, EXTI4).
+STM32CubeMX 6.18.1 (MCU database DB.6.0.181, STM32Cube FW_H7 V1.13.0) loaded that whole set-up as
+two projects built from the firmware's micras_v1.ioc, the SPI3 link and the UART4 fallback, with
+the pin table taken from this board's netlist (each of the 46 I/Os by its net), and generated their
+code without a conflict: every pin's signal, label, pull, speed and alternate function as above;
+Button on PC4 an EXTI4 input on the falling edge with its pull-up, on the EXTI4 interrupt alone,
+Motors_nFault (PB6, falling) and IMU_INT (PC7, rising) on EXTI9_5, ESP_Flow (PA11, rising, pull-down)
+on EXTI15_10; TIM8 gated on ITR0 and TIM4 gated on ITR2, TIM1 TRGO = enable and TRGO2 = update;
+ADC1/ADC2 dual injected simultaneous on channels 3 (PA6, Current_Sensor_Left) and 11 (PC1,
+Current_Sensor_Right) at 16.5 cycles (0.825 us at the 20 MHz ADC clock: 160 MHz, /4, and the
+fixed /2 of RM0468 Rev 3 section 28.4.3) triggered by TIM1 TRGO2, with ADC1's regular group on
+channels 18 (PA4), 15 (PA3), 5 (PB1), 10 (PC0) and 8 (PC5); DAC1 channel 2 on PA5 triggered by
+TIM4 TRGO with its buffer off, channel 1 on-chip only beside PA4's ADC input; TIM14 at ARR 687 on
+the 275 MHz APB1 timer clock and TIM24 at the same period with its channel 1 compare DMA request
+(fan); TIM2 and TIM5 encoders with IC1F = IC2F = 3; and the DMA requests of ADC1, SPI3 (or UART4),
+SPI2, TIM15_UP, DAC1 channel 2 and TIM24_CH1 on the eight DMA1 streams, at the firmware's 550 MHz
+clock tree (275 MHz timer clocks). PB12's EXTI12 (fan_fault_interrupt) is the firmware's to set on
+the open-drain Fan_Enable output, which the project holds as an output.
 - The link to the ESP32-C5 (ESP sheet; firmware_changes.toml link) is SPI3 in half-duplex on
   three wires, the MCU the master (SPI_CFG2 COMM = 11, RM0468 Rev 3 section 55.4.4 and Figure
   643), its one data line on the MOSI pad (IOSWP = 0): ESP_SCK on PC10 (SPI3_SCK, AF6), ESP_DATA
