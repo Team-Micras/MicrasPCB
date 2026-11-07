@@ -85,12 +85,16 @@ drives a line before the firmware does.
   and C21; DS13311 Table 61); high-Z until then, so the radio never holds the MCU in reset. An
   ST-Link's RST wire on SWD1 pad 1 (root sheet) drives the same line.
 - SPI3 half-duplex, three wires (the MCU the master, the C5 its spi_slave_hd 3-wire slave):
-  ESP_SCK from PC10 (SPI3_SCK) to GPIO10 through R95 22 Ohm at PC10, the driver's end (a source
-  series resistor on the clock trace, checklist SPI; it is the TX resistor of UART4_TX in the
-  fallback too); ESP_DATA between PC12 (SPI3_MOSI pad, the master's half-duplex data line, IOSWP =
-  0) and GPIO8 through R96
-  220 Ohm at the C5: RM0468 Rev 3 Figure 643 note 3 asks for a series resistance on the shared data
-  line against the two drivers fighting while the direction changes (the figure draws 1 kOhm), and
+  ESP_SCK from PC10 (SPI3_SCK) to GPIO10 through R95 22 Ohm (a series resistor on the clock trace,
+  checklist SPI; it is the TX resistor of UART4_TX in the fallback too); ESP_DATA between PC12
+  (SPI3_MOSI pad, the master's half-duplex data line, IOSWP = 0) and GPIO8 through R96 220 Ohm.
+  The layout puts R95, R96 and R88 mid-line, not at an end: R95 25 mm of track from PC10 and 38 mm
+  from the C5, R96 23 mm from PC12 and 47 mm from the C5, R88 35 mm from PC11 and 37 mm from the
+  C5. That is electrically harmless: about 63-70 mm of line is 0.4 ns each way (about 6 ps/mm),
+  far under the 4.2 ns edges of GPIO speed medium (firmware_changes.toml io_speed), so each line
+  acts as one lumped load and the resistor works wherever it sits. R96: RM0468 Rev 3 Figure 643
+  note 3 asks for a series resistance on the shared data line against the two drivers fighting
+  while the direction changes (the figure draws 1 kOhm), and
   220 Ohm holds that current to 3.346 V / 218 Ohm = 15.4 mA at most (3V3_D's top, R96 at -1 %),
   under the 20 mA per pin of DS13311 Table 11, before counting either driver's own resistance; the
   firmware turns the line round with both drivers off, so this is only a fault bound
@@ -103,7 +107,8 @@ drives a line before the firmware does.
   limit, ESP32-C5 Series Datasheet v1.5 section 4.2.1.2) 22 % of its 16 ns, beside the C5's own
   GPIO-matrix delays, which the bit-error test the firmware runs before raising the clock covers
   (firmware_changes.toml link_spi); /2 (62.5 MHz) is above that limit. Writing, the MCU drives the
-  line directly and R96 charges only the C5's pin (220 Ohm x about 3 pF, under 1 ns). ESP_CSn
+  line directly and R96 charges the C5's pin and the trace and vias past it (220 Ohm x about 8 pF,
+  the C5's 2 pF plus about 6 pF for 47 mm and 8 vias, an estimate: about 1.8 ns). ESP_CSn
   from PC11 (a GPIO) to GPIO9 through R88 100 Ohm, with R97 100 kOhm to 3V3_D on the line so the
   select idles high (no transaction) while neither end drives it, through resets and before the
   firmware runs; it is also UART4_RX's idle in the fallback. In the UART4 fallback the same pins
@@ -203,7 +208,7 @@ EspProgPads(name="J2", EN=ESP_EN, VDD=V5V_IN, TXD=ESP_TXD0, GND=GND, RXD=ESP_RXD
 
 # MCU links.
 Resistor(name="R86", P1=ESP_SWCLK, P2=SWCLK, **R_22_0402)
-# R95 sits at PC10 (the clock's driver), R96 and R88 at the C5.
+# R95, R96 and R88 sit mid-line in the layout: the lines are electrically short, so any spot works.
 Resistor(name="R95", P1=ESP_SCK_IO, P2=ESP_SCK, **R_22_0402)
 Resistor(name="R96", P1=ESP_DATA_IO, P2=ESP_DATA, **R_220_0402)
 Resistor(name="R88", P1=ESP_CSN_IO, P2=ESP_CSn, **R_100_0402)

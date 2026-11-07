@@ -1,4 +1,4 @@
-"""Fan path check: STSPIN958 (parallel half-bridge, PWM trimming, 400 kHz) + XAL5030-472 4.7 uH + a not
+"""Fan path check: STSPIN958 (parallel half-bridge, PWM trimming, 400 kHz) + XGL5030-472 4.7 uH + a not
 yet chosen drone-class brushed coreless motor, over the whole plausible range of the motor's
 inductance and resistance; the STSPIN958's heat with bounds on its unpublished data; the REF rule.
 
@@ -6,7 +6,10 @@ Run: python3 fan_choke_check.py (seconds). Output: fan_choke_check_out.txt.
 
 Sources and bounds:
 - STSPIN958 (ST DS14341 Rev 1): RDS(on) 165 mOhm per switch at 25 C, two in parallel (Table 5);
-  minimum PWM pulse 280 ns (Table 2); REF limiter Eq. 1, ACL 9.5-10.5 (Table 5); IOC 7 A min;
+  minimum PWM pulse 280 ns (Table 2); REF limiter Eq. 1, ACL 9.5-10.5 (Table 5); overcurrent
+  threshold IOC 7-14 A per power MOSFET (Table 5, section 5.7), 91.4 % of it at 17.4 V (Figure 20,
+  normalized at 58 V): in parallel mode the two paralleled MOSFETs share the load current, so the
+  device trips at 2 x IOC, 12.8 A at the least;
   TSD 150 C; RthJA 35.8 C/W on the JESD51 board (Table 4); SR 2 V/ns with RSR 1 kOhm (Table 7).
   Not published: the RDS(on) temperature curve, the dead time, the VS operating current, the
   limiter blanking and comparator delay. Bounds used (inference):
@@ -21,16 +24,13 @@ Sources and bounds:
     smaller than the JESD51 one); board ambient 40 C.
   * Limiter: on-time at least the blanking t_b (280 ns typical = the minimum pulse, 500 ns bound),
     plus a comparator delay of 200 ns (the amplifier's settling time, Table 5) after the crossing.
-- XAL5030-472 (Coilcraft Doc 908-1, revised 06/23/23): 4.7 uH +-20 %, DCR 36.00 typ / 40.00 mOhm max,
-  Isat 6.7 A at a 30 % drop (no 10 / 20 % columns), Irms 4.3 / 5.9 A at 20 / 40 C rise. DC bias: the
-  Doc 908-2 L vs Current plot of the 4.7 uH part (97.7 / 95.0 / 91.5 / 87.2 / 82.2 / 76.6 % of 5.0 uH
-  at 1-6 A, 30 % at about 7.0 A), fitted with Coilcraft's saturation form (flux = L Is
-  tanh((I/Is)^a)^(1/a), Is 12.7 A, a 0.87) and its current axis compressed so the 30 % drop lands on
-  the table's 6.7 A: Is 12.06 A, a 0.87, 20 % at 5.05 A (package isat_20 5.0 A); relative drop
-  applied to the -20 % part. AC loss: Coilcraft's power-inductor loss tool for this part (as recorded
-  in github.com/QY7/Power_toys, power_toys/data/coilcraft_loss_for_training/XAL5030-472.txt, fitted
-  at 0.408 MHz): 99.5 mW x dIpp^1.635, independent of the DC current, nearly linear in f; part
-  temperature rise 31.9 K/W (LossRth, coilcraft_model/XAL5030-472.txt).
+- XGL5030-472 (Coilcraft Doc 1576, revised 02/19/26): 4.7 uH +-20 %, DCR 21.9 typ / 24.5 mOhm max,
+  Isat 3.1 / 4.8 / 6.7 A at 10 / 20 / 30 % drop, Irms 6.3 / 8.5 A at 20 / 40 C rise. DC bias:
+  Coilcraft's saturation SPICE model of the part (XGL5030-472_sat: L 4.4984 uH, Is 13.0461 A,
+  a 0.7097, flux = L Is tanh((I/Is)^a)^(1/a)), relative drop applied to the -20 % part. AC loss:
+  Coilcraft's power-inductor loss tool for this part (as recorded in github.com/QY7/Power_toys,
+  power_toys/data/coilcraft_loss_for_training/XGL5030-472.txt): 71.6 mW x dIpp^1.99 at 0.408 MHz,
+  independent of the DC current, linear in f; part temperature rise 25.3 K/W (same tool).
 - Motor (not chosen): R 0.2-1.2 ohm (fan study's drone motors); L at 1 kHz bounded from the
   makers that publish it, scaled to kv 13,000-20,000 rpm/V by L ~ 1/kv^2 (same frame, same turns
   law): maxon DCX 10 L 1.5 V 5 uH at 7870 rpm/V (catalogue p100) -> 0.77-1.8 uH; Faulhaber 1024 K
@@ -44,9 +44,9 @@ import math
 
 F = 400e3
 T = 1 / F
-SAT = dict(L=5.0e-6, Is=12.06, a=0.87)  # only the relative drop is used
-L_NOM, TOL, DCR = 4.7e-6, 0.20, 40.0e-3
-ISAT20, RTH_L = 5.0, 31.9
+SAT = dict(L=4.4984e-6, Is=13.0461, a=0.7097)  # only the relative drop is used
+L_NOM, TOL, DCR = 4.7e-6, 0.20, 24.5e-3
+ISAT20, RTH_L, IRMS40 = 4.8, 25.3, 8.5
 RSNS, RDS25 = 25e-3, 0.165 / 2
 REF_TYP = 3.3 * 2.0 / 6.7
 I_LIM = REF_TYP / (RSNS * 10)
@@ -66,17 +66,17 @@ def l_choke(i, tol=-TOL):
 
 
 def ac_loss(dipp):
-    return 99.5e-3 * (F / 408e3) * dipp ** 1.635
+    return 71.6e-3 * (F / 408e3) * dipp ** 1.99
 
 
 def ripple_pp(v, d, l_tot):
     return v * d * (1 - d) * T / l_tot
 
 
-print("Fan path: STSPIN958 400 kHz + XAL5030-472 + drone coreless motor")
+print("Fan path: STSPIN958 400 kHz + XGL5030-472 + drone coreless motor")
 print(f"REF limit: typ {I_LIM:.2f} A, band {I_LIM_LO:.2f}-{I_LIM_HI:.2f} A (3V3_D 3.284-3.346 V, 1 % resistors, ACL 9.5-10.5,"
       " RSNS 1 %)")
-print("XAL5030-472 at -20 %, incremental L: " + ", ".join(f"{i:.0f} A {l_choke(i)*1e6:.2f} uH" for i in (0, 2, 3, 4, 5, 6, 7)))
+print("XGL5030-472 at -20 %, incremental L: " + ", ".join(f"{i:.0f} A {l_choke(i)*1e6:.2f} uH" for i in (0, 2, 3, 4, 5, 6, 7)))
 
 print("\n1. Running ripple at 400 kHz (choke -20 % and biased at the running current), worst VBAT 17.4 V")
 half = {"1S": 0.0, "2S": 0.0}
@@ -97,8 +97,8 @@ print("   (motor W: ripple heat at the 1.2 ohm top of the range, an upper bound;
 print("    lowest REF limit and the limiter trims the pulse, which lowers the mean current, not a fault)")
 print(f"   the worst: 1S, D = 0.5 never occurs; a 2S motor at D 0.43 with the lowest L: "
       f"{ripple_pp(17.4, 0.43, 0.48e-6 + l_choke(2.5)):.2f} A pp")
-print("   L6 temperature (Rth 31.9 K/W), DCR 40 mOhm max + 0.393 %/K copper on I^2 + dIpp^2/12, AC loss at the")
-print("   largest ripple of the table (2S, lowest L), board at 40 C; Irms 5.9 A is the 40 C-rise rating:")
+print(f"   L6 temperature (Rth {RTH_L} K/W), DCR {DCR*1e3:.1f} mOhm max + 0.393 %/K copper on I^2 + dIpp^2/12, AC loss at the")
+print(f"   largest ripple of the table (2S, lowest L), board at 40 C; Irms {IRMS40} A is the 40 C-rise rating:")
 pp_w = ripple_pp(17.4, 0.43, 0.48e-6 + l_choke(2.5))
 for i in (1.0, 2.5, I_LIM_HI):
     rise = 0.0
@@ -107,12 +107,18 @@ for i in (1.0, 2.5, I_LIM_HI):
         rise = (p_dc + ac_loss(pp_w)) * RTH_L
     print(f"   {i:4.2f} A: DC {p_dc*1e3:4.0f} mW + AC {ac_loss(pp_w)*1e3:4.0f} mW -> +{rise:4.1f} K, {40 + rise:5.1f} C")
 
+# The overcurrent protection watches each power MOSFET (IOC 7 A min, Table 5) and the parallel mode
+# shares the current between two of them; at 17.4 V the threshold is 91.4 % of its 58 V value (Figure 20).
+OC_DEVICE_MIN = 2 * 7.0 * 0.914
 print("\n2. Locked rotor (every start from rest, or a jammed fan): cycle-by-cycle limiter in PWM trimming, the")
 print("   firmware commanding any duty; on-time = max(t_b, crossing) + 200 ns, then low-side recirculation until")
 print("   the next period. Steady state after 600 periods, VBAT 17.4 V, I_lim at the band's top. A minimum on-time")
-print("   sets a minimum mean voltage: at 400 kHz a low-resistance motor stalls above the limit and can trip the")
-print("   overcurrent shutdown (IOC 7-14 A); at 100 kHz the same on-time is a quarter of the duty.")
-print(f"   {'f kHz':>5} {'R ohm':>5} {'Lm uH':>6} {'t_b ns':>6} | {'mean A':>6} {'peak A':>6} {'L6 left':>7} {'vs IOC 7 A':>10}")
+print("   sets a minimum mean voltage: at 400 kHz a low-resistance motor stalls far above the limit; at 100 kHz the")
+print("   same on-time is a quarter of the duty. The overcurrent protection trips per MOSFET (IOC 7-14 A), so the")
+print(f"   paralleled pair stops only at {OC_DEVICE_MIN:.1f}-28 A: a stall below that persists. 'driver W': the conduction")
+print("   loss mean^2 x RDS(on) at 125 C (1.95 x 82.5 mOhm), a lower bound on the STSPIN958's heat (section 3).")
+print(f"   {'f kHz':>5} {'R ohm':>5} {'Lm uH':>6} {'t_b ns':>6} | {'mean A':>6} {'peak A':>6} {'L6 left':>7} {'driver W':>8} "
+      f"{'vs OC ' + format(OC_DEVICE_MIN, '.1f') + ' A':>11}")
 
 
 def stall(f, r, lm, tb, n=250, periods=600):
@@ -140,6 +146,7 @@ def stall(f, r, lm, tb, n=250, periods=600):
 
 
 worst_lo = {100e3: 0.0, 50e3: 0.0}
+stall_400 = []
 for f in (400e3, 100e3, 50e3):
     for r in (0.2, 0.5, 1.2):
         for lm in (0.12e-6, 3e-6):
@@ -149,11 +156,22 @@ for f in (400e3, 100e3, 50e3):
                 mean, pk = stall(f, r, lm, tb, periods=600 if f == 400e3 else 120)
                 if f in worst_lo:
                     worst_lo[f] = max(worst_lo[f], pk)
+                if f == 400e3:
+                    stall_400.append((mean, pk, mean**2 * RDS25 * 1.95))
                 print(f"   {f/1e3:5.0f} {r:5.1f} {lm*1e6:6.2f} {tb*1e9:6.0f} | {mean:6.2f} {pk:6.2f} "
-                      f"{l_choke(pk)/l_choke(0)*100:6.0f} % {'trips' if pk > 7.0 else 'below':>10}")
-print(f"   worst peak at 100 kHz {worst_lo[100e3]:.2f} A (only a 1 us blanking with a 0.2 ohm motor trips), at 50 kHz"
-      f" {worst_lo[50e3]:.2f} A: start the fan at 50 kHz and move to")
-print("   400 kHz once it spins (Fan_TOFF no longer asserting); a fan that never stops asserting TOFF is jammed")
+                      f"{l_choke(pk)/l_choke(0)*100:6.0f} % {mean**2 * RDS25 * 1.95:8.1f} "
+                      f"{'trips' if pk > OC_DEVICE_MIN else 'below':>11}")
+below = [m for m in stall_400 if m[1] <= OC_DEVICE_MIN]
+print(f"   at 400 kHz a stall holds {min(m[0] for m in stall_400):.1f}-{max(m[0] for m in stall_400):.1f} A mean, "
+      f"{min(m[2] for m in stall_400):.1f}-{max(m[2] for m in stall_400):.1f} W of conduction loss in the driver; only peaks")
+print(f"   above {OC_DEVICE_MIN:.1f} A can trip the overcurrent protection (and only if the part's IOC sits low), and every case")
+print(f"   peaking below it ({max(m[0] for m in below):.1f} A mean, {max(m[2] for m in below):.1f} W at the worst) persists: the driver"
+      " cycles through its")
+print("   thermal shutdown and L6 runs far past its 4.8 A 20 % point.")
+print(f"   Worst peak at 100 kHz {worst_lo[100e3]:.2f} A, at 50 kHz {worst_lo[50e3]:.2f} A (a 1 us blanking")
+print("   with a 0.2 ohm motor; up to 500 ns of blanking the 50 kHz peaks stay at 4.8-5.7 A): start the fan at 50 kHz")
+print("   and move to 400 kHz once it spins (Fan_TOFF no longer low); at 400 kHz, Fan_TOFF low in most periods over")
+print("   1-2 ms is a jam: back to 50 kHz or Fan_Enable low; a fan that keeps Fan_TOFF low at 50 kHz is jammed")
 
 print("\n3. STSPIN958 heat at 400 kHz, 17.4 V, D 0.22 (1S) / 0.43 (2S), 2 V/ns edges; Tj from 40 C")
 

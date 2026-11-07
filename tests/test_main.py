@@ -338,11 +338,11 @@ def test_buzzer_resistor_at_the_firmware_duty(d):
 
 # research/next-revision/calculations/current_sense/ina241_riso_out.txt, section 4: the sampling time
 # from which the ADC kickback error stays under 1 mA, per (R_iso, C_f), in every corner of TI's
-# INA241A2 model (C_f +-5 %, ADC switch resistance 50-1000 Ohm, 2-10 pF on the pin, VCM 0-16.8 V, the
+# INA241A2 model (C_f +-25 %, ADC switch resistance 50-1000 Ohm, 2-10 pF on the pin, VCM 0-16.8 V, the
 # model's output impedance and Figure 6-24's). The INA241's output impedance (about 55 Ohm at 1 MHz)
 # makes the pin ring, so R_iso x C_f alone does not give it; another pair needs a rerun of
 # ina241_riso.py. The table is for 0.2 V/A (INA241A2, 20 V/V, on 10 mOhm).
-KICKBACK_SETTLED = {(100.0, 1e-9): 0.87e-6, (150.0, 1e-9): 0.64e-6}
+KICKBACK_SETTLED = {(100.0, 1e-9): 0.84e-6, (150.0, 1e-9): 0.61e-6}
 INA241A2_GAIN = 20.0  # SBOSA30D: the A2 gain, V/V
 
 
@@ -384,8 +384,28 @@ FIRMWARE_RULES = {
     "debug_halt": ["TIM1", "TIM8", "TIM14", "Motors_Enable", "Fan_Enable", "GPIOB_BSRR"],
     # the IMU shares SPI_SCK/SPI_MOSI with the encoders and decodes them as I2C while deselected
     "imu_interface": ["I2C_I3C_disable", "IF_CFG"],
-    # Wall_Emitter_Set runs beside LED_ARGB and the encoder chip selects (Sensors.zen)
-    "emitter_slot_quiet": ["LED_ARGB", "SPI_SCK", "Encoder_Right_CSn", "Encoder_Left_CSn"],
+    # Wall_Emitter_Set runs beside LED_ARGB and the encoder chip selects (Sensors.zen); the buzzer's
+    # edges would land on the wall receivers' 1 kOhm nodes during a scan
+    "emitter_slot_quiet": ["LED_ARGB", "SPI_SCK", "Encoder_Right_CSn", "Encoder_Left_CSn", "Buzzer"],
+    # the STSPIN958's TOFF is low during the limiter's decay (DS14341 section 5.6.2, Figure 14), read
+    # in step with the PWM; it leaves the decay only on a PWM1 low edge (section 5.6.2.2)
+    "fan_toff": ["low while the limiter decays", "TIM14 has no DMA request", "GPIOB_IDR"],
+    "fan_pwm": ["1 - 280 ns x fPWM", "88.8 %"],
+    # the overcurrent trip is per MOSFET, so a 400 kHz stall below it persists (DS14341 section 5.7)
+    "fan_start": ["per MOSFET", "12.8-28 A"],
+    "fan_jam": ["400 kHz", "1-2 ms", "50 kHz", "Fan_Enable low"],
+    # PWM1 low with EN high is a low-side brake the limiter cannot see (DS14341 Table 11)
+    "fan_stop": ["Fan_Enable low", "coasts", "never by holding Fan_PWM low"],
+    # a held stall heats a DRV8874 to about 146 C in 10 s (TSD 160 C)
+    "motor_stall": ["5 s"],
+    # the LSM6DSV's figures stop at +-2000 dps (DS13476 Table 3)
+    "imu_gyro_range": ["+-2000 dps"],
+    # the AS5047U is SPI mode 1 only, the LSM6DSV mode 0 or 3
+    "sensor_bus_mode": ["mode 1", "mode 3", "CPOL", "MasterKeepIOState"],
+    # NRST's 100 nF against the internal 30-50 kOhm pull-up (DS13311 Table 61)
+    "probe_reset": ["10 ms", "srst_only srst_nogate connect_assert_srst", "adapter srst delay 10"],
+    # an ST-Link on SWD1 shares the lines with the C5's probe pins
+    "swd1_fallback": ["J2 pad 1", "J2 pad 4", "GPIO0", "GPIO1", "GPIO23"],
     # the current channels share ADC1/ADC2 with the walls and the battery
     "current_sampling_time": ["adc.current_sampling_time_min_us"],
     # the link needs the C5's 3-wire spi_slave_hd mode (Esp.zen)
@@ -395,7 +415,7 @@ FIRMWARE_RULES = {
     # the IMU and encoder bus on SPI2 and its DMA requests (sensor_bus)
     "sensor_bus_dma": ["SPI2", "39", "40"],
     # Button's EXTI line has its interrupt to itself (button)
-    "button_input": ["PA3", "EXTI3"],
+    "button_input": ["PC4", "EXTI4"],
     # the LEDs' timer and DMA request, the buzzer's timer (leds, buzzer; RM0468 Table 118)
     "led_timer": ["TIM15", "tim15_up", "106", "MOE"],
     "buzzer_timer": ["TIM17", "MOE"],
@@ -429,6 +449,38 @@ FIRMWARE_RULES = {
     # on 5V_IN alone the bridges have no supply and the battery reads near 0 V (Regulators.zen)
     "battery_absent": ["5V_IN", "Motors_Enable", "Fan_Enable"],
 }
+
+
+# Crystals and oscillators: a part of one of these kinds on the oscillator pins clocks the MCU.
+CLOCK_KINDS = ("crystal", "oscillator", "resonator")
+
+
+def test_firmware_names_the_time_reference_without_an_mcu_crystal(d):
+    # Without an HSE crystal the H7 runs on its HSI, +-1 % over temperature (DS13311 Rev 5 Table 40),
+    # which scales the gyro's yaw integral; the firmware then measures it against the ESP32-C5's
+    # crystal over the link (firmware_changes.toml timebase), and the C5 stays on in contest mode.
+    osc = [d.net(MCU, pin) for pin in ("PH0-OSC_IN", "PH1-OSC_OUT")]
+    assert all(osc), f"PH0/PH1 not found on {MCU}"
+    clocked = sorted(r for net in osc for r in d.refs_on(net) if d.kind(r) in CLOCK_KINDS)
+    if clocked:
+        pytest.skip(f"the MCU has its own clock reference: {clocked}")
+    words = ["HSI", "ESP_CSn", "crystal", "loop_time", "contest"]
+    text = FW["behaviour"].get("timebase", "")
+    missing = [w for w in words if w not in text]
+    assert not missing, f"no crystal on PH0/PH1 ({osc}): behaviour.timebase must name {missing}"
+
+
+def test_every_free_running_timer_output_has_low_output_speed():
+    # Slow edges on the PWM pins couple less into the wall-sensor and current lines (DS13311 Table 58):
+    # every timer channel the firmware drives as an output, from the pin map, is named in io_speed_pwm.
+    outputs = sorted(
+        pin
+        for pin, f in FW["pins"].items()
+        if f.get("signal", "").startswith("S_TIM") and not f.get("label", "").startswith("Encoder_")
+    )
+    text = FW["behaviour"].get("io_speed_pwm", "")
+    missing = [pin for pin in outputs if not re.search(rf"\b{pin}\b", text)]
+    assert outputs and not missing, f"behaviour.io_speed_pwm does not name the timer outputs {missing}"
 
 
 def test_firmware_contract_names_the_rules_the_hardware_leaves_open():

@@ -101,6 +101,7 @@ class Via:
     net: str
     xy: tuple[float, float]
     size: float  # copper diameter
+    drill: float = 0.0
 
 
 @dataclass
@@ -115,6 +116,20 @@ class Board:
     def placed(self) -> bool:
         """The layout has an outline: until then placement is the tool's packing, not a design."""
         return bool(self.edge_shapes)
+
+    def outline_box(self) -> tuple[float, float, float, float]:
+        """The Edge.Cuts bounding box (KiCad frame: x0, y0, x1, y1), arcs and circles included."""
+        pts = []
+        for kind, p, _ in self.edge_shapes:
+            if kind == "gr_arc":
+                pts += arc_points(*p[:3])
+            elif kind == "gr_circle":
+                (cx, cy), r = p[0], math.dist(p[0], p[1])
+                pts += [(cx - r, cy - r), (cx + r, cy + r)]
+            else:
+                pts += p
+        xs, ys = [x for x, _ in pts], [y for _, y in pts]
+        return min(xs), min(ys), max(xs), max(ys)
 
 
 def _xy(node) -> tuple[float, float]:
@@ -239,6 +254,7 @@ def parse(text: str) -> Board:
             net=v.child("net").atoms()[-1] if v.child("net") else "",
             xy=_xy(v.child("at")),
             size=float(v.child("size").atoms()[0]),
+            drill=float(v.child("drill").atoms()[0]) if v.child("drill") else 0.0,
         )
         for v in root.children("via")
     ]
@@ -254,6 +270,20 @@ def _arc_radius(a, m, b) -> float:
     ux = ((ax**2 + ay**2) * (by - cy) + (bx**2 + by**2) * (cy - ay) + (cx**2 + cy**2) * (ay - by)) / d
     uy = ((ax**2 + ay**2) * (cx - bx) + (bx**2 + by**2) * (ax - cx) + (cx**2 + cy**2) * (bx - ax)) / d
     return math.dist((ux, uy), a)
+
+
+def arc_points(a, m, b, n: int = 64) -> list[tuple[float, float]]:
+    """Points along the arc from a through m to b."""
+    (ax, ay), (bx, by), (cx, cy) = a, m, b
+    d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
+    ux = ((ax**2 + ay**2) * (by - cy) + (bx**2 + by**2) * (cy - ay) + (cx**2 + cy**2) * (ay - by)) / d
+    uy = ((ax**2 + ay**2) * (cx - bx) + (bx**2 + by**2) * (ax - cx) + (cx**2 + cy**2) * (bx - ax)) / d
+    r = math.dist((ux, uy), a)
+    t0, tm, t1 = (math.atan2(y - uy, x - ux) for x, y in (a, m, b))
+    sweep = (t1 - t0) % (2 * math.pi)
+    if (tm - t0) % (2 * math.pi) > sweep:  # the arc runs clockwise through m
+        sweep -= 2 * math.pi
+    return [(ux + r * math.cos(t0 + sweep * i / n), uy + r * math.sin(t0 + sweep * i / n)) for i in range(n + 1)]
 
 
 def load_file(path: Path) -> Board:

@@ -26,6 +26,9 @@
 thickness = { value = 1.0412, source = "boards/main/main.zen Board() stackup: the v1 board's 4-layer 1.0 mm JLCPCB stackup" }
 copper_layers = { value = 4, source = "boards/main/main.zen Board(layers = 4)" }
 via_in_pad = { value = "open", source = "the owner (2026-10-25): no via-in-pad process (JLCPCB PCB Capabilities, accessed 2026-10-25: its Via-in-Pad Process fills vias with epoxy or copper paste and plates them over, the default only from 6 layers). The exposed pads' thermal vias are 0.2 mm holes (TI SLVSF66A land pattern 4223595/B; a smaller via loses less solder, TI SLUA271C 3.4.1) left open on both sides (tenting a pad's via from the back traps air, SLUA271C 3.4.1), and the pads' paste is split into windows clear of them (the footprints; 50-70 % coverage, SLUA271C 4.4)" }
+via_drill = { value = 0.2, source = "the board's smallest via, a 0.2 mm hole in 0.35 mm copper, for the escapes of the STM32's 0.4 mm pitch pins (boards/main/main.zen ViaDimension(diameter = 0.35, drill = 0.2)); tests/test_fab.py holds it to the layout. JLCPCB charges extra for a 0.2 or 0.25 mm hole with copper under 0.45 mm (PCB Capabilities, Drilling, accessed 2026-11-07), so the board is ordered, and quoted (micras-pcb quote), with the via option 0.2mm/(0.3/0.35mm)" }
+via_diameter = { value = 0.35, source = "the copper of the smallest via (via_drill)" }
+assembly = { value = "economic", source = "JLCPCB Economic PCBA, 2 of 5 boards assembled (commit 22028f8); the board is above its 10 x 10 mm single-board minimum (jlcpcb.com/capabilities/pcb-assembly-capabilities, accessed 2026-11-07)" }
 
 [kicad]
 origin_x = { value = 148.5011, source = "v1 board spec/main.toml [kicad] origin_x: the same sheet position" }
@@ -58,8 +61,8 @@ diameter = { value = 4.4, source = "MicrasHardware micras/params.py Board.counte
 angle = { value = 90, source = "MicrasHardware micras/fasteners.py: flat-head M2 screws from under the board, heads in the board's countersinks; 90 deg, the M2 flat head's (ISO 10642)" }
 side = { value = "bottom", source = "MicrasHardware micras/fasteners.py: the screws come from under the board" }
 fabricated = { value = false, source = "the owner (2026-11-02): cut by hand, not ordered from JLCPCB" }
-clearance_outer = { value = 2.3, source = "diameter / 2 + 0.1 mm: the cone is 2.2 mm in radius at the bottom face (B.Cu) and 1.95 mm at In2.Cu, 0.25 mm above it (boards/main/main.zen stackup: 0.035 mm copper + 0.2104 mm prepreg); the keep-out radius on B.Cu and In2.Cu" }
-clearance_in1 = { value = 1.6, source = "the cone's radius at In1.Cu, 0.76-0.78 mm above the bottom face (boards/main/main.zen stackup: 0.035 + 0.2104 + 0.0175 + 0.5 mm), is 1.42-1.44 mm; with margin, the keep-out radius on In1.Cu. F.Cu, 1.0 mm up, meets the 1.2 mm hole: it keeps the hole's own clearance" }
+clearance_outer = { value = 2.6, source = "the cone + 0.4 mm (routing review RP4, 2026-11-07: the owner cuts the countersinks by hand, so the cone may run 0.4 mm wide): the cone is 2.2 mm in radius at the bottom face (B.Cu) and 1.95 mm at In2.Cu, 0.25 mm above it (boards/main/main.zen stackup: 0.035 mm copper + 0.2104 mm prepreg); the keep-out radius on B.Cu and In2.Cu, and for every via" }
+clearance_in1 = { value = 1.85, source = "the cone's radius at In1.Cu, 0.76-0.78 mm above the bottom face (boards/main/main.zen stackup: 0.035 + 0.2104 + 0.0175 + 0.5 mm), is 1.42-1.44 mm; + 0.4 mm for a hand-cut cone (routing review RP4), the keep-out radius on In1.Cu. F.Cu, 1.0 mm up, meets the 1.2 mm hole: it keeps the hole's own clearance" }
 
 [h1]
 x = { value = 2.5, source = "v1 board spec/main.toml [h1]; MicrasHardware Board.front_hole" }

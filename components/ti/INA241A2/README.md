@@ -1,7 +1,7 @@
 # INA241A2
 
-Texas Instruments INA241A2QDGKRQ1 (LCSC C31766589), the AEC-Q100 grade of the INA241A2IDGKR with
-the same pinout, package and specifications (TI SBOSA31D): bidirectional current-sense amplifier, gain
+Texas Instruments INA241A2IDGKR (LCSC C36752877, TI SBOSA30D; its AEC-Q100 grade INA241A2QDGKRQ1,
+SBOSA31D, has the same die, pinout, package and specifications): bidirectional current-sense amplifier, gain
 20 V/V, input common mode -5 to 110 V independent of its 2.7-20 V supply, with enhanced PWM
 rejection for in-line motor sensing up to 125 kHz; VSSOP-8 (DGK). Bare part: the VS bypass
 capacitor, the shunt and the output filter belong to the board. Evidence is in the docstring of

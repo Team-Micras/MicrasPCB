@@ -168,7 +168,13 @@ Header(name="J1", P1=WALL_SENSOR, P2=GND, P3=V3V3_A, P4=V3V3_D, P5=EMITTER_SINK,
 # Stackup: the encoder board's (boards/encoder/encoder.zen), 0.70 mm FR-4 core and 35 um copper,
 # 0.79 mm with Zener's 10 um mask a side; ordered as JLCPCB's 0.8 mm 2-layer board. Tracks 0.3 mm
 # (the emitter's 175 mA pulses), vias 0.3 / 0.6 mm (JLCPCB's no-surcharge drill), 0.15 mm
-# clearance.
+# clearance. Finish: leaded HASL (KiCad "HAL SnPb"), as every Micras board (the owner's choice,
+# 2026-11-07: the v1 main board was ordered with HASL at JLCPCB and worked, and ENIG adds 16.80 USD
+# an order of panels). The straddle header's rows leave the board 0.04 mm a side (spec/wall.toml
+# pcb.thickness), but the 0.8 mm board's own thickness tolerance is larger than HASL's pad
+# unevenness, and JLCPCB prints no paste on J1 (assembly = "hand", parts/jlc.toml): the team pastes
+# and solders it itself. Black solder mask and white silkscreen, as the encoder board's. JLCPCB's
+# order options come from here (micras-pcb fab writes build/wall/fab/wall-order.txt).
 Board(
     name="wall",
     path="layout",
@@ -191,6 +197,9 @@ Board(
             ],
         ),
         stackup=Stackup(
+            copper_finish="HAL SnPb",
+            solder_mask_color="Black",
+            silk_screen_color="White",
             materials=[Material(name="FR-4", relative_permittivity=4.5)],
             thickness=0.79,
             layers=[

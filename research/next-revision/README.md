@@ -64,11 +64,11 @@ assumed 90 %). The TPS61178 could not stay anyway: recommended VOUT tops out at 
                                           └─ 22 Ω + 10 µF ─ ADP7142ACPZN3.3 (EN = 3V3_D) ─ 3V3_A:
                                                  VDDA (1 µF + 100 nF), INA241A2 VS + REF1, phototransistor collectors,
                                                  emitter-sink op-amp (set-point from the DAC on PA5)
-ESP32-C5 ─ SWDIO GPIO0 / SWCLK GPIO1 / NRST GPIO23 ─ H7;  ESP_Flow GPIO24 ─ PA9
+ESP32-C5 ─ SWDIO GPIO0 / SWCLK GPIO1 / NRST GPIO23 ─ H7;  ESP_Flow GPIO24 ─ PA11
 ESP32-C5 ─ SPI3 half-duplex (H7 master): SCK GPIO10 ─ PC10, DATA GPIO8 ─ PC12, CSn GPIO9 ─ PC11  (UART4 fallback on PC10/PC11)
 ESP32-C5 UART0 TX0/RX0, EN, GPIO28, 5V_IN ─ J2 2 × 3 1.27 mm header (ESP-Prog Program interface)
 H7 NRST / SWDIO / SWCLK, 5V_IN ─ SWD1 bare 1.27 mm pads (1 NRST, then the clone ST-Link order: 2 SWDIO, 3 GND, 4 SWCLK, 5 5V)
-DRV8874 nFAULT ×2 wire-OR ─ PB2
+DRV8874 nFAULT ×2 wire-OR ─ PB6
 ```
 
 ### Power tree
@@ -111,8 +111,9 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   - With the pack in, D17 blocks up to the 24.2 V clamp (61 % of its 40 V); its reverse current
     (12 µA at 25 °C) goes into the programmer's 5 V rail. Without the pack, D14 leaks into VBAT,
     which the battery divider's 22 kΩ holds at 0.13 V at 25 °C, 1.1 V at 70 °C and 3.42 V at 85 °C;
-    with the pack in and SW4 off, Q6's off-state leakage adds about 0.5 V (IDSS is specified only
-    at 25 °C), about 3.9 V: the DRV8874s (UVLO 4.3 V min) stay off. The STSPIN958's VS turn-on has
+    with the pack in and SW4 off, Q6's off-state leakage adds about 0.5 V (IDSS is specified up to
+    55 °C only: 1 µA at 25 °C, 5 µA at 55 °C, VDS 24 V, HSBB3072 datasheet p2), about 3.9 V: the
+    DRV8874s (UVLO 4.3 V min) stay off. The STSPIN958's VS turn-on has
     a 5.05 V maximum and no minimum, so it is not counted on: its output stays Hi-Z with EN/nFAULT
     low, or on its low side with PWM1 held low by its internal pull-down ([STSPIN958] Tables 5 and
     11), and the firmware keeps Fan_Enable low and reads "no pack"
@@ -337,7 +338,7 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   ends at the next input edge ("if the state of the ... control pin inputs changes during the tOFF
   time, the remainder of the tOFF time is ignored", §7.3.3.2.1), so with a 100 kHz input the
   chopping ends at the next PWM edge. Cycle-by-cycle mode (IMODE 20 kΩ or 62 kΩ, Table 6) pulses
-  nFAULT low at every chop (Figure 14), which would hit the Motors_nFault EXTI (PB2) at up to 100 kHz
+  nFAULT low at every chop (Figure 14), which would hit the Motors_nFault EXTI (PB6) at up to 100 kHz
   (inference). With 3V3_D's 3.284-3.346 V, 1 % resistors and AERR ±5.5 % the ITRIP band is
   2.76-3.23 A. The mirror's sensing low side conducts in drive and in brake, so the sense delay
   tDELAY never applies (§7.3.3.1) and the comparator follows the current within tBLK + tDEG.
@@ -447,8 +448,8 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
 ### Fan
 
 - **STSPIN958**, parallel half-bridge mode, **400 kHz** on TIM14 (ARR 687), on three MCU pins
-  (Fan_PWM PA7 on TIM14_CH1, Fan_Enable PB10 driven open drain and read back as nFAULT, Fan_TOFF
-  PA12). It is the only integrated single-bridge
+  (Fan_PWM PA7 on TIM14_CH1, Fan_Enable PB12 driven open drain and read back as nFAULT, Fan_TOFF
+  PB10). It is the only integrated single-bridge
   driver found with PWM up to 500 kHz, a cycle-by-cycle current limiter, synchronous freewheeling and
   integrated protection (OC, OT 150 °C, UVLO, EN/nFAULT) ([STSPIN958]; fan study §3).
 - **Load model**: a drone-class coreless motor, R 0.2-1.2 Ω, kv 13-17k rpm/V for 1S, operating at
@@ -477,8 +478,11 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   loss in L6 (Coilcraft's loss-tool data for the part; +17 K with the DCR at 2.5 A). A locked rotor
   defeats the cycle-by-cycle limiter at 400 kHz for a low-resistance motor: the on-time cannot fall
   below the limiter's blanking (unpublished; 280-500 ns taken), so a 0.2-0.5 Ω stall averages
-  5-13 A and may trip the 7 A overcurrent shutdown. At 50 kHz every case up to 500 ns of blanking
-  stays below 7 A (peaks 4.8-5.7 A), so the fan starts at 50 kHz.
+  5-13 A. The overcurrent protection trips per MOSFET (IOC 7-14 A, [STSPIN958] Table 5; 91 % of it
+  at 17 V, Figure 20), and parallel mode shares the current between two, so the device trips only
+  at about 12.8-28 A: such a stall mostly persists (up to 12 W of conduction loss, thermal-shutdown
+  cycling). At 50 kHz every case up to 500 ns of blanking peaks at 4.8-5.7 A, so the fan starts at
+  50 kHz.
 - **STSPIN958 heat** (§3): RDS(on) against temperature, the dead time and the VS operating current are
   unpublished ([STSPIN958] Rev 1, the only revision found); bound by the silicon mobility law (1.95×
   at 125 °C), 300 ns of body-diode conduction per edge, 10 mA and 45 °C/W, from 40 °C: 2.0 W and
@@ -487,9 +491,12 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   150 °C shutdown in the bound; the board at the pad stays about P × 17.4 °C/W (RthJB) below the
   junction, 97 °C at the 2.5 A bound, inside C33's X7R range.
 - **Firmware**: duty = V_cmd / VBAT, never below the 11.2 % floor set by the 280 ns minimum pulse at
-  400 kHz except at 0; start from rest at 50 kHz with the duty ramp and move to 400 kHz once TOFF
-  stops asserting; TOFF without a break at 50 kHz means a jammed fan, and EN/nFAULT is the fault
-  flag (`boards/main/firmware_changes.toml`, fan).
+  400 kHz except at 0, and never above 1 − 280 ns × fPWM (88.8 % at 400 kHz: the driver leaves the
+  decay only on a PWM1 low edge); TOFF, low during the decay, sampled in step with the PWM; start
+  from rest at 50 kHz with the duty ramp and move to 400 kHz once TOFF stops going low; TOFF low in
+  most periods over 1-2 ms at 400 kHz is a jam (back to 50 kHz, or EN low), and without a break at
+  50 kHz a jammed fan; stop with EN low (coast), not PWM1 low (an unlimited low-side brake);
+  EN/nFAULT is the fault flag (`boards/main/firmware_changes.toml`, fan).
 - **Above about 3 A continuous**: the fallback is a discrete synchronous half-bridge, a TPS28225
   driver (adaptive 14 ns dead time, VIN ≤ 27 V, VDD 4.5-8.8 V) with 2 × CSD17578Q3A (30 V, 9.4 mΩ at
   4.5 V) and a 10-20 mΩ low-side shunt read by a TLV3201/TLV7031 comparator that pulls EN low
@@ -561,14 +568,14 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   and §55.4.4), ESP_CSn on PC11 (a GPIO), the C5 an ESP-IDF spi_slave_hd slave in 3-wire and DMA
   append mode. The link takes SPI3, whose pins sit on the H7's rear-right row toward the C5, and
   the IMU and encoder bus moves to SPI2 (PB13-PB15): SPI2's clock and data pins are all on the other
-  rows ([DS13311] Table 9). R95, 22 Ω at PC10, terminates the clock at its driver; R96, 220 Ω at the C5 on the
+  rows ([DS13311] Table 9). R95, 22 Ω in series with the clock, damps it; R96, 220 Ω on the
   data line, limits the current to 15 mA, under the 20 mA per pin ([DS13311] Table 11), if both ends
   drive it at a direction change ([RM0468] Figure 643 note 3), which the firmware's turn-around
   avoids (`boards/main/firmware_changes.toml`, link); its RC with the line, about 3 ns, is 11 % of
   the half clock at the 15.6 MHz start and 22 % at 31.25 MHz, the fastest step under the C5's
   40 MHz slave limit (`boards/main/Esp.zen`); R97
-  100 kΩ holds ESP_CSn high while neither end drives it. ESP_Flow (GPIO24 → PA9,
-  EXTI9) carries the C5's credits: the H7 starts a transfer only when the C5 has a buffer queued.
+  100 kΩ holds ESP_CSn high while neither end drives it. ESP_Flow (GPIO24 → PA11,
+  EXTI11) carries the C5's credits: the H7 starts a transfer only when the C5 has a buffer queued.
   UART4 is the fallback on the same pins, up to 5 Mbaud (PC10 UART4_TX into the C5's U1RXD on
   GPIO10, its U1TXD on GPIO9 through R88 100 Ω into PC11 UART4_RX), against the "8 floats at 8 kHz"
   stream of 256 kB/s (MicrasFirmware `bluetooth_design.md` §7). With a laptop on 5 GHz Wi-Fi the
@@ -698,12 +705,12 @@ at 5.825 GHz at −58.3 dBm against −90.5 dBm sensitivity at 12 Mbit/s, 32.2 d
 ### H7 pin budget
 
 The H725 VFQFPN68 uses every GPIO. The ESP32-C5 takes SWD (PA13/PA14), NRST and the link on PC10,
-PC11 and PC12 (SPI3, UART4 as the fallback), and ESP_Flow on PA9. The IMU and encoder bus moves to
-SPI2 on PB13-PB15, Fan_PWM to PA7 (TIM14_CH1), Button to PA11 and Fan_TOFF to PA12. PB14 leaves
-Fan_Enable for the bus: Fan_Enable moves to PB10, the IMU's INT1 input, and the IMU's INT1 alone drives one line,
-IMU_INT on PB6 (INT2 unconnected, its interrupts moved onto INT1). The DIP switch sits on PH0, PH1, PC15 and PC14 (plain inputs with the internal
+PC11 and PC12 (SPI3, UART4 as the fallback), and ESP_Flow on PA11. The IMU and encoder bus moves to
+SPI2 on PB13-PB15, Fan_PWM to PA7 (TIM14_CH1), Button to PC4 and Fan_TOFF to PB10. PB14 leaves
+Fan_Enable for the bus: Fan_Enable moves to PB12, and the IMU's INT1 alone drives one line,
+IMU_INT on PC7 (INT2 unconnected, its interrupts moved onto INT1). The DIP switch sits on PH0, PH1, PC15 and PC14 (plain inputs with the internal
 pull-ups; no HSE or LSE crystal), and the PH/EN bridges need one PWM pin each instead of two,
-which frees the pins of the two new lines, Motors_nFault (PB2) and ESP_Flow (PA9). Every pin's
+which frees the pins of the two new lines, Motors_nFault (PB6) and ESP_Flow (PA11). Every pin's
 alternate function, and the one-function-per-timer split, checks against ST's STM32_open_pin_data
 database, and STM32CubeMX 6.18.1 loads and generates the whole timer, DMA, DAC and dual-ADC set-up
 without a conflict (`boards/main/main.zen`, pin map check).
@@ -712,11 +719,11 @@ without a conflict (`boards/main/main.zen`, pin map check).
 |---|---|---|
 | ESP ↔ H7 link | 3 | PC10 SPI3_SCK (AF6), PC12 SPI3_MOSI pad as the half-duplex data line (AF6, IOSWP = 0), PC11 ESP_CSn (GPIO); UART4_TX/RX (AF8) on PC10/PC11 as the fallback; DMAMUX1 inputs 61/62 (spi3_rx_dma, spi3_tx_dma, [RM0468] Table 118) |
 | IMU and encoder bus | 3 | PB13 SPI2_SCK, PB14 SPI2_MISO, PB15 SPI2_MOSI (AF5); DMAMUX1 inputs 39/40 (spi2_rx_dma, spi2_tx_dma) |
-| ESP ↔ H7 flow control | 1 | PA9 (ESP_Flow, EXTI9, from the C5's GPIO24, internal pull-down): the C5's credits |
-| Fan enable | 1, moved | PB10, open drain with R27 39 kΩ / C30 10 nF, read back as the STSPIN958's nFAULT |
-| IMU interrupts | 1 for two | PB6 (IMU_INT, EXTI6, no pull): INT1 alone, push-pull and active high at its defaults; INT2 unconnected (an output forced to ground, DS13476 Rev 5 Table 22), its interrupts moved onto INT1 with CTRL4 INT2_on_INT1 (Table 58) |
-| Motor fault | 1 | PB2 (Motors_nFault, EXTI2), both DRV8874 nFAULT wire-ORed (open drain; IMODE = GND so it does not chatter) |
-| Current inputs | 2, by swapping | No direct channel is free. Current_Sensor_Left on PB1 (ADC1/2 INP5, a fast channel), Current_Sensor_Right on PC1 (ADC1/2 INP11, slow; one conversion per centre still fits); Wall_Sensor_0 on PA4 and Wall_Sensor_3 on PC0. Each keeps an ADC1 and an ADC2 input: ADC1 converts PB1 and ADC2 PC1 in dual injected-simultaneous mode on TIM1 TRGO2, the walls and the battery run on ADC1's regular group ([RM0468] §28.4.32, Table 227; `boards/main/firmware_changes.toml`, current) |
+| ESP ↔ H7 flow control | 1 | PA11 (ESP_Flow, EXTI11, from the C5's GPIO24, internal pull-down): the C5's credits |
+| Fan enable | 1, moved | PB12, open drain with R27 39 kΩ / C30 10 nF, read back as the STSPIN958's nFAULT |
+| IMU interrupts | 1 for two | PC7 (IMU_INT, EXTI7, no pull): INT1 alone, push-pull and active high at its defaults; INT2 unconnected (an output forced to ground, DS13476 Rev 5 Table 22), its interrupts moved onto INT1 with CTRL4 INT2_on_INT1 (Table 58) |
+| Motor fault | 1 | PB6 (Motors_nFault, EXTI6, sharing the EXTI9_5 interrupt with IMU_INT), both DRV8874 nFAULT wire-ORed (open drain; IMODE = GND so it does not chatter) |
+| Current inputs | 2, by swapping | No direct channel is free. Current_Sensor_Left on PA6 (ADC1/2 INP3, a fast channel), Current_Sensor_Right on PC1 (ADC1/2 INP11, slow; one conversion per centre still fits); Wall_Sensor_0 on PA4, Wall_Sensor_1 on PA3, Wall_Sensor_2 on PB1 and Wall_Sensor_3 on PC0, so no wall input sits beside Fan_PWM (PA7). Each keeps an ADC1 and an ADC2 input: ADC1 converts PA6 and ADC2 PC1 in dual injected-simultaneous mode on TIM1 TRGO2, the walls and the battery run on ADC1's regular group ([RM0468] §28.4.32, Table 227; `boards/main/firmware_changes.toml`, current) |
 | IPROPI | 0 | ITRIP only |
 | Emitter set-point DAC | 1 | PA5 (DAC1_OUT2; PA4, DAC1_OUT1, carries Wall_Sensor_0, so DAC channel 1 stays off the pad, MODE1 = 011, [RM0468] Table 266). TIM4, freed by the selectors' move to TIM3, triggers the DAC in step with TIM3 (the DAC has no TIM3 trigger, [RM0468] Tables 264 and 355). The battery divider moves to PC5 (ADC12_INP8, slow channel, DS13311 Table 85) and Switch_0 to PH0 (a plain FT input with the internal pull-up; no HSE crystal) |
 
@@ -750,7 +757,7 @@ New or changed parts; JLC numbers and prices as queried on 2026-10-15 (stock is 
 | Status LEDs | WS2812C-2020-V6 × 2 | replaces WS2815C-2020 (needs 9.5-13.5 V) | 3.3-5.3 V, 5 mA per colour; C55109522 | [WS2812C-2020-V6] |
 | Radio / probe | ESP32-C5-MINI-1-N4, rear-right corner, antenna over the rear-right notch | replaces HM-19 and P1 | 2.4 + 5 GHz Wi-Fi 6, 426 mA TX peak, ≥ 0.6 A supply; C54951860, 0 stock (read 2026-10-31) | [ESP32-C5-MINI-1], [ESP32 form factor](#esp32-form-factor) |
 | Radio pads | J2, 2 × 3 plated holes at 1.27 mm, ESP-Prog Program interface order, wires soldered once | new | board copper, no part | [ESP-Prog]; `components/micras/EspProgPads` |
-| Link resistors | R95 22 Ω 0402 at PC10 (SPI clock), R96 220 Ω 0402 at the C5 (data line), R97 100 kΩ ESP_CSn pull-up | new | 0402WGF220JTCE C25092, 0402WGF2200TCE C25091, 0402WGF1003TCE C25741, basic | [RM0468] Figure 643 note 3, [DS13311] Table 11 |
+| Link resistors | R95 22 Ω 0402 on the SPI clock, R96 220 Ω 0402 on the data line (both mid-line: the lines are electrically short), R97 100 kΩ ESP_CSn pull-up | new | 0402WGF220JTCE C25092, 0402WGF2200TCE C25091, 0402WGF1003TCE C25741, basic | [RM0468] Figure 643 note 3, [DS13311] Table 11 |
 | Switches, divider | SW4 → SK-12D29-G060 (DC 24 V 1 A, 6.0 mm lever, new footprint; ON with the lever at pin 3, B); R44/R45 20k/2k | modify | C2848877, 531 stock, $0.13; firmware constant 11.0 | drivetrain study §4; `components/g-switch/SK-12D29-G060` |
 | VDDA filter | FB1 → 0 Ω or ≤ 50 mΩ bead | modify | – | power-tree study §9 |
 | Removed | TPS61178 + 1 µH + 7 capacitors; L6205D and its parts; 2 × TSC2020; 2 × 40 mΩ shunts; the SWD connector P1 and its SWD_VDD OR-ing; the HM-19's SBU supply chain; the USB-C receptacle and its ESD, CC and VBUS parts; WS2815C ×2 | remove | – | – |
@@ -976,7 +983,7 @@ PWM ripple against these costs; both are fitted.
   keeps 79 % of its inductance at the 3 A ITRIP, 69 % at its 4.2 A Isat and 60 % at the 5.48 A bound
   peak of a full-speed reversal; the XGL5030-472 keeps 77 % at 4.8 A and 66 % at 6.7 A. The
   wheel peaks stay under the DRV8874's 6 A OCP minimum ([Drivetrain](#drivetrain)), the fan's
-  under the STSPIN958's 7 A once it starts at 50 kHz ([Fan](#fan)).
+  at 4.8-5.7 A once it starts at 50 kHz ([Fan](#fan)), far under the STSPIN958's overcurrent trip.
 - **DCR and core loss.** The DCR adds to the 2.9 Ω loop: each 100 mΩ costs 0.1 W at 1 A rms
   and adds 3.4 % to the loop resistance (computed). Coilcraft's Power Inductor tool (40 °C ambient, 2026-10-25) gives the
   losses outright: a wheel choke (XAL7070-473, 100 kHz, 1.1 A pp) takes 330 mW in all and reaches
@@ -1261,7 +1268,7 @@ Proposals to verify against the datasheets when entered in Zener.
 - **EN/IN1** (1) to the timer PWM, **PH/IN2** (2) to the direction: right motor PA8 (TIM1_CH1)
   and PB8, left motor PC7 (TIM8_CH2) and PC6.
 - **nSLEEP** (3) to Motors_Enable (PA10) with R49 100 kΩ pull-down.
-- **nFAULT** (4): pull-up to 3V3_D; both drivers wire-ORed to PB2 (Motors_nFault).
+- **nFAULT** (4): pull-up to 3V3_D; both drivers wire-ORed to PB6 (Motors_nFault).
 - **IPROPI** (6): RIPROPI 2.0 kΩ 1 % to GND (0.9 V/A), nothing else.
 - **VREF** (5): 4.7 kΩ / 20 kΩ divider from 3V3_D, 2.67 V for ITRIP 2.97 A (computed, VREF ≤ 3.6 V).
 - **IMODE** (7) to GND: fixed off-time, auto-retry.
@@ -1340,8 +1347,8 @@ OUT1 (31, 32) + OUT2 (25, 26) ── FAN_OUT ──[ L6 XGL5030-472 4.7 µH ]─
 LSS1 (1, 2) + LSS2 (23, 24)  ── FAN_LSS ── M3 pin 2 (fan −) ; R31 20-25 mΩ 1206 FAN_LSS → GND (Kelvin to the pins)
 PWM2/PH (12) ── GND   (load OUT→LSS: low-side recirculation on limit, Fig. 11/14)
 PWM1 (11)    ── Fan_PWM (PA7, TIM14_CH1, 400 kHz)
-EN/nFAULT (14) ── Fan_Enable (PB10, driven open-drain) ; R27 39 kΩ to 3V3, C30 10 nF (Table 12)
-TOFF (16)    ── Fan_TOFF (PA12): limiter-active flag in PWM trimming (section 5.6.2)
+EN/nFAULT (14) ── Fan_Enable (PB12, driven open-drain) ; R27 39 kΩ to 3V3, C30 10 nF (Table 12)
+TOFF (16)    ── Fan_TOFF (PB10): low during the limiter's decay in PWM trimming (section 5.6.2, Fig. 14)
 REF (15)     ── R28 4.7 kΩ / R29 2.0 kΩ from 3V3 → V_REF = I_peak · R31 · 10 = 0.985 V (3.94 A)
 SR (21)      ── 1-2.2 kΩ to GND
 V1 (8), V2 (17) ── NC (or V1 → an ADC pin if one frees: 0.25 V/A with 25 mΩ)
@@ -1362,11 +1369,11 @@ No capacitor across the fan motor. Pin numbers from the repo symbol
 | TX0 / RX0 (39 / 40, GPIO11 / GPIO12) | ESP_TXD0 / ESP_RXD0 | J2 pins 3 / 5 | UART0, ROM log and download; 499 Ω on TX0 in the module (Figure 8-1) |
 | GPIO0 (16) | SWDIO | H7 PA13, SWD1 | – |
 | GPIO1 (17) | SWCLK | H7 PA14 through R86 22 Ω, SWD1 | Series resistor on the clock (checklist, SPI) |
-| GPIO10 (22) | ESP_SCK | H7 PC10 (SPI3_SCK; UART4_TX in the fallback) through R95 22 Ω at PC10 | spi_slave_hd clock; U1RXD in the fallback |
-| GPIO8 (20) | ESP_DATA | H7 PC12 (SPI3 data line, MOSI pad) through R96 220 Ω at the C5 | Half-duplex data, both directions ([RM0468] Figure 643 note 3) |
+| GPIO10 (22) | ESP_SCK | H7 PC10 (SPI3_SCK; UART4_TX in the fallback) through R95 22 Ω | spi_slave_hd clock; U1RXD in the fallback |
+| GPIO8 (20) | ESP_DATA | H7 PC12 (SPI3 data line, MOSI pad) through R96 220 Ω | Half-duplex data, both directions ([RM0468] Figure 643 note 3) |
 | GPIO9 (21) | ESP_CSn | H7 PC11 (GPIO chip select; UART4_RX in the fallback) through R88 100 Ω | U1TXD in the fallback |
 | GPIO23 (31) | Reset | H7 NRST, SW3, C21 | Open drain only |
-| GPIO24 (32) | ESP_Flow | H7 PA9 (EXTI9, pull-down) | The C5's credits |
+| GPIO24 (32) | ESP_Flow | H7 PA11 (EXTI11, pull-down) | The C5's credits |
 | GPIO2-GPIO7, GPIO13-GPIO15, GPIO25-GPIO27 | – | – | Open; the straps at their defaults (Tables 4-1 to 4-7) |
 
 Every H7 line lands on a GPIO free of any restriction ([ESP32-C5] §2.3.5, priority 2), with its

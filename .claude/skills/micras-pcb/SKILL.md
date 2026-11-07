@@ -83,6 +83,33 @@ stay out of the BOM, the CPL and `parts/jlc.toml`.
   (with `hand_why`) in `parts/jlc.toml`: they stay out of the JLCPCB BOM and CPL. The main board's
   ST parts (sponsor), ESP32 module (AliExpress), through-hole parts and the extended parts that are
   easy to solder by hand are on it, for an Economic PCBA order.
+- No paste on the hand parts: JLCPCB prints paste through every opening of the stencil it cuts from
+  the paste gerbers, so a hand part's pads would come back with reflowed solder bumps. The package's
+  `F.Paste`/`B.Paste` are plotted from a build copy of the board (or panel) whose hand footprints
+  carry no paste (`jlc.without_paste`: their pads leave the paste layers, their paste-only pads and
+  paste graphics go); the library footprints and the `.kicad_pcb` keep theirs.
+  `<board>-team-stencil.zip` holds the hand parts' paste alone, both faces with Edge.Cuts, outside
+  the JLCPCB package, for a stencil the team orders or cuts itself. `tests/test_fab.py` fails a
+  JLCPCB paste opening on a hand part's pad, a JLCPCB-placed part left without paste, and a team
+  stencil with any other part. Mark a part `assembly = "hand"` and both follow.
+- `<board>-order.txt`: the choices on JLCPCB's order page (`micras_pcb.order`): layers, size,
+  thickness, the finish and mask and silkscreen colours of the board's stackup (the Zener
+  `Board()` config; every board is leaded HASL, `copper_finish = "HAL SnPb"`, JLCPCB's "HASL(with
+  lead)", which `tests/test_fab.py` holds), the via class from `spec/<board>.toml` `pcb.via_drill`/`via_diameter` (the
+  board's smallest via, which `tests/test_fab.py` holds to the layout; JLCPCB charges for 0.2-0.25
+  mm holes in copper under 0.45 mm and for smaller holes) and `pcb.assembly`. `make quote` prices
+  the bare boards with them (JLCPCB's order calculator, online).
+
+A board under Economic PCBA's 10 x 10 mm single-board minimum is ordered as a panel: its spec gets
+a `[panel]` (`spec/wall.toml`: columns, spacing, frame, tab width, JLCPCB's mouse-bite figures,
+tooling holes, fiducials), and `make fab` builds it with KiKit (`micras_pcb.panel`, pinned in
+`versions.env`, installed by `ci/install-kikit.sh`) and writes `<board>-panel-gerbers.zip`,
+`-panel-bom-jlcpcb.csv` and `-panel-cpl-jlcpcb.csv` instead of the single board's: each copy's
+parts are `<ref>_<n>`, n from 0, with the part's rotation offset. The tab goes only on the middle
+of the board's top edge (`kikit_tabs.py`), and the boards keep their own outlines exactly.
+`tests/test_fab.py` fails a board with JLCPCB-placed parts under 10 x 10 mm without a panel
+(unless `pcb.assembly = "none"`), a panel whose CPL misses or moves a part, and a panel outline
+that differs from the boards' or holds them anywhere else.
 
 KiCad and JLCPCB disagree on the zero rotation of some packages, and no database of offsets is
 complete. The user checks each part once in JLCPCB's placement preview, then sets

@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import checks, firmware, jlc, lvs, mech, outputs, placement, previous
+from . import checks, firmware, jlc, lvs, mech, order, outputs, placement, previous
 from .paths import SCHEMATIC_ONLY, boards, has_layout
 
 # Commands that read the layout: a schematic-only board skips them with the reason.
@@ -46,7 +46,11 @@ def main(argv: list[str] | None = None) -> int:
     board_cmd("drc", "KiCad DRC with the JLCPCB rules and zone refill")
     board_cmd("lvs", "connectivity of the generated schematic vs the PCB")
     board_cmd("dfm", "Diode DFM against the JLCPCB PDK")
-    board_cmd("fab", "JLCPCB gerbers, drill, BOM and CPL into build/<board>/fab")
+    board_cmd(
+        "fab", "JLCPCB gerbers, drill, BOM, CPL and order options into build/<board>/fab (a panel's, if spec has one)"
+    )
+    p = board_cmd("quote", "JLCPCB's bare-board price with each board's order options (online)")
+    p.add_argument("--qty", type=int, default=5, help="boards, or panels for a panelised board (default: 5)")
     board_cmd("outputs", "review outputs: schematic PDF/SVG, layer SVGs, 3D renders, GLB/STEP")
     p = sub.add_parser("parts", help="check parts/jlc.toml covers every board")
     p.add_argument("--online", action="store_true", help="also query JLCPCB stock and library type")
@@ -78,6 +82,8 @@ def main(argv: list[str] | None = None) -> int:
         if a.action == "snapshot":
             return previous.snapshot(a.source, a.board, check=a.check)
         return previous.compare(a.board)
+    if a.cmd == "quote":
+        return order.quote_all(a.boards, a.qty)
     if a.cmd == "sch" and a.info:
         return placement.info(a.boards[0], a.info, a.boards[1:])
     status = 0

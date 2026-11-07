@@ -18,6 +18,18 @@ WallSensor(name="W1", LED_A=EMITTER_R, LED_K=EMITTER_SWITCH, PT_C=V3V3, PT_E=WAL
 | 3 | `PT_C` | TPS601A collector (TPS601A pin 2) |
 | 4 | `PT_E` | TPS601A emitter (TPS601A pin 1) |
 
+## Sourcing
+
+Both parts are bought separately and hand-soldered (`skip_bom`: not in the JLCPCB BOM). Prefer the
+TPS601A in rank A (light current 100-300 uA, Toshiba TPS601A(F) datasheet p.2): it keeps the
+unranked part's 100 uA minimum and bounds the top, so on the main board's 1 kOhm load a white wall
+under a spot-lit final's 1500 lux reads 16-48 % of full scale in the dark. The unranked TPS601A(F)
+has no upper bound on its light current, and rank C (400-1200 uA) saturates under 1500 lux
+([`ambient_light.py`](../../../research/next-revision/calculations/emitter/ambient_light.py): 41 % of
+full scale for the typical part, 191 % for rank C's maximum; rank A's band is the typical part's
+scaled to 100-300 uA).
+Rank A's availability is not confirmed; another rank still works under dimmer light.
+
 ## Mounts
 
 The `mount` config picks the footprint; the pins are the same:

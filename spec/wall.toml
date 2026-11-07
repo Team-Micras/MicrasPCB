@@ -19,6 +19,30 @@
 [pcb]
 thickness = { value = 0.79, source = "boards/wall/wall.zen stackup: the encoder board's 0.70 mm core and 35 um copper (spec/encoder.toml), 0.79 mm with Zener's 10 um mask a side; ordered as JLCPCB's 0.8 mm board (+-0.1 mm below 1.0 mm). It stands between the header's rows, 0.87 mm apart between the pins (header.row_pitch - header.pin_section): 0.04 mm a side at 0.79 mm, from 0.085 mm a side (0.7 mm, filled by the solder) to a 0.03 mm press fit (0.9 mm) over JLCPCB's tolerance" }
 copper_layers = { value = 2, source = "boards/wall/wall.zen Board(layers = 2)" }
+via_drill = { value = 0.3, source = "the board's smallest via, the 0.6 / 0.3 mm vias of boards/wall/wall.zen's Default net class; tests/test_fab.py holds it to the layout. JLCPCB's default via option, 0.3mm/(0.4/0.45mm), no surcharge (PCB Capabilities, Drilling, accessed 2026-11-07)" }
+via_diameter = { value = 0.6, source = "the copper of the smallest via (via_drill)" }
+assembly = { value = "economic", source = "JLCPCB Economic PCBA fits the SMD parts (the owner prefers JLCPCB placing them, review 3 COST-10). The board, 8.4 x 16.0 mm, is under Economic PCBA's 10 x 10 mm single-board minimum (jlcpcb.com/capabilities/pcb-assembly-capabilities, accessed 2026-11-07), so it is ordered as the [panel] (the owner, 2026-11-07, review 3 COST-1)" }
+
+[panel]
+# The assembly panel `micras-pcb fab wall` builds with KiKit (versions.env) and orders from
+# (build/wall/fab/wall-panel-*): `columns` boards side by side, upright, in a frame, each held only
+# by one mouse-bite tab on the middle of its blade's top edge; nothing touches the handle, whose
+# bottom edge seats on the header's insulator and whose faces carry the straddle header's pads.
+# JLCPCB's figures: PCB Capabilities, Outline (panelization) and FAQ; PCB Assembly Capabilities;
+# both accessed 2026-11-07.
+columns = { value = 4, source = "the owner (2026-11-07, review 3 COST-1): a 4-up panel, four boards a robot. It makes the panel 53.6 x 30.0 mm, inside Economic PCBA's 10 x 10 mm to 250 x 250 mm panel size (PCB Assembly Capabilities: Economic PCBA, PCB Panel Size)" }
+board_spacing = { value = 2.0, source = "JLCPCB: 'Panel board spacing: 1.6 or 2 mm'; 'We recommend maintaining a minimum 2 mm spacing between boards and 5-8 mm handling rails' (PCB Capabilities)" }
+frame_width = { value = 5.0, source = "JLCPCB: 'For SMT assembly at JLCPCB, use 5 mm tooling edges, 2 mm tooling holes, and 1 mm fiducials' (PCB Capabilities, Outline); Economic PCBA needs neither rails nor fiducials, but the frame gives the panel straight edges all round and guards the handles, which no tab may hold" }
+tab_width = { value = 5.0, source = "JLCPCB: 'For breakaway with mouse-bites, the minimum width is 5mm' (PCB Capabilities, Outline). The tab sits on the middle of the blade's top edge, straight over 6.4 mm between the 1.0 mm corners (outline.width - 2 outline.corner_radius); the mouse bites run mill_radius past each side, over the mill's fillets, so the holes reach 3.25 mm each side of the centre line, about where the corners begin (3.2 mm)" }
+mousebite_drill = { value = 0.5, source = "JLCPCB: 'Recommended diameter of mouse bite is 0.5mm-0.8mm' (PCB Capabilities, Outline): the smallest, so the holes reach least into the board" }
+mousebite_pitch = { value = 0.75, source = "JLCPCB: 'Recommended distance between the two mouse-bites is 0.2-0.3mm' (PCB Capabilities, Outline): 0.25 mm of board between 0.5 mm holes: nine holes over the tab and its fillets, centres from 3.0 mm left to 3.0 mm right of the board's centre line (KiKit spaces them evenly at this pitch or a little more)" }
+mousebite_offset = { value = 0.25, source = "half mousebite_drill: the holes stand inside the outline, tangent to the top edge, so the break leaves nothing beyond the spec's outline (outline.top). They reach 0.5 mm into the board, v 16.5, beside the top of the SFH 4550's flange (v 16.55 at its 5.9 mm maximum, outline.top) and 0.5 mm or more from the back's copper (R3 and D1, v 15.97); the panel refills the pours round them" }
+mill_radius = { value = 0.5, source = "JLCPCB's 0.5 mm milled inside corner (outline.neck_inside_radius): where the tab meets the blade's top edge, the mill leaves a fillet of board this wide beside each side of the tab, so the mouse bites run this far past each side (KiKit's prolong) and the break takes the fillets too. The panel's outline keeps the corners square, as KiKit draws them; the boards' own outlines are exactly the spec's" }
+tooling_hole = { value = 2.0, source = "JLCPCB's 2 mm tooling holes for SMT assembly, centred 3.85 mm from the panel's edges (PCB Capabilities, Outline): three, in the top corners and the bottom-left one (KiKit 3hole)" }
+tooling_offset = { value = 3.85, source = "JLCPCB: '... tooling holes, and 1 mm fiducials centered at 3.85 mm from the panel edges' (PCB Capabilities, Outline)" }
+fiducial = { value = 1.0, source = "JLCPCB's 1 mm fiducials for SMT assembly (PCB Capabilities, Outline), on both faces, 3.85 mm from the top or bottom edge beside each tooling hole (KiKit 3fid)" }
+fiducial_opening = { value = 2.0, source = "twice the fiducial's copper: a 0.5 mm clear ring round it" }
+fiducial_inset = { value = 8.85, source = "from the panel's side edge: 5.0 mm along the rail from each tooling hole (tooling_offset + 5.0), clear of it" }
 
 [kicad]
 origin_x = { value = 150.0, source = "a free point of the sheet: the main board's top surface under the bottom edge's middle" }

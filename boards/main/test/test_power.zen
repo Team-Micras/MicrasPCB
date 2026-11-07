@@ -257,7 +257,10 @@ def plug_in_keeps_q6_off(module, inputs):
 def analog_ldo(module, inputs):
     # ADP7142 Rev H: VIN from VSYS through 22 Ohm + 10 uF (research A.4); input and output
     # capacitors >= 2.2 uF, the input at least the output (Table 2, Capacitor Selection); EN on
-    # 3V3_D so 3V3_A starts after VDD (DS13311 section 3.7.1); SS open; the output feeds VDDA.
+    # 3V3_D so 3V3_A starts after VDD (DS13311 section 3.7.1); at least 1 nF from SS to GND, never
+    # SS on GND (pin table), so VDDA stays under VDD + 0.3 V while VDD < 1.62 V (Eq. 8: 380 us +
+    # 0.6 V x CSS / 1.15 uA; research calculations/power_tree/vdda_powerup.py: with SS open 10 of 27
+    # corners overtake VDD + 0.3 V, with 1 nF none); the output feeds VDDA.
     b = index(module)
     p = []
     vin, vout = net(b, LDO, "VIN"), net(b, LDO, "VOUT")
@@ -285,10 +288,17 @@ def analog_ldo(module, inputs):
         p.append(LDO + " output keeps " + eng(coeff * 0.85 * 0.8, "F") + " effective, below 1.5 uF (Table 2)")
     if net(b, LDO, "EN") != net(b, MCU, "VDD"):
         p.append(LDO + " EN must be on the MCU's VDD (3V3_D) so VDDA follows VDD")
-    ss = b.parts[LDO].pins["SS"]
+    ss = net(b, LDO, "SS")
     # a no-connect pin has an empty net name
-    if ss.name != "" and (ss.name == "GND" or [r for r in refs_on(b, ss.name) if r != LDO]):
-        p.append(LDO + " SS must be open (never grounded; pin table)")
+    if ss in ("", "GND"):
+        p.append(LDO + " SS needs a capacitor to GND (Eq. 8), found " + (ss or "open") + " (never grounded; pin table)")
+    else:
+        css = two_terminal(b, "capacitor", ss, "GND")
+        if total([farads(b, r) for r in css]) < 1e-9 * 0.999:
+            p.append(LDO + " SS needs >= 1 nF to GND so VDDA trails VDD (DS13311 3.7.1), found " + str(css))
+        other = [r for r in refs_on(b, ss) if r != LDO and r not in css]
+        if other:
+            p.append(LDO + " SS carries only its soft-start capacitor, found " + str(other))
     if not two_terminal(b, "resistor", vout, net(b, MCU, "VDDA")):
         p.append("VDDA is not fed from " + vout)
     report(p)

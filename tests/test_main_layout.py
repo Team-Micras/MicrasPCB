@@ -194,6 +194,63 @@ def _pad_distance(pad, pts) -> float:
     return best
 
 
+# The LSM6DSV's body (components/st/LSM6DSV footprint: 3.0 x 2.5 mm, local x +-1.5, y +-1.25): no via
+# and no F.Cu track inside it but each pad's own stub, leaving the pad outward along its long axis (ST
+# TN1383 sections 3.3-3.5: routing or vias under a MEMS sensor stress it unevenly with temperature and
+# shift its offsets; routing review RS-2). B.Cu may pass under it.
+IMU_BODY = (1.5, 1.25)  # mm, half sizes in the footprint's frame
+
+
+def test_imu_body_is_free_of_vias_and_tracks():
+    pcb = layout.load("main")
+    fp = pcb.footprints["IC2"]
+    p0 = next(p for p in fp.pads if math.hypot(*p.local) > 0.5)
+    gx, gy = p0.xy[0] - fp.xy[0], p0.xy[1] - fp.xy[1]
+    phi = math.atan2(gy, gx) - math.atan2(p0.local[1], p0.local[0])
+
+    def local(q):
+        dx, dy = q[0] - fp.xy[0], q[1] - fp.xy[1]
+        c, sn = math.cos(-phi), math.sin(-phi)
+        return (dx * c - dy * sn, dx * sn + dy * c)
+
+    def inside(q, grow=0.0):
+        x, y = local(q)
+        return abs(x) < IMU_BODY[0] + grow and abs(y) < IMU_BODY[1] + grow
+
+    problems = []
+    for v in pcb.vias:
+        x, y = local(v.xy)
+        dx, dy = max(abs(x) - IMU_BODY[0], 0.0), max(abs(y) - IMU_BODY[1], 0.0)
+        if math.hypot(dx, dy) < v.size / 2:
+            problems.append(f"{v.net} via at {_xy(v.xy)} under IC2's body")
+    for t in pcb.tracks:
+        if t.layer != "F.Cu":
+            continue
+        n = max(2, int(math.dist(t.start, t.end) / 0.02))
+        pts = [tuple(t.start[i] + (t.end[i] - t.start[i]) * k / n for i in (0, 1)) for k in range(n + 1)]
+        if not any(inside(q) for q in pts):
+            continue
+        # a pad's own outward stub: one end in the pad, the track along the pad's long axis, going out
+        ok = False
+        for pad in fp.pads:
+            if pad.net != t.net:
+                continue
+            a, b = local(t.start), local(t.end)
+            px, py = pad.local
+            hx, hy = (pad.size[0] / 2, pad.size[1] / 2)
+            if abs(round(pad.angle - fp.rotation) % 180) == 90:
+                hx, hy = hy, hx
+            for e, o in ((a, b), (b, a)):
+                if abs(e[0] - px) <= hx + 1e-3 and abs(e[1] - py) <= hy + 1e-3:
+                    along_x = hx > hy
+                    straight = abs(o[1] - e[1]) < 1e-3 if along_x else abs(o[0] - e[0]) < 1e-3
+                    out = abs(o[0]) > abs(e[0]) if along_x else abs(o[1]) > abs(e[1])
+                    ok = ok or (straight and out)
+        if not ok:
+            problems.append(f"{t.net} F.Cu track {_xy(t.start)} -> {_xy(t.end)} under IC2's body")
+    assert not problems, "\n".join(problems)
+
+
 def test_imu_sits_at_the_rotation_centre_off_the_chassis_zones():
     """The owner (2026-11-03): the IMU IC2 stays at robot (0, 0), the axle's midpoint, where the robot
     turns in place; no chassis zone reaches its courtyard."""
@@ -611,10 +668,11 @@ MIN_WIDTH = {**{n: 1.0 for n in MOTOR_NETS}, **{n: 1.4 for n in FAN_NETS}}
 NECK = 1.5  # mm: a pin narrower than the path leaves by a neck this long at most
 VIA_AMPS = 0.84
 VIA_GROUP = 2.0  # mm between the vias of one layer change
-# (part, pad, net of the vias, amps, mm from the pad's centre): the feeds where a pin or pour takes
-# its current through vias. F1's VBAT side to the B.Cu pour; the fan's VS pour (DS14341 section 8:
-# "numerous vias"); each DRV8874's VM island, 3-4 vias as the review asks (SLVSF66A 10.1 "thick
-# metal"; the bridge's own 100 nF sits on the island too)
+# (part, pad, net of the vias, amps, mm from the pad's centre, count): the feeds where a pin or pour
+# takes its current through vias. F1's VBAT side to the B.Cu pour; the fan's VS pour (DS14341 section
+# 8: "numerous vias"); each DRV8874's VM island, 3 vias as the reviews ask (SLVSF66A 10.1 "thick
+# metal"; routing review RP1: 3.23 A through one via before). Only vias joined to the pin by copper
+# on its own layer count (tracks, pads and the zone fills of the net).
 FEEDS = [
     ("F1", "2", "VBAT", 10.0, 4.0, None),
     ("IC6", "27", "VBAT", 4.0, 5.5, None),
@@ -638,6 +696,55 @@ def _groups(points: list, reach: float) -> list[list]:
         merged = [p] + [q for g in near for q in g]
         groups = [g for g in groups if g not in near] + [merged]
     return groups
+
+
+def _joined_vias(pcb, pad, net: str, layer: str) -> list:
+    """The net's vias joined to the pad by its copper on the layer: tracks, the net's other pads there and
+    its zone fills, grown from the pad."""
+    segs = [t for t in pcb.tracks if t.net == net and t.layer == layer]
+    pads = [p for f in pcb.footprints.values() for p in f.pads if p.net == net and layer in p.layers]
+    fills = [(q, _box(q)) for q in _fills(layer, net)]
+    pr = lambda p: max(p.size) / 2  # noqa: E731
+    reached_pts = [pad.xy]
+    done_s, done_p, done_f = set(), {id(pad)}, set()
+    grow = True
+    while grow:
+        grow = False
+        for i, t in enumerate(segs):
+            if i in done_s:
+                continue
+            if (
+                any(_seg_dist(q, t.start, t.end) <= t.width / 2 + 0.01 for q in reached_pts)
+                or any(math.dist(e, p.xy) <= pr(p) for e in (t.start, t.end) for p in pads if id(p) in done_p)
+                or any(_inside(e, fills[k][0]) for e in (t.start, t.end) for k in done_f)
+            ):
+                done_s.add(i)
+                reached_pts.extend([t.start, t.end])
+                grow = True
+        for p in pads:
+            if id(p) not in done_p and any(math.dist(q, p.xy) <= pr(p) for q in reached_pts):
+                done_p.add(id(p))
+                reached_pts.append(p.xy)
+                grow = True
+        for k, (q, bb) in enumerate(fills):
+            if k not in done_f and any(
+                bb[0] <= r[0] <= bb[2] and bb[1] <= r[1] <= bb[3] and _inside(r, q) for r in reached_pts
+            ):
+                done_f.add(k)
+                reached_pts.extend(q[:: max(1, len(q) // 50)])
+                grow = True
+    out = []
+    for v in pcb.vias:
+        if v.net != net:
+            continue
+        r = v.size / 2
+        if (
+            any(_seg_dist(v.xy, segs[i].start, segs[i].end) <= segs[i].width / 2 + r for i in done_s)
+            or any(math.dist(v.xy, p.xy) <= pr(p) for p in pads if id(p) in done_p)
+            or any(_inside(v.xy, fills[k][0]) for k in done_f)
+        ):
+            out.append(v)
+    return out
 
 
 def test_power_paths_carry_their_current():
@@ -667,7 +774,8 @@ def test_power_paths_carry_their_current():
     for ref, num, net, amps, reach, count in FEEDS:
         pad = pcb.footprints[ref].pads_named(num)[0]
         need = count or math.ceil(amps / VIA_AMPS)
-        n = sum(1 for v in pcb.vias if v.net == net and math.dist(v.xy, pad.xy) <= reach)
+        joined = _joined_vias(pcb, pad, net, "F.Cu" if "F.Cu" in pad.layers else pad.layers[0])
+        n = sum(1 for v in joined if math.dist(v.xy, pad.xy) <= reach)
         if n < need:
             problems.append(f"{ref}.{num}: {n} {net} vias within {reach} mm, needs {need}")
     # Q6's drain: the pack's current into the ground planes round its exposed pad
@@ -875,34 +983,11 @@ def test_no_detours():
 # Analog tracks keep FAST_GAP (three track widths) from the fast digital lines on the same layer
 # (ST AN2834 sections 4.2.11-4.2.14), but where both leave
 # neighbouring pins of the STM32 (a fine-pitch escape: each track has an end within ESCAPE_REACH of
-# its pads). The pairs below still run closer, in the nose and round the STM32's escape rows, for at
-# most the length given (mm of the analog track inside FAST_GAP): they may not grow, and no other pair
-# may appear. Open item in the layout README; the firmware keeps the LED and SPI lines quiet during an
-# emitter slot (firmware_changes.toml, emitter_slot_quiet).
+# its pads). CLOSE_NEIGHBOURS would list a pair allowed to run closer, for at most the length given (mm
+# of the analog track inside FAST_GAP); the board needs none.
 FAST_GAP = 0.45  # mm
 ESCAPE_REACH = 1.0  # mm
-CLOSE_NEIGHBOURS = {
-    # Fan_PWM's pin (PA7, pin 26) sits between ADC pins 23-28 (Wall_Sensor_0, Wall_Sensor_2,
-    # Wall_Sensor_1, Battery_Voltage): its escape runs with theirs until a via site frees it
-    ("Battery_Voltage", "Fan_PWM"): 6.1,
-    ("VDDA", "Fan_PWM"): 0.3,
-    ("Wall_Sensor_0", "Fan_PWM"): 6.7,
-    ("Wall_Sensor_1", "Fan_PWM"): 0.2,
-    ("Wall_Sensor_2", "Fan_PWM"): 0.5,
-    ("3V3_A", "Encoder_Left_CSn"): 4.6,
-    ("3V3_A", "Encoder_Right_ABI_B"): 16.4,
-    ("SENSORS.CURRENT_L_AMP", "Encoder_Right_ABI_B"): 2.3,
-    ("SENSORS.CURRENT_L_AMP", "SPI_SCK"): 0.9,
-    ("SENSORS.SINK_FB", "Encoder_Left_CSn"): 0.1,
-    ("VDDA", "Encoder_Left_ABI_A"): 1.2,
-    ("VDDA", "Encoder_Left_CSn"): 1.8,
-    ("Wall_Emitter_Set", "Encoder_Left_ABI_B"): 9.1,
-    ("Wall_Emitter_Set", "Encoder_Right_ABI_B"): 2.2,
-    ("Wall_Sensor_0", "Encoder_Left_ABI_B"): 0.1,
-    ("Wall_Sensor_1", "Encoder_Left_ABI_B"): 3.9,
-    ("Wall_Sensor_2", "LED_ARGB"): 0.3,
-    ("Wall_Sensor_3", "LED_ARGB"): 3.2,
-}
+CLOSE_NEIGHBOURS: dict[tuple[str, str], float] = {}
 
 
 def _run_within(a, b, gap: float) -> float:
@@ -913,6 +998,28 @@ def _run_within(a, b, gap: float) -> float:
         p = tuple(a.start[i] + (a.end[i] - a.start[i]) * (k + 0.5) / n for i in (0, 1))
         inside += _seg_dist(p, b.start, b.end) < gap + (a.width + b.width) / 2
     return math.dist(a.start, a.end) * inside / n
+
+
+def test_fan_and_buzzer_keep_clear_of_the_wall_sensors():
+    """The fan's 400 kHz PWM and the buzzer's drive keep FAST_GAP from every wall receiver's line, its
+    escape included: the receivers' 1 kOhm loads take no capacitor, so a fast edge beside them lands in
+    a conversion (routing review RS-1; ST AN2834 section 4.2.11). Their pins are no package neighbours
+    of a wall input (boards/main/main.zen, ADC lines)."""
+    pcb = layout.load("main")
+    receivers = {f"Wall_Sensor_{k}" for k in range(4)}
+    walls = [t for t in pcb.tracks if t.net in receivers]
+    problems = set()
+    for f in (t for t in pcb.tracks if t.net in ("Fan_PWM", "Buzzer")):
+        for w in walls:
+            if f.layer == w.layer and _gap(f, w) < FAST_GAP:
+                problems.add(f"{f.net} {_gap(f, w):.2f} mm from {w.net} on {f.layer} near {_xy(f.start)}")
+    pins = {p.number: p.net for p in pcb.footprints["IC1"].pads}
+    for p, n in pins.items():
+        if n in ("Fan_PWM", "Buzzer"):
+            for q in (str(int(p) - 1), str(int(p) + 1)):
+                if pins.get(q) in receivers:
+                    problems.add(f"IC1.{q} ({pins[q]}) beside {n} (IC1.{p})")
+    assert not problems, "\n".join(sorted(problems))
 
 
 def test_analog_keeps_clear_of_fast_digital():
@@ -943,7 +1050,7 @@ ADC_CAP_REACH = 3.0  # mm, pad centre to pad centre
 
 @pytest.mark.xfail(
     strict=True,
-    reason="no 0402 fits within 3 mm of IC1.14 or IC1.30 outside the escape rows (layout README, open items)",
+    reason="no 0402 fits within 3 mm of IC1.14 or IC1.25 outside the escape rows and lanes (layout README, open items)",
 )
 def test_adc_filter_caps_at_the_pin():
     pcb = layout.load("main")
@@ -1246,21 +1353,12 @@ RELIEF_GAP = 0.25  # mm
 SMD_SPOKE, THT_SPOKE = 0.2, 0.4  # mm
 RELIEF_SOLID_AREA = 1.2  # mm2
 POWER_STAGES = {"IC6", "IC7", "IC8", "IC9", "Q6"}
-RELIEF_STARVED = {
-    "C8.1",
-    "C29.1",
-    "C30.1",
-    "D4.1",
-    "IC1.4",
-    "J2.4",
-    "R2.1",
-    "R30.1",
-    "SWD1.3",
-    "W1.2",
-    "W2.2",
-    "W3.2",
-    "W4.2",
-}
+RELIEF_STARVED = {"C8.1", "C29.1", "IC1.4"}
+# the hand-soldered ground pins: inherited from rules/jlcpcb.kicad_dru, relieved on the inner planes and
+# B.Cu, solid on F.Cu (routing review RP2); the small parts' one-spoke pads (RP3)
+HAND_GROUND = {"W1.2", "W2.2", "W3.2", "W4.2", "SWD1.3", "J2.4"}
+ONE_SPOKE = {"R2.1", "D4.1", "C30.1", "R30.1", "C58.1", "R41.1", "R44.1"}
+RELIEF_RING = 0.8  # share of the ring in the relief's gap a plane may still cover (its spokes)
 ZONE_SOLID, ZONE_THERMAL = "2", "1"  # a pad's zone_connect in the .kicad_pcb
 
 
@@ -1305,10 +1403,19 @@ def test_pour_connections():
         if (gap, width) != (RELIEF_GAP, spoke):
             problems.append(f"{net} pour on {layers}: relief {gap} mm gap, {width} mm spokes")
     for ref, node, pad in _pad_nodes():
+        name = f"{ref}.{pad.number}"
+        zc = node.child("zone_connect").atoms()[0] if node.child("zone_connect") else None
+        if name in ONE_SPOKE:
+            bridge = node.child("thermal_bridge_width")
+            if zc != ZONE_THERMAL or bridge is None or float(bridge.atoms()[0]) != SMD_SPOKE:
+                problems.append(f"{name}: wants a thermal relief with {SMD_SPOKE} mm spokes, found {zc}")
+            continue
         if pad.net not in poured or pad.kind not in ("smd", "thru_hole"):
             continue
-        zc = node.child("zone_connect").atoms()[0] if node.child("zone_connect") else None
-        name = f"{ref}.{pad.number}"
+        if name in HAND_GROUND:
+            if zc is not None:
+                problems.append(f"{name}: wants the rules' connection (no pad override), found {zc}")
+            continue
         if pad.kind == "thru_hole":
             want = ZONE_SOLID if name in RELIEF_STARVED else ZONE_THERMAL
             bridge = node.child("thermal_bridge_width")
@@ -1325,6 +1432,96 @@ def test_pour_connections():
             want = ZONE_SOLID if solid else ZONE_THERMAL
         if zc != want:
             problems.append(f"{name} ({pad.net}): zone connection {zc}, want {want}")
+    rules = (board_pcb("main").parent / "main.kicad_dru").read_text()
+    for ref in sorted({n.split(".")[0] for n in HAND_GROUND}):
+        if f"A.memberOfFootprint('{ref}')" not in rules:
+            problems.append(f"{ref}: no hand-soldered ground rule in main.kicad_dru")
+    # the fills: each hand-soldered ground pin's ring in the relief's gap is mostly free on the inner planes
+    pcb = layout.load("main")
+    for name in sorted(HAND_GROUND):
+        ref, num = name.split(".")
+        pad = pcb.footprints[ref].pads_named(num)[0]
+        r = max(pad.size) / 2 + RELIEF_GAP / 2
+        ring = [
+            (pad.xy[0] + r * math.cos(k * math.pi / 36), pad.xy[1] + r * math.sin(k * math.pi / 36)) for k in range(72)
+        ]
+        for layer in ("In1.Cu", "In2.Cu"):
+            fills = [(q, _box(q)) for q in _fills(layer, "GND")]
+            hit = sum(
+                1
+                for q in ring
+                if any(b[0] <= q[0] <= b[2] and b[1] <= q[1] <= b[3] and _inside(q, f) for f, b in fills)
+            )
+            if not 0 < hit / len(ring) <= RELIEF_RING:
+                problems.append(f"{name} on {layer}: {hit / len(ring):.0%} of its relief ring is ground (want spokes)")
+    assert not problems, "\n".join(problems)
+
+
+# Tombstoning (routing review RP3): a two-pad 0201-0603 part's pads heat alike in reflow when the copper
+# of their own nets round them is alike: the share of a 0.3 mm ring round each pad (F.Cu) that is its
+# net's copper (tracks, pads, zone fills) may differ by TOMBSTONE_SHARE at most between its two pads.
+TOMBSTONE_RING = 0.3  # mm
+TOMBSTONE_SHARE = 0.5
+TOMBSTONE_STEP = 0.05  # mm between samples
+
+
+def test_small_parts_pads_heat_alike():
+    pcb = layout.load("main")
+    tracks = {}
+    for t in pcb.tracks:
+        if t.layer == "F.Cu":
+            tracks.setdefault(t.net, []).append(t)
+    fills: dict[str, list] = {}
+    pads = {}
+    for f in pcb.footprints.values():
+        for q in f.pads:
+            if "F.Cu" in q.layers:
+                pads.setdefault(q.net, []).append(q)
+
+    def rect(q):
+        hx, hy = q.size[0] / 2, q.size[1] / 2
+        if round(q.angle) % 180 == 90:
+            hx, hy = hy, hx
+        return hx, hy
+
+    def copper(net, c):
+        for t in tracks.get(net, []):
+            if _seg_dist(c, t.start, t.end) <= t.width / 2:
+                return True
+        for q in pads.get(net, []):
+            hx, hy = rect(q)
+            if abs(c[0] - q.xy[0]) <= hx and abs(c[1] - q.xy[1]) <= hy:
+                return True
+        if net not in fills:
+            fills[net] = [(f, _box(f)) for f in _fills("F.Cu", net)]
+        return any(b[0] <= c[0] <= b[2] and b[1] <= c[1] <= b[3] and _inside(c, f) for f, b in fills[net])
+
+    problems = []
+    for f in pcb.footprints.values():
+        if f.side != "top" or not any(k in f.lib_id for k in ("0201", "0402", "0603")):
+            continue
+        smd = [q for q in f.pads if q.kind == "smd"]
+        if len(smd) != 2 or round(f.rotation) % 90:
+            continue
+        share = []
+        for q in smd:
+            hx, hy = rect(q)
+            k = int((max(hx, hy) + TOMBSTONE_RING) / TOMBSTONE_STEP) + 1
+            pts = [
+                (q.xy[0] + i * TOMBSTONE_STEP, q.xy[1] + j * TOMBSTONE_STEP)
+                for i in range(-k, k + 1)
+                for j in range(-k, k + 1)
+            ]
+            ring = [
+                c
+                for c in pts
+                if not (abs(c[0] - q.xy[0]) <= hx and abs(c[1] - q.xy[1]) <= hy)
+                and abs(c[0] - q.xy[0]) <= hx + TOMBSTONE_RING
+                and abs(c[1] - q.xy[1]) <= hy + TOMBSTONE_RING
+            ]
+            share.append(sum(copper(q.net, c) for c in ring) / len(ring))
+        if abs(share[0] - share[1]) > TOMBSTONE_SHARE:
+            problems.append(f"{f.ref}: its pads' rings are {share[0]:.0%} and {share[1]:.0%} their nets' copper")
     assert not problems, "\n".join(problems)
 
 
@@ -1541,9 +1738,12 @@ def test_bridge_pads_have_a_ground_heat_path():
 # --- Countersinks (spec/main.toml [countersink]): the screws' 90 deg countersinks, cut by hand from
 # the bottom side, keep every layer's copper out of their cone: keep-outs (tracks, vias and pours)
 # of clearance_outer on B.Cu and In2.Cu and clearance_in1 on In1.Cu round each screw hole, and the
-# countersink drawn on User.1, a layer the fab outputs never plot.
+# countersink drawn on User.1, a layer the fab outputs never plot. The keep-outs reach CONE_MARGIN past
+# the cone at each layer's height (routing review RP4: the countersinks are cut by hand).
 CSK = S.get("countersink", {})
 CSK_LAYER = "User.1"
+CONE_MARGIN = 0.4  # mm
+IN1_DEPTH = 0.035 + 0.2104 + 0.0175 + 0.5  # mm from the bottom face to In1.Cu's middle (main.zen stackup)
 
 
 def _screw_holes() -> dict[str, tuple[float, float]]:
@@ -1578,7 +1778,11 @@ def test_countersinks_keep_the_copper_off():
     keepouts = _keepouts()
     pcb = layout.load("main")
     need = {"B.Cu": CSK["clearance_outer"], "In2.Cu": CSK["clearance_outer"], "In1.Cu": CSK["clearance_in1"]}
-    assert CSK["diameter"] / 2 < CSK["clearance_outer"], "the keep-out is smaller than the countersink"
+    assert CSK["clearance_outer"] >= CSK["diameter"] / 2 + CONE_MARGIN - 1e-6, "B.Cu keep-out under the cone + margin"
+    # a 90 deg cone narrows by its depth: its radius at In1.Cu
+    assert CSK["clearance_in1"] >= CSK["diameter"] / 2 - IN1_DEPTH + CONE_MARGIN - 1e-6, (
+        "In1.Cu keep-out under the cone + margin"
+    )
     problems = []
     for h, c in _screw_holes().items():
         for layer, r in need.items():

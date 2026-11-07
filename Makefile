@@ -7,7 +7,7 @@ BOARDS := $(notdir $(patsubst %/pcb.toml,%,$(wildcard boards/*/pcb.toml)))
 # Boards replicated from a previous revision (boards/<board>/previous/board.json + changes.toml).
 PREVIOUS_BOARDS := encoder
 
-.PHONY: help setup gen check build warnings test layout-check sch erc lvs previous drc dfm pytest lint parts parts-online outputs fab review all clean
+.PHONY: help setup gen check build warnings test layout-check sch erc lvs previous drc dfm pytest lint parts parts-online quote outputs fab review all clean
 
 # The gates `make check` runs, in order. Each runs even when an earlier one fails.
 GATES := build warnings test layout-check sch erc lvs previous drc dfm pytest lint parts
@@ -15,9 +15,10 @@ GATES := build warnings test layout-check sch erc lvs previous drc dfm pytest li
 help: ## list targets
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-13s %s\n", $$1, $$2}'
 
-setup: ## install the Python tools and the pinned Zener toolchain
+setup: ## install the Python tools, the pinned Zener toolchain and KiKit
 	uv sync
 	pcb toolchain install $(PCB_TOOLCHAIN)
+	./ci/install-kikit.sh
 
 gen: ## regenerate every generated file from the sources (Zener, spec, rules)
 	$(PCB) sync
@@ -76,6 +77,9 @@ parts: ## every part mapped to an LCSC number
 
 parts-online: ## JLCPCB stock and basic/extended status for every part (run before ordering)
 	$(TOOL) parts --online
+
+quote: ## JLCPCB bare-board price with each board's order options from spec and stackup (online)
+	$(TOOL) quote
 
 check: ## every gate CI runs: all of them, then a summary; fails if any gate failed
 	@failed=""; for g in $(GATES); do \

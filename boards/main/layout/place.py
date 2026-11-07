@@ -180,7 +180,6 @@ HAND = {
     "C11": (39.85, -2.7, 135),
     "C102": (40.385, -0.715, -45),
     "C13": (37.738, 3.125, -135),
-    "C105": (35.475, 5.388, -135),
     "C7": (33.955, 6.908, 45),
     "C14": (30.045, 7.114, 45),
     "C6": (26.686, 3.755, 45),
@@ -227,6 +226,11 @@ HAND = {
     # behind the SMPS row; VBAT's 1 uF past the left vertex; BOOT0's pull-down and NRST's filter by
     # the rear-right face (the lanes round the hole take the room at the rear tip)
     "R79": (17.8, 12.4, 90),
+    # the left current's ADC filter capacitor beside its R_iso (R79): the front-left pad row's strip and
+    # the face outside it are full (layout README, Front-left face)
+    "C105": (18.31, 11.2, 90),
+    # the 3V3_A LDO's soft-start capacitor at its SS pin, outside the fan ring's silk line
+    "C115": (10.75, -12.75, 90),
     "R78": (22.0, -11.0, 90),
     "C17": (31.0, 8.0, 45),
     "R42": (26.163, -7.319, 135),
@@ -276,7 +280,7 @@ NEAR = {
     "Q9": ("U12", "1"),
     "R83": ("Q9", "2"),
     "C106": ("U12", "5"),
-    "C105": ("IC1", "30"),
+    "C105": ("R79", "2"),
     # the buzzer's driver at the buzzer
     "Q1": ("BZ1", "2"),
     "D3": ("BZ1", "2"),

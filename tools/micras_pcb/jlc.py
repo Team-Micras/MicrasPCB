@@ -6,6 +6,17 @@ mapped, so an unsourced part fails the build instead of the order.
 
     micras-pcb fab encoder     # build/encoder/fab/: gerbers + drill zip, BOM and CPL CSVs
     micras-pcb parts           # check parts/jlc.toml covers every board (add --online for stock)
+
+A board with a [panel] in its spec (the wall board, under JLCPCB's 10 x 10 mm assembly minimum) is
+ordered as that panel (micras_pcb.panel): its package is the panel's gerbers, BOM and CPL, every
+copy's parts named `<ref>_<n>`.
+
+JLCPCB prints paste through every opening of the stencil it makes from the paste gerbers, so pads of
+a part the team solders itself (`assembly = "hand"`) would come back with reflowed solder bumps. The
+JLCPCB package's paste layers are therefore plotted from a build copy of the board (or panel) whose
+hand-assembled footprints carry no paste (`without_paste`); the library footprints and the layout
+stay as they are. The hand parts' own paste goes into a separate team-stencil zip, outside the
+JLCPCB package, for a stencil the team orders or cuts itself.
 """
 
 from __future__ import annotations
@@ -20,23 +31,32 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+from . import order, panel, sexpr, spec
 from .paths import ROOT, SCHEMATIC_ONLY, board_pcb, board_zen, boards, build_dir, has_layout
 from .tools import kicad_cli, pcb
 
 PARTS_FILE = ROOT / "parts" / "jlc.toml"
 NON_COPPER_LAYERS = ["F.Paste", "B.Paste", "F.Silkscreen", "B.Silkscreen", "F.Mask", "B.Mask", "Edge.Cuts"]
+PASTE_LAYERS = ("F.Paste", "B.Paste")
+_PASTE = {*PASTE_LAYERS, "*.Paste"}
+_FP_GRAPHICS = ("fp_line", "fp_rect", "fp_circle", "fp_arc", "fp_poly", "fp_text", "fp_text_box")
 _COPPER = re.compile(r'^\s*\(\d+ "((?:F|B|In\d+)\.Cu)" (?:signal|power|mixed|jumper)\b', re.M)
 
 
-def copper_layers(board: str) -> list[str]:
-    """The board's copper layers from its layer table, top to bottom (F.Cu, In1.Cu, ..., B.Cu)."""
-    text = board_pcb(board).read_text()
+def copper_layers(board: str | Path) -> list[str]:
+    """The board's copper layers from its layer table, top to bottom (F.Cu, In1.Cu, ..., B.Cu).
+    `board` is a board name or a .kicad_pcb path (a panel)."""
+    text = _pcb(board).read_text()
     found = _COPPER.findall(text[: text.index("(setup")])
     inner = sorted((name for name in found if name.startswith("In")), key=lambda name: int(name[2:-3]))
     return ["F.Cu", *inner, "B.Cu"]
 
 
-def gerber_layers(board: str) -> list[str]:
+def _pcb(board: str | Path) -> Path:
+    return board if isinstance(board, Path) else board_pcb(board)
+
+
+def gerber_layers(board: str | Path) -> list[str]:
     """Every layer the fab needs: all copper layers (inner planes included), mask, paste, silk, outline."""
     return [*copper_layers(board), *NON_COPPER_LAYERS]
 
@@ -96,6 +116,96 @@ def hand_bom(board: str) -> list[dict]:
     return [{**row, "Why": entry.get("hand_why", "")} for row, entry in lines if entry.get("assembly") == "hand"]
 
 
+def hand_refs(board: str) -> set[str]:
+    """Designators of the fitted parts the team solders itself (`assembly = "hand"`)."""
+    return {d for row in hand_bom(board) for d in row["Designator"].split(",") if d}
+
+
+def without_paste(text: str, drop) -> str:
+    """The .kicad_pcb text with no solder paste on the footprints whose reference `drop(ref)` accepts:
+    their pads leave the paste layers, and their paste-only pads (a split exposed-pad stencil) and
+    paste graphics go. Nothing else changes, so every other layer plots as before."""
+    root = sexpr.parse(text)
+    edits = []
+    for fp in root.children("footprint"):
+        if not drop(fp.prop("Reference") or ""):
+            continue
+        for pad in fp.children("pad"):
+            layers = pad.child("layers")
+            names = layers.atoms() if layers else []
+            if not set(names) & _PASTE:
+                continue
+            if set(names) <= _PASTE:
+                edits.append((*sexpr.line_span(text, pad), ""))
+            else:
+                kept = " ".join(sexpr.quote(n) for n in names if n not in _PASTE)
+                edits.append((layers.start, layers.end, f"(layers {kept})"))
+        for g in fp.children():
+            layer = g.child("layer") if g.head in _FP_GRAPHICS else None
+            if layer and layer.atoms() and layer.atoms()[0] in _PASTE:
+                edits.append((*sexpr.line_span(text, g), ""))
+    return sexpr.splice(text, edits)
+
+
+def paste_copy(pcbf: Path, out: Path, drop) -> Path:
+    """A copy of the board file `pcbf` in `out`, under its own name (so its gerbers keep their names
+    and project id), with no paste on the footprints `drop` accepts (`without_paste`)."""
+    out.mkdir(parents=True, exist_ok=True)
+    dst = out / pcbf.name
+    dst.write_text(without_paste(pcbf.read_text(), drop))
+    pro = pcbf.with_suffix(".kicad_pro")
+    if pro.is_file():
+        shutil.copy(pro, out / pro.name)
+    return dst
+
+
+def plot_layers(pcbf: Path, layers: list[str], out: Path) -> list[Path]:
+    """Gerbers of the given layers of `pcbf` into `out`, relative to the drill origin."""
+    out.mkdir(parents=True, exist_ok=True)
+    before = set(out.iterdir())
+    subprocess.run(
+        [
+            kicad_cli(),
+            "pcb",
+            "export",
+            "gerbers",
+            "-l",
+            ",".join(layers),
+            "--use-drill-file-origin",
+            "-o",
+            str(out),
+            str(pcbf),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    return sorted(f for f in out.iterdir() if f not in before and f.suffix != ".gbrjob")
+
+
+def team_stencil(board: str, out: Path, hand: set[str]) -> Path | None:
+    """The hand parts' paste, both faces, with the outline to align it, zipped into
+    out/<board>-team-stencil.zip: the stencil the team orders or cuts for the parts it solders.
+    None when no hand part has paste. `hand`: the hand parts' designators (hand_refs)."""
+    work = out / "team-stencil"
+    shutil.rmtree(work, ignore_errors=True)
+    copy = paste_copy(board_pcb(board), work / "board", lambda ref: ref not in hand)
+    files = plot_layers(copy, [*PASTE_LAYERS, "Edge.Cuts"], work / "gerbers")
+    if not any(_gerber_has_apertures(f) for f in files if "Paste" in f.name):
+        shutil.rmtree(work, ignore_errors=True)
+        return None
+    zpath = out / f"{board}-team-stencil.zip"
+    with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
+        for f in files:
+            z.write(f, f.name.replace(f"{board}-", f"{board}-team-", 1))
+    shutil.rmtree(work / "board", ignore_errors=True)
+    return zpath
+
+
+def _gerber_has_apertures(path: Path) -> bool:
+    """The gerber draws something: a flash, a stroke or a region."""
+    return bool(re.search(r"D0?[123]\*|G36\*", path.read_text()))
+
+
 def rotation_offsets(board: str) -> dict[str, float]:
     db = parts_db()
     return {
@@ -107,8 +217,9 @@ def rotation_offsets(board: str) -> dict[str, float]:
     }
 
 
-def positions(board: str, out: Path) -> list[dict]:
-    raw = out / f"{board}-pos.csv"
+def positions(board: str | Path, out: Path) -> list[dict]:
+    """KiCad's placement of the board's (or panel's) fitted parts, relative to the drill origin."""
+    raw = out / f"{_pcb(board).stem}-pos.csv"
     subprocess.run(
         [
             kicad_cli(),
@@ -125,7 +236,7 @@ def positions(board: str, out: Path) -> list[dict]:
             "--exclude-dnp",
             "-o",
             str(raw),
-            str(board_pcb(board)),
+            str(_pcb(board)),
         ],
         check=True,
         capture_output=True,
@@ -136,15 +247,21 @@ def positions(board: str, out: Path) -> list[dict]:
     return rows
 
 
-def cpl(board: str, out: Path, bom_refs: set[str]) -> Path:
-    """Placement for the parts JLC assembles; board features such as the encoder tab are not in the BOM."""
+def cpl_rows(board: str, out: Path, bom_refs: set[str], pcb_file: Path | None = None) -> list[dict]:
+    """Placement for the parts JLC assembles: KiCad's position and rotation plus the part's rotation
+    offset (parts/jlc.toml). Board features such as the encoder tab are not in the BOM. With
+    `pcb_file` (the board's panel), every copy's parts, `<ref>_<n>`, each with its part's offset."""
     offsets = rotation_offsets(board)
     rows = []
-    for r in positions(board, out):
+    for r in positions(pcb_file or board, out):
         ref = r["Ref"]
-        if ref not in bom_refs:
+        part = ref
+        if pcb_file is not None:
+            copy = panel.split_ref(ref)
+            part = copy[0] if copy else ""
+        if part not in bom_refs:
             continue
-        rot = (float(r["Rot"]) + offsets.get(ref, 0.0)) % 360
+        rot = (float(r["Rot"]) + offsets.get(part, 0.0)) % 360
         rows.append(
             {
                 "Designator": ref,
@@ -154,16 +271,23 @@ def cpl(board: str, out: Path, bom_refs: set[str]) -> Path:
                 "Rotation": f"{rot:g}",
             }
         )
+    return rows
+
+
+def cpl(board: str, out: Path, bom_refs: set[str]) -> Path:
+    """The board's CPL file (cpl_rows)."""
     path = out / f"{board}-cpl-jlcpcb.csv"
-    _write_csv(path, rows, ["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
+    _write_csv(path, cpl_rows(board, out, bom_refs), CPL_COLUMNS)
     return path
 
 
-def gerbers(board: str, out: Path) -> Path:
+def gerbers(board: str | Path, out: Path, hand: set[str] = frozenset()) -> Path:
+    """Gerbers and Excellon drills of the board (or panel) zipped into out/<name>-gerbers.zip. The
+    paste layers leave out the footprints named in `hand` (the parts the team solders itself)."""
     g = out / "gerbers"
     shutil.rmtree(g, ignore_errors=True)
     g.mkdir(parents=True)
-    pcbf = str(board_pcb(board))
+    pcbf = str(_pcb(board))
     subprocess.run(
         [
             kicad_cli(),
@@ -203,43 +327,90 @@ def gerbers(board: str, out: Path) -> Path:
         check=True,
         capture_output=True,
     )
-    zpath = out / f"{board}-gerbers.zip"
+    if hand:
+        copy = paste_copy(Path(pcbf), out / "jlc-paste" / "board", lambda ref: ref in hand)
+        for f in plot_layers(copy, list(PASTE_LAYERS), out / "jlc-paste" / "gerbers"):
+            shutil.move(f, g / f.name)
+        shutil.rmtree(out / "jlc-paste")
+    zpath = out / f"{_pcb(board).stem}-gerbers.zip"
     with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
         for f in sorted(g.iterdir()):
             z.write(f, f.name)
     return zpath
 
 
+BOM_COLUMNS = ["Comment", "Designator", "Footprint", "LCSC Part #", "MPN"]
+CPL_COLUMNS = ["Designator", "Mid X", "Mid Y", "Layer", "Rotation"]
+
+
+def panel_package(board: str, out: Path, rows: list[dict], refs: set[str], hand: set[str]) -> list[Path]:
+    """The panel's gerbers, BOM and CPL: every BOM line's parts on each of the panel's boards, and no
+    paste on any copy of the hand parts (`hand`)."""
+    n = panel.settings(board)["columns"]
+    pcbf = panel.build(board, out / "panel")
+    bom = out / f"{board}-panel-bom-jlcpcb.csv"
+    copies = [
+        {
+            **row,
+            "Designator": ",".join(panel.copy_ref(d, k) for d in row["Designator"].split(",") for k in range(n)),
+        }
+        for row in rows
+    ]
+    _write_csv(bom, copies, BOM_COLUMNS)
+    placed = cpl_rows(board, out, refs, pcbf)
+    want = sorted(panel.copy_ref(d, k) for d in refs for k in range(n))
+    got = sorted(r["Designator"] for r in placed)
+    if got != want:
+        raise RuntimeError(f"{board}: the panel places {got}, its BOM {want}")
+    cpl = out / f"{board}-panel-cpl-jlcpcb.csv"
+    _write_csv(cpl, placed, CPL_COLUMNS)
+    copies_hand = {panel.copy_ref(d, k) for d in hand for k in range(n)}
+    return [gerbers(pcbf, out, copies_hand), bom, cpl]
+
+
 def fab(board: str) -> int:
     out = build_dir(board) / "fab"
-    out.mkdir(parents=True, exist_ok=True)
+    shutil.rmtree(out, ignore_errors=True)
+    out.mkdir(parents=True)
     rows, errors = jlc_bom(board)
     if errors:
         print("BOM has unsourced parts:\n  " + "\n  ".join(errors))
         return 1
     if not has_layout(board):
         bom = out / f"{board}-bom-jlcpcb.csv"
-        _write_csv(bom, rows, ["Comment", "Designator", "Footprint", "LCSC Part #", "MPN"])
+        _write_csv(bom, rows, BOM_COLUMNS)
         print(f"  {bom.relative_to(ROOT)}")
         print(f"{board}: gerbers and CPL skipped: {SCHEMATIC_ONLY}")
         return 0
     packages = {r["Ref"]: r["Package"] for r in positions(board, out)}
     for row in rows:
         row["Footprint"] = row["Footprint"] or packages.get(row["Designator"].split(",")[0], "")
-    bom = out / f"{board}-bom-jlcpcb.csv"
-    _write_csv(bom, rows, ["Comment", "Designator", "Footprint", "LCSC Part #", "MPN"])
     refs = {d for row in rows for d in row["Designator"].split(",")}
     hand_rows = hand_bom(board)
+    hand_set = {d for row in hand_rows for d in row["Designator"].split(",") if d}
     for row in hand_rows:
         row["Footprint"] = row["Footprint"] or packages.get(row["Designator"].split(",")[0], "")
     hand = out / f"{board}-hand-assembly.csv"
-    _write_csv(hand, hand_rows, ["Comment", "Designator", "Footprint", "LCSC Part #", "MPN", "Why"])
-    produced = [gerbers(board, out), bom, cpl(board, out, refs), hand]
+    _write_csv(hand, hand_rows, [*BOM_COLUMNS, "Why"])
+    if panel.settings(board):
+        produced = [*panel_package(board, out, rows, refs, hand_set), hand]
+    else:
+        bom = out / f"{board}-bom-jlcpcb.csv"
+        _write_csv(bom, rows, BOM_COLUMNS)
+        produced = [gerbers(board, out, hand_set), bom, cpl(board, out, refs), hand]
+    stencil = team_stencil(board, out, hand_set)
+    if stencil:
+        produced.append(stencil)
+    form = out / f"{board}-order.txt"
+    form.write_text(order.form(board))
+    produced.append(form)
     unverified = [
         m for m, e in parts_db().items() if not e.get("rotation_verified") and any(m == r["MPN"] for r in rows)
     ]
     for p in produced:
         print(f"  {p.relative_to(ROOT)}")
+    if spec.load(board)["pcb"]["assembly"] == "none":
+        print(f"note: {board} is not ordered with JLCPCB assembly (spec/{board}.toml pcb.assembly)")
     if unverified:
         print(f"note: placement rotation not yet verified in JLC's preview for: {', '.join(unverified)}")
     return 0

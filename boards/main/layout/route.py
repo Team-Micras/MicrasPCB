@@ -1789,13 +1789,21 @@ def square_corners() -> int:
 # more (exposed pads, the bulk capacitors, the large passives), every ground pin of the power stages
 # (POWER_STAGES) and every pad inside one of the power paths' own pours (the named zones, solid
 # throughout), and the pads the pour reaches from one side only (RELIEF_STARVED: no room for two
-# spokes, KiCad's minimum).
+# spokes, KiCad's minimum). Two exceptions to those solid joins (routing review RP2, RP3): the
+# hand-soldered ground pins (HAND_GROUND: the wall joints' pin 2, SWD1 pin 3, J2 pin 4) inherit their
+# connection from rules/jlcpcb.kicad_dru, which relieves them on B.Cu and the inner planes (0.25 mm
+# gap, 0.4 mm spokes, so the iron heats the joint; the planes stayed solid before) and joins them solid
+# on F.Cu, where the pour reaches them from one side; and the small parts whose pour pad would sit
+# buried while the other pad hangs on a thin track (ONE_SPOKE) join by thermal relief with 0.2 mm
+# spokes, one spoke allowed (the rules' min_resolved_spokes), so both pads heat alike in reflow.
 RELIEF_GAP = 0.25  # mm
 SMD_SPOKE = 0.2  # mm
 THT_SPOKE = 0.4  # mm
 RELIEF_SOLID_AREA = 1.2  # mm2: an 0805 pad (1.0 x 1.45 mm) and larger
 POWER_STAGES = ("IC6", "IC7", "IC8", "IC9", "Q6")  # fan driver, buck, bridges, battery switch
-RELIEF_STARVED = {"C8.1", "C29.1", "C30.1", "D4.1", "IC1.4", "J2.4", "R2.1", "R12.1", "R30.1", "SWD1.2", "SWD1.3", "W1.2", "W2.2", "W3.2", "W4.2"}
+RELIEF_STARVED = {"C8.1", "C29.1", "IC1.4", "R12.1", "SWD1.2"}
+HAND_GROUND = {"W1.2", "W2.2", "W3.2", "W4.2", "SWD1.3", "J2.4"}
+ONE_SPOKE = {"R2.1", "D4.1", "C30.1", "R30.1", "C58.1", "R41.1", "R44.1"}
 GROUND_LAYERS = {F: "F", BK: "B", IN1: "In1", IN2: "In2"}
 
 
@@ -1819,6 +1827,8 @@ def solid_pad(p: pcbnew.PAD) -> bool:
     if p.GetAttribute() != pcbnew.PAD_ATTRIB_SMD:
         return False
     ref = p.GetParentFootprint().GetReference()
+    if f"{ref}.{p.GetNumber()}" in ONE_SPOKE:
+        return False
     if ref in POWER_STAGES or f"{ref}.{p.GetNumber()}" in RELIEF_STARVED or _in_named_pour(p):
         return True
     return p.GetEffectivePolygon(F if p.IsOnLayer(F) else BK).Area() / 1e12 >= RELIEF_SOLID_AREA
@@ -1838,7 +1848,17 @@ def relief() -> int:
     solid = 0
     for f in B.GetFootprints():
         for p in f.Pads():
+            name = f"{f.GetReference()}.{p.GetNumber()}"
+            if name in ONE_SPOKE:  # also in the power paths' own pours (GND_BAT, VBAT)
+                p.SetLocalZoneConnection(pcbnew.ZONE_CONNECTION_THERMAL)
+                p.SetLocalThermalSpokeWidthOverride(mm(SMD_SPOKE))
+                p.SetThermalGap(mm(RELIEF_GAP))
+                continue
             if p.GetNetCode() not in nets_poured:
+                continue
+            if name in HAND_GROUND:
+                p.SetLocalZoneConnection(pcbnew.ZONE_CONNECTION_INHERITED)
+                p.SetLocalThermalSpokeWidthOverride(mm(THT_SPOKE))
                 continue
             if p.GetAttribute() == pcbnew.PAD_ATTRIB_PTH:
                 starved = f"{f.GetReference()}.{p.GetNumber()}" in RELIEF_STARVED

@@ -2188,7 +2188,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "XAL5030-472MEC"
+		(symbol "XGL5030-472MEC"
 			(pin_numbers
 				(hide yes)
 			)
@@ -2210,7 +2210,7 @@
 					)
 				)
 			)
-			(property "Value" "XAL5030-472MEC"
+			(property "Value" "XGL5030-472MEC"
 				(at 0 -1.905 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -2231,7 +2231,7 @@
 					)
 				)
 			)
-			(property "Datasheet" "https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2311161804_Coilcraft-XAL5030-472MEC_C7432409.pdf"
+			(property "Datasheet" "https://www.coilcraft.com/getmedia/e64ac115-95f2-45c7-b798-1b3769b91583/xgl5030.pdf"
 				(at 0 -17.78 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -2242,7 +2242,7 @@
 					)
 				)
 			)
-			(property "Description" "4.7 uH 20 % shielded power inductor, Coilcraft XAL5030, 5.28 x 5.48 x 3.1 mm"
+			(property "Description" "4.7 uH 20 % shielded power inductor, Coilcraft XGL5030, 5.28 x 5.48 x 3.1 mm"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -2275,7 +2275,7 @@
 					)
 				)
 			)
-			(symbol "XAL5030-472MEC_0_1"
+			(symbol "XGL5030-472MEC_0_1"
 				(arc
 					(start -2.54 0)
 					(mid -1.905 0.635)
@@ -2325,7 +2325,7 @@
 					)
 				)
 			)
-			(symbol "XAL5030-472MEC_1_1"
+			(symbol "XGL5030-472MEC_1_1"
 				(pin passive line
 					(at -5.08 0 0)
 					(length 2.54)
@@ -3845,6 +3845,98 @@
 		)
 	)
 	(symbol
+		(lib_id "XGL5030-472MEC")
+		(at 144.78 200.66 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "46000502-e8f8-57fd-8978-2366c3256ae8")
+		(property "Reference" "L6"
+			(at 137.16 194.31 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "4.7uH 20% 6.7A"
+			(at 137.16 196.85 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Team-Micras_MicrasPCB_components_coilcraft_XGL5030-472:L_Coilcraft_XAL5030-XXX"
+			(at 144.78 200.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://www.coilcraft.com/getmedia/e64ac115-95f2-45c7-b798-1b3769b91583/xgl5030.pdf"
+			(at 144.78 200.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "4.7uH 20% 6.7A"
+			(at 144.78 200.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Path" "DRIVERS.L6.XGL5030-472"
+			(at 144.78 200.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "bf406ee9-2088-524c-973b-2e18f7c1e5c1")
+		)
+		(pin "2"
+			(uuid "cfac4ba6-e8e7-573a-a0e6-43194723c0d7")
+		)
+		(instances
+			(project "main"
+				(path "/513d9cc1-d27a-514d-a37c-2f1ca04dddfa/8ca2c7f1-daca-5dc4-b728-5ae1084b8574"
+					(reference "L6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "R_Small")
 		(at 345.44 30.48 0)
 		(unit 1)
@@ -5215,98 +5307,6 @@
 			(project "main"
 				(path "/513d9cc1-d27a-514d-a37c-2f1ca04dddfa/8ca2c7f1-daca-5dc4-b728-5ae1084b8574"
 					(reference "R61")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "XAL5030-472MEC")
-		(at 144.78 200.66 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(uuid "8a68e95a-e6a7-5625-9382-b64d05f74892")
-		(property "Reference" "L6"
-			(at 137.16 194.31 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "4.7uH 20% 5.9A"
-			(at 137.16 196.85 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Team-Micras_MicrasPCB_components_coilcraft_XAL5030-472:L_Coilcraft_XAL5030-XXX"
-			(at 144.78 200.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" "https://wmsc.lcsc.com/wmsc/upload/file/pdf/v2/lcsc/2311161804_Coilcraft-XAL5030-472MEC_C7432409.pdf"
-			(at 144.78 200.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "4.7uH 20% 5.9A"
-			(at 144.78 200.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Path" "DRIVERS.L6.XAL5030-472"
-			(at 144.78 200.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "24a12649-7c58-53a5-8b54-f429ae2d9677")
-		)
-		(pin "2"
-			(uuid "a5b45ece-fe4e-5254-888a-9e203f321633")
-		)
-		(instances
-			(project "main"
-				(path "/513d9cc1-d27a-514d-a37c-2f1ca04dddfa/8ca2c7f1-daca-5dc4-b728-5ae1084b8574"
-					(reference "L6")
 					(unit 1)
 				)
 			)

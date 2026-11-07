@@ -91,7 +91,8 @@ for r44, r45 in ((10e3, 2e3), (100e3, 20e3), (200e3, 22e3), (20e3, 2e3)):
           f"{17.4 / sink * 1e3:.2f} mA from the pack): PC5 {17.4 / ratio:.2f} V at 17.4 V, {24.2 / lo:.2f} V at the "
           f"24.2 V clamp; VBAT on 5V_IN alone: {floats}")
 # With the pack fitted and SW4 off, Q6's off-state leakage flows pack -> VBAT -> divider -> GND ->
-# Q6 -> GND_BAT and adds to D14's. HSBB3072 specifies IDSS only at 25 C (1 uA max, p2). ASSUMPTION: 0.5 V of
+# Q6 -> GND_BAT and adds to D14's. HSBB3072 specifies IDSS up to 55 C only (1 uA max at 25 C, 5 uA max at
+# 55 C, VDS 24 V, p2). ASSUMPTION: 0.5 V of
 # VBAT is allowed for it at 85 C, and the leakage that would bring VBAT to the DRV8874's 4.3 V UVLO
 # minimum is printed.
 d14_85 = leak(LEAK_5V, 85) * 22e3

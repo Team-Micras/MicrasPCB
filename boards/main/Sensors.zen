@@ -11,8 +11,8 @@ Mode 1: SDx and SCx grounded, OCS_Aux and SDO_Aux open (Table 2 p10). C24
 and C25 100 nF on Vdd and Vdd_IO (Table 2 note 1, Figure 27 p44). On 3V3_D, as on the v1 main board
 (the research keeps it there: +0.65 mA on 3V3_A if it moves).
 
-Motor current, U10 (right motor) and U11 (left motor): INA241A2QDGKRQ1, gain 20 V/V (TI SBOSA30D,
-SBOSA31D; research Current sensing and A.3), across the 10 mOhm 4-terminal shunts R65 / R75 on the
+Motor current, U10 (right motor) and U11 (left motor): INA241A2IDGKR, gain 20 V/V (TI SBOSA30D;
+research Current sensing and A.3), across the 10 mOhm 4-terminal shunts R65 / R75 on the
 drivers sheet, IN+ on the bridge-side sense terminal and IN- on the motor side, with no input
 filter (the 25-45 uA input bias makes any series resistance an error, section 6.5). VS on 3V3_A
 with C100 / C103 100 nF at the pin (section 8.3.1, the one bypass capacitor of Figure 8-3); REF1,
@@ -22,7 +22,7 @@ ratiometric to VDDA, which 3V3_A also feeds. Range: (3.3 V - 0.2 V - 1.65 V) / 0
 and (1.65 V - 0.02 V) / 0.2 V/A = -8.15 A (output swing, section 6.5), above the 2.97 A ITRIP plus
 its overshoot. The output drives the ADC through R78 / R79 150 Ohm (R_iso) with C102 / C105 1 nF
 X7R after it, on the ADC line (Current_Sensor_Right on PC1, a slow ADC channel,
-Current_Sensor_Left on PB1, a fast one; main.zen's pin budget). Section 6.5 rates 1 nF straight on
+Current_Sensor_Left on PA6, a fast one; main.zen's pin budget). Section 6.5 rates 1 nF straight on
 OUT ("no sustained oscillations", no isolation resistor); TI's INA241A2 PSpice model (SBOMC92)
 gives 4.2 dB of peaking and 26 % overshoot there, and behind 150 Ohm a flat response at the pin
 (-3 dB at 0.93 MHz, no overshoot;
@@ -35,8 +35,12 @@ error stays under 1 mA from 0.61 us on in every corner of the model (C_f +-25 %,
 +-15 % over temperature, the ADC switch resistance, which DS13311 does not publish, 50-1000 Ohm,
 2-10 pF on the pin, VCM 0-16.8 V, and the model's output impedance raised to Figure 6-24's),
 against 0.84 us with the basic 100 Ohm part, which still leaves 1.40 mA at 0.8 us. The firmware
-samples PB1/PC1 for at least 0.7 us (boards/main/firmware_changes.toml, current;
-tests/test_main.py). Each capacitor sits beside its resistor, 10-14 mm of track from the pin. On
+samples PA6/PC1 for at least 0.7 us (boards/main/firmware_changes.toml, current;
+tests/test_main.py). C102 sits 3.5 mm from PC1; C105 sits beside R79, 24 mm of track from PA6,
+since the escapes and lanes of the STM32's front-left pad row leave no spot by the pin (layout
+README). An estimate, not a datasheet figure: the track's ~20 nH between C105 and the 4 pF
+sample capacitor rings above 500 MHz,
+damped by the ADC switch's resistance within nanoseconds, well inside the sampling time. On
 the slow channel one conversion per PWM centre still fits (research H7 pin budget).
 
 Wall sensors W1-W4: each an upright wall-sensor board (boards/wall: an SFH 4550 emitter over a
@@ -116,7 +120,8 @@ and each receiver's load at its ADC:
   0.38 A pulse rating (emitter_sink_out.txt section 3). The codes set each emitter's brightness
   (boards/main/firmware_changes.toml, emitters).
 - Receiver n: the phototransistor collector on 3V3_A (joint pin 3), its emitter on the joint's OUT,
-  Wall_Sensor_n (ADC), with R14/R18/R22/R26 1 kOhm to GND on the main board, at the ADC pin: the
+  Wall_Sensor_n (ADC), with R14/R18/R22/R26 1 kOhm to GND on the main board, between the joint and
+  the ADC pin (R18 9 mm, R14 13 mm, R26 13 mm and R22 29 mm of track from the pin): the
   phototransistor is a current source, so the signal crosses the joint as a current. The follower stops at 3V3_A - VCE(sat) (0.4 V max, TPS601A(F)
   p2), below VREF+ = 3V3_A, so neither the lit nor the dark reading leaves the ADC's range: ambient
   light only takes up the receiver's headroom, which the firmware watches (a dark reading above

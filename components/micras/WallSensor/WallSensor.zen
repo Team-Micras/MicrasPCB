@@ -77,7 +77,15 @@ to the board circuit.
 Sourcing: the parts are bought separately (SFH 4550 from ams-OSRAM, TPS601A(F)
 from Toshiba) and hand-soldered after the leads are formed, so the component is
 excluded from the JLCPCB BOM and placement file (skip_bom). Each fitted sensor
-takes one SFH 4550 and one TPS601A(F).
+takes one SFH 4550 and one TPS601A(F). Prefer the TPS601A in rank A (IL 100-300 uA,
+TPS-DS p.2) when sourcing: it keeps the unranked part's 100 uA minimum and bounds
+the top, so on the main board's 1 kOhm load a white wall under the 1500 lux of a
+spot-lit final reads 16-48 % of full scale in the dark (research/next-revision/
+calculations/emitter/ambient_light.py's 41 % for the typical part, about 0.26 mA at
+the rating point, scaled to rank A's 100-300 uA). The unranked TPS601A(F)
+has no IL maximum, and rank C (400-1200 uA) saturates under 1500 lux. Rank A's
+availability is not confirmed; an unranked or other-rank part still works where
+the ambient light is lower.
 Mounts (config `mount`):
 - "flat" (WallSensor_SFH4550_TPS601A_THT): the leads bent 90 degrees on the board, as described
   above; the main board's sensors.

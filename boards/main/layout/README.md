@@ -121,16 +121,17 @@ VBAT ─┬─ IC8/IC9 DRV8874 VM, IC6 STSPIN958 VS
   CPH-CPL.
 - **Motor path**: OUT1 -> 10 mOhm WSK2512 4-terminal shunt -> 47 uH MTQH707050S470M choke -> motor
   connector; OUT2 -> connector.
-- **Current**: INA241A2-Q1 (gain 20) on each shunt, VS and REF1 on 3V3_A, REF2 on GND: 0.2 V/A
-  around VDDA / 2, about +7.1 / -8.0 A, into PB1 (left, a fast ADC channel) and PC1 (right)
-  through 150 Ohm (R78/R79, R_iso), with 1 nF X7R beside the resistor; the firmware samples them
+- **Current**: INA241A2 (gain 20) on each shunt, VS and REF1 on 3V3_A, REF2 on GND: 0.2 V/A
+  around VDDA / 2, +7.25 / -8.15 A at 3V3_A 3.3 V, into PA6 (left, a fast ADC channel) and PC1 (right)
+  through 150 Ohm (R78/R79, R_iso), with 1 nF X7R on the ADC line (C102 3.5 mm from PC1, C105
+  beside R79, 21 mm of track from PA6); the firmware samples them
   for at least 0.7 us, so the ADC's kickback from a wall-sensor conversion settles below 1 mA.
 
 ## Fan
 
 STSPIN958 in parallel half-bridge mode, PWM trimming, on TIM14 at 400 kHz: R31 25 mOhm, REF from
 4.7k/2.0k on 3V3_D (current limit 3.94 A), RSR 1 kOhm (2 V/ns), 2 x 470 nF 50 V X7R 0805 +
-2 x 10 uF 50 V on VS, CBOOT 1 uF 50 V X7R (the IC runs hot), and a 4.7 uH XAL5030-472 choke between FAN_OUT and the motor. Fan_PWM on PA7 (TIM14_CH1), Fan_TOFF on PB10; Fan_Enable on PB12, driven open drain and read back as the driver's nFAULT.
+2 x 10 uF 50 V on VS, CBOOT 1 uF 50 V X7R (the IC runs hot), and a 4.7 uH XGL5030-472 choke between FAN_OUT and the motor. Fan_PWM on PA7 (TIM14_CH1), Fan_TOFF on PB10; Fan_Enable on PB12, driven open drain and read back as the driver's nFAULT.
 
 ## Sensors
 
@@ -186,9 +187,9 @@ STSPIN958 in parallel half-bridge mode, PWM trimming, on TIM14 at 400 kHz: R31 2
   leaves open, easy to reach.
 - **Links to the MCU** (C5 GPIOs free of strapping and other roles, off with no pull at reset):
   SWDIO GPIO0 -> PA13, SWCLK GPIO1 -> PA14 (22 Ohm), NRST GPIO23 (open drain); SPI3 half-duplex
-  on three wires, the MCU the master: ESP_SCK PC10 -> GPIO10 (R95 22 Ohm at PC10), ESP_DATA PC12
-  (the MOSI pad, IOSWP = 0) <-> GPIO8 (R96 220 Ohm at the C5), ESP_CSn PC11 -> GPIO9 (R88 100 Ohm
-  at the C5, R97 100 kOhm pull-up to 3V3_D); ESP_Flow GPIO24 -> PA11, the C5's credit line. UART4
+  on three wires, the MCU the master: ESP_SCK PC10 -> GPIO10 (R95 22 Ohm), ESP_DATA PC12
+  (the MOSI pad, IOSWP = 0) <-> GPIO8 (R96 220 Ohm), ESP_CSn PC11 -> GPIO9 (R88 100 Ohm,
+  R97 100 kOhm pull-up to 3V3_D), the resistors mid-line; ESP_Flow GPIO24 -> PA11, the C5's credit line. UART4
   is the fallback on PC10/PC11 with no board change.
 - **ST-Link pads** SWD1, at a board edge the robot leaves open, out of the fan ring: five bare
   1.27 mm pitch pads, 1 NRST for the probe's RST wire, then the clone ST-Link lead's order, 2 SWDIO,
@@ -218,13 +219,15 @@ round it, so no line crosses the rear tip and no two escapes cross there:
   Encoder_Right_CSn PB8; IMU_INT on PC7 (EXTI7, the IMU's INT1; INT2 unconnected).
 - **Wall sensors**: selectors on TIM3 on the rows facing their emitters (PC9 CH4, PB0 CH3 on the
   left; PB4 CH1 Wall_Sensor_PWM_3, PB5 CH2 Wall_Sensor_PWM_2 on the right); the emitter DAC on PA5
-  (DAC1_OUT2); Wall_Sensor_0 on PA4 and Wall_Sensor_3 on PC0.
-- **ADC**: Current_Sensor_Left on PB1 (a fast channel), Current_Sensor_Right on PC1, each with an
+  (DAC1_OUT2); Wall_Sensor_0 on PA4, Wall_Sensor_1 on PA3, Wall_Sensor_2 on PB1 and Wall_Sensor_3 on
+  PC0. No wall input is a package neighbour of Fan_PWM (PA7, pin 26): its neighbours are
+  Current_Sensor_Left (PA6) and Button (PC4).
+- **ADC**: Current_Sensor_Left on PA6 (a fast channel), Current_Sensor_Right on PC1, each with an
   ADC1 and an ADC2 input; the battery divider on PC5 (ADC12_INP8).
 - **Fan**: Fan_PWM on PA7 (TIM14_CH1), Fan_Enable on PB12 (open drain, its fault on EXTI12),
   Fan_TOFF on PB10.
 - **User interface**: LED_ARGB on PA2 (TIM15_CH1, DMA on tim15_up), the buzzer on PB9
-  (TIM17_CH1), LED_Red on PB2, Button on PA3, Switch_0-3 on PH0, PH1, PC15 and PC14 (the MCU has
+  (TIM17_CH1), LED_Red on PB2, Button on PC4 (EXTI4), Switch_0-3 on PH0, PH1, PC15 and PC14 (the MCU has
   no VBUS input).
 
 Every GPIO of the VFQFPN68 is used.
@@ -233,21 +236,27 @@ Every GPIO of the VFQFPN68 is used.
 
 [`firmware_changes.toml`](../firmware_changes.toml) lists what the firmware must change against
 the v1 firmware (`firmware.toml`, from MicrasFirmware):
-PH/EN drive at 100 kHz with TIM8 slaved to TIM1; Motors_Enable as nSLEEP (1 ms wake);
-Motors_nFault on PD2; INA241 sampling on TIM1 TRGO2 with dual injected ADC1/ADC2; the battery
-divider constant 11.0 on PC5 and a "no pack" reading on 5V_IN; Switch_0 on PH0; the fan at 400 kHz
-with Fan_PWM on TIM14 and Fan_Enable on PB12 open drain and its fault on EXTI12; the SPI3
-half-duplex link to the ESP32-C5 (ESP-IDF v6.0.3 or later, AFCNTR, the data line on the MOSI pad,
-/8 to start, a turn-around with no driver overlap, UART4 as fallback) with ESP_Flow credits on PA11;
-the IMU and encoder bus on SPI2; Button on PA3; the LEDs on TIM15 and the buzzer on TIM17; the C5's slow clock on its RC, its pulls
-and its resync after an MCU reset;
-one wall emitter at a time on TIM3, with
-the emitter DAC on PA5 stepping with each selector and a code per emitter, and no LED or SPI
-traffic during an emitter's pulse; the current channels sampled for at least 0.7 us; the WS2812C
-timing (T0L/T1L at most 1 us); flashing over Wi-Fi through the ESP32-C5's CMSIS-DAP-over-TCP or
-Black Magic probe, nRESET on its GPIO23 (open drain only, released before it is enabled);
-TIM1/TIM8/TIM14 frozen and the drive enables cleared on a debug halt; the LSM6DSV's I2C disabled
-at boot and its interrupts all routed to INT1.
+PH/EN drive at 100 kHz with TIM8 slaved to TIM1; Motors_Enable on PD2 as nSLEEP (1 ms wake);
+Motors_nFault on PB6, sharing EXTI9_5 with IMU_INT; a stalled wheel cut within 5 s; INA241
+sampling on TIM1 TRGO2 with dual injected ADC1/ADC2; the battery divider constant 11.0 on PC5 and
+a "no pack" reading on 5V_IN; Switch_0 on PH0; the H7's HSI measured against the ESP32-C5's crystal
+over the link (no crystal on the MCU), the C5 kept running in contest mode with its radio off; the
+fan at 400 kHz with Fan_PWM on TIM14, its duty at most 88.8 %, Fan_TOFF (low during the limiter's
+decay) sampled by DMA in step with the PWM, a start at 50 kHz, a jam rule at 400 kHz and a stop by
+Fan_Enable (coast), Fan_Enable on PB12 open drain and its fault on EXTI12; the SPI3 half-duplex
+link to the ESP32-C5 (ESP-IDF v6.0.3 or later, AFCNTR, the data line on the MOSI pad, /8 to start,
+a turn-around with no driver overlap, UART4 as fallback) with ESP_Flow credits on PA11; the IMU and
+encoder bus on SPI2, mode 1 for the encoders and mode 3 for the IMU; the gyroscope at +-2000 dps;
+Button on PC4; the LEDs on TIM15 and the buzzer on TIM17; the C5's slow clock on its RC, its pulls
+and its resync after an MCU reset; one wall emitter at a time on TIM3, with the emitter DAC on PA5
+stepping with each selector and a code per emitter, and no LED, SPI or buzzer traffic during an
+emitter's pulse and scan; the current channels sampled for at least 0.7 us; the WS2812C timing
+(T0L/T1L at most 1 us); slow output edges on the buses and every free-running PWM pin; flashing
+over Wi-Fi through the ESP32-C5's CMSIS-DAP-over-TCP or Black Magic probe, nRESET on its GPIO23
+(open drain only, released before it is enabled), a 10 ms wait for NRST's slow rise, and the C5
+held in reset (J2 pad 1 to pad 4) when an ST-Link uses SWD1; TIM1/TIM8/TIM14 frozen and the drive
+enables cleared on a debug halt; the LSM6DSV's I2C disabled at boot and its interrupts all routed
+to INT1.
 
 ## Layout
 
@@ -300,22 +309,29 @@ connection is routed, and DRC, DFM and the layout tests pass.
   from those vias along the edge row joins the 22 uF C109 and 100 nF C108, which sit off the module's
   front-right corner with two vias each, 13-16 mm from the pin: no capacitor fits nearer it (the
   edge, the antenna end and the ground pads), and the module decouples its chip itself (datasheet
-  Figure 8-1). The series resistors of the link (R86, R88, R96) and the ESP_CSn pull-up R97 sit at
-  the module's front end, R97 on a via to the B.Cu 3V3_D run there; R95 sits beside PC10 (ESP_SCK's
-  driver), in line with its escape off the STM32's rear tip.
+  Figure 8-1). SWCLK's series resistor R86 sits at the module's front end. The link's series
+  resistors sit mid-line: R95 (ESP_SCK) and R96 (ESP_DATA), with the ESP_CSn pull-up R97 beside
+  them, about 24 mm of track from the STM32's rear tip, and R88 (ESP_CSn) about 35 mm from it and
+  37 mm from the module. The lines are electrically short at their edges (about 0.4 ns of line
+  against 4.2 ns edges), so the resistors work anywhere along them (`Esp.zen`).
 - **Planes**: In1.Cu is ground over the whole board; In2.Cu is ground but for the STM32's two supply
   islands, each only as big as its job (`route.py`): 3V3_D (`mcu_3v3_outline()`) is the square under
   the chip out to its pin tips with a tab to the via of each 3V3_D pin (VBAT, VDDSMPS, VDD); VCORE
   (`vcore_outline()`) is a band outside the pin tips' vias that only reaches VCORE's vias (VFBSMPS,
   VCAP1-3, C3-C7, L1) and stops either side of the chip's rear tip. By hand, the 3V3_D island's tab at
   VDD pin 9 also takes C12's via, and the VCORE band steps back round it. The signals' escape vias just
-  past the pin tips sit between the two islands; the lines that leave them on B.Cu cross over the
-  islands' edges (Wall_Sensor_2, Wall_Sensor_3, Current_Sensor_Left, Current_Sensor_Right and
-  Wall_Emitter_Set among them), with In1.Cu's solid ground between them and the islands. B.Cu carries the VBAT pour over
+  past the pin tips sit between the two islands, and the lines that leave them on B.Cu run over the
+  islands: B.Cu's reference plane is In2.Cu, so over an island a line's return runs in that island,
+  not in In1.Cu's ground, which lies beyond In2.Cu and does not shield them. Over VCORE: Wall_Sensor_3
+  9.4 mm, Wall_Sensor_2 8.6 mm, Battery_Voltage 5.0 mm, Current_Sensor_Left and Current_Sensor_Right
+  2.4 mm each, the other wall lines 1.0-1.4 mm, and 1-7 mm of digital lines (the DIP switch,
+  encoders, IMU, motor and buzzer lines); over 3V3_D only Wall_Sensor_1's 0.6 mm. Both islands are
+  decoupled to ground at the STM32's pins (C3-C12), so a line over them couples into the islands'
+  own noise (VCORE's SMPS ripple), not into a floating plane. B.Cu carries the VBAT pour over
   the power entry and both bridges, and no other net's track runs on B.Cu inside it.
 - **Tracks**: F.Cu and B.Cu, octilinear. The power paths (`ROUTES` in `route.py`) are wide and
-  locked; signals are 0.15 mm, 0.12 mm where they leave a fine-pitch pin and nowhere narrower,
-  at 0.10-0.11 mm clearance. A switching net keeps 0.5 mm from an analog net on the same layer,
+  locked; signals are mostly 0.12 mm (86 % of their length), 0.15 mm on some runs (11 %) and
+  nowhere narrower, at 0.10-0.11 mm clearance. A switching net keeps 0.5 mm from an analog net on the same layer,
   tracks, pads and pours alike, but for the pin pairs and nose lines in Open items.
   No track or via ends open.
 - **Round the fan hole**: the lines that pass the hole leave the STM32's two rear faces in pin order,
@@ -326,7 +342,7 @@ connection is routed, and DRC, DFM and the layout tests pass.
   Motors_nFault, Motor_Right_PH and Encoder_Right_CSn; on the left, F.Cu ESP_Flow, Motor_Right_EN,
   Motor_Left_PH, Encoder_Left_CSn, the SPI2 bus (MOSI, MISO, SCK) and Fan_Enable, and B.Cu SWDIO,
   IMU_SPI_CSn, IMU_INT and Motor_Left_EN (the inner lane first). Behind the hole each stream
-  peels off outer lane first, so no lane crosses another. R95 sits in line with ESP_SCK's escape.
+  peels off outer lane first, so no lane crosses another.
   Where a lane passes nearest the hole (the middle of each octagon face) the stacks step 6 um out
   over 0.6 mm with nested 45-degree jogs, so their copper keeps the DFM's 0.200 mm to the hole as
   the fab's tessellated arc puts it, and a pour keep-out (`no pour: fan hole edge`) holds the
@@ -340,16 +356,24 @@ connection is routed, and DRC, DFM and the layout tests pass.
   lane at x 46.9 under the LED row (W2.5 out along x + y = 48, W3.5 in along y -6.92, 0.5 mm off
   the joints' analog pads); the LEDs' ground pads join the F.Cu pour, the LED row's 3V3_D comes on
   F.Cu from one via behind C96. B.Cu is then free from the STM32's tip to the LED row: LED_ARGB
-  runs 8.8 mm straight to D1 with two vias, and Wall_Sensor_2 (pin 25, front-left face, to W3)
-  dips under pins 22-24 on B.Cu and crosses LED_ARGB's lane on F.Cu beside the tip (C11 sits by
-  C10). Encoder_Left_ABI_A/B, Button and Fan_PWM leave the tip on B.Cu under the front-left pad
-  row past the left vertex; Wall_Sensor_PWM_0 (pin 42) runs in the free B.Cu slot of the left
+  runs 8.8 mm straight to D1 with two vias, and Wall_Sensor_2 crosses in front of the tip on F.Cu
+  (C11 sits by C10). Encoder_Left_ABI_A/B leave the tip on B.Cu under the front-left pad row past
+  the left vertex; Wall_Sensor_PWM_0 (pin 42) runs in the free B.Cu slot of the left
   stream (between IMU_SPI_CSn and IMU_INT) and crosses the stream's B.Cu lanes square on an In2.Cu
   hop just outside the VCORE band (C6's ground joins C15's via).
-- **Fan_PWM** (pin 26, between the ADC pins of the front-left row) leaves by a via 0.8 mm past its
-  pad, the neighbours' vias at 0.8 and 1.3 mm alternately, and runs on B.Cu under the front-left
-  pad row and past the left vertex to the fan driver, the only way that crosses no escape of
-  pins 27-34; at IC6 it rises inside 3V3_D's loop round pins 10-13 on a via 0.2 mm from the loop.
+- **Front-left face** (pins 18-34): the escape vias of pins 24-31 alternate 0.8 and 1.3 mm past the
+  pads. Under the pad row on B.Cu (inside the STM32's outline, beside Encoder_Left_ABI_A/B) three
+  lanes run to the left vertex, each pin's leg entering on its pin's normal, the tip-side pin
+  innermost: Current_Sensor_Left (pin 25) on x + y = 36.2, Fan_PWM (pin 26) on 37.05 and Button
+  (pin 27) on 37.75 (robot frame), Fan_PWM 0.48 mm from the analog line beside it (the legs, under
+  the pads, are the pins' escapes). Past the vertex Button goes to SW2, Current_Sensor_Left to R79
+  and C105 and Fan_PWM to the fan driver; at IC6 it rises inside 3V3_D's loop round pins 10-13 on a
+  via 0.2 mm from the loop. Outside the row the wall lines leave forward and to the side
+  (Wall_Sensor_1 from pin 20 to W2, Wall_Sensor_0 from pin 23 to W1, Wall_Sensor_2 from pin 30 in
+  front of the tip to W3), with the emitter set-point (pin 24), the battery divider (pin 28),
+  Wall_Sensor_PWM_1 (pin 29) and LED_Red (pin 31), crossing on F.Cu and B.Cu by vias outside the
+  row. Fan_PWM and the buzzer keep 0.45 mm from every wall receiver's line, escapes included
+  (`test_fan_and_buzzer_keep_clear_of_the_wall_sensors`).
   The fan driver's 3V3_D pins join on B.Cu above the fan motor's B.Cu band, which no track
   crosses.
 - **Front-right quadrant** (`reports/scratch/agentC4/plan.png`): the DIP switch's lines (pins 2, 3,
@@ -358,13 +382,20 @@ connection is routed, and DRC, DFM and the layout tests pass.
   (Current_Sensor_Right, Wall_Sensor_3, Wall_Sensor_2, Wall_Sensor_PWM_3, Switch_3 to Switch_0,
   Wall_Sensor_PWM_2, the buzzer): the switches and Wall_Sensor_3 run on B.Cu down the channel
   between the SMPS capacitor row and W3, step past D17/D14 and follow the emitter sink's B.Cu
-  diagonal to W4 and into SW1's pads from inside; Switch_0 and the buzzer go round W3's front;
-  Current_Sensor_Right, the buzzer and Wall_Sensor_PWM_2 cross under the STM32's pad rows on B.Cu.
+  diagonal to W4 and into SW1's pads from inside; Switch_0 goes round W3's front;
+  Current_Sensor_Right and Wall_Sensor_PWM_2 cross under the STM32's pad rows on B.Cu. The buzzer
+  (a fast line, its TIM17 PWM) runs on B.Cu 0.45 mm or more beside Current_Sensor_Right from pin 65 to
+  the tip, then in front of it to the right edge and R1.
   L1 sits 0.04 mm along the face from the row's grid so Switch_3's escape via clears its LX pad.
 - **Long analog lines**: CURRENT_R_AMP and ESP_SCK_IO cross the fore-aft 3V3_A (F.Cu) and 5V_IN
   (B.Cu) lines behind the buck through a 2 mm jog in 5V_IN; CURRENT_L_AMP leaves U11's output pin
   through a notch in the B.Cu VBAT pour (`route.py` `VBAT_POUR`) and runs round the left side.
   3V3_A steps 0.225 mm in by U8 so LDO_IN keeps 0.3 mm from it.
+- **IMU**: no via and no F.Cu track lies under the LSM6DSV's body but each pad's own stub, leaving it
+  outward (ST TN1383 sections 3.3-3.5: copper under a MEMS sensor stresses it unevenly with
+  temperature); the bus's vias sit past the body's edges, its branches to the encoders run on B.Cu,
+  and ground pins 6-7 join outside the body to C25's ground via
+  (`test_imu_body_is_free_of_vias_and_tracks`).
 - **IMU and encoders' 3V3_D**: a 0.12 mm F.Cu feed (about 35 mA) round the left side from the fan
   driver's 3V3_D to the IMU's cluster, which the streams behind the hole cut off from the buck.
   SWCLK reaches R86 round the bridges (an In2.Cu hop, then B.Cu behind the buck), which leaves
@@ -390,7 +421,9 @@ connection is routed, and DRC, DFM and the layout tests pass.
   encoders' lines (0.13 ohm of track in all, 32 mV at the 0.25 A of flashing, 1 oz copper). The
   motor paths are 1.0 mm (necks at the pins),
   the crossings by the connectors on B.Cu outside the VBAT pour with 4-via clusters. Each DRV8874's
-  VM pin joins its 100 nF (C82, C91) on F.Cu, with a via beside the pin and 3-4 vias to the pour. The fan driver
+  VM pin joins its 100 nF (C82, C91) and, past it, the VCP capacitor's VBAT pad (C88, C97) on F.Cu:
+  three vias to the pour on the pin's own copper, one beside the pin and two at the VCP capacitor
+  (`test_power_paths_carry_their_current` counts only vias joined to the pin by copper on its layer). The fan driver
   (STSPIN958) is turned so its power side faces the board's edge and its logic pins the fan hole
   (DS14341 Fig. 23). Its pins open into F.Cu pours: OUT1 (pins 31-32) to the choke L6, VS (pins
   27-30) up to the two 470 nF (C34, C35) 2.95 mm from the pins, with 6 vias behind them to a B.Cu VBAT pour that comes
@@ -438,18 +471,25 @@ connection is routed, and DRC, DFM and the layout tests pass.
   0.25 mm gap, 0.2 mm spokes on the outer ground pours and 0.4 mm on the planes and on every
   through-hole pad, so a small part's pour end heats as fast as its track end in reflow; the pads
   that carry current or heat join solid: exposed pads and every pad of 1.2 mm2 and more, the power
-  stages' pins (IC6, IC7, IC8, IC9, Q6), the pads inside the power paths' own pours, and 9 pads
-  the pour reaches from one side only (`route.py` `relief()`, `RELIEF_STARVED`). Under each
+  stages' pins (IC6, IC7, IC8, IC9, Q6), the pads inside the power paths' own pours, and 5 pads
+  the pour reaches from one side only (`route.py` `relief()`, `RELIEF_STARVED`). The hand-soldered
+  ground pins (the wall joints' pin 2, SWD1 pin 3, J2 pin 4) take their joins from
+  `rules/jlcpcb.kicad_dru`: 0.25 mm gap, 0.4 mm spoke reliefs on B.Cu and the inner planes, so the
+  iron heats the joint and not the planes, and solid on F.Cu, which the pour reaches from one side.
+  Seven small parts whose pour pad the pour reaches from one side (R2, D4, C30, R30 on ground, C58
+  and R41 on GND_BAT, R44 on VBAT) join it by one or more 0.2 mm spokes, one allowed (the rules'
+  `min_resolved_spokes`), so both their pads heat alike in reflow
+  (`test_small_parts_pads_heat_alike`). Under each
   DRV8874's exposed pad a 4.0 x 5.6 mm B.Cu ground island, cut out of the VBAT pour, takes the
   heat of its 12 thermal vias (SLVSF66A section 10.1); the VBAT pour flows round it to the VM vias.
-- **Ground stitching** (`route.py` `stitch()`, `prune()`): 342 ground vias in all. Every point where both outer layers are ground lies within 4 mm of a ground via or
+- **Ground stitching** (`route.py` `stitch()`, `prune()`): 346 ground vias in all. Every point where both outer layers are ground lies within 4 mm of a ground via or
   through-hole ground pad (a twentieth of the 2.4 GHz wavelength, TI SZZA009), and every island of
   outer ground pour over 2 mm2 has at least two, but for the pour within 0.6 mm of a ground pad or
   track (its join) and within 4.5 mm of C72.1 and C8.1 (see Open items). A stitching via goes only where all
   four layers are ground round it, so it cuts no other net's copper, In2.Cu's islands and hops
-  included; the ground that no via can reach is cut out by 13 pour keep-outs (`no pour:
-  unstitched`), and two B.Cu pieces (under the STM32's front-left pad row and by W4) by two more
-  (`no pour: island`).
+  included; the ground that no via can reach is cut out by 15 pour keep-outs (`no pour:
+  unstitched`), and three B.Cu pieces (under the STM32's front-left pad row, by W4 and between W2
+  and the battery divider's lines) by three more (`no pour: island`).
   Two B.Cu keep-outs (`analog_keepoff`, fills only) hold the FAN_LSS pour 0.5 mm off
   CURRENT_L_AMP's B.Cu run beside the fan driver.
   One more keep-out on In2.Cu (`no pour: sliver`) drops a 7 um sliver of ground between the
@@ -483,12 +523,20 @@ connection is routed, and DRC, DFM and the layout tests pass.
   soldering. As fitted, J1's and M1-M3's leads stand 1.96 mm below the board, SW4's 1.17 mm and
   the wall boards' header pins 2.71 mm, against a 0.7-0.85 mm gap to the floor (MicrasHardware `Board.bottom_z` 1.2 mm,
   less the skates); M2 also lies under the rear skate (for MicrasHardware to clear).
+  JLCPCB prints no paste on the parts the team solders itself (`assembly = "hand"` in
+  `parts/jlc.toml`: IC1, IC2, IC6, IC7, U13 and D4; J1, M1-M3 and SW4 are through-hole): `make fab`
+  plots the package's paste layers from a build copy of the board without their paste, footprints
+  and layout untouched, and writes their paste alone, both faces with the outline, to
+  `build/main/fab/main-team-stencil.zip`, outside the JLCPCB package, for a stencil the team orders
+  or cuts (`tests/test_fab.py` checks both). Finish leaded HASL, green mask, white silkscreen
+  (`main.zen`, `build/main/fab/main-order.txt`).
 - **Countersinks**: the M2 screws come from under the board into 90 degree countersinks of 4.4 mm
   (spec `[countersink]`, MicrasHardware `params.Board.countersink_d`) that the owner cuts by hand,
   not fabricated: User.1 draws them and no fab output plots that layer
   (`tools/micras_pcb/jlc.py` `gerber_layers`; the drill files hold only holes). Keep-outs hold
-  every layer's copper out of the cone: tracks, vias and pours 2.3 mm from each hole's centre on
-  B.Cu and In2.Cu, 1.6 mm on In1.Cu; F.Cu keeps the hole's own clearance
+  every layer's copper out of the cone with 0.4 mm to spare for the hand-cut cone: tracks, vias and
+  pours 2.6 mm from each hole's centre on B.Cu and In2.Cu, 1.85 mm on In1.Cu; F.Cu keeps the hole's
+  own clearance
   (`tests/test_main_layout.py` `test_countersinks_keep_the_copper_off`).
 
 - **Fan ring and drive blocks on the silkscreen**: the fan's impeller shroud (MicrasHardware
@@ -538,15 +586,11 @@ Each is a visible TODO in the sheet that owns it.
 - Routing, round the escape rows: Current_Sensor_Right (62 mm: its run from C102 to R78 past the
   STM32's rear tip is the link's and the IMU's and encoders' corridor, so it goes round by the DIP
   switch and the buzzer), Wall_Emitter_Set and
-  Wall_Sensor_2 are longer than the layout tests' detour rule, and 18 analog /
-  fast-digital pairs run closer than 0.45 mm for 0.1-16 mm each (the longest: 3V3_A beside
-  Encoder_Right_ABI_B, the emitter set-point beside Encoder_Left_ABI_B for 9 mm; Fan_PWM, whose
-  pin PA7 sits between the ADC pins 23-28, leaves by a via 0.8 mm past its pad and runs on B.Cu
-  under the front-left pad row, beside Wall_Sensor_0's and the ADC lines' escapes);
-  `tests/test_main_layout.py` lists them with the length they may not exceed. The ADC filter
-  capacitors C102 and C105 sit 9-14 mm from their pins, where ST AN2834 section 4.2.8 asks for the
-  pin: no 0402 fits within 3 mm of IC1.14 or IC1.30 outside the escape rows (the test is marked as
-  an expected failure until they move).
+  Wall_Sensor_2 are longer than the layout tests' detour rule; no analog line runs within 0.45 mm
+  of a fast digital line on its layer outside the STM32's escapes. The ADC filter capacitor C102 sits
+  3.5 mm from IC1.14 and C105 beside R79, 24 mm of track from IC1.25, where ST AN2834 section 4.2.8
+  asks for the pin: the front-left face's lanes and escapes leave no 0402 spot within 3 mm of
+  IC1.25 (the test is marked as an expected failure until they move).
 - Routing: C72.1 (EC2's 100 nF) reaches ground only through the pour round it, boxed in by other
   nets' tracks (`PRUNE_SPARE`).
 - Assembly: every through-hole lead trimmed to 0.5 mm or less (Ordering); M2's leads lie under
@@ -555,8 +599,8 @@ Each is a visible TODO in the sheet that owns it.
   U13's outline and SW4's run past the board's edge (the module over its notch, the switch's
   lever at the cut corner), where the fab clips them. The reference designators are 0.5 mm high
   with a 0.125 mm stroke, each within 1 mm of its part's courtyard, clear of the mask openings, the
-  other silkscreen and the edge, and off every part's body (`silk.py`); 12 of the 158 have no such
-  spot (C2, C12, C21, C55, C84, C92, C105, C114, L1, M1, R1, R31) and are hidden: the fab drawing
+  other silkscreen and the edge, and off every part's body (`silk.py`); 11 of the 159 have no such
+  spot (C2, C12, C21, C55, C84, C92, C114, L1, M1, R1, R31) and are hidden: the fab drawing
   (F.Fab) names every part.
 - STM32 SMPS: C1/C2 sit 3.8-4.6 mm from VDDSMPS and C3/C4 6.5-7.1 mm from L1 and VFBSMPS (AN5419
   Rev 3 Table 2 asks for them "close"); `tests/test_layout.py` holds them to those reaches.

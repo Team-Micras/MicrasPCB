@@ -37,7 +37,8 @@ as on the v1 main board, on 3V3_D:
   about 5 LSB at each scan start), with C10 100 nF and C11 1 uF at the pin (AN5419 Table 2). On
   this package VREF+ is VDDA (DS13311 Figures 46-47 note 1), so the ADC reference is 3V3_A, to
   which the INA241 references and the emitter set-point are ratiometric. 3V3_A starts after VDD
-  (its LDO's EN is on 3V3_D), so VDDA never leads VDD at power-up (DS13311 section 3.7.1).
+  (its LDO's EN is on 3V3_D) and rises slower behind its 1 nF soft-start capacitor C115, so VDDA
+  stays under VDD + 0.3 V at power-up (DS13311 section 3.7.1; REGULATORS sheet).
 - VBAT (pin 1): 3V3_D (AN5419 Table 2, no backup battery), with C8 100 nF and C9 1 uF.
 
 Pin budget (research H7 pin budget): the two pins the v1 main board left open carry two more
@@ -65,16 +66,25 @@ BOOT0 is held low by R42: the MCU always starts from its flash.
   (TIM8_CH1, slaved to TIM1 over ITR0, RM0468 Table 350: TIM8 ITR0 = tim1_trgo, in gated mode)
   and PH on PA9, both GPIOs; Motors_Enable on PD2 and Motors_nFault on PB6 (EXTI6).
 - LED_ARGB on PA2 (TIM15_CH1, its CCR1 written by DMA on tim15_up, DMAMUX1 input 106, RM0468
-  Table 118), the buzzer on PB9 (TIM17_CH1), LED_Red on PB2 and Button on PA3.
+  Table 118), the buzzer on PB9 (TIM17_CH1), LED_Red on PB2 and Button on PC4 (EXTI4).
 - The sensor bus's chip selects, GPIOs: Encoder_Left_CSn on PA8, IMU_SPI_CSn on PA12 and
   Encoder_Right_CSn on PB8; IMU_INT on PC7 (EXTI7). The right encoder's A on PA15 (TIM2_CH1) and
-  B on PB3 (TIM2_CH2), the left's A on PA0 (TIM5_CH1) and B on PA1 (TIM5_CH2). The fan's Fan_TOFF on PB10 (a polled input)
+  B on PB3 (TIM2_CH2), the left's A on PA0 (TIM5_CH1) and B on PA1 (TIM5_CH2). The fan's Fan_TOFF on PB10 (an input sampled in step with the PWM)
   and Fan_Enable on PB12; ESP_Flow on PA11 (EXTI11).
-- The ADC lines: Current_Sensor_Left on PB1, Wall_Sensor_0 on PA4, Wall_Sensor_3 on PC0,
-  Current_Sensor_Right on PC1. Each pin keeps an ADC1 and an ADC2 input, which the currents' dual
-  injected-simultaneous sampling needs (PB1 ADC1/2_INP5, PC1 ADC1/2/3_INP11, PA4 ADC1/2_INP18,
-  PC0 ADC1/2/3_INP10), and PB1 is a fast channel (DS13311 Table 85; research Current sensing), so
-  the left current takes half of the research's fast-ADC swap.
+- The ADC lines: Current_Sensor_Left on PA6, Wall_Sensor_0 on PA4, Wall_Sensor_1 on PA3,
+  Wall_Sensor_2 on PB1, Wall_Sensor_3 on PC0, Current_Sensor_Right on PC1. Each pin keeps an ADC1
+  and an ADC2 input, which the currents' dual injected-simultaneous sampling needs (PA6
+  ADC1/2_INP3, PC1 ADC1/2/3_INP11, PA4 ADC1/2_INP18, PA3 ADC1/2_INP15, PB1 ADC1/2_INP5, PC0
+  ADC1/2/3_INP10), and PA6 is a fast channel (INP0-5, DS13311 Table 85; research Current
+  sensing), so the left current takes half of the research's fast-ADC swap.
+- No wall-sensor input sits beside Fan_PWM (PA7, pin 26, 400 kHz): its package neighbours are
+  Current_Sensor_Left (PA6, pin 25), held by its 150 Ohm + 1 nF filter at the INA241's low
+  output impedance, and Button (PC4, pin 27), a slow input; the wall receivers' 1 kOhm loads
+  with no capacitor pick up a neighbour pin's edges (ST AN2834 section 4.2.11; the 2026-11-07
+  signal review's model: 4-24 LSB16 rms per scan beside the fan's PWM). Wall_Sensor_1 on PA3
+  (pin 20) sits beside LED_ARGB (PA2, pin 19), which the firmware keeps quiet during an emitter
+  slot (firmware_changes.toml, emitter_slot_quiet), and Wall_Sensor_2 on PB1 (pin 30) between
+  Wall_Sensor_PWM_1 (PB0, pin 29, idle during another sensor's scan) and LED_Red (PB2, pin 31).
 - The ESP32-C5 link leaves the STM32 from the rear-right row, on the side of the module: SPI2's
   clock exists only on PA9, PA12, PB10 and PB13 and its data pins only on PB14, PB15 and PC1
   (DS13311 Rev 5 Table 9, Port A p95-96, Port B p97-98, Port C p99-100), none on that row, so the
@@ -89,20 +99,24 @@ and GPIO-STM32H72_gpio_v1_0_Modes.xml, DS13311 Table 9, Port D p101 for PD2; PC9
 TIM3_CH4/CH3/CH1/CH2 AF2, PC6 TIM8_CH1 AF3, PA10 TIM1_CH3 AF1, PA2 TIM15_CH1 AF4, PB9 TIM17_CH1
 AF1, PA0/PA1 TIM5 AF2, PA15/PB3 TIM2 AF1, PA7 TIM14_CH1 AF9, PB13-PB15 SPI2 AF5, PC10 SPI3_SCK AF6,
 PC12 SPI3_MOSI AF6, and in the fallback PC10/PC11 UART4_TX/UART4_RX AF8), each EXTI line is used
-once (3 Button, 6 Motors_nFault, 7 IMU_INT, 11 ESP_Flow, 12 Fan_Enable), and each timer serves one
+once (4 Button, 6 Motors_nFault, 7 IMU_INT, 11 ESP_Flow, 12 Fan_Enable), and each timer serves one
 function (TIM1, TIM8 motors; TIM2, TIM5 encoders; TIM3 selectors; TIM14 fan; TIM15 LEDs; TIM17
 buzzer; TIM4 spare, the emitter DAC's trigger). The timer, DMA, DAC and ADC set-up, with the RM0468
 Rev 3 and ES0491 Rev 9 numbers, is boards/main/firmware_changes.toml (drive, current, emitters,
 leds, buzzer, fan, sensor_bus).
-STM32CubeMX 6.18.1 (MCU database DB.6.0.181, STM32Cube FW_H7 V1.13.0) loads that whole set-up as a
-project built from the firmware's micras_v1.ioc with these pins, and generates its code without a
-conflict: every pin's alternate function as above, TIM8 gated on ITR0 and TIM4 gated on ITR2,
-TIM1 TRGO = enable and TRGO2 = update, ADC1/ADC2 dual injected simultaneous on channels 5 and 11
-triggered by TIM1 TRGO2 with ADC1's regular group, DAC1 channel 2 on PA5 triggered by TIM4 TRGO
+STM32CubeMX 6.18.1 (MCU database DB.6.0.181, STM32Cube FW_H7 V1.13.0) loaded that whole set-up as a
+project built from the firmware's micras_v1.ioc with the pins before the ADC swap above (the left
+current on PB1, Wall_Sensor_1 on PC4, Wall_Sensor_2 on PA6, Button on PA3), and generated its code
+without a conflict: every pin's alternate function as above, TIM8 gated on ITR0 and TIM4 gated on
+ITR2, TIM1 TRGO = enable and TRGO2 = update, ADC1/ADC2 dual injected simultaneous on channels 5 and
+11 triggered by TIM1 TRGO2 with ADC1's regular group, DAC1 channel 2 on PA5 triggered by TIM4 TRGO
 with its buffer off, channel 1 on-chip only beside PA4's ADC input, TIM14 at ARR 687 on the
-275 MHz APB1 timer clock, the EXTI3, EXTI9_5 and EXTI15_10 interrupts, and the DMA
-requests of ADC1, SPI3 (or UART4), SPI2, TIM15_UP and DAC1 channel 2, at the firmware's 550 MHz
-clock tree (275 MHz timer clocks).
+275 MHz APB1 timer clock, the EXTI3, EXTI9_5 and EXTI15_10 interrupts, and the DMA requests of
+ADC1, SPI3 (or UART4), SPI2, TIM15_UP and DAC1 channel 2, at the firmware's 550 MHz clock tree
+(275 MHz timer clocks). The swap keeps every pin in the same role (an ADC1/ADC2 input, a GPIO
+input on its own EXTI line), and the MCU database has each new function on its pin (PA6
+ADC1/2_INP3, PA3 ADC1/2_INP15, PB1 ADC1/2_INP5; PC4's EXTI4 used by no other pin). TODO: reload
+the set-up in STM32CubeMX with the swapped pins (injected channel 3, EXTI4).
 - The link to the ESP32-C5 (ESP sheet; firmware_changes.toml link) is SPI3 in half-duplex on
   three wires, the MCU the master (SPI_CFG2 COMM = 11, RM0468 Rev 3 section 55.4.4 and Figure
   643), its one data line on the MOSI pad (IOSWP = 0): ESP_SCK on PC10 (SPI3_SCK, AF6), ESP_DATA
@@ -303,10 +317,10 @@ STM32H725RGV6(
     PA0=ENCODER_LEFT_ABI_A,
     PA1=ENCODER_LEFT_ABI_B,
     PA2=LED_ARGB,
-    PA3=BUTTON,
+    PA3=WALL_SENSOR_1,
     PA4=WALL_SENSOR_0,
     PA5=WALL_EMITTER_SET,
-    PA6=WALL_SENSOR_2,
+    PA6=CURRENT_SENSOR_LEFT,
     PA7=FAN_PWM,
     PA8=ENCODER_LEFT_SPI.CS,
     PA9=MOTOR_LEFT_PH,
@@ -317,7 +331,7 @@ STM32H725RGV6(
     PA14=SWCLK,
     PA15=ENCODER_RIGHT_ABI_A,
     PB0=WALL_SENSOR_PWM_1,
-    PB1=CURRENT_SENSOR_LEFT,
+    PB1=WALL_SENSOR_2,
     PB2=LED_RED,
     PB3=ENCODER_RIGHT_ABI_B,
     PB4=WALL_SENSOR_PWM_3,
@@ -333,7 +347,7 @@ STM32H725RGV6(
     PB15=SPI_MOSI,
     PC0=WALL_SENSOR_3,
     PC1=CURRENT_SENSOR_RIGHT,
-    PC4=WALL_SENSOR_1,
+    PC4=BUTTON,
     PC5=BATTERY_VOLTAGE,
     PC6=MOTOR_LEFT_EN,
     PC7=IMU_INT,
@@ -494,8 +508,11 @@ Esp(
 # solder mask expansion (rule SolderMaskExpansion, 0.7874 mil). The track widths and the other
 # via sizes are the ones its routing uses; the 0.35 / 0.2 mm via is this board's own, for the escapes
 # of the STM32's 0.4 mm pitch pins (owner, 2026-10-18; JLCPCB's limits, rules/jlcpcb.kicad_dru:
-# 0.15 mm hole, 0.05 mm ring, 0.075 mm preferred). Finish: ENIG, black solder mask, white
-# silkscreen (the owner's choice).
+# 0.15 mm hole, 0.05 mm ring, 0.075 mm preferred). Finish: leaded HASL (KiCad "HAL SnPb"), green
+# solder mask, white silkscreen (the owner's choices, 2026-11-07): the v1 main board, with the same
+# STM32H725RGV6 VFQFPN68 and LSM6DSV LGA-14, was ordered with HASL at JLCPCB and worked, and ENIG
+# adds 17.10 USD an order; green costs JLCPCB's base price where black adds 8 USD an order, and
+# takes 0.10 mm solder mask dams against black's 0.13 mm.
 Board(
     name="main",
     path="layout",
@@ -541,8 +558,8 @@ Board(
             ],
         ),
         stackup=Stackup(
-            copper_finish="ENIG",
-            solder_mask_color="Black",
+            copper_finish="HAL SnPb",
+            solder_mask_color="Green",
             silk_screen_color="White",
             materials=[
                 Material(name="NP-155F prepreg", relative_permittivity=4.4),

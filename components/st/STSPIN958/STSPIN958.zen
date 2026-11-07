@@ -34,7 +34,9 @@ Electrical characteristics (Table 5, p.6-7): VSth(ON) 5.05 V with 100-300 mV
 hysteresis; VDDth(ON) 2.7 V; RDS(ON) 165 mohm per switch; VIH 2 V, VIL 0.8 V;
 VIH(EN) 2.55 V, VIL(EN) 0.4 V; EN/nFAULT pull-down 5 uA; input pull-downs
 570 kohm, MODE1-3 pull-ups 570 kohm; amplifier gain ACL 9.5 / 10 / 10.5 V/V;
-overcurrent threshold IOC 7-14 A; thermal shutdown 150 C, 30 C hysteresis.
+overcurrent threshold IOC 7-14 A, per MOSFET (section 5.7: the current in one of the
+integrated MOSFETs; Figure 20: about 91 % of it at VS 17 V against 58 V); thermal shutdown
+150 C, 30 C hysteresis.
 Not published in Rev 1 (the only revision found): RDS(on) against temperature, the dead time
 (section 5.2 names one, Table 5 gives only the 50 ns HS/LS delay matching), the VS operating
 current, and the current limiter's blanking time (section 5.6.3 names it) and comparator delay;

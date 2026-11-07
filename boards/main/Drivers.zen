@@ -109,14 +109,16 @@ Fan, IC6 (STSPIN958, DS14341 Rev 1), driving connector M3 at 400 kHz (research F
 - REF from R28 4.7 kOhm / R29 2.0 kOhm on 3V3_D (both JLCPCB basic parts, the 2.0 kOhm already
   on the board): 3.3 x 2.0 / 6.7 = 0.985 V; Eq. 1 (section 5.6), I_peak = VREF / (RSNS x 10) =
   3.94 A, 3.65-4.31 A over 3V3_D's range, 1 % resistors, ACL 9.5-10.5 and RSNS 1 %, below L6's
-  5.0 A (20 % drop) and the 7 A overcurrent shutdown. The divider's 1.4 kOhm source impedance
+  4.8 A (20 % drop). The overcurrent protection is far above it: it trips per power MOSFET at IOC
+  7-14 A (Table 5, section 5.7), 91.4 % of that at 17 V (Figure 20), and the parallel mode shares
+  the current between two MOSFETs, so the device trips at about 12.8-28 A. The divider's 1.4 kOhm source impedance
   makes the REF input current negligible. The limiter is also the soft start: a locked rotor
   draws 13-50 A from 16.8 V (fan study). Rule for the chosen motor, with I_run its running current
   at the highest duty the fan will use: I_peak = max(1.5 x I_run, (I_run + h) / 0.925), h the
-  ripple half-amplitude at the lowest plausible inductance (1.00 A for a 1S motor, 1.33 A for a
+  ripple half-amplitude at the lowest plausible inductance (1.04 A for a 1S motor, 1.38 A for a
   2S one), so the ripple peak stays under the bottom of the REF band; VREF = I_peak x 0.25 V/A;
   R29 = 4.7 kOhm x VREF / (3.3 V - VREF), the next E24 value up. The band's top (x 1.093) stays
-  at or below 5.0 A: I_peak up to 4.57 A, I_run up to 3.05 A (1S) or 2.90 A (2S). 2.0 kOhm suits
+  at or below 4.8 A: I_peak up to 4.39 A, I_run up to 2.93 A (1S) or 2.68 A (2S). 2.0 kOhm suits
   a 1S motor running at up to 2.5 A; a 2S motor at 2.5 A takes 2.2 kOhm (research
   calculations/fan/fan_choke_check.py, section 4).
 - SR: R30 1 kOhm, 2 V/ns (Table 7: 1 k / 2.2 k / 5.6 k / 10 kOhm -> 2 / 1.2 / 0.6 / 0.3 V/ns),
@@ -125,8 +127,13 @@ Fan, IC6 (STSPIN958, DS14341 Rev 1), driving connector M3 at 400 kHz (research F
   MCU drives open drain, so it reads the pin back as nFAULT (the STSPIN958 pulls it low on a
   fault, releases it once it is below VIL(EN), at VFAULT 0.4-0.6 V, and R27 x C30 = 0.39 ms
   recharges it from there to VIH(EN) 2.55 V, so the pin stays low about 0.5 ms before the driver
-  retries: section 5.7, Figure 15, Table 5). TOFF is the limiter flag in PWM trimming (section
-  5.6.2), read on Fan_TOFF (PB10).
+  retries: section 5.7, Figure 15, Table 5). TOFF is the limiter flag in PWM trimming, a digital
+  output low during the current decay (section 5.6.2, Figure 14), read on Fan_TOFF (PB10). With
+  PWM2/PH low the driver leaves the decay only when PWM1 goes low (section 5.6.2.2), so the duty
+  stays at or below 1 - 280 ns x fPWM (88.8 % at 400 kHz) and every period has a low edge.
+  PWM1 low with EN high turns the low side on (Table 11): a brake whose current runs backwards
+  through R31, where the limiter cannot see it, and the state at an MCU reset (PWM1's internal
+  pull-down, R27 releasing EN); the firmware stops the fan with EN low instead (coast).
   PWM1 on Fan_PWM (PA7, TIM14_CH1). nSTBY on 3V3_D, without Table 12's RSTBY 18 kOhm / CSTBY 1 nF: in Figure 22 that RC
   only delays the pin behind VDD at power-up, and the device stays in UVLO until VBOOT rises
   anyway, then needs tWAKE + tBOOT (section 5.5); the firmware never uses standby (no MCU pin
@@ -149,24 +156,25 @@ Fan, IC6 (STSPIN958, DS14341 Rev 1), driving connector M3 at 400 kHz (research F
   calculations/fan/fan_choke_check.py, section 3). On the board every one of the footprint's nine
   thermal-via sites holds a via to the ground planes: the LSS1-LSS2 join runs on B.Cu beside the
   exposed pad, not under it.
-- Choke L6, XAL5030-472MEC 4.7 uH +-20 % (Isat 6.7 A at a 30 % drop, 5.0 A at 20 % from the L vs
-  Current plot; Irms 5.9 A at a 40 C rise; DCR 40 mOhm max; Coilcraft Doc 908), between FAN_OUT and
-  the motor. No drone motor publishes its inductance; the makers that do bound it: scaled by L ~
+- Choke L6, XGL5030-472MEC 4.7 uH +-20 % (Isat 4.8 A at a 20 % drop, 6.7 A at 30 %; Irms 8.5 A at
+  a 40 C rise; DCR 24.5 mOhm max; Coilcraft Doc 1576), between FAN_OUT and the motor. No drone motor publishes its inductance; the makers that do bound it: scaled by L ~
   1/kv^2 to 13,000-20,000 rpm/V, the DCX 10 L 1.5 V and Faulhaber 1024/0816/0615 windings give
   0.6-14 uH at 1 kHz, and the ironless drop at the PWM frequency (0.2-1.0) leaves 0.12-14 uH at 400
   kHz (a 2S motor about 4 x more). Over that range, with L6 at -20 % and DC-biased (Coilcraft's
-  saturation form fitted to the datasheet plot, its 30 % drop at the table's 6.7 A), R 0.2-1.2 Ohm
-  and VBAT 17.4 V, the ripple at 400 kHz stays within 2.0 A pp for a 1S motor and 2.7 A pp for a 2S
-  one, the motor's ripple heat at most 0.71 W and L6's core loss at most 0.49 W (Coilcraft's loss
-  tool for this part); at 31.9 K/W from a 40 C board L6 reaches 66 C at 2.5 A and 86 C with the
-  limiter's 4.31 A held. A locked rotor at 400 kHz defeats the cycle-by-cycle limiter for a
-  low-resistance motor: the on-time cannot fall below the limiter's blanking (unpublished; 280-500
-  ns, the minimum pulse and above), so a 0.2-0.5 Ohm stall averages 5-12 A and may trip the 7 A
-  overcurrent shutdown. At 50 kHz the same on-time is an eighth of the duty and every case up to 1
-  us of blanking stays below 7 A (peaks 4.9-6.8 A; up to 500 ns, 4.9-5.8 A with L6 keeping 75 % of
-  its inductance): the firmware starts the fan at 50 kHz and moves to 400 kHz once it spins
-  (firmware_changes.toml, fan; research calculations/fan/fan_choke_check.py, sections 1-2). No
-  capacitor across the fan motor.
+  saturation SPICE model of the part), R 0.2-1.2 Ohm and VBAT 17.4 V, the ripple at 400 kHz stays
+  within 2.1 A pp for a 1S motor and 2.8 A pp for a 2S one, the motor's ripple heat at most 0.76 W
+  and L6's core loss at most 0.53 W (Coilcraft's loss tool for this part); at 25.3 K/W from a 40 C
+  board L6 reaches 58 C at 2.5 A and 68 C with the limiter's 4.31 A held. A locked rotor at 400 kHz
+  defeats the cycle-by-cycle limiter for a low-resistance motor: the on-time cannot fall below the
+  limiter's blanking (unpublished; 280-500 ns, the minimum pulse and above), so a 0.2-0.5 Ohm stall
+  averages 5-13 A. Only peaks above 12.8 A can reach the device's overcurrent trip, so such a stall
+  mostly persists: up to 12 W of conduction loss in the driver, which cycles through its thermal
+  shutdown, with L6 far past its 20 % point. At 50 kHz the same on-time is an eighth of the duty:
+  up to 500 ns of blanking the peaks stay at 4.8-5.7 A (L6 keeping 72 % of its inductance; a 1 us
+  blanking with a 0.2 Ohm motor peaks at 7.2 A, still under the trip). The firmware starts the fan
+  at 50 kHz and moves to 400 kHz once it spins, and treats Fan_TOFF low in most periods at 400 kHz
+  over 1-2 ms as a jam (firmware_changes.toml, fan; research calculations/fan/fan_choke_check.py,
+  sections 1-2). No capacitor across the fan motor.
 """
 
 load(
@@ -194,7 +202,7 @@ B02B_PASK = Module("github.com/Team-Micras/MicrasPCB/components/jst/B02B-PASK/B0
 DRV8874 = Module("github.com/Team-Micras/MicrasPCB/components/ti/DRV8874/DRV8874.zen")
 STSPIN958 = Module("github.com/Team-Micras/MicrasPCB/components/st/STSPIN958/STSPIN958.zen")
 WSK2512_HIGH = Module("github.com/Team-Micras/MicrasPCB/components/vishay/WSK2512-HIGH/WSK2512-HIGH.zen")
-XAL5030_472 = Module("github.com/Team-Micras/MicrasPCB/components/coilcraft/XAL5030-472/XAL5030-472.zen")
+XGL5030_472 = Module("github.com/Team-Micras/MicrasPCB/components/coilcraft/XGL5030-472/XGL5030-472.zen")
 MTQH707050S470M = Module("github.com/Team-Micras/MicrasPCB/components/metallions/MTQH707050S470M/MTQH707050S470M.zen")
 
 # Its own sheet in the board schematic (layout/main.kicad_sch).
@@ -368,5 +376,5 @@ Resistor(name="R28", P1=V3V3_D, P2=FAN_REF, **R_4K7_0402)
 Resistor(name="R29", P1=GND, P2=FAN_REF, **R_2K_0402)
 Resistor(name="R30", P1=GND, P2=FAN_SR, **R_1K_0402)
 Resistor(name="R31", P1=FAN_LSS, P2=GND, **R_25M_1206)
-XAL5030_472(name="L6", P1=FAN_OUT, P2=FAN_MOTOR)
+XGL5030_472(name="L6", P1=FAN_OUT, P2=FAN_MOTOR)
 B02B_PASK(name="M3", prefix="M", P1=FAN_MOTOR, P2=FAN_LSS)

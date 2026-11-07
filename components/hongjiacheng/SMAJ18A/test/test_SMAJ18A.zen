@@ -1,4 +1,4 @@
-"""SMAJ18A package facts (Littelfuse SMAJ series, revised 11/20/15) across a 4S pack."""
+"""SMAJ18A package facts (Hongjiacheng SMAJ series, Rev 2.2) across a 4S pack."""
 
 TVS = Module("../SMAJ18A.zen")
 
@@ -18,10 +18,10 @@ def pins(module):
 
 
 def datasheet_limits(module, inputs):
-    # p2 table, SMAJ18A row; p1 maximum ratings.
+    # p2 table, SMAJ18A row (VRWM, VBR at 1 mA, VC at IPP); p1 maximum ratings (PPPM).
     c = part(module)
     check(c.mpn == "SMAJ18A", "MPN")
-    check(c.manufacturer == "Littelfuse", "manufacturer")
+    check(c.manufacturer == "Hongjiacheng", "manufacturer")
     check(c.prefix == "D", "reference prefix D")
     check(c.type == "tvs", "type")
     check(c.properties["reverse_standoff_voltage"].matches("18V"), "VR 18 V")

@@ -2,8 +2,8 @@
 fan driver IC6 (STSPIN958).
 
 Sources: TI SLVSF66A (DRV8874; the package's checks.zen holds the datasheet rules), TI SBOSA30D
-and SBOSA31D (INA241A2, -Q1), Vishay WSK2512 doc 30108, the MetalLions MTQH707050S datasheet and
-Coilcraft Doc 908-1 (XAL5030), ST
+(INA241A2), Vishay WSK2512 doc 30108, the MetalLions MTQH707050S datasheet and Coilcraft Doc 1576
+(XGL5030), ST
 DS14341 Rev 1 (STSPIN958), ST RM0468 (GPIO state in reset), research/next-revision (Drivetrain,
 Current sensing, Fan; A.1, A.3, A.5).
 """
@@ -30,7 +30,7 @@ FAN = "IC6"
 # bridge -> (motor connector, shunt, choke, amplifier, MCU EN pin, MCU PH pin, ADC pin)
 BRIDGES = {
     "IC8": ("M2", "R65", "L4", "U10", "PA10", "PB7", "PC1"),
-    "IC9": ("M1", "R75", "L5", "U11", "PC6", "PA9", "PB1"),
+    "IC9": ("M1", "R75", "L5", "U11", "PC6", "PA9", "PA6"),
 }
 # research Drivetrain: ITRIP 2.5-3 A typ. Overshoot above ITRIP in a full-speed reversal at 17.4 V
 # with the choke at -20 % and DC-biased (drivetrain/choke_check.py): 0.94 A at the datasheet's

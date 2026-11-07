@@ -8,7 +8,8 @@
 # why_extended       an extended resistor or capacitor on the main board: why no basic part does (a value
 #                    or rating the datasheet fixes, a tolerance, a package); tests/test_main.py
 # assembly = "hand"  the team buys and solders the part itself: `make fab` leaves it out of the JLCPCB BOM
-#                    and CPL and lists it in <board>-hand-assembly.csv; hand_why says why
+#                    and CPL, plots the JLCPCB paste layers without its paste, writes its paste to
+#                    <board>-team-stencil.zip and lists it in <board>-hand-assembly.csv; hand_why says why
 #
 # `micras-pcb parts` fails when a board uses an MPN missing here; `--online` adds stock and type.
 
@@ -354,12 +355,12 @@ rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-15: extended, 3604 in stock; 25 mOhm 1 % 1 W 1206 alloy"
 why_extended = "25 mOhm 1 W current sense (the STSPIN958's RSNS, DS14341 Eq. 1); no basic part of this value and rating"
 
-[parts."INA241A2QDGKRQ1"]
-lcsc = "C31766589"
+[parts."INA241A2IDGKR"]
+lcsc = "C36752877"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-11-02: extended, 9 in stock; the AEC-Q100 grade of the INA241A2IDGKR (C36752877, 2 in stock), same DGK package and pinout"
+source = "jlcpcb.com parts search 2026-11-07: extended, 2544 in stock, 3.11 USD (the AEC-Q100 INA241A2QDGKRQ1, C31766589, same die, package and pinout: 6.03 USD; reports of the 2026-11-07 cost review)"
 
 [parts."KT-0603B"]
 lcsc = "C2288"
@@ -413,11 +414,11 @@ assembly = "hand"
 hand_why = "through-hole: soldered by the team (owner, 2026-11-02); JLCPCB had 16 in stock on 2026-11-02"
 
 [parts."SMAJ18A"]
-lcsc = "C148219"
+lcsc = "C19077538"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-17: extended, 12 k in stock; Littelfuse"
+source = "jlcpcb.com parts search 2026-11-07: extended (Preferred: no feeder fee on Economic PCBA); Zhuhai Hongjiacheng SMAJ18A, datasheet Rev 2.2, with the Littelfuse part's (C148219) ratings"
 
 [parts."STM32H725RGV6"]
 lcsc = "C5271073"
@@ -466,12 +467,12 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-11-02: extended, 677 in stock; 47 uH 7.0 x 7.0 x 5.0 mm molded choke (MetalLions), replacing the XAL7070-473MEC (C3911413, 0 in stock)"
 
-[parts."XAL5030-472MEC"]
-lcsc = "C7432409"
+[parts."XGL5030-472MEC"]
+lcsc = "C3911503"
 type = "extended"
 rotation = 0
 rotation_verified = false
-source = "jlcpcb.com parts search 2026-11-02: extended, 11 in stock; 4.7 uH Coilcraft XAL5030 on the same land, replacing the XGL5030-472MEC (C3911503, 0 in stock)"
+source = "jlcpcb.com parts search 2026-11-07: extended, 0 in stock, 4.83 USD (the XAL5030-472MEC, C7432409, on the same land: 5.90 USD, 0 in stock); stock never decides (owner)"
 
 [parts."YSPIA0645-220M"]
 lcsc = "C2839926"

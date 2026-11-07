@@ -35,6 +35,16 @@ def pcb() -> list[str]:
     return [exe, "+" + versions()["PCB_TOOLCHAIN"]]
 
 
+def kikit() -> list[str]:
+    """KiKit, pinned to versions.env: KIKIT (the kikit command), else the virtual environment
+    ci/install-kikit.sh makes in ~/.cache/micras-pcb on KiCad's own Python (KiKit drives pcbnew)."""
+    v = versions()["KIKIT_VERSION"]
+    exe = Path(os.environ.get("KIKIT") or f"~/.cache/micras-pcb/kikit-{v}/bin/kikit").expanduser()
+    if not exe.exists():
+        raise SystemExit(f"KiKit {v} not found at {exe}: run ./ci/install-kikit.sh (or `make setup`), or set KIKIT")
+    return [str(exe)]
+
+
 def freerouting() -> list[str]:
     """Freerouting, pinned to versions.env: FREEROUTING (a jar) or the release jar in
     ~/.cache/micras-pcb, run with Java."""

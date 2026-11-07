@@ -7,8 +7,8 @@ CI.
 | Board | Status |
 |---|---|
 | `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.79 mm | the previous revision's placement and routing, plus pull resistors on the sensor's SPI inputs; passes every check ([open items](boards/encoder/layout/README.md#open-items)) |
-| `wall`: wall-sensor daughterboard (SFH 4550 over a TPS601A, upright, with the emitter's resistor and its AC-coupled selector, joined to the main board by a 2x3 1.27 mm header straddling its bottom edge), one per sensor, 2 layers, 0.79 mm, a paddle 16.0 mm high: 4.2 mm handle, 8.4 mm blade; JLCPCB fits the SMD parts, the sensor and header are hand-soldered | placed and routed, passes every check; the main board's wall joints W1-W4 take four ([open items](boards/wall/layout/README.md#open-items)) |
-| `main`: STM32H725 controller, 4S power, DRV8874 wheel bridges with INA241 current sensing, fan driver, sensors, ESP32-C5 dual-band radio and debug probe, no USB ([research/next-revision](research/next-revision/README.md)), 4 layers, 1.04 mm, 91.15 x 50 mm | placed and routed for the six-pin wall slots, the fan ring and the ESP32 flashing pads: every connection routed, DRC and DFM pass; two layout tests still fail, the buck's switch node and C5 under the fan ring's silk line ([open items](boards/main/layout/README.md#open-items)) |
+| `wall`: wall-sensor daughterboard (SFH 4550 over a TPS601A, upright, with the emitter's resistor and its AC-coupled selector, joined to the main board by a 2x3 1.27 mm header straddling its bottom edge), one per sensor, 2 layers, 0.79 mm, a paddle 16.0 mm high: 4.2 mm handle, 8.4 mm blade; JLCPCB fits the SMD parts on a 4-up panel, the sensor and header are hand-soldered | placed and routed, passes every check; the main board's wall joints W1-W4 take four ([open items](boards/wall/layout/README.md#open-items)) |
+| `main`: STM32H725 controller, 4S power, DRV8874 wheel bridges with INA241 current sensing, fan driver, sensors, ESP32-C5 dual-band radio and debug probe, no USB ([research/next-revision](research/next-revision/README.md)), 4 layers, 1.04 mm, 91.15 x 50 mm | placed and routed for the six-pin wall slots, the fan ring and the ESP32 flashing pads: every connection routed, passes every check ([open items](boards/main/layout/README.md#open-items)) |
 
 The v1 main board and its HM-19 Bluetooth module, which plugged into the v1 board's USB-C port,
 are at the tag `v1` (e34fb9a).
@@ -55,6 +55,12 @@ boards/<board>/schematic/*.toml ────────────────
   shoulder, tapers and extents). CI fails if the layout drifts.
 - **KiCad owns placement and routing**, which stay human-led.
 - **`parts/jlc.toml` owns sourcing**: MPN to LCSC number, basic/extended, placement rotation.
+- **The order options** come from where each is decided: finish and colours from the Zener
+  stackup, the via class and the assembly service from `spec/<board>.toml` `[pcb]` (a test holds
+  the via class to the layout's smallest via), and a board under JLCPCB's 10 x 10 mm assembly
+  minimum is ordered as the panel its spec's `[panel]` describes (KiKit, `make fab`). Every board is
+  leaded HASL. JLCPCB prints no paste on the parts the team solders itself (`assembly = "hand"`):
+  their paste goes to a separate stencil file (`micras-pcb` skill, JLCPCB outputs).
 
 ### Why Zener and KiCad
 
@@ -104,7 +110,7 @@ boards/<board>/schematic/*.toml ────────────────
 ```sh
 ./ci/install-kicad.sh                                                                # KiCad 10 from the PPA, see versions.env
 curl -fsSL https://raw.githubusercontent.com/diodeinc/pcb/main/install.sh | bash      # Zener toolchain launcher
-make setup                                                                            # uv env + pinned pcb toolchain
+make setup                                                                            # uv env + pinned pcb toolchain + KiKit
 ```
 
 Optional: the [Zener VS Code extension](https://docs.pcb.new/pages/vscode) shows a live
@@ -116,9 +122,11 @@ schematic preview of `.zen` files.
 make gen        # regenerate KiCad files from the sources (run after every source change)
 make check      # every gate CI runs, with a pass/FAIL summary
 make review     # build/<board>/review and fab: schematic PDF, layer SVGs, renders, GLB/STEP, fab package
-make fab        # build/<board>/fab: JLCPCB gerbers zip, BOM and CPL
+make fab        # build/<board>/fab: JLCPCB gerbers zip (no paste on hand-soldered parts), BOM, CPL, order options
+                #   (the wall board's as a 4-up panel) and the team's stencil for the hand-soldered parts
 pcb open boards/encoder/encoder.zen     # open the layout in KiCad
 make parts-online   # JLCPCB stock and basic/extended status (run before ordering)
+make quote          # JLCPCB's bare-board price with each board's finish, colours and via class
 ```
 
 `make check` runs every gate below, even after one fails, then prints a pass/FAIL line per gate
@@ -136,11 +144,11 @@ and fails if any gate failed.
 | previous | `micras-pcb previous compare <board>` | a replicated board (the encoder) connects or names anything differently from its previous revision, except the changes in `boards/<board>/changes.toml` |
 | DRC | `kicad-cli pcb drc` + `rules/jlcpcb.kicad_dru` | JLCPCB clearances (copper, SMD pad to pad, hole to track), widths, drills, edge distances |
 | DFM | `pcb dfm` + `rules/jlcpcb-pdk.toml` | geometry-level manufacturability (Diode's sourced JLCPCB PDK) |
-| pytest | `pytest` | board contracts (encoder joint, firmware pin map), power tree, every schematic item on its sheet's page, no overlapping texts, bodies or wires on a sheet, every board's schematic drafted whole from its Zener source (pcb's netlist, nothing overlapping), decoupling at the pin, encoder slot fit, routing style (every track straight at a multiple of 45 degrees, no arcs, no acute corners), courtyards, paste, 3D models, part data |
+| pytest | `pytest` | board contracts (encoder joint, firmware pin map), the fab package (every assembled board or its panel at least 10 x 10 mm, the panel's outlines, tabs and CPL, each board's via class), power tree, every schematic item on its sheet's page, no overlapping texts, bodies or wires on a sheet, every board's schematic drafted whole from its Zener source (pcb's netlist, nothing overlapping), decoupling at the pin, encoder slot fit, routing style (every track straight at a multiple of 45 degrees, no arcs, no acute corners), courtyards, paste, 3D models, part data |
 | lint | `ruff` | Python lint and format |
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 
-Every board passes every gate once laid out, but for the main board's two open layout tests. A schematic-only board (its root declares `Project(layout = False)`, so it has no
+Every board passes every gate once laid out. A schematic-only board (its root declares `Project(layout = False)`, so it has no
 `.kicad_pcb`) passes the schematic gates, and LVS, DRC, DFM, the layout tests and the gerber, CPL
 and 3D outputs skip it with that reason; `make fab` writes
 its BOM alone. The main board's README ([known faults](boards/main/layout/README.md#known-faults))
@@ -191,10 +199,10 @@ spec/                  mechanical single source of truth per board; main_chassis
                        main board from MicrasHardware's model (tools/chassis_shadow.py, run in that repo's environment)
 parts/jlc.toml         MPN -> LCSC mapping
 rules/                 JLCPCB KiCad DRC rules, DFM PDK, KiCad rule severities
-tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, outputs, previous, firmware, layout, schematic placement
+tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, panel, order, outputs, previous, firmware, layout, schematic placement
                        and drafts (`uv run micras-pcb --help`)
 tests/                 pytest design tests
 research/next-revision/ the main board's design research (entered as boards/main) and its calculation scripts
-ci/                    KiCad and toolchain install, for CI and local setup
-versions.env           pinned KiCad and Zener versions
+ci/                    KiCad, toolchain and KiKit install, for CI and local setup
+versions.env           pinned KiCad, Zener, Freerouting and KiKit versions
 ```

@@ -8,8 +8,8 @@ with their flanges on the board's front face and their leads straight through it
 where they look. A 2x3 1.27 mm straight header straddles the board's bottom edge: the board stands
 between its two rows with its edge on the insulator, the short pins soldered to pads on both faces,
 and the long pins go down through the main board's plated holes, on which the insulator sits. The
-board is ordered with PCBA: JLCPCB fits the SMD parts, all on the back face; the team solders the
-sensor and the header by hand.
+board is ordered with PCBA as a 4-up panel ([Ordering](#ordering)): JLCPCB fits the SMD parts, all
+on the back face; the team solders the sensor and the header by hand.
 
 ## Files
 
@@ -22,13 +22,13 @@ repository root.
 | [`schematic/`](../schematic) | how the sheet is drawn (`micras-pcb sch`) |
 | [`test/`](../test) | `pcb test` bench of the board's circuit: J1's pin map, the emitter resistor and the selector on the cathode with its source on J1's sink pin, the AC-coupled gate (series capacitor from the PWM's resistor, pull-down, clamp, 3-10 ms), the decoupling, the receiver's output leaving unloaded |
 | [`layout/`](.) | this folder: the KiCad project; the `.kicad_pcb` holds placement and routing; [`route.py`](route.py) is the script that placed the SMD parts and routed the board |
-| [`spec/wall.toml`](../../../spec/wall.toml) | mechanical interface: thickness, outline, the sensor and header positions, the header's drawing numbers, the main board's holes |
+| [`spec/wall.toml`](../../../spec/wall.toml) | mechanical interface: thickness, outline, the sensor and header positions, the header's drawing numbers, the main board's holes; the order's via class and the assembly panel |
 
 ## Circuit
 
 | Designator | Part | Package | Notes |
 |---|---|---|---|
-| W1 | SFH 4550 (ams-OSRAM) over a TPS601A(F) (Toshiba) ([`components/micras/WallSensor`](../../../components/micras/WallSensor), mount `upright`) | through-hole, `WallSensor_SFH4550_TPS601A_Upright` | bought separately and hand-soldered, not in the BOM |
+| W1 | SFH 4550 (ams-OSRAM) over a TPS601A(F) (Toshiba) ([`components/micras/WallSensor`](../../../components/micras/WallSensor), mount `upright`) | through-hole, `WallSensor_SFH4550_TPS601A_Upright` | bought separately and hand-soldered, not in the BOM; buy the TPS601A in rank A (IL 100-300 uA) where it can be found ([sourcing](../../../components/micras/WallSensor/README.md#sourcing)) |
 | R1 | UNI-ROYAL 0603WAF330KT5E, 3.3 Ohm 1 % 100 mW (LCSC C22979, extended) | 0603 | 3V3_D to the emitter's anode |
 | C1 | Samsung CL10A105KB8NNNC, 1 uF 10 % 50 V X5R (LCSC C15849, basic) | 0603 | 3V3_D decoupling, across J1's GND and 3V3_D pins |
 | Q1 | AOS AO3400A (LCSC C20917, basic) ([`components/aos/AO3400A`](../../../components/aos/AO3400A)) | SOT-23 | the emitter's selector: drain on the cathode, source on `EMITTER_SINK` |
@@ -127,6 +127,61 @@ pads on both faces. Stand the header's long pins in the main board's holes with 
 on it, square the board against a jig, solder the pins under the main board and trim them to
 0.5 mm or less (the main board rides 0.7-0.85 mm off the floor, `boards/main/layout/README.md`).
 
+## Ordering
+
+The board, 8.4 x 16.0 mm, is under JLCPCB Economic PCBA's 10 x 10 mm single-board minimum
+([PCB Assembly Capabilities](https://jlcpcb.com/capabilities/pcb-assembly-capabilities)), so it is
+ordered as a 4-up panel. `make fab` builds the panel with KiKit (`versions.env`; `make setup`
+installs it) from [`spec/wall.toml`](../../../spec/wall.toml) `[panel]` and writes
+`build/wall/fab/`:
+
+| File | Contents |
+|---|---|
+| `wall-panel-gerbers.zip` | the panel's gerbers and drills, relative to its bottom-left corner |
+| `wall-panel-bom-jlcpcb.csv` | the BOM, each line's parts on all four boards |
+| `wall-panel-cpl-jlcpcb.csv` | the placement: the seven SMD parts of each board, 28 in all, each with its part's rotation offset (`parts/jlc.toml`) |
+| `wall-hand-assembly.csv` | W1 and J1, which the team solders: one set per board, four per panel |
+| `wall-team-stencil.zip` | J1's paste on both faces with the board's outline: a stencil for one board, which the team orders or cuts to paste J1 itself |
+| `wall-order.txt` | the choices on JLCPCB's order page (`micras_pcb.order`) |
+| `panel/wall-panel.kicad_pcb` | the panel itself, to open in KiCad |
+
+The panel, 53.6 x 30.0 mm:
+
+- The four boards stand upright side by side, 2 mm apart, in a 5 mm frame 2 mm clear of them.
+  KiKit numbers them 0 to 3 from the left seen from the front and names their parts `<ref>_<n>`
+  (`R1_0` to `R1_3`) in the BOM and CPL.
+- Each board hangs from the frame by one 5 mm tab on the middle of its blade's top edge (the
+  straight 6.4 mm between the top corners), broken off at a row of nine 0.5 mm mouse-bite holes
+  0.75 mm apart, inside the outline and tangent to the top edge, which run 0.5 mm past each side
+  of the tab to take the fillets the mill leaves there. Nothing else touches a board: the
+  handle's bottom edge, which seats on the header's insulator, the header's pads on both faces
+  and the blade's sides stay free. Each board keeps its outline exactly
+  (`micras_pcb.panel.exact_outlines` puts the board's own Edge.Cuts back over KiKit's chords).
+- JLCPCB's figures ([PCB Capabilities](https://jlcpcb.com/capabilities/pcb-capabilities),
+  panelization, accessed 2026-11-07): mouse bites 0.5-0.8 mm across with 0.2-0.3 mm between them,
+  a tab with mouse bites 5 mm wide or more, 2 mm between boards, and for SMT assembly 5 mm tooling
+  edges, 2 mm tooling holes and 1 mm fiducials centred 3.85 mm from the panel's edges. The frame
+  carries three tooling holes and three fiducials on each face; Economic PCBA needs neither
+  rails nor fiducials, but the frame gives the panel straight edges and guards the handles.
+- No paste on J1: JLCPCB prints paste through every opening of its stencil, so the panel's paste
+  layers come from a build copy of the panel whose J1s carry none (`micras_pcb.jlc.without_paste`;
+  the footprint and the layout keep theirs), and J1's pads come back bare: the team pastes and
+  solders J1 itself (`wall-team-stencil.zip`). `tests/test_fab.py` checks that the panel's and the
+  board's JLCPCB paste has no opening on J1 and one on every SMD part JLCPCB places.
+- The holes reach 0.5 mm into the board (v 16.5): 0.5 mm or more from the back's copper (R3 and
+  D1), beside the top of the SFH 4550's flange; they clip the top of D1's silkscreen outline. The
+  pours keep their clearance round them.
+
+On JLCPCB's order page: upload `wall-panel-gerbers.zip` and set what `wall-order.txt` lists (2
+layers, 53.6 x 30.0 mm, delivery format "Panel by Customer" with 4 boards in one row, 0.8 mm,
+black mask, white silkscreen, leaded HASL, the default via class, Economic PCBA on the bottom side), then
+the BOM and CPL above. The quantity counts panels: 5 panels make 20 boards. `make quote` prices
+the bare panels with these options.
+
+After assembly, break each board off at its tab and file the remnant flush with the top edge
+(nothing stands beyond it: the holes are inside the outline), then fit W1 and J1 (Mechanics,
+assembly).
+
 ## Known faults
 
 None: the wall board passes every gate of `make check` (build, warnings, its test bench,
@@ -141,5 +196,5 @@ layout-check, ERC, LVS, DRC, DFM, its pytests, parts).
       of the board.
 - [ ] Check the TPS601A key tab's direction on a real part (the courtyard takes it up-left; the
       board also clears it pointing down).
-- [ ] Check each SMD part's rotation once in JLCPCB's placement preview (`rotation_verified` in
-      `parts/jlc.toml`).
+- [ ] Check each SMD part's rotation once in JLCPCB's placement preview of the panel
+      (`rotation_verified` in `parts/jlc.toml`).

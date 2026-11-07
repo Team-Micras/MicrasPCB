@@ -53,7 +53,7 @@ Drivetrain) with 5-6 A peaks under 1 s, so its rms stays inside the rating with 
 leads.
 A reversed pack (against the key) forward-biases D15 from GND_BAT into VBAT, a short through F1,
 which opens; until then the board sees only the difference between D15's drop and Q6's
-body-diode drop. D15 need not survive it (IFSM 60 A for 8.3 ms, SMAJ series p1).
+body-diode drop. D15 need not survive it (IFSM 40 A for 8.3 ms, SMAJ series Rev 2.2 p1).
 Q6 (HSBB3072, 30 V N-MOSFET) is a low-side switch from GND_BAT to GND; SW4 drives its gate from
 VBAT through R43 100 kOhm with R41 100 kOhm to GND_BAT, so VGS settles at VBAT / 2 = 6.0-8.7 V
 (RDS(on) 3.8 mOhm max at 4.5 V, HSBB3072 p2), inside +-20 V; VDS 30 V is 1.72x the 17.4 V pack.
@@ -83,8 +83,8 @@ SW4 is the SK-12D29-G060 (G-Switch drawing SK-12D29-GXXX): DC 24 V 1.0 A, 1.38x 
 pack; it carries only the gate drive (VBAT / 200 kOhm = 87 uA). Its body is the v1 main board's
 MK-12D18 size (8.6 x 3.6 x 3.6 mm) with a 6.0 mm black lever over the rear notch's edge; three
 pins at 2.0 mm pitch and two frame legs (components/g-switch/SK-12D29-G060).
-TVS, D15 (SMAJ18A, Littelfuse SMAJ series p2: VR 18 V, VBR 20.0-22.1 V at 1 mA, VC 29.2 V at
-13.7 A, 400 W 10/1000 us), behind F1: cathode on VBAT, anode on GND_BAT, so a TVS that fails
+TVS, D15 (Hongjiacheng SMAJ18A, SMAJ series Rev 2.2 p1-p2: VRWM 18 V, VBR 20.0-22.1 V at 1 mA, VC
+29.2 V at 13.7 A, 400 W 10/1000 us), behind F1: cathode on VBAT, anode on GND_BAT, so a TVS that fails
 short (its failure mode when over-stressed, p1) opens F1. VR is above the 17.4 V
 pack (IR 1 uA max). With the pack pulled while the bridges brake, the motors push up to 3.8 W into
 VBAT (research Power tree, VBAT overvoltage), which the VBAT ceramics alone hold below the
@@ -176,8 +176,9 @@ VSYS (research A.4):
     bridges' 1 uA sleep currents) hold down: 0.13 V at 25 C, 0.43 V at 50 C, 1.1 V at 70 C and
     3.42 V at 85 C (JCET p2 typical curves at 5 V; power_path_checks.py section 2). With the pack
     fitted and SW4 off, Q6 opens the pack's return, and its off-state leakage, pack to divider to
-    GND to GND_BAT, adds to D14's: IDSS is specified only at 25 C (1 uA max, HSBB3072 p2), and
-    about 0.5 V (23 uA through 22 kOhm) is allowed for it at 85 C, so VBAT stays at about 3.9 V or
+    GND to GND_BAT, adds to D14's: IDSS is 1 uA max at 25 C and 5 uA max at 55 C (VDS 24 V,
+    HSBB3072 p2), with no figure above 55 C, and about 0.5 V (23 uA through 22 kOhm) is allowed for
+    it at 85 C, so VBAT stays at about 3.9 V or
     less. The DRV8874s stay in UVLO (rising 4.3 V minimum, SLVSF66A 6.5): Q6 may leak up to 40 uA
     at 85 C before that margin is gone. The STSPIN958's VS turn-on threshold has a 5.05 V maximum
     and no minimum (DS14341 Table 5), so it is not counted on: the fan stays unpowered because
@@ -189,7 +190,8 @@ VSYS (research A.4):
 
 3V3_D buck, IC7 (L6981C33DR, fixed 3.3 V, low-consumption mode, DS13554), as on the v1 main board:
 VIN and EN on VSYS. Integrator parts per DS13554 Table 1 p3 and Table 2 p4: C55 100 nF BOOT to
-SW; C54 1 uF on VCC; L3 22 uH (YSPIA0645-220M, 4.5 A Isat); C52 10 uF 50 V X7R 1210 + C53 1 uF
+SW; C54 1 uF on VCC (Table 1's >= 1 uF is a nominal value: the CL05A105KA5NQNC keeps 0.72 uF at
+VCC's 3.3 V, passives.zen DC_BIAS, as any 1 uF 0402 ceramic loses some at its bias); L3 22 uH (YSPIA0645-220M, 4.5 A Isat); C52 10 uF 50 V X7R 1210 + C53 1 uF
 50 V X7R 0805 on VSYS at IC7 (CIN 10 uF typ). Eq. 35, CIN,min = IOUT / (4 x VPP x fSW) with VPP
 5 % of VIN,max (section 8.4.1): 1.5 A / (4 x 0.87 V x 360 kHz) = 1.2 uF; C52 keeps 5.9 uF at
 17.4 V (Samsung DC-bias curve, passives.zen DC_BIAS), 5.3 uF less its tolerance. Both are 50 V
@@ -228,9 +230,16 @@ divider, lower noise, specified EN thresholds; research Open decisions):
   at 12 V), x 0.85 x 0.9 = 4.5 uF; both above 1.5 uF, and the input's effective capacitance
   matches the output's within 10 % at the HV pack's top. The Samsung TCC curves of both parts stay
   within -12 % over -40 to 85 C, inside the 15 %.
-- EN on 3V3_D: 3V3_A starts after VDD (EN on threshold 1.30 V max, off 1.06 V min, Table 1), so
-  VDDA never leads VDD at power-up (DS13311 section 3.7.1, Figure 2). SS open: the internal
-  380 us start-up (pin table; never ground SS).
+- EN on 3V3_D: 3V3_A starts after VDD (EN on threshold 1.15-1.30 V, off 1.06 V min, Table 1),
+  and C115 1 nF from SS to GND slows its rise so VDDA stays under VDD + 0.3 V while VDD is below
+  1.62 V (DS13311 section 3.7.1, Figure 2). With SS open the LDO reaches 90 % about 380 us after EN
+  (Figure 48, typical only), 12-27 V/ms against the buck's 2.1-3.3 V/ms soft start (TSS 1.0-1.6 ms
+  to 3.3 V, DS13554 Table 6): in 10 of 27 corners (TSS, the EN threshold, the LDO's start-up 30 %
+  faster or slower) VDDA would overtake VDD + 0.3 V by up to 0.90 V. Eq. 8 (p15): the soft start
+  takes 380 us + 0.6 V x CSS / 1.15 uA, 900 us with 1 nF, and no corner comes within 0.82 V of
+  the limit, even with CSS at -24 % and the SS current at three times 1.15 uA
+  (research/next-revision/calculations/power_tree/vdda_powerup.py). SS is never grounded (pin table); 3V3_A
+  settles about 0.5 ms later than with SS open.
 - Loads (research, Power tree): VDDA through R67, U10/U11 INA241A2 VS and REF1, the four
   phototransistor collectors, the emitter-sink op-amp U12 and its 200 kOhm bias: 9.7 mA typical,
   22.5 mA worst case (research calculations/power_tree/calc_power_tree.py section 1: both ADCs
@@ -276,7 +285,7 @@ B5819W = Module("github.com/Team-Micras/MicrasPCB/components/cj/B5819W/B5819W.ze
 HSBB3072 = Module("github.com/Team-Micras/MicrasPCB/components/huashuo/HSBB3072/HSBB3072.zen")
 L6981 = Module("github.com/Team-Micras/MicrasPCB/components/st/L6981/L6981.zen")
 SK_12D29_G060 = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/SK-12D29-G060/SK-12D29-G060.zen")
-SMAJ18A = Module("github.com/Team-Micras/MicrasPCB/components/littelfuse/SMAJ18A/SMAJ18A.zen")
+SMAJ18A = Module("github.com/Team-Micras/MicrasPCB/components/hongjiacheng/SMAJ18A/SMAJ18A.zen")
 YSPIA0645_220M = Module("github.com/Team-Micras/MicrasPCB/components/yjycoin/YSPIA0645-220M/YSPIA0645-220M.zen")
 
 # Its own sheet in the board schematic (layout/main.kicad_sch).
@@ -353,5 +362,7 @@ Capacitor(name="C57", P1=GND, P2=V3V3_D, **C_22U_0805_25V)
 # 3V3_A analog LDO.
 Resistor(name="R58", P1=VSYS, P2=LDO_IN, **R_22_0402)
 Capacitor(name="C80", P1=GND, P2=LDO_IN, **C_10U_1210_50V)
-ADP7142(name="U8", VIN=LDO_IN, VOUT=V3V3_A, GND=GND, EN=V3V3_D, SS=NotConnected())
+LDO_SS = Net("LDO_SS")
+ADP7142(name="U8", VIN=LDO_IN, VOUT=V3V3_A, GND=GND, EN=V3V3_D, SS=LDO_SS)
+Capacitor(name="C115", P1=GND, P2=LDO_SS, **C_1N_0402)
 Capacitor(name="C81", P1=GND, P2=V3V3_A, **C_10U_0603)
