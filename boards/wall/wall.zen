@@ -173,7 +173,9 @@ Header(name="J1", P1=WALL_SENSOR, P2=GND, P3=V3V3_A, P4=V3V3_D, P5=EMITTER_SINK,
 # an order of panels). The straddle header's rows leave the board 0.04 mm a side (spec/wall.toml
 # pcb.thickness), but the 0.8 mm board's own thickness tolerance is larger than HASL's pad
 # unevenness, and JLCPCB prints no paste on J1 (assembly = "hand", parts/jlc.toml): the team pastes
-# and solders it itself. Black solder mask and white silkscreen, as the encoder board's. JLCPCB's
+# and solders it itself. Green solder mask (JLCPCB's base price; black adds to the order) and white
+# silkscreen, as every Micras board (the owner's choice, 2026-11-07): the black 3D-printed case
+# round each wall board, not its mask, keeps stray light off the receiver. JLCPCB's
 # order options come from here (micras-pcb fab writes build/wall/fab/wall-order.txt).
 Board(
     name="wall",
@@ -198,7 +200,7 @@ Board(
         ),
         stackup=Stackup(
             copper_finish="HAL SnPb",
-            solder_mask_color="Black",
+            solder_mask_color="Green",
             silk_screen_color="White",
             materials=[Material(name="FR-4", relative_permittivity=4.5)],
             thickness=0.79,

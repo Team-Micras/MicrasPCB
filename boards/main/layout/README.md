@@ -164,7 +164,12 @@ STSPIN958 in parallel half-bridge mode, PWM trimming, on TIM14 at 400 kHz: R31 2
   off at a zero set-point by 200 kOhm from 3V3_A. The phototransistor collectors are on 3V3_A, and
   each receiver's 1 kOhm load sits on the main board at its ADC line (the phototransistor is a
   current source: the signal crosses the joint as a current).
-- **IMU** and **encoder slots**: as on the v1 main board, on 3V3_D.
+- **IMU** and **encoder slots**: as on the v1 main board, on 3V3_D. EC1 stands at 0 deg and EC2 at
+  180 deg (spec `[encoder_slots]` `right_rotation`/`left_rotation`, held by `micras-pcb mech`): each
+  slot's pads 5-8 (3V3_D, GND, A, B: the encoder board's chip side) lie outboard, where the encoder
+  board's chip faces the wheel's magnet, and pads 1-4 (CSn and the SPI bus) inboard. EC2's 3V3_D
+  capacitors C71/C72 sit outboard of its slot beside its 3V3_D and GND pads, between the encoder
+  board's zone and the left drive block's silk line.
 
 ## ESP32 radio
 
@@ -485,7 +490,7 @@ connection is routed, and DRC, DFM and the layout tests pass.
 - **Ground stitching** (`route.py` `stitch()`, `prune()`): 346 ground vias in all. Every point where both outer layers are ground lies within 4 mm of a ground via or
   through-hole ground pad (a twentieth of the 2.4 GHz wavelength, TI SZZA009), and every island of
   outer ground pour over 2 mm2 has at least two, but for the pour within 0.6 mm of a ground pad or
-  track (its join) and within 4.5 mm of C72.1 and C8.1 (see Open items). A stitching via goes only where all
+  track (its join) and within 4.5 mm of C8.1 (boxed in by other nets' tracks, it reaches ground only through the pour round it: `route.py` `PRUNE_SPARE`). A stitching via goes only where all
   four layers are ground round it, so it cuts no other net's copper, In2.Cu's islands and hops
   included; the ground that no via can reach is cut out by 15 pour keep-outs (`no pour:
   unstitched`), and three B.Cu pieces (under the STM32's front-left pad row, by W4 and between W2
@@ -509,12 +514,15 @@ connection is routed, and DRC, DFM and the layout tests pass.
   the mask web between the squares stays and their solder has no open hole beside it, and open on
   B.Cu. Each square takes paste over its whole 1.2 mm (64 % of the 4.5 mm grid); the datasheet
   asks only for "the correct amount" (section 9: too much lifts the module off its signal pads).
-- **Vias**: 0.45/0.3 mm for power and planes, 0.35/0.2 mm for signals (the escapes between the
-  STM32's 0.4 mm pitch pins), 0.45/0.2 mm for the thermal vias; a 0.2 mm hole is above JLCPCB's
-  0.15 mm minimum and below its 0.3 mm preferred size, which KiCad's DRC reports as a warning.
-  JLCPCB charges more for a 0.2 mm hole with copper under 0.45 mm (PCB Capabilities page,
-  accessed 2026-10-25): the 0.35/0.2 mm signal vias take that order option; the thermal vias'
-  0.45 mm copper does not.
+- **Vias**: 0.45/0.3 mm for power and planes, 0.45/0.2 mm for signals (the escapes between the
+  STM32's 0.4 mm pitch pins) and for the thermal vias; a 0.2 mm hole is above JLCPCB's 0.15 mm
+  minimum and below its 0.3 mm preferred size, which KiCad's DRC reports as a warning. JLCPCB
+  charges more for a 0.2 or 0.25 mm hole with copper under 0.45 mm (PCB Capabilities, Drilling,
+  accessed 2026-11-07), so every via has 0.45 mm copper (`test_vias_take_jlcpcbs_standard_option`)
+  and the board takes JLCPCB's standard via option, 0.3mm/(0.4/0.45mm). Where a grown via met
+  another net's copper, the via sits off its tracks' joint by up to 0.18 mm (each track end stays
+  inside its copper), or the other net's segment moved sideways by a few hundredths of a
+  millimetre, its neighbours following along their own lines or by a 45-degree jog.
 - **Ordering**: as a single board or on rails joined by breakaway tabs (mouse bites), not V-cut:
   SW4's pads are 0.20 mm from the outline, C100's and C103's 0.24 mm and U13's pad 46 0.30 mm,
   inside JLCPCB's 0.40 mm copper clearance to a V-score (`rules/jlcpcb-pdk.toml`
@@ -562,7 +570,7 @@ These ERC and DRC warnings stay once the board is laid out:
 
 | Check (gate) | Fault | Why it stays |
 |---|---|---|
-| `drill_out_of_range` (drc, warning) | the 0.35 / 0.2 mm signal vias and the 0.45 / 0.2 mm thermal vias: a 0.2 mm hole under the 0.3 mm of the `jlc: via hole (preferred)` rule | above JLCPCB's 0.15 mm minimum, the board's choice for the escapes between the STM32's 0.4 mm pitch pins and for the open thermal vias (see [Layout](#layout), Vias); the `jlc: via hole` rule at error severity holds the 0.15 mm minimum |
+| `drill_out_of_range` (drc, warning) | the 0.45 / 0.2 mm signal and thermal vias: a 0.2 mm hole under the 0.3 mm of the `jlc: via hole (preferred)` rule | above JLCPCB's 0.15 mm minimum, the board's choice for the escapes between the STM32's 0.4 mm pitch pins and for the open thermal vias (see [Layout](#layout), Vias); the `jlc: via hole` rule at error severity holds the 0.15 mm minimum |
 | `silk_overlap`, `silk_over_copper` (drc, warning) | package artwork on its own outline and on the copper beside it, and outlines of neighbouring parts touching (the KiCad library passives keep their 0.12 mm outlines) | cosmetic: JLCPCB clips silkscreen at pads, and no reference designator is among them |
 | `silk_edge_clearance` (drc, warning) | U13's outline over the antenna notch and SW4's at the switch notch run past the board's edge | the module overhangs its notch and the switch's lever sits at the cut corner by design; the fab clips the silkscreen at the edge |
 | `same_local_global_label` (erc, warning) | pcb 0.4.81 labels a net that crosses a module sheet with a global label on the root and on the sheet, beside the sheet pin and the hierarchical label ([diodeinc/pcb#1520](https://github.com/diodeinc/pcb/issues/1520)): 48 warnings. The placement keeps the global label at each pin and draws the hierarchical one in the sheet's ports column (`boards/main/schematic/`) | the netlist is right (LVS passes); `erc.toml` accepts this rule at warning severity, with this reason, and nothing else. It goes away with a pcb release that includes [diodeinc/pcb#1522](https://github.com/diodeinc/pcb/pull/1522), which generates the sheet pins and hierarchical labels alone; then the `[accepted_warning]` table goes too |
@@ -591,8 +599,6 @@ Each is a visible TODO in the sheet that owns it.
   3.5 mm from IC1.14 and C105 beside R79, 24 mm of track from IC1.25, where ST AN2834 section 4.2.8
   asks for the pin: the front-left face's lanes and escapes leave no 0402 spot within 3 mm of
   IC1.25 (the test is marked as an expected failure until they move).
-- Routing: C72.1 (EC2's 100 nF) reaches ground only through the pour round it, boxed in by other
-  nets' tracks (`PRUNE_SPARE`).
 - Assembly: every through-hole lead trimmed to 0.5 mm or less (Ordering); M2's leads lie under
   MicrasHardware's rear skate.
 - Silkscreen: the KiCad library passives (stdlib 0402-1210, 0603 LED) keep their 0.12 mm outlines;

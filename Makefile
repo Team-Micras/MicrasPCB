@@ -7,7 +7,7 @@ BOARDS := $(notdir $(patsubst %/pcb.toml,%,$(wildcard boards/*/pcb.toml)))
 # Boards replicated from a previous revision (boards/<board>/previous/board.json + changes.toml).
 PREVIOUS_BOARDS := encoder
 
-.PHONY: help setup gen check build warnings test layout-check sch erc lvs previous drc dfm pytest lint parts parts-online quote outputs fab review all clean
+.PHONY: help setup gen check build warnings test layout-check sch erc lvs previous drc dfm pytest lint parts parts-online quote outputs assembly fab review all clean
 
 # The gates `make check` runs, in order. Each runs even when an earlier one fails.
 GATES := build warnings test layout-check sch erc lvs previous drc dfm pytest lint parts
@@ -92,10 +92,13 @@ check: ## every gate CI runs: all of them, then a summary; fails if any gate fai
 outputs: ## review outputs (schematic, layers, renders, 3D)
 	$(TOOL) outputs
 
+assembly: ## the main board with its wall and encoder boards in place: build/main/review/assembly.glb/.step and renders
+	$(TOOL) assembly
+
 fab: ## JLCPCB fab package
 	$(TOOL) fab
 
-review: outputs fab ## review outputs and fab package (what CI uploads)
+review: outputs assembly fab ## review outputs, the assembly and the fab package (what CI uploads)
 
 all: gen check review ## regenerate, check and build everything
 

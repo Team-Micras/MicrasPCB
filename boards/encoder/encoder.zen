@@ -101,8 +101,8 @@ EncoderTab(name="J1", VDD=V3V3, GND=GND, SPI=SPI, A=ENCODER_ABI_A, B=ENCODER_ABI
 # Solder mask expansion 0.02 mm (rule SolderMaskExpansion, 0.7874 mil).
 # Vias 0.3 mm drill / 0.6 mm pad, the previous layout's (JLCPCB's no-surcharge drill).
 # Finish: leaded HASL (KiCad "HAL SnPb"), as every Micras board (the owner's choice, 2026-11-07: the
-# v1 main board was ordered with HASL at JLCPCB and worked); black solder mask and white silkscreen,
-# as the previous revision's.
+# v1 main board was ordered with HASL at JLCPCB and worked); green solder mask (JLCPCB's base price)
+# and white silkscreen, as every Micras board (the owner's choice, 2026-11-07).
 # Silkscreen text: 0.5 mm high with a 0.125 mm stroke at least, the owner's choice (JLCPCB
 # recommends 1.0 mm, a trade-off the 9.6 mm wide board accepts). Zener does not set KiCad's
 # minimum text thickness: `micras-pcb rules` writes it (rules/kicad-severities.toml
@@ -131,7 +131,7 @@ Board(
         ),
         stackup=Stackup(
             copper_finish="HAL SnPb",
-            solder_mask_color="Black",
+            solder_mask_color="Green",
             silk_screen_color="White",
             materials=[Material(name="FR-4", relative_permittivity=4.5)],
             thickness=0.79,

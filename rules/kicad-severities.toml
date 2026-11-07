@@ -28,6 +28,6 @@ min_text_thickness = 0.125
 # caps the stroke at a quarter of the text size, so 0.125 mm is what a 0.5 mm text carries. Zener
 # has no field for it.
 min_text_thickness = 0.125
-# The 0.35 / 0.2 mm escape via of boards/main/main.zen: a 0.075 mm ring, JLCPCB's preferred
-# minimum (rules/jlcpcb.kicad_dru). Zener has no field for it.
+# The board's smallest via ring, JLCPCB's preferred minimum (rules/jlcpcb.kicad_dru); the 0.45 / 0.2 mm
+# escape via of boards/main/main.zen has 0.125 mm. Zener has no field for it.
 min_via_annular_width = 0.075

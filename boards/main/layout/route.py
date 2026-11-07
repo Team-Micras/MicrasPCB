@@ -65,8 +65,9 @@ B: pcbnew.BOARD = None
 F, BK, IN1, IN2 = pcbnew.F_Cu, pcbnew.B_Cu, pcbnew.In1_Cu, pcbnew.In2_Cu
 LAYERS = {"F": F, "B": BK, "In1": IN1, "In2": IN2}
 VIA_D, VIA_HOLE = 0.45, 0.3
-# the signals' via in Freerouting (boards/main/main.zen): between the STM32's 0.4 mm pitch pins
-ESCAPE_D, ESCAPE_HOLE = 0.35, 0.2
+# the signals' via in Freerouting (boards/main/main.zen): between the STM32's 0.4 mm pitch pins, 0.45 mm
+# copper as JLCPCB's standard via option needs with a 0.2 mm hole (spec/main.toml [pcb] via_drill)
+ESCAPE_D, ESCAPE_HOLE = 0.45, 0.2
 CU_GAP = 0.2  # via to other copper on the outer layers
 
 
@@ -646,7 +647,7 @@ EP_REACH = 0.6  # mm from a pin's inner end to its exposed pad
 
 
 # The STM32's escape: each pin leaves straight out along its axis, before any other part's via
-# or track takes the room in front of its row, to a 0.35 mm via (main.zen) on one of three rows
+# or track takes the room in front of its row, to a 0.45/0.2 mm via (main.zen) on one of three rows
 # past the pin tips, staggered so a track out of the far rows passes between the near rows' vias
 # (0.4 mm pitch: 0.15 mm from a 0.15 mm track to a via). 3V3_D's vias take the near row, inside
 # its In2 island; VCORE's go past the far row, onto its ring; VDDA and SMPS_LX (ROUTES) leave
@@ -1413,7 +1414,7 @@ def class_width(net: str) -> float:
 def _classes(dsn: str) -> str:
     """The session's net classes: ROUTES' nets that router.py left (at their widths), GND, and the
     signals; the nets without a second pin are left out."""
-    # the board's 0.45 mm via (router.py's), not the net class's default; the signals' 0.35 mm one
+    # the board's 0.45/0.3 mm via (router.py's), not the net class's default; the signals' 0.45/0.2 mm one
     via = f"Via[0-3]_{round(VIA_D * 1000)}:{round(VIA_HOLE * 1000)}_um"
     assert f'(padstack "{via}"' in dsn, via
     small = f"Via[0-3]_{round(ESCAPE_D * 1000)}:{round(ESCAPE_HOLE * 1000)}_um"
@@ -2201,7 +2202,7 @@ PRUNE_MIN = 0.1  # mm2: smaller slivers are left to the fill's own minimum width
 PRUNED = "no pour: unstitched"
 # ground pads whose only way to ground is pour that pruning would cut (robot frame): the pour within
 # PRUNE_SPARE_R of them stays
-PRUNE_SPARE = {"C72.1": (-2.28, 9.3), "C8.1": (38.64, -6.16)}
+PRUNE_SPARE = {"C8.1": (38.64, -6.16)}
 PRUNE_SPARE_R = 4.5  # mm
 PRUNE_RING = 0.6  # mm of pour kept round each ground pad and track: its relief or solid join
 

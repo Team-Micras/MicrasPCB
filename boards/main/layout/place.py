@@ -244,7 +244,10 @@ HAND = {
     "C25": (-2.6, 0.6, 90),
     "C69": (-0.7, -4.5, 90),
     "C70": (1.3, -4.5, 90),
-    "C71": (0.0, 4.4, 90),
+    # EC2's 3V3_D capacitors outboard of the slot, beside its 3V3_D and GND pads (EC2 at 180 deg, spec
+    # [encoder_slots] left_rotation), between the encoder board's zone and the drive block's silk line
+    "C71": (-2.25, 10.2, 0),
+    "C72": (-3.25, 10.2, 0),
     "R73": (-4.7, 4.1, 180),
     "R63": (-3.9, -3.4, 180),
     "R64": (-3.3, -1.8, 90),
@@ -659,8 +662,9 @@ def main():
         if isinstance(sec, dict) and "path" in sec and "x" in sec:
             f = by_path[sec["path"]]
             placed[f.GetReference()] = (sec["x"], sec["y"], sec["rotation"])
+    rots = mech.slot_rotations(S)
     for path, (x, y) in mech.slots(S).items():
-        placed[by_path[path].GetReference()] = (x, y, 0)
+        placed[by_path[path].GetReference()] = (x, y, rots[path])
     placed.update(ANCHORS)
     placed.update(HAND)
 

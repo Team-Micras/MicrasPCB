@@ -26,8 +26,8 @@
 thickness = { value = 1.0412, source = "boards/main/main.zen Board() stackup: the v1 board's 4-layer 1.0 mm JLCPCB stackup" }
 copper_layers = { value = 4, source = "boards/main/main.zen Board(layers = 4)" }
 via_in_pad = { value = "open", source = "the owner (2026-10-25): no via-in-pad process (JLCPCB PCB Capabilities, accessed 2026-10-25: its Via-in-Pad Process fills vias with epoxy or copper paste and plates them over, the default only from 6 layers). The exposed pads' thermal vias are 0.2 mm holes (TI SLVSF66A land pattern 4223595/B; a smaller via loses less solder, TI SLUA271C 3.4.1) left open on both sides (tenting a pad's via from the back traps air, SLUA271C 3.4.1), and the pads' paste is split into windows clear of them (the footprints; 50-70 % coverage, SLUA271C 4.4)" }
-via_drill = { value = 0.2, source = "the board's smallest via, a 0.2 mm hole in 0.35 mm copper, for the escapes of the STM32's 0.4 mm pitch pins (boards/main/main.zen ViaDimension(diameter = 0.35, drill = 0.2)); tests/test_fab.py holds it to the layout. JLCPCB charges extra for a 0.2 or 0.25 mm hole with copper under 0.45 mm (PCB Capabilities, Drilling, accessed 2026-11-07), so the board is ordered, and quoted (micras-pcb quote), with the via option 0.2mm/(0.3/0.35mm)" }
-via_diameter = { value = 0.35, source = "the copper of the smallest via (via_drill)" }
+via_drill = { value = 0.2, source = "the board's smallest via, a 0.2 mm hole in 0.45 mm copper, for the escapes of the STM32's 0.4 mm pitch pins (boards/main/main.zen ViaDimension(diameter = 0.45, drill = 0.2)); tests/test_fab.py holds it to the layout. JLCPCB charges extra for a 0.2 or 0.25 mm hole with copper under 0.45 mm (PCB Capabilities, Drilling, accessed 2026-11-07), so every via on the board has 0.45 mm copper or a 0.3 mm hole (tests/test_main_layout.py test_vias_take_jlcpcbs_standard_option) and the board is ordered, and quoted (micras-pcb quote), with the standard via option 0.3mm/(0.4/0.45mm)" }
+via_diameter = { value = 0.45, source = "the copper of the smallest via (via_drill)" }
 assembly = { value = "economic", source = "JLCPCB Economic PCBA, 2 of 5 boards assembled (commit 22028f8); the board is above its 10 x 10 mm single-board minimum (jlcpcb.com/capabilities/pcb-assembly-capabilities, accessed 2026-11-07)" }
 
 [kicad]
@@ -95,6 +95,8 @@ width = { value = 1.0, source = "JLCPCB PCB capabilities (jlcpcb.com/capabilitie
 corner_radius = { value = 0.5, source = "a 1.0 mm cutter mills the slot, so its ends are half circles of the slot width (JLCPCB: rectangular slots without rounded corners are not supported); v1 board spec/main.toml [encoder_slots] corner_radius" }
 right_path = { value = "SENSORS.EC1.SLOT", source = "boards/main/Sensors.zen: EC1 takes the right wheel's encoder board (y < 0)" }
 left_path = { value = "SENSORS.EC2.SLOT", source = "boards/main/Sensors.zen: EC2 takes the left wheel's encoder board (y > 0)" }
+right_rotation = { value = 0, source = "the slot footprint's rotation in KiCad: its pads 5-8 (the encoder board's chip side, components/micras/EncoderSlot) lie on its +X side, which at 0 deg faces the robot's -y, outboard on the right where [encoder_boards] right keeps the room for the chip-face parts (MicrasHardware layout.encoders: chip outwards)" }
+left_rotation = { value = 180, source = "as right_rotation, turned 180 deg so pads 5-8 face the robot's +y, outboard on the left ([encoder_boards] left; the v1 main board's EC2 stood at 180 deg, commit 1b0c466)" }
 
 [fan_hole]
 x = { value = 17.5, source = "v1 board spec/main.toml [fan_hole] x; MicrasHardware Board.fan_hole_x" }

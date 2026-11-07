@@ -174,7 +174,7 @@ The panel, 53.6 x 30.0 mm:
 
 On JLCPCB's order page: upload `wall-panel-gerbers.zip` and set what `wall-order.txt` lists (2
 layers, 53.6 x 30.0 mm, delivery format "Panel by Customer" with 4 boards in one row, 0.8 mm,
-black mask, white silkscreen, leaded HASL, the default via class, Economic PCBA on the bottom side), then
+green mask, white silkscreen, leaded HASL, the default via class, Economic PCBA on the bottom side), then
 the BOM and CPL above. The quantity counts panels: 5 panels make 20 boards. `make quote` prices
 the bare panels with these options.
 

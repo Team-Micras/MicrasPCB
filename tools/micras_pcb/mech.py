@@ -576,6 +576,13 @@ def slots(s: dict) -> dict[str, tuple[float, float]]:
     return {e["right_path"]: (0.0, -e["y"]), e["left_path"]: (0.0, e["y"])}
 
 
+def slot_rotations(s: dict) -> dict[str, float]:
+    """Encoder slot footprints' rotations in KiCad (degrees), keyed by instance path: the chip side
+    (pads 5-8) outboard on each side."""
+    e = s["encoder_slots"]
+    return {e["right_path"]: float(e["right_rotation"]), e["left_path"]: float(e["left_rotation"])}
+
+
 def footprint_checks(s: dict, root: sexpr.Node) -> list[str]:
     """Spec footprints the spec does not place: encoder slot footprints centred on their slots, hole drills."""
     problems = []
@@ -589,6 +596,12 @@ def footprint_checks(s: dict, root: sexpr.Node) -> list[str]:
             got = kicad_to_robot(s, _xy_of(fp.child("at")))
             if math.dist(got, centre) > TOL:
                 problems.append(f"{path} at ({got[0]:.4f}, {got[1]:.4f}), not on its slot centre {centre}")
+            at = fp.child("at").atoms()
+            rot, want = float(at[2]) if len(at) > 2 else 0.0, slot_rotations(s)[path]
+            if abs((rot - want + 180) % 360 - 180) > 1e-6:
+                problems.append(
+                    f"{path} at {rot:g} deg, not the {want:g} deg of spec [encoder_slots] (its chip side outboard)"
+                )
     if "holes" in s:
         # the screw holes: the [h1], [h2], ... sections
         holes = [v["path"] for k, v in s.items() if k[:1] == "h" and k[1:].isdigit()]

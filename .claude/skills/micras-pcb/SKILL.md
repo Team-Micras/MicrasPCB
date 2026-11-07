@@ -116,6 +116,32 @@ complete. The user checks each part once in JLCPCB's placement preview, then set
 `rotation_verified = true` (fixing `rotation` first if needed). `make fab` lists the parts still
 unverified. Ordering is a manual upload: JLCPCB has no ordering API open to small teams.
 
+## Review outputs
+
+`make review` writes `build/<board>/review/` (`micras_pcb.outputs`: schematic PDF/SVG, layer SVGs,
+top/bottom/iso renders, GLB/STEP from the drill origin), then the assembly (`micras-pcb assembly`,
+`micras_pcb.assembly`), because KiCad Prism shows one board at a time:
+
+- `build/main/review/assembly.glb` / `assembly.step`: the main board with the four wall boards and
+  both encoder boards standing in their joints; origin at the robot's (the axle midpoint), x = -y
+  and y = x of the robot frame, z up.
+- `assembly-iso-left.png`, `assembly-iso-right.png` (from the front-left, front-right) and
+  `assembly-top.png`.
+- `build/main/assembly/`: the build copy of `main.kicad_pcb` with each daughterboard's STEP
+  (exported with its spec origin as the user origin) as an extra 3D model on its joint footprint
+  (W1-W4, EC1/EC2), and the daughterboards' own glTF the export is checked against.
+
+Every placement comes from the specs, never a copied number: a wall board's mid-plane over its
+joint's centre, its front (the sensor side) facing the joint's look direction (`spec/main.toml`
+`[w1]`-`[w4]`), v 0 (`spec/wall.toml`) on the main board's top; an encoder board's mid-plane on its
+slot's centre (`[encoder_slots]`), the shoulder on the main board's top, the chip facing the side
+where `[encoder_boards]` keeps room for its parts. Each becomes a model offset and rotation in the
+footprint's own frame (KiCad turns a model by Rz(-rz) Ry(-ry) Rx(-rx), then offsets it, 0.05 mm
+over the outer copper), edited into the copy with `micras_pcb.sexpr`. The command fails when the
+glTF export puts a daughterboard anywhere else, and warns when one reaches into the main board
+outside its joint or a part's model, or when its joint pads miss the footprint's;
+`tests/test_assembly.py` holds all of it (the export part only with `kicad-cli`).
+
 ## Schematic placement
 
 `make gen` writes each board's schematic afresh with `pcb apply`, then `micras-pcb sch` places it

@@ -24,7 +24,7 @@ boards/<board>/schematic/*.toml ────────────────
                                                      │
           make check: build · warnings · tests · sync · spec · sch · ERC · LVS · previous · DRC · DFM · pytest · parts
                                                      │
-          make review: renders · schematic · layers · 3D · BOM · fab zip ──>  CI artifact
+          make review: renders · schematic · layers · 3D · assembly · BOM · fab zip ──>  CI artifact
 ```
 
 - **Zener owns the circuit.** Parts, nets, values, stackup and design rules are code, with
@@ -121,7 +121,8 @@ schematic preview of `.zen` files.
 ```sh
 make gen        # regenerate KiCad files from the sources (run after every source change)
 make check      # every gate CI runs, with a pass/FAIL summary
-make review     # build/<board>/review and fab: schematic PDF, layer SVGs, renders, GLB/STEP, fab package
+make review     # build/<board>/review and fab: schematic PDF, layer SVGs, renders, GLB/STEP, fab package,
+                #   and build/main/review/assembly.*: the main board with its wall and encoder boards in place
 make fab        # build/<board>/fab: JLCPCB gerbers zip (no paste on hand-soldered parts), BOM, CPL, order options
                 #   (the wall board's as a 4-up panel) and the team's stencil for the hand-soldered parts
 pcb open boards/encoder/encoder.zen     # open the layout in KiCad
@@ -144,7 +145,7 @@ and fails if any gate failed.
 | previous | `micras-pcb previous compare <board>` | a replicated board (the encoder) connects or names anything differently from its previous revision, except the changes in `boards/<board>/changes.toml` |
 | DRC | `kicad-cli pcb drc` + `rules/jlcpcb.kicad_dru` | JLCPCB clearances (copper, SMD pad to pad, hole to track), widths, drills, edge distances |
 | DFM | `pcb dfm` + `rules/jlcpcb-pdk.toml` | geometry-level manufacturability (Diode's sourced JLCPCB PDK) |
-| pytest | `pytest` | board contracts (encoder joint, firmware pin map), the fab package (every assembled board or its panel at least 10 x 10 mm, the panel's outlines, tabs and CPL, each board's via class), power tree, every schematic item on its sheet's page, no overlapping texts, bodies or wires on a sheet, every board's schematic drafted whole from its Zener source (pcb's netlist, nothing overlapping), decoupling at the pin, encoder slot fit, routing style (every track straight at a multiple of 45 degrees, no arcs, no acute corners), courtyards, paste, 3D models, part data |
+| pytest | `pytest` | board contracts (encoder joint, firmware pin map), the assembly (each wall and encoder board standing where the specs put it, its pads on its joint's, clear of the main board and its parts), the fab package (every assembled board or its panel at least 10 x 10 mm, the panel's outlines, tabs and CPL, each board's via class), power tree, every schematic item on its sheet's page, no overlapping texts, bodies or wires on a sheet, every board's schematic drafted whole from its Zener source (pcb's netlist, nothing overlapping), decoupling at the pin, encoder slot fit, routing style (every track straight at a multiple of 45 degrees, no arcs, no acute corners), courtyards, paste, 3D models, part data |
 | lint | `ruff` | Python lint and format |
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 
@@ -170,6 +171,13 @@ To look at a board, download the run's artifact, or open the project in KiCad
 folder as a project and shows the board's README from it (`boards/<board>/layout/README.md`).
 Each layout folder's `.prism.json` names the root schematic and the board, so Prism does not take
 the first sheet in the folder (main's `DRIVERS.kicad_sch`) as the root and drop it from the viewer.
+Prism shows one board at a time; the robot's boards together are in the run's artifact:
+`build/main/review/assembly.glb` and `assembly.step` (the main board with the four wall boards and
+both encoder boards standing in their joints, origin at the robot's) and the renders
+`assembly-iso-left.png`, `assembly-iso-right.png` (from the front-left and front-right) and
+`assembly-top.png`. `micras-pcb assembly` places each daughterboard from the specs on a build copy
+of the main board, as a 3D model on its joint footprint, and fails if KiCad's export puts it
+anywhere else.
 
 ## Working with Claude Code
 
@@ -199,8 +207,8 @@ spec/                  mechanical single source of truth per board; main_chassis
                        main board from MicrasHardware's model (tools/chassis_shadow.py, run in that repo's environment)
 parts/jlc.toml         MPN -> LCSC mapping
 rules/                 JLCPCB KiCad DRC rules, DFM PDK, KiCad rule severities
-tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, panel, order, outputs, previous, firmware, layout, schematic placement
-                       and drafts (`uv run micras-pcb --help`)
+tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, panel, order, outputs, assembly, previous, firmware, layout,
+                       schematic placement and drafts (`uv run micras-pcb --help`)
 tests/                 pytest design tests
 research/next-revision/ the main board's design research (entered as boards/main) and its calculation scripts
 ci/                    KiCad, toolchain and KiKit install, for CI and local setup

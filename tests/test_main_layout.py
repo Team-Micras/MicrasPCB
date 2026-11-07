@@ -1238,7 +1238,7 @@ STITCH_ISLAND = 2.0  # mm2
 STITCH_RING = 0.6  # mm: route.py PRUNE_RING, the pour round a ground pad or track (its join)
 # route.py PRUNE_SPARE: ground pads boxed in by other nets' tracks, whose only way to ground is the
 # pour round them (no via fits beside them), which pruning leaves within this reach
-STITCH_SPARE = {"C72.1": 4.5, "C8.1": 4.5}
+STITCH_SPARE = {"C8.1": 4.5}
 
 
 def _rings(layer: str) -> set[tuple[int, int]]:
@@ -1592,6 +1592,21 @@ def test_vias_in_pads():
                     break
     assert not problems, "\n".join(problems)
     assert exposed and S["pcb"]["via_in_pad"] == "open"
+
+
+# JLCPCB's standard via option (PCB Capabilities, Drilling, accessed 2026-11-07): "0.2mm or 0.25mm hole
+# size with via diameter less than 0.45mm, will cost more" (and any hole under 0.2 mm). Every via on
+# the board therefore has 0.45 mm copper, or a 0.3 mm hole (spec/main.toml [pcb] via_drill).
+STANDARD_VIA = (0.45, 0.3)  # mm: copper with a 0.2-0.25 mm hole, or the hole alone
+
+
+def test_vias_take_jlcpcbs_standard_option():
+    problems = [
+        f"{v.net} via at {_xy(v.xy)}: {v.drill:g} mm hole in {v.size:g} mm copper"
+        for v in layout.load("main").vias
+        if v.drill < 0.2 - 1e-6 or (v.size < STANDARD_VIA[0] - 1e-6 and v.drill < STANDARD_VIA[1] - 1e-6)
+    ]
+    assert not problems, f"{len(problems)} vias take JLCPCB's paid via option:\n" + "\n".join(problems)
 
 
 # The split-paste footprints the board uses (open thermal vias): (file, exposed pad, its solder-mask

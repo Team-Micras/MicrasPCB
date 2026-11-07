@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import checks, firmware, jlc, lvs, mech, order, outputs, placement, previous
+from . import assembly, checks, firmware, jlc, lvs, mech, order, outputs, placement, previous
 from .paths import SCHEMATIC_ONLY, boards, has_layout
 
 # Commands that read the layout: a schematic-only board skips them with the reason.
@@ -52,6 +52,10 @@ def main(argv: list[str] | None = None) -> int:
     p = board_cmd("quote", "JLCPCB's bare-board price with each board's order options (online)")
     p.add_argument("--qty", type=int, default=5, help="boards, or panels for a panelised board (default: 5)")
     board_cmd("outputs", "review outputs: schematic PDF/SVG, layer SVGs, 3D renders, GLB/STEP")
+    sub.add_parser(
+        "assembly",
+        help="the main board with its wall and encoder boards in place: build/main/review/assembly.glb/.step and renders",
+    )
     p = sub.add_parser("parts", help="check parts/jlc.toml covers every board")
     p.add_argument("--online", action="store_true", help="also query JLCPCB stock and library type")
     p = sub.add_parser("previous", help="a board's previous revision: snapshot and connectivity comparison")
@@ -74,6 +78,8 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--check", action="store_true", help="verify only; fail if firmware.toml is stale")
 
     a = ap.parse_args(argv)
+    if a.cmd == "assembly":
+        return assembly.run()
     if a.cmd == "parts":
         return jlc.check_parts(a.online)
     if a.cmd == "firmware":

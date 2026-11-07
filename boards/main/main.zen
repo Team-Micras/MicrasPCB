@@ -506,9 +506,11 @@ Esp(
 # board is ordered as JLCPCB's 1.0 mm 4-layer stackup either way. Rules: 0.1 mm clearance,
 # 10 mil (0.254 mm) preferred track, 0.45 / 0.3 mm vias, 0.2 mm copper to board edge, 0.02 mm
 # solder mask expansion (rule SolderMaskExpansion, 0.7874 mil). The track widths and the other
-# via sizes are the ones its routing uses; the 0.35 / 0.2 mm via is this board's own, for the escapes
+# via sizes are the ones its routing uses; the 0.45 / 0.2 mm via is this board's own, for the escapes
 # of the STM32's 0.4 mm pitch pins (owner, 2026-10-18; JLCPCB's limits, rules/jlcpcb.kicad_dru:
-# 0.15 mm hole, 0.05 mm ring, 0.075 mm preferred). Finish: leaded HASL (KiCad "HAL SnPb"), green
+# 0.15 mm hole, 0.05 mm ring, 0.075 mm preferred). Its copper is 0.45 mm because JLCPCB charges
+# extra for a 0.2 or 0.25 mm hole in copper under 0.45 mm (PCB Capabilities, Drilling, accessed
+# 2026-11-07); spec/main.toml [pcb] via_drill/via_diameter. Finish: leaded HASL (KiCad "HAL SnPb"), green
 # solder mask, white silkscreen (the owner's choices, 2026-11-07): the v1 main board, with the same
 # STM32H725RGV6 VFQFPN68 and LSM6DSV LGA-14, was ordered with HASL at JLCPCB and worked, and ENIG
 # adds 17.10 USD an order; green costs JLCPCB's base price where black adds 8 USD an order, and
@@ -524,7 +526,7 @@ Board(
                 copper=Copper(
                     minimum_clearance=0.1,
                     minimum_track_width=0.1,
-                    minimum_via_diameter=0.35,
+                    minimum_via_diameter=0.45,
                     copper_to_edge_clearance=0.2,
                 ),
                 holes=Holes(minimum_through_hole=0.2, hole_to_hole_clearance=0.254),
@@ -539,7 +541,7 @@ Board(
             predefined_sizes=PredefinedSizes(
                 track_widths=[0.2, 0.2248, 0.254, 0.3, 0.4, 0.6, 0.8, 1.0],
                 via_dimensions=[
-                    ViaDimension(diameter=0.35, drill=0.2),
+                    ViaDimension(diameter=0.45, drill=0.2),
                     ViaDimension(diameter=0.45, drill=0.3),
                     ViaDimension(diameter=0.5, drill=0.3),
                     ViaDimension(diameter=0.8, drill=0.4),
