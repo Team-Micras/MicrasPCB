@@ -271,42 +271,6 @@ SILK_LAYER = "F.SilkS"
 SILK_EDGE = 0.3  # mm: a drawn line keeps this far inside the board's edge (the copper-to-edge 0.2 mm, plus margin)
 
 
-def rect_union_outline(rects: list[list[float]]) -> list[Line]:
-    """The boundary of a union of axis-aligned rectangles [x_min, x_max, y_min, y_max] as maximal
-    straight segments (the outer outline and any hole's)."""
-    xs = sorted({v for r in rects for v in r[:2]})
-    ys = sorted({v for r in rects for v in r[2:4]})
-
-    def covered(i: int, j: int) -> bool:
-        if not (0 <= i < len(xs) - 1 and 0 <= j < len(ys) - 1):
-            return False
-        cx, cy = (xs[i] + xs[i + 1]) / 2, (ys[j] + ys[j + 1]) / 2
-        return any(r[0] < cx < r[1] and r[2] < cy < r[3] for r in rects)
-
-    out: list[Line] = []
-    # horizontal edges: along y = ys[j], between cells (i, j - 1) and (i, j)
-    for j in range(len(ys)):
-        run = None
-        for i in range(len(xs)):
-            edge = i < len(xs) - 1 and covered(i, j - 1) != covered(i, j)
-            if edge and run is None:
-                run = i
-            elif not edge and run is not None:
-                out.append(Line((xs[run], ys[j]), (xs[i], ys[j])))
-                run = None
-    # vertical edges: along x = xs[i], between cells (i - 1, j) and (i, j)
-    for i in range(len(xs)):
-        run = None
-        for j in range(len(ys)):
-            edge = j < len(ys) - 1 and covered(i - 1, j) != covered(i, j)
-            if edge and run is None:
-                run = j
-            elif not edge and run is not None:
-                out.append(Line((xs[i], ys[run]), (xs[i], ys[j])))
-                run = None
-    return out
-
-
 def _seg_distance(p, a, b) -> float:
     dx, dy = b[0] - a[0], b[1] - a[1]
     L = dx * dx + dy * dy
@@ -380,48 +344,20 @@ def spec_pads(
     return out
 
 
-def drive_block_outlines(s: dict, root: sexpr.Node | None = None) -> dict[str, list[Line]]:
-    """Each drive block's outline on the main board (robot frame): the union of its [drive_blocks]
-    zones that [silkscreen] names, inside the board and SILK_EDGE in from its edge (the edge itself
-    shows where a zone meets it), and off the spec-placed footprints' pads (spec_pads)."""
-    poly = chain(main_perimeter(s))
-    edges = list(zip(poly, [*poly[1:], poly[0]], strict=True))
-    pads = spec_pads(s, root)
-
-    def keep(q) -> bool:
-        if not _inside(q, poly) or min(_seg_distance(q, a, b) for a, b in edges) < SILK_EDGE:
-            return False
-        return all(math.dist(q, c) >= r + SILK_PAD for c, r in pads)
-
-    zones = s["drive_blocks"]
-    return {
-        side: clip_lines(rect_union_outline([zones[k] for k in s["silkscreen"][f"drive_block_{side}"]]), keep)
-        for side in ("left", "right")
-    }
-
-
-RING_STEPS = 3600  # the fan ring's silk circle is clipped at 0.1 deg steps
-
-
-def ring_silk(s: dict, root: sexpr.Node | None = None) -> list:
-    """The fan ring's edge on the silkscreen: the circle as two half arcs, or, where a spec-placed
-    footprint's pad (spec_pads: IC1 straddles the ring) or a pad of a part [fan_ring] silk_breaks
-    names (at its layout position) comes within SILK_PAD of it, the arcs left between those pads; a
-    piece under 1 mm is dropped (as clip_lines does)."""
-    c, r = (s["fan_hole"]["x"], 0.0), s["fan_ring"]["diameter"] / 2
-    pads = spec_pads(s, root, s["fan_ring"].get("silk_breaks", ()))
+def _clip_circle(c: tuple[float, float], r: float, keep) -> list:
+    """The arcs of the circle where keep(point) holds, at RING_STEPS points; the whole circle as two
+    half arcs when it holds everywhere, and an arc under 1 mm dropped (as clip_lines does)."""
     pts = [
-        (c[0] + r * math.cos(k * math.tau / RING_STEPS), r * math.sin(k * math.tau / RING_STEPS))
+        (c[0] + r * math.cos(k * math.tau / RING_STEPS), c[1] + r * math.sin(k * math.tau / RING_STEPS))
         for k in range(RING_STEPS)
     ]
-    ok = [all(math.dist(q, pc) >= pr + SILK_PAD for pc, pr in pads) for q in pts]
+    ok = [keep(q) for q in pts]
     if all(ok):
         return _ring(c, r)
     start = ok.index(False)  # walk the circle from a clipped point, so no kept run wraps round
     arcs, k = [], 0
     while k < RING_STEPS:
-        i = (start + k) % RING_STEPS
-        if not ok[i]:
+        if not ok[(start + k) % RING_STEPS]:
             k += 1
             continue
         j = k
@@ -432,6 +368,89 @@ def ring_silk(s: dict, root: sexpr.Node | None = None) -> list:
             arcs.append(Arc(pts[a % RING_STEPS], pts[((a + b) // 2) % RING_STEPS], pts[b % RING_STEPS]))
         k = j + 1
     return arcs
+
+
+def _outside_circles(ln: Line, centres: list[tuple[float, float]], r: float) -> list[Line]:
+    """The pieces of a line outside every circle of radius r round the centres (exact)."""
+    d = (ln.b[0] - ln.a[0], ln.b[1] - ln.a[1])
+    L2 = d[0] ** 2 + d[1] ** 2
+    cut = []
+    for c in centres:
+        f = (ln.a[0] - c[0], ln.a[1] - c[1])
+        b, cc = (f[0] * d[0] + f[1] * d[1]) / L2, (f[0] ** 2 + f[1] ** 2 - r * r) / L2
+        disc = b * b - cc
+        if disc > 0:
+            cut.append((-b - math.sqrt(disc), -b + math.sqrt(disc)))
+    pieces, t0 = [], 0.0
+    for u0, u1 in sorted(cut):
+        if u0 > t0:
+            pieces.append((t0, min(u0, 1.0)))
+        t0 = max(t0, u1)
+    if t0 < 1.0:
+        pieces.append((t0, 1.0))
+
+    def at(u: float) -> tuple[float, float]:
+        return (ln.a[0] + d[0] * u, ln.a[1] + d[1] * u)
+
+    return [Line(at(u0), at(u1)) for u0, u1 in pieces if u1 - u0 > 1e-9]
+
+
+def drive_block_footprint(s: dict, side: str) -> tuple[list[float], list[tuple[float, float]], float]:
+    """A drive block's footprint on the board (robot frame), from [silkscreen]: its plate
+    [x_min, x_max, y_min, y_max], its screw bosses' centres (the holes it names) and their radius."""
+    sk = s["silkscreen"]
+    bosses = [(s[h]["x"], s[h]["y"]) for h in sk[f"drive_block_bosses_{side}"]]
+    return sk[f"drive_block_plate_{side}"], bosses, sk["drive_block_boss_radius"]
+
+
+def drive_block_outlines(s: dict, root: sexpr.Node | None = None) -> dict[str, list]:
+    """Each drive block's outline on the main board (robot frame): the boundary of its footprint
+    (drive_block_footprint: the plate and the boss pads), as lines and arcs, inside the board and
+    SILK_EDGE in from its edge (the edge itself shows where the footprint meets it), and off the
+    spec-placed footprints' pads (spec_pads)."""
+    poly = chain(main_perimeter(s))
+    edges = list(zip(poly, [*poly[1:], poly[0]], strict=True))
+    pads = spec_pads(s, root)
+
+    def keep(q) -> bool:
+        if not _inside(q, poly) or min(_seg_distance(q, a, b) for a, b in edges) < SILK_EDGE:
+            return False
+        return all(math.dist(q, c) >= r + SILK_PAD for c, r in pads)
+
+    return {side: _footprint_outline(*drive_block_footprint(s, side), keep) for side in ("left", "right")}
+
+
+def _footprint_outline(plate: list[float], bosses: list[tuple[float, float]], r: float, keep) -> list:
+    """The boundary of a plate [x_min, x_max, y_min, y_max] united with circles of radius r round
+    the bosses, where keep(point) holds: the plate's edges outside the circles (cut exactly) and
+    each circle's arcs outside the plate and the other circles."""
+    x0, x1, y0, y1 = plate
+    eps = 1e-6
+
+    def in_plate(q) -> bool:
+        return x0 + eps < q[0] < x1 - eps and y0 + eps < q[1] < y1 - eps
+
+    def in_boss(q, skip) -> bool:
+        return any(math.dist(q, c) < r - eps for c in bosses if c != skip)
+
+    rect = [Line((x0, y0), (x1, y0)), Line((x1, y0), (x1, y1)), Line((x1, y1), (x0, y1)), Line((x0, y1), (x0, y0))]
+    els: list = clip_lines([pc for ln in rect for pc in _outside_circles(ln, bosses, r)], keep)
+    for c in bosses:
+        els += _clip_circle(c, r, lambda q, c=c: keep(q) and not in_plate(q) and not in_boss(q, c))
+    return els
+
+
+RING_STEPS = 3600  # the silk circles are clipped at 0.1 deg steps
+
+
+def ring_silk(s: dict, root: sexpr.Node | None = None) -> list:
+    """The fan ring's edge on the silkscreen: the circle as two half arcs, or, where a spec-placed
+    footprint's pad (spec_pads: IC1 straddles the ring) or a pad of a part [fan_ring] silk_breaks
+    names (at its layout position) comes within SILK_PAD of it, the arcs left between those pads; a
+    piece under 1 mm is dropped (as clip_lines does)."""
+    c, r = (s["fan_hole"]["x"], 0.0), s["fan_ring"]["diameter"] / 2
+    pads = spec_pads(s, root, s["fan_ring"].get("silk_breaks", ()))
+    return _clip_circle(c, r, lambda q: all(math.dist(q, pc) >= pr + SILK_PAD for pc, pr in pads))
 
 
 def main_silk(s: dict, root: sexpr.Node | None = None) -> list:

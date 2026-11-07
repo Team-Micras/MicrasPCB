@@ -4,8 +4,8 @@
     /usr/bin/python3 boards/main/layout/silk.py IN OUT       # read IN, write OUT (a trial on a copy)
     /usr/bin/python3 boards/main/layout/silk.py --size 0.6   # a trial text size (mm)
 
-Every reference on F.Silkscreen becomes SIZE high with a STROKE line (the mounting holes' references
-stay on F.Fab), at 0 or 90 degrees, within NEAR of its part's courtyard, on a spot that is
+Every reference goes on F.Silkscreen (the wall joints' footprints keep theirs on F.Fab; the mounting
+holes' references stay there) and becomes SIZE high with a STROKE line, at 0 or 90 degrees, within NEAR of its part's courtyard, on a spot that is
 
 - never over an opening in the solder mask (pads, untented vias) nor nearer than SILK_GAP to one
   (JLCPCB clips silkscreen off exposed copper; KiCad's DRC reports it as silk_over_copper);
@@ -35,8 +35,9 @@ from PIL import Image, ImageDraw
 
 PCB = Path(__file__).with_name("main.kicad_pcb")
 
-SIZE = 0.5  # mm, the reference text height and width: the board's minimum (main.zen), the owner's choice so more labels fit
-STROKE = 0.125  # mm, the board's minimum (rules/kicad-severities.toml): a quarter of SIZE, the stroke font's cap
+SIZE = 0.4  # mm, the reference text height and width: the board's minimum (main.zen), the owner's choice (2026-11-07: every
+# label on the board, a little smaller than the v1 board's 0.5 mm)
+STROKE = 0.1  # mm, the board's minimum (rules/kicad-severities.toml): a quarter of SIZE, the stroke font's cap
 SILK_GAP = 0.1  # mm, min_silk_clearance (main.kicad_pro), to other silkscreen and to mask openings
 EDGE_GAP = 0.2  # mm, to the board edge and its cut-outs
 RES = 0.05  # mm, raster cell
@@ -44,7 +45,7 @@ STEP = 2  # cells between candidate centres
 OPTIONS = 40  # spots kept per label
 SPREAD = 0.3  # mm between two kept spots of a label at the same angle
 HIDDEN = 0.5  # mm2 of a body under a label that hides it: never chosen
-NEAR = 1.0  # mm, the farthest a label may sit from its part's courtyard
+NEAR = 1.2  # mm, the farthest a label may sit from its part's courtyard (1.0 leaves C12 in the STM32's 45 deg row without a spot)
 LOST = 400.0  # cost of a label without a spot
 T0, T1 = 20.0, 0.05  # annealing temperature, start and end
 
@@ -219,6 +220,8 @@ def main(src: Path, dst: Path) -> int:
     fps = sorted(board.GetFootprints(), key=lambda f: f.GetReference())
     for f in fps:
         r = f.Reference()
+        if r.GetLayer() == pcbnew.F_Fab and not f.GetFPIDAsString().split(":")[-1].startswith("MountingHole"):
+            r.SetLayer(pcbnew.F_SilkS)  # the wall joints' footprints keep their reference on F.Fab
         if r.GetLayer() == pcbnew.F_SilkS:
             r.SetVisible(True)  # a label hidden by an earlier run gets another chance
             r.SetTextSize(pcbnew.VECTOR2I(iu(SIZE), iu(SIZE)))
@@ -444,6 +447,11 @@ if __name__ == "__main__":
     if "--size" in argv:  # a trial size (mm), stroke kept
         i = argv.index("--size")
         SIZE = float(argv[i + 1])
+        STROKE = min(STROKE, SIZE / 4)
+        del argv[i : i + 2]
+    if "--near" in argv:  # a trial search radius (mm)
+        i = argv.index("--near")
+        NEAR = float(argv[i + 1])
         del argv[i : i + 2]
     args = [Path(a) for a in argv]
     src, dst = (args[0], args[1]) if len(args) == 2 else (PCB, PCB)

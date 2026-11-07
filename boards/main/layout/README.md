@@ -169,7 +169,7 @@ STSPIN958 in parallel half-bridge mode, PWM trimming, on TIM14 at 400 kHz: R31 2
   slot's pads 5-8 (3V3_D, GND, A, B: the encoder board's chip side) lie outboard, where the encoder
   board's chip faces the wheel's magnet, and pads 1-4 (CSn and the SPI bus) inboard. EC2's 3V3_D
   capacitors C71/C72 sit outboard of its slot beside its 3V3_D and GND pads, between the encoder
-  board's zone and the left drive block's silk line.
+  board's zone and the left drive block's motor-ring zones.
 
 ## ESP32 radio
 
@@ -554,15 +554,14 @@ connection is routed, and DRC, DFM and the layout tests pass.
   `micras-pcb mech` draws the ring's edge on F.Silkscreen (0.15 mm), as on the v1 board, broken where
   IC1's pads lie under it (IC1, 0.995 mm high, straddles the ring) and over C5 (VCAP3's 100 nF, on the
   ring's line within 3 mm of pin 66; spec `[fan_ring]` `silk_breaks`), and the
-  outline of each drive block's mounts (spec `[silkscreen]`: the union of the block's
-  `[drive_blocks]` zones, its pads, the rings round its screw bosses, its body and, on the left,
-  the ring round the left motor and its clamp; the motors, wheels and magnet cups are not drawn),
-  straight 0.15 mm lines 0.3 mm in from the board's edge and off the spec-placed footprints' pads
-  (encoder slots, screw holes, wall joints); a stub under 1 mm where a zone meets the edge is left
-  out. Those lines are the spec's (generated, with stable UUIDs): no other pad may sit under them
-  (`test_spec_silkscreen_keeps_off_every_pad`). They follow the zones, which follow the blocks 0.3 mm
-  out: the left block from x 8.2 back to x -22.2 (y 0 to 23), the right one from x 8.2 back to
-  x -19.2 (y -8 to -23).
+  outline of where each drive block stands on the board, as on the v1 board (spec `[silkscreen]`:
+  its plate, x -18.25 to 5.25 and y ±13.75 to ±17.25 out to the wheel notch, and its two screw
+  bosses' pads, r 2.75 mm round H1/H3 and H2/H4, the part-free `[drive_blocks]` zones less their
+  0.3 mm margin; what only overhangs the board is not drawn), 0.15 mm lines and arcs 0.3 mm in from
+  the board's edge and off the spec-placed footprints' pads (encoder slots, screw holes, wall
+  joints); a stub under 1 mm where the outline meets the edge is left out. Those lines are the
+  spec's (generated, with stable UUIDs): no other pad may sit under them
+  (`test_spec_silkscreen_keeps_off_every_pad`).
 
 ## Known faults
 
@@ -603,11 +602,10 @@ Each is a visible TODO in the sheet that owns it.
   MicrasHardware's rear skate.
 - Silkscreen: the KiCad library passives (stdlib 0402-1210, 0603 LED) keep their 0.12 mm outlines;
   U13's outline and SW4's run past the board's edge (the module over its notch, the switch's
-  lever at the cut corner), where the fab clips them. The reference designators are 0.5 mm high
-  with a 0.125 mm stroke, each within 1 mm of its part's courtyard, clear of the mask openings, the
-  other silkscreen and the edge, and off every part's body (`silk.py`); 11 of the 159 have no such
-  spot (C2, C12, C21, C55, C84, C92, C114, L1, M1, R1, R31) and are hidden: the fab drawing
-  (F.Fab) names every part.
+  lever at the cut corner), where the fab clips them. Every reference designator is on the board (the
+  mounting holes' aside), 0.4 mm high with a 0.1 mm stroke, each within 1.2 mm of its part's
+  courtyard, clear of the mask openings, the other silkscreen and the edge, and off every part's
+  body (`silk.py`).
 - STM32 SMPS: C1/C2 sit 3.8-4.6 mm from VDDSMPS and C3/C4 6.5-7.1 mm from L1 and VFBSMPS (AN5419
   Rev 3 Table 2 asks for them "close"); `tests/test_layout.py` holds them to those reaches.
 - VBAT bulk: C87, C92, C111 and C36 sit in the middle, off a 0.4 mm B.Cu spur of the pour, where the

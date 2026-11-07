@@ -475,7 +475,8 @@ def test_spec_silkscreen_draws_the_fan_ring(main_layout):
     ring) or a pad of a part [fan_ring] silk_breaks names would sit under it: every arc on the circle,
     off every such pad by SILK_PAD, and every point of the circle drawn unless it is within 1 mm of
     where a line must stop."""
-    arcs = [e for e in mech.main_silk(MAIN, main_layout) if isinstance(e, mech.Arc)]
+    arcs = mech.ring_silk(MAIN, main_layout)
+    assert all(e in mech.main_silk(MAIN, main_layout) for e in arcs)
     c, r = (MAIN["fan_hole"]["x"], 0.0), MAIN["fan_ring"]["diameter"] / 2
     pads = mech.spec_pads(MAIN, main_layout, MAIN["fan_ring"].get("silk_breaks", ()))
     assert arcs
@@ -493,64 +494,90 @@ def test_spec_silkscreen_draws_the_fan_ring(main_layout):
         assert min(math.dist(p, q) for q in drawn) < 0.2, f"the ring's edge is not drawn at {p}"
 
 
-def _on_union_boundary(p, rects, eps=1e-4) -> bool:
-    """p lies on the boundary of the rectangles' union: of the four points eps diagonally off it (off
-    every zone edge through p), some are inside the union and some outside."""
-
-    def inside(q):
-        return any(r[0] < q[0] < r[1] and r[2] < q[1] < r[3] for r in rects)
-
-    round_p = [inside((p[0] + dx * eps, p[1] + dy * eps)) for dx in (-1, 1) for dy in (-1, 1)]
-    return any(round_p) and not all(round_p)
+@pytest.mark.parametrize("side", ["left", "right"])
+def test_drive_block_footprint_is_the_part_free_zones(side):
+    """[silkscreen] draws where the block stands on the board: its plate and boss pads lie in the
+    part-free [drive_blocks] zones of that side (feet_<side>, front_boss_pad_<side>,
+    rear_boss_pad_<side>), at most their 0.3 mm margin inside them, so the outline matches the
+    chassis model."""
+    (x0, x1, y0, y1), bosses, r = mech.drive_block_footprint(MAIN, side)
+    z = MAIN["drive_blocks"]
+    m = 0.3
+    feet = z[f"feet_{side}"]
+    assert feet[4] == 0.0
+    for got, zone, sign in ((x0, feet[0], 1), (x1, feet[1], -1), (y0, feet[2], 1), (y1, feet[3], -1)):
+        assert 0.0 <= sign * (got - zone) <= m + 1e-9, f"{side} plate edge {got} vs feet zone {zone}"
+    for (cx, cy), name in zip(bosses, ("front_boss_pad", "rear_boss_pad"), strict=True):
+        zone = z[f"{name}_{side}"]
+        assert [cx - r - m, cx + r + m, cy - r - m, cy + r + m] == pytest.approx(zone[:4])
+        assert zone[4] == 0.0
 
 
 @pytest.mark.parametrize("side", ["left", "right"])
-def test_drive_block_silk_is_the_union_of_its_zones(side, main_layout):
-    """[silkscreen] drive_block_<side>: the outline is the boundary of the union of the named
-    [drive_blocks] zones (the motors left out, owner 2026-11-03), each line on it, and every point
-    of that boundary drawn but where it meets the board's edge (SILK_EDGE in) or a spec-placed
+def test_drive_block_silk_is_its_footprint(side, main_layout):
+    """[silkscreen] drive_block_*_<side>: the outline is the boundary of the block's footprint on
+    the board (owner 2026-11-07: only the part that touches the board, as on the v1 board): its
+    plate's edges outside the boss pads, and the boss pads' circles outside the plate; every point of
+    that boundary drawn but where it meets the board's edge (SILK_EDGE in) or a spec-placed
     footprint's pad (SILK_PAD off)."""
-    names = MAIN["silkscreen"][f"drive_block_{side}"]
-    assert set(names) <= set(MAIN["drive_blocks"]), "a name that is no [drive_blocks] zone"
-    assert not [n for n in names if "motor" in n], "the motors are not drawn"
-    rects = [MAIN["drive_blocks"][n] for n in names]
-    lines = mech.drive_block_outlines(MAIN, main_layout)[side]
-    assert lines
-    for ln in lines:
-        assert ln.a[0] == pytest.approx(ln.b[0], abs=1e-9) or ln.a[1] == pytest.approx(ln.b[1], abs=1e-9)
-        for k in range(11):
-            p = (ln.a[0] + (ln.b[0] - ln.a[0]) * k / 10, ln.a[1] + (ln.b[1] - ln.a[1]) * k / 10)
-            assert _on_union_boundary(p, rects), f"{side} block silk at {p} is not on its zones' outline"
+    (x0, x1, y0, y1), bosses, r = mech.drive_block_footprint(MAIN, side)
+
+    def in_plate(p, eps=1e-3):
+        return x0 + eps < p[0] < x1 - eps and y0 + eps < p[1] < y1 - eps
+
+    def on_boundary(p, tol=5e-3):
+        on_plate = ((abs(p[0] - x0) < tol or abs(p[0] - x1) < tol) and y0 - tol <= p[1] <= y1 + tol) or (
+            (abs(p[1] - y0) < tol or abs(p[1] - y1) < tol) and x0 - tol <= p[0] <= x1 + tol
+        )
+        on_boss = any(abs(math.dist(p, c) - r) < tol for c in bosses)
+        inside = in_plate(p) or any(math.dist(p, c) < r - tol for c in bosses)
+        return (on_plate or on_boss) and not inside
+
+    els = mech.drive_block_outlines(MAIN, main_layout)[side]
+    assert els
+    drawn = []
+    for e in els:
+        if isinstance(e, mech.Arc):
+            pts = mech.sample(e, 400)
+        else:
+            n = max(1, round(math.dist(e.a, e.b) / 0.02))
+            pts = [(e.a[0] + (e.b[0] - e.a[0]) * k / n, e.a[1] + (e.b[1] - e.a[1]) * k / n) for k in range(n + 1)]
+        for p in pts:
+            assert on_boundary(p), f"{side} block silk at {p} is not on its footprint's outline"
+        drawn += pts
     # every boundary point clear of the edge and the pads is drawn
     board, pads = _main_board(), mech.spec_pads(MAIN, main_layout)
+    boundary = []
+    for a, b in (((x0, y0), (x1, y0)), ((x1, y0), (x1, y1)), ((x1, y1), (x0, y1)), ((x0, y1), (x0, y0))):
+        n = max(1, int(math.dist(a, b) / 0.25))
+        boundary += [(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n) for k in range(n + 1)]
+    for c in bosses:
+        boundary += [
+            (c[0] + r * math.cos(k * math.tau / 90), c[1] + r * math.sin(k * math.tau / 90)) for k in range(90)
+        ]
     missed = []
-    for r in rects:
-        for a, b in (
-            ((r[0], r[2]), (r[1], r[2])),
-            ((r[1], r[2]), (r[1], r[3])),
-            ((r[1], r[3]), (r[0], r[3])),
-            ((r[0], r[3]), (r[0], r[2])),
+    for p in boundary:
+        if not on_boundary(p) or not _inside(p, board):
+            continue
+        if _edge_distance(p, board) < mech.SILK_EDGE + 1.0 or any(
+            math.dist(p, c) < pr + mech.SILK_PAD + 1.0 for c, pr in pads
         ):
-            n = max(1, int(math.dist(a, b) / 0.25))
-            for k in range(n + 1):
-                p = (a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n)
-                if not _on_union_boundary(p, rects) or not _inside(p, board):
-                    continue
-                if _edge_distance(p, board) < mech.SILK_EDGE + 1.0 or any(
-                    math.dist(p, c) < pr + mech.SILK_PAD + 1.0 for c, pr in pads
-                ):
-                    continue  # near where the line stops (a stub under 1 mm is dropped)
-                if not any(mech._seg_distance(p, ln.a, ln.b) < 1e-6 for ln in lines):
-                    missed.append(p)
+            continue  # near where the line stops (a stub under 1 mm is dropped)
+        if min(math.dist(p, q) for q in drawn) > 0.06:
+            missed.append(p)
     assert not missed, f"{side} block outline not drawn at {missed[:5]}"
 
 
 def test_spec_silkscreen_keeps_off_the_spec_pads_and_the_edge(main_layout):
     board, pads = _main_board(), mech.spec_pads(MAIN, main_layout)
-    for side, lines in mech.drive_block_outlines(MAIN, main_layout).items():
-        for ln in lines:
-            for k in range(41):
-                p = (ln.a[0] + (ln.b[0] - ln.a[0]) * k / 40, ln.a[1] + (ln.b[1] - ln.a[1]) * k / 40)
+    for side, els in mech.drive_block_outlines(MAIN, main_layout).items():
+        for e in els:
+            pts = (
+                mech.sample(e, 80)
+                if isinstance(e, mech.Arc)
+                else [(e.a[0] + (e.b[0] - e.a[0]) * k / 40, e.a[1] + (e.b[1] - e.a[1]) * k / 40) for k in range(41)]
+            )
+            for p in pts:
                 assert _inside(p, board) and _edge_distance(p, board) >= mech.SILK_EDGE - 1e-3, f"{side} at {p}"
                 for c, r in pads:
                     assert math.dist(p, c) >= r + mech.SILK_PAD - 1e-3, f"{side} silk at {p} over the pad at {c}"
