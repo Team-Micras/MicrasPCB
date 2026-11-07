@@ -1473,122 +1473,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "GND"
-			(power global)
-			(pin_numbers
-				(hide yes)
-			)
-			(pin_names
-				(offset 0)
-				(hide yes)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "#PWR"
-				(at 0 -6.35 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "GND"
-				(at 0 -3.81 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Datasheet" ""
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "global power"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "GND_0_1"
-				(polyline
-					(pts
-						(xy 0 0) (xy 0 -1.27) (xy 1.27 -1.27) (xy 0 -2.54) (xy -1.27 -1.27) (xy 0 -1.27)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "GND_1_1"
-				(pin power_in line
-					(at 0 0 270)
-					(length 0)
-					(name ""
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
-		(symbol "HC-PZ127-7.2L-2x3PS"
+		(symbol "EspProgPads"
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
@@ -1607,7 +1492,7 @@
 					)
 				)
 			)
-			(property "Value" "HC-PZ127-7.2L-2x3PS"
+			(property "Value" "EspProgPads"
 				(at 5.08 6.35 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -1617,7 +1502,7 @@
 					)
 				)
 			)
-			(property "Footprint" "HC-PZ127-7.2L-2x3PS"
+			(property "Footprint" "EspProgPads_2x03_P1.27mm"
 				(at 0 -10.16 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -1628,7 +1513,7 @@
 					)
 				)
 			)
-			(property "Datasheet" "https://datasheet.lcsc.com/datasheet/pdf/261494a54b760cbbe7082940b5d71b8c.pdf?productCode=C27985144"
+			(property "Datasheet" "~"
 				(at 0 -12.7 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -1639,7 +1524,7 @@
 					)
 				)
 			)
-			(property "Description" "Pin header, 2x03, 1.27 mm pitch, SMD vertical, odd pins on one row and even on the other (Hong Cheng HC-PZ127-7.2L-2x3PS)"
+			(property "Description" "ESP32 UART flashing pads, 2x03 plated holes at 1.27 mm in the ESP-Prog Program interface order (1 EN, 2 VDD, 3 TXD, 4 GND, 5 RXD, 6 IO0), odd pins on one row and even on the other; board copper, no part"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -1650,7 +1535,7 @@
 					)
 				)
 			)
-			(property "ki_keywords" "connector pin header 2x03 1.27mm"
+			(property "ki_keywords" "ESP32 flashing UART pads 2x03 1.27mm"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -1661,7 +1546,7 @@
 					)
 				)
 			)
-			(property "ki_fp_filters" "PinHeader*2x03*P1.27mm*SMD* HC-PZ127*"
+			(property "ki_fp_filters" "EspProgPads*"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -1672,7 +1557,7 @@
 					)
 				)
 			)
-			(symbol "HC-PZ127-7.2L-2x3PS_1_1"
+			(symbol "EspProgPads_1_1"
 				(rectangle
 					(start -5.08 5.08)
 					(end 5.08 -5.08)
@@ -1785,6 +1670,121 @@
 						)
 					)
 					(number "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "GND"
+			(power global)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "#PWR"
+				(at 0 -6.35 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "GND"
+				(at 0 -3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "GND_0_1"
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 -1.27) (xy 1.27 -1.27) (xy 0 -2.54) (xy -1.27 -1.27) (xy 0 -1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "GND_1_1"
+				(pin power_in line
+					(at 0 0 270)
+					(length 0)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -2816,14 +2816,14 @@
 		)
 	)
 	(symbol
-		(lib_id "HC-PZ127-7.2L-2x3PS")
+		(lib_id "EspProgPads")
 		(at 256.54 43.18 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
-		(in_pos_files yes)
+		(in_pos_files no)
 		(dnp no)
 		(uuid "78e2a06e-fb30-57e5-8366-00d5f0782871")
 		(property "Reference" "J2"
@@ -2837,7 +2837,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "HC-PZ127-7.2L-2x3PS"
+		(property "Value" "EspProgPads"
 			(at 236.22 54.61 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -2848,7 +2848,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Team-Micras_MicrasPCB_components_hong-cheng_HC-PZ127-7.2L-2x3PS:HC-PZ127-7.2L-2x3PS"
+		(property "Footprint" "Team-Micras_MicrasPCB_components_micras_EspProgPads:EspProgPads_2x03_P1.27mm"
 			(at 256.54 43.18 0)
 			(hide yes)
 			(show_name no)
@@ -2859,7 +2859,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://datasheet.lcsc.com/datasheet/pdf/261494a54b760cbbe7082940b5d71b8c.pdf?productCode=C27985144"
+		(property "Datasheet" ""
 			(at 256.54 43.18 0)
 			(hide yes)
 			(show_name no)
@@ -2870,7 +2870,7 @@
 				)
 			)
 		)
-		(property "Description" "Pin header, 2x03, 1.27 mm pitch, SMD vertical, odd pins on one row and even on the other (Hong Cheng HC-PZ127-7.2L-2x3PS)"
+		(property "Description" "ESP32 UART flashing pads, 2x03 plated holes at 1.27 mm in the ESP-Prog Program interface order (1 EN, 2 VDD, 3 TXD, 4 GND, 5 RXD, 6 IO0), odd pins on one row and even on the other; board copper, no part"
 			(at 256.54 43.18 0)
 			(hide yes)
 			(show_name no)
@@ -5598,7 +5598,7 @@
 		)
 		(uuid "0614f4f8-a572-5e3f-9729-fe9d1cb00c01")
 	)
-	(text "Reset and download: EN RC delay, GPIO28 pull-up, flashing header J2"
+	(text "Reset and download: EN RC delay, GPIO28 pull-up, flashing pads J2"
 		(exclude_from_sim no)
 		(at 173.99 13.97 0)
 		(effects

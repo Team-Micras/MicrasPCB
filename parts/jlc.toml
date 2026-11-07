@@ -147,7 +147,7 @@ type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-15: extended, 268 k in stock; 3.3 Ohm 1 % 0603"
-why_extended = "the emitter resistor limits a failed sink's current within the SFH 4550 pulse rating (Sensors.zen): the basic 2.2 Ohm lets 0.44 A through, above the 0.38 A rating, and the basic 4.7 Ohm leaves the selector 0.41 V; no basic 3.3 Ohm"
+why_extended = "the emitter resistor limits a failed sink's current within the SFH 4550 pulse rating (boards/wall/wall.zen): the basic 2.2 Ohm lets 0.44 A through, above the 0.38 A rating, and the basic 4.7 Ohm leaves the selector 0.41 V; no basic 3.3 Ohm"
 
 [parts."1206W4F100JT5E"]
 lcsc = "C17903"
@@ -250,6 +250,13 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: basic, 1.6 M in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
 
+[parts."CL10A105KB8NNNC"]
+lcsc = "C15849"
+type = "basic"
+rotation = 0
+rotation_verified = false
+source = "jlcpcb.com parts search 2026-11-02: basic, 12.0 M in stock; Samsung 1 uF 10 % 50 V X5R 0603"
+
 [parts."CL10A106MA8NRNC"]
 lcsc = "C96446"
 type = "basic"
@@ -323,21 +330,21 @@ rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: extended, 386 in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
 
-[parts."HC-PZ127-7.2L-2x3PS"]
-lcsc = "C27985144"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-10-31: extended, 9753 in stock; Hong Cheng 2x3P 1.27 mm SMD vertical pin header"
-assembly = "hand"
-hand_why = "soldered by the team, saving the extended-part fee (owner, 2026-11-02)"
-
 [parts."HSBB3072"]
 lcsc = "C2903562"
 type = "extended"
 rotation = 0
 rotation_verified = false
 source = "jlcpcb.com parts search 2026-10-14: extended, 895 in stock; LCSC number from the MicrasMainBoard JLCPCB BOM"
+
+[parts."HX PZ1.27-2x3P ZZ"]
+lcsc = "C22438118"
+type = "extended"
+rotation = 0
+rotation_verified = false
+source = "jlcpcb.com parts search 2026-11-03: extended, 4820 in stock; Hanxia 2x3P 1.27 mm straight through-hole pin header"
+assembly = "hand"
+hand_why = "the wall board's joint to the main board: straddles the wall board's edge and goes through the main board, soldered to both by the team (owner, 2026-11-03)"
 
 [parts."HoLLR1206-1W-25mR-1%"]
 lcsc = "C2988651"

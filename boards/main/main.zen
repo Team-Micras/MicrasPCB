@@ -18,7 +18,7 @@ connects the five sheets:
 - SENSORS (Sensors.zen): IMU, INA241 current amplifiers, wall sensors with their emitter
   current sink, encoder slots.
 - PERIPHERALS (Peripherals.zen): buttons, DIP switch, buzzer, LEDs.
-- ESP (Esp.zen): the ESP32-C5-MINI-1 radio, debug probe and data link, and its flashing header.
+- ESP (Esp.zen): the ESP32-C5-MINI-1 radio, debug probe and data link, and its flashing pads.
 
 The board's mechanics (outline, screw holes, encoder slots, fan hole, wheel and switch notches,
 the drive blocks' zones) are spec/main.toml. Its stackup and rules are the v1 main board's: the same
@@ -43,11 +43,16 @@ as on the v1 main board, on 3V3_D:
 Pin budget (research H7 pin budget): the two pins the v1 main board left open carry two more
 lines, Motors_nFault (both DRV8874 nFAULT wire-ORed) and ESP_Flow (the ESP32-C5's credit and
 attention line).
-Layout pin map (owner, 2026-10-20 to 2026-11-01): each line leaves the STM32 from the pin row
+Layout pin map (owner, 2026-10-20 to 2026-11-04): each line leaves the STM32 from the pin row
 facing its part, and the lines that pass the fan hole leave the rear faces in the order of their
 routes round it (the inner lane's lines nearest the rear tip), so that no line crosses the rear
 tip, where the VCORE island leaves In2.Cu no room, and no two escapes cross where the hole leaves
-no via site. BOOT0 is held low by R42: the MCU always starts from its flash.
+no via site. Each side of the hole carries two such ordered streams, one per outer layer (the
+routing plan in the layout README): on the rear-left face B.Cu SWDIO, IMU_SPI_CSn, IMU_INT,
+Motor_Left_EN and F.Cu ESP_Flow, Motor_Right_EN, Motor_Left_PH, Encoder_Left_CSn, the bus,
+Fan_Enable; on the rear-right face B.Cu Encoder_Right_ABI_B, Motors_Enable, Motors_nFault,
+Motor_Right_PH, Encoder_Right_CSn and F.Cu SWCLK, Encoder_Right_ABI_A and the ESP32-C5 link.
+BOOT0 is held low by R42: the MCU always starts from its flash.
 - The DIP switch on the right-facing rows: Switch_0-3 on PH0, PH1, PC15 and PC14 (reduced-drive
   pins, fine for inputs with pull-ups).
 - The wall-emitter selectors on TIM3, whose channels reach both sides: Wall_Sensor_PWM_0 on PC9
@@ -56,13 +61,14 @@ no via site. BOOT0 is held low by R42: the MCU always starts from its flash.
   row. PB4 leaves its reset function NJTRST (the debug port is SWD only): out of reset PB4 is
   NJTRST with its pull-up (RM0468 Rev 3 section 11.3.1), which lifts Wall_Sensor_PWM_3's
   AC-coupled gate for a few ms while the emitter set-point is 0, so no emitter lights.
-- The motors: the right bridge's EN on PA10 (TIM1_CH3) and PH on PB6, the left's EN on PC6
+- The motors: the right bridge's EN on PA10 (TIM1_CH3) and PH on PB7, the left's EN on PC6
   (TIM8_CH1, slaved to TIM1 over ITR0, RM0468 Table 350: TIM8 ITR0 = tim1_trgo, in gated mode)
-  and PH on PA12, both GPIOs; Motors_Enable on PB7 and Motors_nFault on PD2 (EXTI2).
+  and PH on PA9, both GPIOs; Motors_Enable on PD2 and Motors_nFault on PB6 (EXTI6).
 - LED_ARGB on PA2 (TIM15_CH1, its CCR1 written by DMA on tim15_up, DMAMUX1 input 106, RM0468
   Table 118), the buzzer on PB9 (TIM17_CH1), LED_Red on PB2 and Button on PA3.
-- The sensor bus's chip selects, GPIOs: Encoder_Left_CSn on PA9, IMU_SPI_CSn on PA8 and
-  Encoder_Right_CSn on PB8; IMU_INT on PC7 (EXTI7). The fan's Fan_TOFF on PB10 (a polled input)
+- The sensor bus's chip selects, GPIOs: Encoder_Left_CSn on PA8, IMU_SPI_CSn on PA12 and
+  Encoder_Right_CSn on PB8; IMU_INT on PC7 (EXTI7). The right encoder's A on PA15 (TIM2_CH1) and
+  B on PB3 (TIM2_CH2), the left's A on PA0 (TIM5_CH1) and B on PA1 (TIM5_CH2). The fan's Fan_TOFF on PB10 (a polled input)
   and Fan_Enable on PB12; ESP_Flow on PA11 (EXTI11).
 - The ADC lines: Current_Sensor_Left on PB1, Wall_Sensor_0 on PA4, Wall_Sensor_3 on PC0,
   Current_Sensor_Right on PC1. Each pin keeps an ADC1 and an ADC2 input, which the currents' dual
@@ -83,7 +89,7 @@ and GPIO-STM32H72_gpio_v1_0_Modes.xml, DS13311 Table 9, Port D p101 for PD2; PC9
 TIM3_CH4/CH3/CH1/CH2 AF2, PC6 TIM8_CH1 AF3, PA10 TIM1_CH3 AF1, PA2 TIM15_CH1 AF4, PB9 TIM17_CH1
 AF1, PA0/PA1 TIM5 AF2, PA15/PB3 TIM2 AF1, PA7 TIM14_CH1 AF9, PB13-PB15 SPI2 AF5, PC10 SPI3_SCK AF6,
 PC12 SPI3_MOSI AF6, and in the fallback PC10/PC11 UART4_TX/UART4_RX AF8), each EXTI line is used
-once (2 Motors_nFault, 3 Button, 7 IMU_INT, 11 ESP_Flow, 12 Fan_Enable), and each timer serves one
+once (3 Button, 6 Motors_nFault, 7 IMU_INT, 11 ESP_Flow, 12 Fan_Enable), and each timer serves one
 function (TIM1, TIM8 motors; TIM2, TIM5 encoders; TIM3 selectors; TIM14 fan; TIM15 LEDs; TIM17
 buzzer; TIM4 spare, the emitter DAC's trigger). The timer, DMA, DAC and ADC set-up, with the RM0468
 Rev 3 and ES0491 Rev 9 numbers, is boards/main/firmware_changes.toml (drive, current, emitters,
@@ -94,7 +100,7 @@ conflict: every pin's alternate function as above, TIM8 gated on ITR0 and TIM4 g
 TIM1 TRGO = enable and TRGO2 = update, ADC1/ADC2 dual injected simultaneous on channels 5 and 11
 triggered by TIM1 TRGO2 with ADC1's regular group, DAC1 channel 2 on PA5 triggered by TIM4 TRGO
 with its buffer off, channel 1 on-chip only beside PA4's ADC input, TIM14 at ARR 687 on the
-275 MHz APB1 timer clock, the EXTI2, EXTI3, EXTI9_5 and EXTI15_10 interrupts, and the DMA
+275 MHz APB1 timer clock, the EXTI3, EXTI9_5 and EXTI15_10 interrupts, and the DMA
 requests of ADC1, SPI3 (or UART4), SPI2, TIM15_UP and DAC1 channel 2, at the firmware's 550 MHz
 clock tree (275 MHz timer clocks).
 - The link to the ESP32-C5 (ESP sheet; firmware_changes.toml link) is SPI3 in half-duplex on
@@ -124,16 +130,40 @@ clock tree (275 MHz timer clocks).
   leaves the HSE off: there is no HSE or LSE crystal.
 
 SWD header SWD1 (bare 1.27 mm pitch pads, not assembled), for an ST-Link when the ESP32-C5 cannot
-reach the MCU (no NRST: the owner's choice), in the 4-pin order of the owner's clone ST-Link lead
-(owner, 2026-11-01): 1 SWDIO, 2 GND, 3 SWCLK, 4 5V_IN. The lead plugs on pin 1 to pad 1 (the square
-pad, with the footprint's pin-1 corner and "5V" at pad 4 on the silkscreen); turned round, or
-shifted one pad either way, its 5 V never lands on GND, and nothing more is added to protect the
-header (the owner's choice). Pad 4 takes the probe's 5 V pin, never its 3.3 V one: 5V_IN feeds
-VSYS through D17 (REGULATORS sheet), so a clone ST-Link powers the whole board for flashing without
-the pack, and with the pack in D17 blocks (VSYS 11.4-17.4 V). The probe's 3.3 V pin stays
-unconnected: nothing on the header takes it. The probe's own fuse and lead drop part of its USB
-VBUS before pad 4; at the lowest the buck runs at its maximum duty and 3V3_D follows VSYS at about
-3.2 V, enough to flash (REGULATORS sheet, 5V_IN). The board has no test pads.
+reach the MCU: the probe's RST wire on pad 1 (NRST, the RESET net, with SW3, C21 and the C5's
+open-drain GPIO23; owner, 2026-11-03), then the 4-pin order of the owner's clone ST-Link lead
+(owner, 2026-11-01): 1 NRST, 2 SWDIO, 3 GND, 4 SWCLK, 5 5V_IN. The lead plugs on pads 2-5, its
+pin 1 on pad 2; pad 1 is the square pad, with the footprint's pin-1 corner, and "5V" marks pad 5
+on the silkscreen. A probe's RST output pulls NRST low as SW3 does (open drain or push-pull to the
+probe's 3.3 V, against the 30-50 kOhm pull-up, DS13311 Table 61), so connect-under-reset works
+from the header too. Pad 5 takes the probe's 5 V pin, never its 3.3 V one: 5V_IN feeds VSYS
+through D17 (REGULATORS sheet), so a clone ST-Link powers the whole board for flashing without the
+pack, and with the pack in D17 blocks (VSYS 11.4-17.4 V). The probe's 3.3 V pin stays unconnected:
+nothing on the header takes it. The probe's own fuse and lead drop part of its USB VBUS before
+pad 5; at the lowest the buck runs at its maximum duty and 3V3_D follows VSYS at about 3.2 V,
+enough to flash (REGULATORS sheet, 5V_IN). The board has no test pads.
+Misplugs of the 4-pin lead (its contacts SWDIO, GND, SWCLK, 5 V), with nothing added to protect the
+header (the owner's choice); the limits are DS13311 Table 10 (FT pins such as PA13/PA14: VSS - 0.3
+to Min(VDD, VDDA, ...) + 4.0 V, 4.0 V while the board is unpowered, and above 4 V only with the
+pin's internal pull disabled, note 4; NRST, an RST pin (Table 7, Table 8 pin 12), counts among
+"any other pins": VSS - 0.3 to 4.0 V), Table 11 (injected current on FT, TT and RST pins -5 / +0
+mA) and the C5's VDD + 0.3 V input maximum (ESP32-C5-MINI-1 datasheet v1.4 Table 6-3):
+- lead on pads 1-4 (one pad toward pad 1): 5 V on SWCLK (pad 4: PA14, and the C5's GPIO1 behind
+  R86 22 Ohm), the probe's ground on SWDIO; with the board unpowered PA14's maximum is 4.0 V, and the
+  C5's input maximum is passed either way: can damage PA14 or the C5;
+- lead on pads 3-6 (one contact past pad 5): 5 V on no pad; the probe's SWCLK on 5V_IN and SWDIO on
+  GND: its logic outputs are loaded, nothing on the board is overstressed;
+- turned round on pads 2-5: 5 V on SWDIO (pad 2: PA13, and the C5's GPIO0 with no resistor), the
+  probe's ground on SWCLK: can damage PA13 or the C5, as on the 4-pad header;
+- turned round on pads 1-4: 5 V on NRST (pad 1) with both grounds together: above NRST's 4.0 V
+  maximum, a positive injection the RST pin does not allow, and above the C5's GPIO23 maximum: can
+  damage the MCU's reset pin or the C5;
+- turned round on pads 3-6: 5 V on GND (pad 3) with the probe's ground on 5V_IN: D17 blocks (40 V
+  reverse), but the probe's SWCLK then swings 1.7-5 V below the board's ground on PA14 and, through
+  R86, the C5's GPIO1: below VSS - 0.3 V and past the -5 mA injection: can damage PA14 or the C5.
+Three of the five can damage the board; turned round on pads 1-4 is the case pad 1's NRST adds
+(the 4-pad header put the lead's SWDIO contact there). The silkscreen's square pad 1 and "5V" at
+pad 5 set the lead's place and way round.
 """
 
 load("@stdlib/interfaces.zen", "Spi")
@@ -173,7 +203,7 @@ Esp = Module("./Esp.zen")
 BAT_P = Power("BAT_P", voltage="12V to 17.4V")
 # The battery after the fuse F1: the bridges' and the fan driver's supply.
 VBAT = Power("VBAT", voltage="12V to 17.4V")
-# Programming power: a USB-serial adapter's or a clone ST-Link's 5 V pin on J2 pin 2 or SWD1 pad 4,
+# Programming power: a USB-serial adapter's or a clone ST-Link's 5 V pin on J2 pad 2 or SWD1 pad 5,
 # the USB VBUS it passes on: 4.40-5.25 V at a low-power port's connector, 4.75-5.25 V at a
 # high-power one (USB 2.0 Specification, section 7.3.2, Table 7-7).
 V5V_IN = Power("5V_IN", voltage="4.4V to 5.25V")
@@ -278,22 +308,22 @@ STM32H725RGV6(
     PA5=WALL_EMITTER_SET,
     PA6=WALL_SENSOR_2,
     PA7=FAN_PWM,
-    PA8=IMU_SPI.CS,
-    PA9=ENCODER_LEFT_SPI.CS,
+    PA8=ENCODER_LEFT_SPI.CS,
+    PA9=MOTOR_LEFT_PH,
     PA10=MOTOR_RIGHT_EN,
     PA11=ESP_FLOW,
-    PA12=MOTOR_LEFT_PH,
+    PA12=IMU_SPI.CS,
     PA13=SWDIO,
     PA14=SWCLK,
-    PA15=ENCODER_RIGHT_ABI_B,
+    PA15=ENCODER_RIGHT_ABI_A,
     PB0=WALL_SENSOR_PWM_1,
     PB1=CURRENT_SENSOR_LEFT,
     PB2=LED_RED,
-    PB3=ENCODER_RIGHT_ABI_A,
+    PB3=ENCODER_RIGHT_ABI_B,
     PB4=WALL_SENSOR_PWM_3,
     PB5=WALL_SENSOR_PWM_2,
-    PB6=MOTOR_RIGHT_PH,
-    PB7=MOTORS_ENABLE,
+    PB6=MOTORS_NFAULT,
+    PB7=MOTOR_RIGHT_PH,
     PB8=ENCODER_RIGHT_SPI.CS,
     PB9=BUZZER,
     PB10=FAN_TOFF,
@@ -313,7 +343,7 @@ STM32H725RGV6(
     PC12=ESP_DATA,
     PC14=SWITCH_3,
     PC15=SWITCH_2,
-    PD2=MOTORS_NFAULT,
+    PD2=MOTORS_ENABLE,
     PH0=SWITCH_0,
     PH1=SWITCH_1,
 )
@@ -338,9 +368,19 @@ Capacitor(name="C15", P1=GND, P2=V3V3_D, **C_100N_0402)
 Capacitor(name="C16", P1=GND, P2=V3V3_D, **C_100N_0402)
 Capacitor(name="C17", P1=GND, P2=V3V3_D, **C_4U7_0402)
 
-# SWD header for an ST-Link (bare pads, not assembled), a clone ST-Link's order: 1 SWDIO, 2 GND,
-# 3 SWCLK, 4 its 5 V pin.
-SwdHeader(name="SWD", prefix="SWD", supply=True, GND=GND, SWDIO=SWDIO, SWCLK=SWCLK, VDD=V5V_IN)
+# SWD header for an ST-Link (bare pads, not assembled): 1 NRST, then a clone ST-Link's order, 2 SWDIO,
+# 3 GND, 4 SWCLK, 5 its 5 V pin.
+SwdHeader(
+    name="SWD",
+    prefix="SWD",
+    supply=True,
+    reset=True,
+    NRST=RESET,
+    GND=GND,
+    SWDIO=SWDIO,
+    SWCLK=SWCLK,
+    VDD=V5V_IN,
+)
 
 # M2 screw holes to the chassis.
 MountingHole(name="H1")

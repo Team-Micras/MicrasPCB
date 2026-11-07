@@ -1,0 +1,40 @@
+"""The wall joint carries the wall board header's pins by name (pad n = header pin n)."""
+
+WallJoint = Module("../WallJoint.zen")
+
+# Symbol pin -> the net the joint must put it on (boards/wall/wall.zen J1: 1 Wall_Sensor, 2 GND,
+# 3 3V3_A, 4 3V3_D, 5 EMITTER_SINK, 6 PWM).
+PINOUT = {"PWM": "PWM", "SINK": "SINK", "3V3_D": "3V3_D", "GND": "GND", "OUT": "OUT", "3V3_A": "3V3_A"}
+
+
+def pins_on_their_nets(module, inputs):
+    got = {}
+    for net, ports in module.nets().items():
+        for path, pin in ports:
+            if path.endswith(".JOINT"):
+                got[pin] = net
+    check(got == PINOUT, "joint pinout changed: " + str(got))
+
+
+def not_on_the_bom(module, inputs):
+    joint = [c for path, c in module.components().items() if path.endswith("JOINT")][0]
+    check(joint.skip_bom, "the joint is board copper, not a purchased part")
+    check(joint.prefix == "W", "the joint keeps the wall sensors' W prefix")
+    check(joint.emitter_resistor.value == 3.3, "the wall board's emitter resistor is 3.3 Ohm")
+
+
+TestBench(
+    name="WallJoint_pinout",
+    module=WallJoint,
+    test_cases={
+        "default": {
+            "PWM": Net("PWM"),
+            "SINK": Net("SINK"),
+            "V3V3_D": Power("3V3_D", voltage="3.3V"),
+            "GND": Ground("GND"),
+            "OUT": Net("OUT"),
+            "V3V3_A": Power("3V3_A", voltage="3.3V"),
+        },
+    },
+    checks=[pins_on_their_nets, not_on_the_bom],
+)

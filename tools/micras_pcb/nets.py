@@ -10,7 +10,8 @@ KELVIN = {f"Motor_{s}_Sense{p}" for s in "LR" for p in "+-"}
 # flying capacitors (CPH, CPL: SLVSF66A 8.3.3), the fan driver's outputs, its low-side sources
 # (LSS: the motor's pulsed return through R31), its bootstrap and charge-pump nodes (VBOOT, CP1,
 # CP2: DS14341 Table 12), the buck's switch node and bootstrap (L6981 SW, BOOT) and the STM32
-# SMPS's switch node, the buzzer's drain and the wall emitters' cathodes (175 mA pulses)
+# SMPS's switch node, the buzzer's drain and the wall emitters' shared sink (175 mA pulses; each
+# emitter's cathode and selector are on its wall board)
 SWITCHING = {
     *(f"DRIVERS.MOTOR_{s}_{n}" for s in "LR" for n in ("OUT1", "OUT2", "SHUNT", "TERMINAL", "CPH", "CPL")),
     *KELVIN,
@@ -25,7 +26,6 @@ SWITCHING = {
     "SMPS_LX",
     "PERIPHERALS.BUZZER_DRAIN",
     "PERIPHERALS.BUZZER_COIL",
-    *(f"SENSORS.WALL{k}_LED_K" for k in range(4)),
     "SENSORS.EMITTER_SINK",
 }
 # High-impedance or low-level analog nets into the ADCs and references: the phototransistors,

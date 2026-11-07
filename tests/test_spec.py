@@ -287,6 +287,143 @@ def test_main_antenna_notch_cuts_the_board_away_under_the_antenna():
             assert _edge_distance(p, board) >= EDGE_CLEARANCE - 1e-6, f"U13 pad {name} at {p}: too near the edge"
 
 
+CHASSIS = ROOT / "spec/main_chassis.json"
+U13_HEIGHT = 2.4  # mm, ESP32-C5-MINI-1 datasheet v1.4 Table 1-1
+
+
+def _board_spans(x: float, board) -> list[tuple[float, float]]:
+    """The y intervals of the board polygon on the line through x."""
+    ys = sorted(
+        a[1] + (x - a[0]) * (b[1] - a[1]) / (b[0] - a[0])
+        for a, b in zip(board, [*board[1:], board[0]], strict=True)
+        if (a[0] > x) != (b[0] > x)
+    )
+    return list(zip(ys[0::2], ys[1::2], strict=True))
+
+
+def test_drive_block_zones_hold_the_model():
+    """spec/main_chassis.json (tools/chassis_shadow.py, from MicrasHardware's model) gives, for every
+    0.1 mm point of the board under a drive block, motor or wheel, the height a part may reach there and
+    keep Layout.clearance from it. Every such point on the board lies in a [drive_blocks] zone no
+    higher than that."""
+    import json
+
+    data = json.loads(CHASSIS.read_text())
+    assert data["clearance"] == 0.3
+    zones = [z for _, z in mech.keepout_zones(MAIN)]
+    board = _main_board()
+    problems = []
+    for x, runs in data["allowed"]:
+        here = [z for z in zones if z[0] - 1e-6 <= x <= z[1] + 1e-6]
+        spans = _board_spans(x, board)
+        for y0, y1, tenths in runs:
+            cover = sorted((z[2], z[3]) for z in here if z[4] <= tenths / 10 + 1e-9)
+            for b0, b1 in spans:
+                lo, hi = max(y0, b0 + 1e-3), min(y1, b1 - 1e-3)
+                for c0, c1 in cover:
+                    if c0 > lo + 1e-6:
+                        break
+                    lo = max(lo, c1)
+                if lo < hi - 1e-6:
+                    problems.append(f"x {x}: y {lo:.2f}..{hi:.2f} allows {tenths / 10} mm, no zone that low")
+    assert not problems, "\n".join(problems[:20])
+
+
+def test_u13_keeps_behind_the_low_chassis_zones():
+    """U13's courtyard (the footprint's F.CrtYd: 8.0 mm a side, 13.9 mm behind and 8.0 mm ahead of
+    its centre) overlaps no chassis zone lower than the module: the rear edge is at or behind the
+    module's bound."""
+    u = MAIN["u13"]
+    assert u["rotation"] == 180
+    x0, x1, y0, y1 = u["x"] - 13.9, u["x"] + 8.0, u["y"] - 8.0, u["y"] + 8.0
+    for name, z in mech.keepout_zones(MAIN):
+        if z[4] < U13_HEIGHT:
+            overlap = min(x1, z[1]) - max(x0, z[0]) > 1e-6 and min(y1, z[3]) - max(y0, z[2]) > 1e-6
+            assert not overlap, f"U13's courtyard runs into {name} (parts up to {z[4]} mm)"
+
+
+def _antenna_corners() -> list[tuple[float, float]]:
+    """U13's antenna end corners: 13.6 mm behind its centre (footprint F.Fab), 7.7 mm a side (15.4 mm
+    module, ESP32-C5-MINI-1 datasheet v1.4 Figure 10-1); rotation 180 turns the antenna rearwards."""
+    u = MAIN["u13"]
+    return [(u["x"] - 13.6, u["y"] - 7.7), (u["x"] - 13.6, u["y"] + 7.7)]
+
+
+def test_the_robot_fills_its_turning_circle():
+    """The owner (2026-11-03): the turning circle is the nose's (the farthest outline point ahead of
+    the axle); every outline point and U13's antenna corners lie within it, and the rear edge sits
+    where the antenna's outer corner reaches it, so both ends fill the same circle."""
+    pts = [p for e in mech.main_perimeter(MAIN) for p in mech.sample(e, 256)]
+    r = max(math.hypot(*p) for p in pts if p[0] > 0)
+    assert max(math.hypot(*p) for p in pts) <= r + 1e-6, (
+        "an outline point behind the axle reaches past the nose's circle"
+    )
+    ant = max(math.hypot(*p) for p in _antenna_corners())
+    assert ant <= r + 1e-6, f"U13's antenna reaches {ant:.2f} mm, past the nose's {r:.2f} mm"
+    assert ant >= r - 0.1, f"the rear could move {r - ant:.2f} mm back: the antenna corner is inside the circle"
+
+
+IC1_FOOTPRINT = ROOT / "components/st/STM32H725RGV6/QFN-68-1EP_8x8mm_P0.4mm_EP6.5x6.5mm_SplitPaste.kicad_mod"
+
+
+def _ic1_courtyard() -> list[tuple[float, float]]:
+    """IC1's courtyard (its footprint's F.CrtYd) where spec [ic1] places it, in the robot frame."""
+    ic = MAIN["ic1"]
+    root = sexpr.parse(IC1_FOOTPRINT.read_text())
+    rect = next(r for r in root.children("fp_rect") if r.child("layer").atoms() == ["F.CrtYd"])
+    (u0, v0), (u1, v1) = (tuple(float(x) for x in rect.child(k).atoms()) for k in ("start", "end"))
+    a = math.radians(ic["rotation"])
+    kx, ky = mech.robot_to_kicad(MAIN, (ic["x"], ic["y"]))
+    return [
+        mech.kicad_to_robot(MAIN, (kx + u * math.cos(a) + v * math.sin(a), ky - u * math.sin(a) + v * math.cos(a)))
+        for u, v in ((u0, v0), (u1, v0), (u1, v1), (u0, v1))
+    ]
+
+
+def _poly_distance(p, q) -> float:
+    """The distance between two disjoint convex polygons (0 when they meet)."""
+    if any(_inside(v, q) for v in p) or any(_inside(v, p) for v in q):
+        return 0.0
+    return min(
+        min(mech._seg_distance(v, a, b) for a, b in zip(poly, [*poly[1:], poly[0]], strict=True))
+        for v, poly in [*((v, q) for v in p), *((v, p) for v in q)]
+    )
+
+
+def test_ic1_has_its_room_at_the_front():
+    """spec [ic1]: the MCU centred at the front on the centre line, as the owner wants it, turned 45
+    deg and partly over the fan ring (it is 0.995 mm high; the ring's silk breaks at its pads,
+    test_spec_silkscreen_draws_the_fan_ring). Its courtyard keeps [ic1] hole_gap from the fan hole's
+    edge and [ic1] block from every wall joint's courtyard, the room for its decoupling, and that room
+    lies on the board."""
+    from .test_wall_joint import _courtyards
+
+    ic = MAIN["ic1"]
+    assert ic["y"] == 0.0 and ic["rotation"] % 90 == 45
+    cy = _ic1_courtyard()
+    fan, hole = (MAIN["fan_hole"]["x"], 0.0), MAIN["fan_hole"]["diameter"] / 2
+    edge = [
+        (p[0] + (q[0] - p[0]) * k / 40, p[1] + (q[1] - p[1]) * k / 40)
+        for p, q in zip(cy, [*cy[1:], cy[0]], strict=True)
+        for k in range(40)
+    ]
+    gap = min(math.dist(p, fan) for p in edge) - hole
+    assert gap >= ic["hole_gap"] - 1e-6, f"IC1's courtyard {gap:.2f} mm from the fan hole"
+    for name, wall in _courtyards().items():
+        d = _poly_distance(cy, wall)
+        assert d >= ic["block"] - 1e-6, f"{name} {d:.2f} mm from IC1's courtyard"
+    board = _main_board()
+    m = ic["block"]
+    c = (ic["x"], ic["y"])
+    room = [(c[0] + (p[0] - c[0]) * (1 + m / 4.68), c[1] + (p[1] - c[1]) * (1 + m / 4.68)) for p in cy]
+    for p, q in zip(room, [*room[1:], room[0]], strict=True):
+        for k in range(20):
+            r = (p[0] + (q[0] - p[0]) * k / 20, p[1] + (q[1] - p[1]) * k / 20)
+            assert _inside(r, board) and _edge_distance(r, board) >= mech.SILK_EDGE - 1e-6, (
+                f"IC1's room runs off the board at {r}"
+            )
+
+
 def test_main_antenna_notch_keeps_off_the_chassis_zones():
     x0, x1, y0, y1 = mech.notch_box(MAIN, "antenna_notch")
     for name, (zx0, zx1, zy0, zy1, _h) in mech.keepout_zones(MAIN):
@@ -320,3 +457,100 @@ def test_main_antenna_notch_follows_espressifs_keepout_figure():
     assert min(xs) - o["rear"] <= 1.0, "the antenna end is more than 1 mm inside the rear edge"
     assert x1 >= max(xs) - 1e-6, "the notch is shallower than the antenna area"
     assert u["rotation"] == 180
+
+
+# --- the silkscreen the spec draws: the fan ring and the drive blocks' outlines ------------------
+
+
+def test_fan_ring_is_around_the_fan_hole_on_the_board():
+    r, hole = MAIN["fan_ring"]["diameter"] / 2, MAIN["fan_hole"]["diameter"] / 2
+    assert r > hole
+    board, c = _main_board(), (MAIN["fan_hole"]["x"], 0.0)
+    ring = [(c[0] + r * math.cos(t / 64 * math.tau), r * math.sin(t / 64 * math.tau)) for t in range(64)]
+    assert all(_inside(p, board) for p in ring), "the fan ring runs off the board"
+
+
+def test_spec_silkscreen_draws_the_fan_ring(main_layout):
+    """The ring's edge is drawn all round, but where a spec-placed footprint's pad (IC1 straddles the
+    ring) or a pad of a part [fan_ring] silk_breaks names would sit under it: every arc on the circle,
+    off every such pad by SILK_PAD, and every point of the circle drawn unless it is within 1 mm of
+    where a line must stop."""
+    arcs = [e for e in mech.main_silk(MAIN, main_layout) if isinstance(e, mech.Arc)]
+    c, r = (MAIN["fan_hole"]["x"], 0.0), MAIN["fan_ring"]["diameter"] / 2
+    pads = mech.spec_pads(MAIN, main_layout, MAIN["fan_ring"].get("silk_breaks", ()))
+    assert arcs
+    drawn = []
+    for a in arcs:
+        for p in (a.a, a.mid, a.b):
+            assert math.dist(p, c) == pytest.approx(r, abs=1e-9)
+        for p in mech.sample(a, 200):
+            assert all(math.dist(p, pc) >= pr + mech.SILK_PAD - 1e-3 for pc, pr in pads), f"ring silk over a pad at {p}"
+            drawn.append(p)
+    for k in range(720):
+        p = (c[0] + r * math.cos(k * math.tau / 720), r * math.sin(k * math.tau / 720))
+        if any(math.dist(p, pc) < pr + mech.SILK_PAD + 1.0 for pc, pr in pads):
+            continue
+        assert min(math.dist(p, q) for q in drawn) < 0.2, f"the ring's edge is not drawn at {p}"
+
+
+def _on_union_boundary(p, rects, eps=1e-4) -> bool:
+    """p lies on the boundary of the rectangles' union: of the four points eps diagonally off it (off
+    every zone edge through p), some are inside the union and some outside."""
+
+    def inside(q):
+        return any(r[0] < q[0] < r[1] and r[2] < q[1] < r[3] for r in rects)
+
+    round_p = [inside((p[0] + dx * eps, p[1] + dy * eps)) for dx in (-1, 1) for dy in (-1, 1)]
+    return any(round_p) and not all(round_p)
+
+
+@pytest.mark.parametrize("side", ["left", "right"])
+def test_drive_block_silk_is_the_union_of_its_zones(side, main_layout):
+    """[silkscreen] drive_block_<side>: the outline is the boundary of the union of the named
+    [drive_blocks] zones (the motors left out, owner 2026-11-03), each line on it, and every point
+    of that boundary drawn but where it meets the board's edge (SILK_EDGE in) or a spec-placed
+    footprint's pad (SILK_PAD off)."""
+    names = MAIN["silkscreen"][f"drive_block_{side}"]
+    assert set(names) <= set(MAIN["drive_blocks"]), "a name that is no [drive_blocks] zone"
+    assert not [n for n in names if "motor" in n], "the motors are not drawn"
+    rects = [MAIN["drive_blocks"][n] for n in names]
+    lines = mech.drive_block_outlines(MAIN, main_layout)[side]
+    assert lines
+    for ln in lines:
+        assert ln.a[0] == pytest.approx(ln.b[0], abs=1e-9) or ln.a[1] == pytest.approx(ln.b[1], abs=1e-9)
+        for k in range(11):
+            p = (ln.a[0] + (ln.b[0] - ln.a[0]) * k / 10, ln.a[1] + (ln.b[1] - ln.a[1]) * k / 10)
+            assert _on_union_boundary(p, rects), f"{side} block silk at {p} is not on its zones' outline"
+    # every boundary point clear of the edge and the pads is drawn
+    board, pads = _main_board(), mech.spec_pads(MAIN, main_layout)
+    missed = []
+    for r in rects:
+        for a, b in (
+            ((r[0], r[2]), (r[1], r[2])),
+            ((r[1], r[2]), (r[1], r[3])),
+            ((r[1], r[3]), (r[0], r[3])),
+            ((r[0], r[3]), (r[0], r[2])),
+        ):
+            n = max(1, int(math.dist(a, b) / 0.25))
+            for k in range(n + 1):
+                p = (a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n)
+                if not _on_union_boundary(p, rects) or not _inside(p, board):
+                    continue
+                if _edge_distance(p, board) < mech.SILK_EDGE + 1.0 or any(
+                    math.dist(p, c) < pr + mech.SILK_PAD + 1.0 for c, pr in pads
+                ):
+                    continue  # near where the line stops (a stub under 1 mm is dropped)
+                if not any(mech._seg_distance(p, ln.a, ln.b) < 1e-6 for ln in lines):
+                    missed.append(p)
+    assert not missed, f"{side} block outline not drawn at {missed[:5]}"
+
+
+def test_spec_silkscreen_keeps_off_the_spec_pads_and_the_edge(main_layout):
+    board, pads = _main_board(), mech.spec_pads(MAIN, main_layout)
+    for side, lines in mech.drive_block_outlines(MAIN, main_layout).items():
+        for ln in lines:
+            for k in range(41):
+                p = (ln.a[0] + (ln.b[0] - ln.a[0]) * k / 40, ln.a[1] + (ln.b[1] - ln.a[1]) * k / 40)
+                assert _inside(p, board) and _edge_distance(p, board) >= mech.SILK_EDGE - 1e-3, f"{side} at {p}"
+                for c, r in pads:
+                    assert math.dist(p, c) >= r + mech.SILK_PAD - 1e-3, f"{side} silk at {p} over the pad at {c}"

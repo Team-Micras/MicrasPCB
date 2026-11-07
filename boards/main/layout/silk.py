@@ -35,8 +35,8 @@ from PIL import Image, ImageDraw
 
 PCB = Path(__file__).with_name("main.kicad_pcb")
 
-SIZE = 0.7  # mm, the reference text height and width (the owner's choice; the board's minimum is 0.5 mm, main.zen)
-STROKE = 0.15  # mm
+SIZE = 0.5  # mm, the reference text height and width: the board's minimum (main.zen), the owner's choice so more labels fit
+STROKE = 0.125  # mm, the board's minimum (rules/kicad-severities.toml): a quarter of SIZE, the stroke font's cap
 SILK_GAP = 0.1  # mm, min_silk_clearance (main.kicad_pro), to other silkscreen and to mask openings
 EDGE_GAP = 0.2  # mm, to the board edge and its cut-outs
 RES = 0.05  # mm, raster cell

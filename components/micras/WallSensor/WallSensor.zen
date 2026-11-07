@@ -78,6 +78,23 @@ Sourcing: the parts are bought separately (SFH 4550 from ams-OSRAM, TPS601A(F)
 from Toshiba) and hand-soldered after the leads are formed, so the component is
 excluded from the JLCPCB BOM and placement file (skip_bom). Each fitted sensor
 takes one SFH 4550 and one TPS601A(F).
+Mounts (config `mount`):
+- "flat" (WallSensor_SFH4550_TPS601A_THT): the leads bent 90 degrees on the board, as described
+  above; the main board's sensors.
+- "upright" (WallSensor_SFH4550_TPS601A_Upright): on an upright board facing the wall, both
+  flanges seated on its front face and the leads straight through it, trimmed behind (the wall
+  board, boards/wall). Origin on the TPS601A axis; the SFH 4550 axis 6.1 mm above it: its flange
+  (5.9 mm max) clears the TPS601A's (5.8 mm max) by 0.25 mm. Holes 0.9 mm for the SFH's 0.4-0.6 mm
+  square leads (0.85 mm diagonal) and 0.75 mm for the TPS601A's 0.45 +-0.1 mm round leads. The
+  SFH's wider lead section starts 1.0 mm behind its seating plane (SFH-DS p.10, the 0.5-0.8 mm
+  dambar; drawn to scale, MicrasHardware micras/leds.py), past a board of up to 0.89 mm (0.79 mm
+  and JLCPCB's +-0.1 mm), so the flange seats flat. Seen from the front, pin 1 of both parts (the
+  SFH cathode with its flange flat, the TPS601A emitter with its key tab) is on the left, x =
+  -1.27 mm, as in the flat mount; the key tab then points up-left at 45 degrees, towards the SFH
+  4550 (MicrasHardware micras/leds.py reads TPS-DS p.1 so), and the F.CrtYd takes it. F.SilkS draws
+  the two flanges at their nominal 5.7 and 5.6 mm, so the outlines fit a board as narrow as the
+  SFH 4550's 5.9 mm flange (boards/wall's blade is 8.4 mm). Its model
+  is upright_model.py's (MicrasHardware's bodies with straight leads).
 """
 
 load("@stdlib/units.zen", "Current")
@@ -87,11 +104,18 @@ LED_K = io(Net)
 PT_C = io(Net)
 PT_E = io(Net)
 
+Mount = enum("flat", "upright")
+mount = config(Mount, default="flat", help="leads bent flat on the board, or straight through an upright board")
+FOOTPRINT = {
+    "flat": "WallSensor_SFH4550_TPS601A_THT.kicad_mod",
+    "upright": "WallSensor_SFH4550_TPS601A_Upright.kicad_mod",
+}
+
 Component(
     name="WALL",
     prefix="W",
     symbol=Symbol(library="WallSensor.kicad_sym"),
-    footprint=File("WallSensor_SFH4550_TPS601A_THT.kicad_mod"),
+    footprint=File(FOOTPRINT[mount.value]),
     pins={
         "LED_A": LED_A,
         "LED_K": LED_K,
@@ -101,7 +125,7 @@ Component(
     properties={
         "emitter": "SFH 4550 (ams-OSRAM)",
         "detector": "TPS601A(F) (Toshiba)",
-        "assembly": "hand-soldered, leads formed",
+        "assembly": "hand-soldered, leads formed" if mount.value == "flat" else "hand-soldered, leads straight",
         # SFH 4550 v1.8 p.6, OHF05438: TA = 25 C, D <= 0.2, tp <= 150 us.
         "emitter_pulse_current": Current("380mA"),
     },

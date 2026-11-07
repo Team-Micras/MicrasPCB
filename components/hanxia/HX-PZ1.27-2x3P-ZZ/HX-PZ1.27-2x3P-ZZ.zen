@@ -1,0 +1,47 @@
+"""HX PZ1.27-2x3P ZZ - 2x03 pin header, 1.27 mm pitch, straight, gold-flashed brass square pins.
+Bare part, footprinted as a straddle (edge) mount: a small upright board stands between its two
+rows, its bottom edge on the insulator, and the long pins go down into the board below.
+
+Datasheet: Shenzhen Hanxia Electronic, specification for approval and drawing HX PZ1.27-2x3P ZZ
+(drawing rev A, 2023-07-18; the URL in pcb.toml); JLCPCB/LCSC C22438118 (extended).
+Drawing: 0.40 mm square pins (SQ 0.40) at 1.27 +-0.1 mm along the rows, the rows 1.27 mm apart
+(end view); the pins run 3.90 +-0.2 mm from the insulator's one face and 2.30 +-0.2 mm from the
+other; the insulator is 1.00 mm high, 3.40 mm across the rows (top view) and DIM B = 3.81 +-0.3 mm
+long for 3 positions (DIM A, the outer pins' span, 2.54 +-0.2 mm). Recommended PCB layout:
+0.65 mm holes at 1.27 x 1.27 mm (+-0.05 mm). Unlisted tolerances: X.XX +-0.20 (title block).
+Specifications (same sheet): 1.0 A, AC 500 V withstanding, 1000 MOhm min insulation, 20 mOhm max
+contact resistance, -40 to +105 C, PA6T insulator (polyester UL94V-0), brass contacts with gold
+flash; maximum processing temperature 240 C for 30-60 s (260 C for 5 s). The LCSC listing gives
+the same numbers (insulation height 1 mm, end pin 2.3 mm, mating pin 3.9 mm).
+
+Footprint HX-PZ1.27-2x3P-ZZ_Straddle: the upright board's side. The board stands between the
+rows, whose 0.40 mm pins leave 1.27 - 0.40 = 0.87 mm between them, for a 0.8 mm board
+(0.79 mm nominal; JLCPCB's +-0.1 mm below 1.0 mm gives 0.7-0.9 mm: from 0.085 mm a side, filled by
+the solder, to a 0.03 mm press fit the brass pins take). Its bottom edge rests on the insulator, the
+2.30 mm pins lie on SMD pads, odd pins on the front face (F.Cu), even pins on the back (B.Cu), and
+the 3.90 mm pins point down into the board below. Pads 0.70 x 2.60 mm (the pin plus 0.15 mm of
+side fillet a side, 0.57 mm between pads), from 0.2 mm above the edge (copper to edge) to 2.8 mm,
+0.3 mm past the longest pin (2.30 + 0.2 mm). Origin on the board's bottom edge, between the rows;
+pin 1 at x = -1.27 mm on the front (a silk bar above its pad), pin 2 behind it. The insulator and the pins on F.Fab/B.Fab;
+F.CrtYd/B.CrtYd the pads and the insulator, plus 0.15/0.25 mm. The 3D model (model.py, from the
+drawing, embedded) places a 0.79 mm board between the rows.
+The other board's 2x03 holes are that board's own footprint (components/micras/WallJoint).
+
+Pins: Pin_1 to Pin_6, 1-3-5 along the front row, 2-4-6 behind them.
+"""
+
+P1 = io(Net)
+P2 = io(Net)
+P3 = io(Net)
+P4 = io(Net)
+P5 = io(Net)
+P6 = io(Net)
+
+Component(
+    name="J",
+    prefix="J",
+    symbol=Symbol(library="HX-PZ1.27-2x3P-ZZ.kicad_sym"),
+    footprint=File("HX-PZ1.27-2x3P-ZZ_Straddle.kicad_mod"),
+    part=Part(mpn="HX PZ1.27-2x3P ZZ", manufacturer="Hanxia"),
+    pins={"Pin_1": P1, "Pin_2": P2, "Pin_3": P3, "Pin_4": P4, "Pin_5": P5, "Pin_6": P6},
+)

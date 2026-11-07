@@ -1,0 +1,37 @@
+# Placement of the wall board's wall sheet (micras-pcb sch; units of 1.27 mm, y down).
+paper = "A5"
+title = "Micras wall-sensor board"
+
+[[block]]
+title = "Wall sensor, its emitter selector and the joint to the main board"
+at = [10, 10]
+size = [87, 48]
+parts.W1 = [45, 26]
+parts.R1 = { at = [36, 18], rot = 180, fields = "left" }
+parts.C1 = { at = [39, 12], rot = 180, fields = "right" }
+parts.Q1 = { at = [27, 28], rot = 270, mirror = "x", fields = "top-right" }
+parts.R2 = { at = [74, 30], rot = 270, fields = "bottom" }
+parts.C2 = { at = [30, 35], rot = 270, fields = "bottom" }
+parts.R3 = { at = [21, 38], rot = 180, fields = "left" }
+parts.D1 = { at = [12, 39], rot = 90, fields = "left" }
+parts.J1 = [67, 28]
+wires = [
+    ["J1.Pin_1", "W1.PT_E"],
+    [[63, 26], [63, 23], { label = "left" }],
+    ["J1.Pin_6", "R2.2"],
+    [[71, 30], [71, 33], { label = "left" }],
+    ["C2.2", [27, 35], "Q1.G"],
+    ["C2.2", [21, 35], "R3.2"],
+    ["C2.2", [12, 35], "D1.K"],
+    ["R1.2", [36, 10], "C1.2"],
+    [[36, 10], [36, 9]],
+    ["W1.LED_K", "Q1.D"],
+    ["W1.LED_A", [36, 24], "R1.1"],
+]
+stubs."J1.2" = { point = "out" }
+stubs."J1.3" = { point = "out" }
+stubs."J1.4" = { point = "out" }
+stubs."J1.5" = { len = 10 }
+stubs."R2.1" = { len = 4 }
+stubs."R3.1" = { len = 2 }
+stubs."W1.3" = { point = "out" }

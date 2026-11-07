@@ -56,7 +56,7 @@ def test_parts_keep_under_the_chassis():
     or below the open height (but for the parts the spec places: the wall sensors stand in the
     nose, where the chassis leaves room for them)."""
     pcb = layout.load("main")
-    heights = layout.part_heights(board_pcb("main"), S["pcb"]["thickness"])
+    heights = _heights()
     exempt = _spec_placed()
     problems = []
     for f in pcb.footprints.values():
@@ -71,6 +71,138 @@ def test_parts_keep_under_the_chassis():
         if h > S["chassis"]["open_height"] + 1e-6:
             problems.append(f"{f.ref} ({h:.2f} mm) above the open height {S['chassis']['open_height']} mm")
     assert not problems, "\n".join(problems)
+
+
+@functools.cache
+def _heights() -> dict[str, float]:
+    return layout.part_heights(board_pcb("main"), S["pcb"]["thickness"])
+
+
+@needs_kicad
+def test_parts_in_the_fan_ring_stay_low():
+    """spec/main.toml [fan_ring]: the fan's shroud seals over a 27 mm ring round the fan hole; a part
+    whose courtyard reaches into it stays at or below max_part_height (owner, 2026-11-03)."""
+    pcb = layout.load("main")
+    ring, c = S["fan_ring"], (S["fan_hole"]["x"], 0.0)
+    r, hmax = ring["diameter"] / 2, ring["max_part_height"]
+    problems = []
+    for f in pcb.footprints.values():
+        box = f.courtyard_box()
+        if box is None:
+            continue
+        x0, x1, y0, y1 = _robot_box(box)
+        near = (min(max(c[0], x0), x1), min(max(c[1], y0), y1))
+        h = _heights().get(f.ref, 0.0)
+        if math.dist(near, c) < r - 1e-6 and h > hmax + 1e-6:
+            problems.append(f"{f.ref} ({h:.2f} mm) in the fan ring (parts up to {hmax} mm)")
+    assert not problems, "\n".join(sorted(problems))
+
+
+# owner 2026-11-03: the upright-board cap is sleeves round the lenses, no base on the main board; its
+# lowest edge is the receiver's axis (spec/wall.toml [sensor] v, 7.5 mm) less the TPS601A flange's
+# radius (2.9 mm) and the case's fit and wall (1.05 mm), 3.55 mm, less 0.5 mm
+CASE_UNDER = 3.0  # mm
+FINGER = {"SW1", "SW2", "SW3"}  # the DIP switch and the buttons: under no case and in no view, for a finger
+VIEW_MARGIN = 0.5  # mm between a part and a sensor's view corridor above it
+
+
+@needs_kicad
+def test_parts_keep_under_the_wall_sensors_cases_and_views():
+    """The wall sensors' printed cases and view corridors (tests/test_wall_joint.py: the case slid on
+    from the front round the lenses, the corridor from the lens tip widening by the lens radius and
+    5 deg a side): a part whose courtyard reaches under a case stays at or below CASE_UNDER, and one
+    under a corridor stays VIEW_MARGIN below the corridor's lower edge there (the receiver's axis,
+    spec/wall.toml [sensor] v, less the lens radius and the widening); the switches (FINGER) stay
+    out of both, and a part under a wall board's blade (beside its handle, tests/test_wall_joint.py
+    _strips) stays at or below spec/wall.toml joint.under_blade. The wall joints are the sensors'
+    own."""
+    from . import test_wall_joint as tw
+
+    pcb = layout.load("main")
+    axis = spec.load("wall")["sensor"]["v"]
+    tan = math.tan(math.radians(tw.VIEW_HALF_DEG))
+    sensors = tw._sensors()
+    cases = {name: tw._case(face, a) for name, (face, a) in sensors.items()}
+    strips = tw._strips()
+    under_blade = spec.load("wall")["joint"]["under_blade"]
+    problems = []
+    for f in pcb.footprints.values():
+        box = f.courtyard_box()
+        if box is None or f.ref in sensors:
+            continue
+        h = _heights().get(f.ref, 0.0)
+        x0, x1, y0, y1 = _robot_box(box)
+        rect = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+        grid = [(x0 + (x1 - x0) * i / 8, y0 + (y1 - y0) * j / 8) for i in range(9) for j in range(9)]
+        for name, (face, a) in sensors.items():
+            if (h > CASE_UNDER + 1e-6 or f.ref in FINGER) and not tw._apart(rect, cases[name]):
+                problems.append(f"{f.ref} ({h:.2f} mm) under {name}'s case (parts up to {CASE_UNDER} mm, no switch)")
+            if h > under_blade + 1e-6 and not tw._apart(rect, strips[name]):
+                problems.append(f"{f.ref} ({h:.2f} mm) under {name}'s blade (parts up to {under_blade} mm)")
+            d, n = (math.cos(a), math.sin(a)), (-math.sin(a), math.cos(a))
+            tip = (face[0] + tw.LED_TIP * d[0], face[1] + tw.LED_TIP * d[1])
+            for p in grid:
+                r = (p[0] - tip[0]) * d[0] + (p[1] - tip[1]) * d[1]
+                if r < 0 or abs((p[0] - tip[0]) * n[0] + (p[1] - tip[1]) * n[1]) > tw.BODY_R + r * tan:
+                    continue
+                limit = axis - tw.BODY_R - r * tan - VIEW_MARGIN
+                if h > limit + 1e-6 or f.ref in FINGER:
+                    problems.append(
+                        f"{f.ref} ({h:.2f} mm) in {name}'s view at ({p[0]:.1f}, {p[1]:.1f}) (up to {limit:.2f} mm)"
+                    )
+                    break
+    assert not problems, "\n".join(problems)
+
+
+def test_spec_silkscreen_keeps_off_every_pad():
+    """The drive blocks' outlines and the fan ring (micras-pcb mech, mech.main_silk) are drawn over
+    the board: no pad may sit under them (KiCad's silk_over_copper; the fab clips the silk). The
+    spec keeps them off its own footprints' pads; the layout keeps every other pad off them."""
+    from micras_pcb import sexpr
+
+    pcb = layout.load("main")
+    pts = []
+    for e in mech.main_silk(S, sexpr.parse(board_pcb("main").read_text())):
+        if isinstance(e, mech.Line):
+            n = max(1, int(math.dist(e.a, e.b) / 0.05))
+            pts += [(e.a[0] + (e.b[0] - e.a[0]) * k / n, e.a[1] + (e.b[1] - e.a[1]) * k / n) for k in range(n + 1)]
+        else:
+            pts += mech.sample(e, 400)
+    pts = [mech.robot_to_kicad(S, p) for p in pts]
+    problems = set()
+    for f in pcb.footprints.values():
+        for pad in f.pads:
+            if _pad_distance(pad, pts) < mech.SILK_PAD - 1e-3:
+                c = mech.kicad_to_robot(S, pad.xy)
+                problems.add(f"{f.ref} pad {pad.number} at ({c[0]:.2f}, {c[1]:.2f})")
+    assert not problems, "pads under the spec silkscreen:\n" + "\n".join(sorted(problems))
+
+
+def _pad_distance(pad, pts) -> float:
+    """The least distance from the points (KiCad frame) to the pad's rectangle (its size, turned by
+    its angle; a round or rounded pad lies inside it)."""
+    t = math.radians(pad.angle)
+    c, s = math.cos(t), math.sin(t)
+    w, h = pad.size[0] / 2, pad.size[1] / 2
+    best = math.inf
+    for x, y in pts:
+        dx, dy = x - pad.xy[0], y - pad.xy[1]
+        if abs(dx) > best + w + h or abs(dy) > best + w + h:
+            continue
+        u, v = dx * c - dy * s, dx * s + dy * c  # board to the pad's frame (layout._rotate inverted)
+        best = min(best, math.hypot(max(abs(u) - w, 0.0), max(abs(v) - h, 0.0)))
+    return best
+
+
+def test_imu_sits_at_the_rotation_centre_off_the_chassis_zones():
+    """The owner (2026-11-03): the IMU IC2 stays at robot (0, 0), the axle's midpoint, where the robot
+    turns in place; no chassis zone reaches its courtyard."""
+    pcb = layout.load("main")
+    imu = pcb.footprints["IC2"]
+    assert math.dist(mech.kicad_to_robot(S, imu.xy), (0.0, 0.0)) < 1e-3
+    x0, x1, y0, y1 = _robot_box(imu.courtyard_box())
+    for name, (zx0, zx1, zy0, zy1, _h) in mech.keepout_zones(S):
+        assert min(x1, zx1) <= max(x0, zx0) or min(y1, zy1) <= max(y0, zy0), f"IC2 under {name}"
 
 
 def test_the_chassis_zones_are_inside_the_board():
@@ -372,29 +504,13 @@ def _on(pad, layer: str) -> bool:
 # emitter sink, whose node moves only at a selector's edges and the DAC's steps, which settle before
 # the receiver scan (firmware_changes.toml emitters: emitter_dac, emitter_slot_quiet).
 SWITCHING_COPPER_EXEMPT: dict[tuple[str, str], float] = {
-    # the INA241 puts IN+ (pin 8, Motor_R_Sense+) beside VS (pin 7, 3V3_A) (SBOSA30D pinout)
-    ("3V3_A", "Motor_R_Sense+ pour"): 0.44,
-    # the DRV8874 puts VREF and IPROPI two pins from OUT1 (SLVSF66A pinout); their resistors at the pins
-    ("DRIVERS.MOTOR_L_IPROPI", "DRIVERS.MOTOR_L_OUT1"): 0.22,
-    ("DRIVERS.MOTOR_R_VREF", "DRIVERS.MOTOR_R_OUT1"): 0.26,
-    # the emitter sink's own loop: its op-amp's set-point and feedback beside Q9 and R83
-    ("SENSORS.SINK_FB", "SENSORS.EMITTER_SINK"): 0.22,
-    ("SENSORS.SINK_SET", "SENSORS.EMITTER_SINK"): 0.24,
-    ("VDDA", "Q9.3"): 0.34,
-    # the nose: receivers, their 3V3_A and the emitters' cathodes in the wall-sensor channels
-    ("3V3_A", "SENSORS.EMITTER_SINK"): 0.29,
-    ("3V3_A", "SENSORS.WALL1_LED_K"): 0.33,
-    ("3V3_A", "W3.2"): 0.24,
-    ("Wall_Sensor_0", "Q3.2"): 0.46,
-    ("Wall_Sensor_0", "SENSORS.EMITTER_SINK"): 0.40,
-    ("Wall_Sensor_1", "SENSORS.EMITTER_SINK"): 0.33,
-    ("Wall_Sensor_1", "SENSORS.WALL1_LED_K"): 0.49,
-    ("Wall_Sensor_2", "SENSORS.EMITTER_SINK"): 0.33,
-    ("Wall_Sensor_2", "W2.2"): 0.34,
-    ("Wall_Sensor_3", "SENSORS.EMITTER_SINK"): 0.18,
-    # the right current's run past the buzzer's driver, its corridor beside the fan hole taken by the
-    # ESP32-C5 link and the IMU's and encoders' lines (the buzzer is silent while the drive runs)
-    ("Current_Sensor_Right", "R3.1"): 0.43,
+    # the emitter sink's op-amp supply passes between Q9's gate and drain pads (SOT-23, the transistor
+    # the sink's loop drives), the only way from U12 to W1.3 that crosses neither the sink's B.Cu run
+    # nor its gate and output links
+    ("3V3_A", "Q9.3"): 0.22,
+    # the wall joint puts 3V3_A (pin 3) 1.27 mm from the emitter sink (pin 5); 3V3_A leaves W3.3 past
+    # W3.5 between VBAT's run to C96 and the DIP switch's lines up the nose (x 40.6, 41.0)
+    ("3V3_A", "W3.5"): 0.23,
 }
 
 
@@ -1136,10 +1252,14 @@ RELIEF_STARVED = {
     "C30.1",
     "D4.1",
     "IC1.4",
+    "J2.4",
     "R2.1",
-    "R12.1",
     "R30.1",
-    "SWD1.2",
+    "SWD1.3",
+    "W1.2",
+    "W2.2",
+    "W3.2",
+    "W4.2",
 }
 ZONE_SOLID, ZONE_THERMAL = "2", "1"  # a pad's zone_connect in the .kicad_pcb
 

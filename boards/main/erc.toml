@@ -4,9 +4,9 @@
 
 [external_supply]
 BAT_P = "the 4S LiPo battery, pack + on J1 pin 1"
-GND = "the battery, pack - on J1 pin 2 through the battery switch Q6; when flashing without the pack, the programmer's ground (J2 pin 4, SWD1 pad 2)"
+GND = "the battery, pack - on J1 pin 2 through the battery switch Q6; when flashing without the pack, the programmer's ground (J2 pad 4, SWD1 pad 3)"
 GND_BAT = "the battery, pack - on J1 pin 2 (switched to GND by Q6)"
-"5V_IN" = "a programmer's 5 V pin (USB VBUS) on J2 pin 2 or SWD1 pad 4, for flashing without the pack"
+"5V_IN" = "a programmer's 5 V pin (USB VBUS) on J2 pad 2 or SWD1 pad 5, for flashing without the pack"
 
 # Nets supplied on the board through a passive part, which KiCad does not count as a power output.
 [passive_supply]

@@ -5,14 +5,15 @@ The module, U13 (Espressif ESP32-C5-MINI-1 & MINI-1U datasheet v1.4), flashes an
 over SWD (a CMSIS-DAP-over-TCP or Black Magic probe over Wi-Fi), carries the MCU's link (SPI3
 half-duplex, UART4 as a fallback on the same pins) and relays Wi-Fi telemetry. The C5 is
 Espressif's dual-band (2.4 and 5 GHz, 5180-5885 MHz, Table 7-7) Wi-Fi 6 part with a 240 MHz
-RISC-V core (Features). The board has no USB: the radio flashes over its UART0 header J2 and over
-the air, and the root sheet's SWD header SWD1 takes an ST-Link when the radio cannot reach the MCU.
-Both headers take the programmer's 5 V pin as 5V_IN, which powers the board without the pack
+RISC-V core (Features). The board has no USB: the radio flashes over its UART0 pads J2 and over
+the air, and the root sheet's SWD header SWD1 (with NRST) takes an ST-Link when the radio cannot
+reach the MCU.
+Both take the programmer's 5 V pin as 5V_IN, which powers the board without the pack
 (REGULATORS sheet, D17).
 
 MINI-1 (PCB antenna) rather than MINI-1U (external antenna): every metal part of the robot is
-18.1 mm or more from the antenna (drive blocks 18.1 mm, the left motor's can, past the centre
-line, 23 mm, the M2 screw H4 25 mm, the LiPo pack 35 mm; MicrasHardware params.py,
+16.6 mm or more from the antenna (drive blocks 16.6 mm, the left motor's can, past the centre
+line, 21.6 mm, the M2 screw H4 23 mm, the LiPo pack 33 mm; MicrasHardware params.py,
 spec/main.toml [drive_blocks]), beyond Espressif's 15 mm clearance (ESP32-C5
 Hardware Design Guidelines, Positioning a Module on a Base Board); the exception is the dielectric
 floor 2.2-3 mm below. No published measurement quantifies that detuning, so the link is sized for
@@ -43,10 +44,10 @@ decouples its chip itself (Figure 8-1). 3V3_D carries about 104 uF in all, insid
 (boards/main/test/test_power.zen). The EPAD is on GND.
 
 EN: R89 10 kOhm to 3V3_D and C110 1 uF to GND, the RC delay of section 9 ("usually R = 10 kOhm and
-C = 1 uF"), so EN rises after 3V3_D (tSTBL 50 us, Table 4-8). J2 pin 1 pulls it to GND (reset).
+C = 1 uF"), so EN rises after 3V3_D (tSTBL 50 us, Table 4-8). J2 pad 1 pulls it to GND (reset).
 Strapping pins (Tables 4-1 to 4-7):
 - GPIO28 (ESP_BOOT): R90 10 kOhm to 3V3_D, the pull-up the schematic checklist recommends
-  (Strapping Pins), with J2 pin 6 to GND for the download mode. No capacitor: the checklist leaves
+  (Strapping Pins), with J2 pad 6 to GND for the download mode. No capacitor: the checklist leaves
   room for an unfitted one and warns that a large one enters the download mode.
 - GPIO27 (weak pull-up, high: GPIO28 alone picks SPI boot or Joint Download Boot 0, Table 4-3;
   UART0 ROM messages per Table 4-5) and GPIO26 (read only with GPIO27 low) stay open.
@@ -54,21 +55,22 @@ Strapping pins (Tables 4-1 to 4-7):
   this board has no SDIO, and GPIO7 picks the JTAG source only once EFUSE_JTAG_SEL_ENABLE is
   burned (Table 4-7; with the default eFuses JTAG is the USB Serial/JTAG controller). The firmware
   enables the internal pull on every open pin (checklist, GPIO: high-impedance pins draw current).
-Flashing header J2 (HC-PZ127-7.2L-2x3PS, 2x3 1.27 mm), wired as Espressif's ESP-Prog Program
-interface (ESP-Prog user guide, Program Interface: 1 ESP_EN, 2 VDD, 3 ESP_TXD, 4 GND, 5 ESP_RXD,
-6 ESP_IO0), so the ESP-Prog's 1.27 mm cable plugs straight in: 1 EN, 2 5V_IN, 3 TX0 (GPIO11, the
-module's U0TXD, with the 499 Ohm series resistor the checklist's UART section asks for already in
-the module, Figure 8-1 R2), 4 GND, 5 RX0 (GPIO12), 6 GPIO28. Pin 2 is the programmer's 5 V, into
-VSYS through D17 (REGULATORS sheet): an ESP-Prog with its PROG PWR SEL jumper at 5 V, or any
-USB-serial adapter's 5 V pin, runs the whole board without the pack; with the pack in, D17 blocks
-it. A 3.3 V supply pin there leaves VSYS at about 3.0 V, under the L6981's 3.5 V minimum: the buck
-may still start (its VCC rising threshold is 2.3-3.3 V, DS13554 Table 6) and run in dropout, 3V3_D
-about 2.8-2.9 V, below the module's 3.0 V (Table 6-2), so the radio may not run; nothing is damaged.
-3V3_D has no connector pin at all. Recovery: hold pin 6 low and pulse pin 1; the ROM's UART
-download mode is in mask ROM, and only burned eFuses defeat it. Any USB-serial adapter with 3.3 V
-logic does it (esptool's own reset sequence needs DTR/RTS on EN and GPIO28, as the ESP-Prog wires
-them; with a plain adapter hold pin 6 to GND by hand and pulse pin 1). The header has no shroud:
-pin 1 on the silkscreen sets the cable's way round.
+Flashing pads J2 (components/micras/EspProgPads: six plated holes, 2x3 at 1.27 mm, no part), for a
+USB-serial adapter's wires soldered once, or a 2x3 1.27 mm header fitted by hand, in the order of
+Espressif's ESP-Prog Program interface (ESP-Prog user guide, Program Interface: 1 ESP_EN, 2 VDD,
+3 ESP_TXD, 4 GND, 5 ESP_RXD, 6 ESP_IO0): 1 EN, 2 5V_IN, 3 TX0 (GPIO11, the module's U0TXD, with the
+499 Ohm series resistor the checklist's UART section asks for already in the module, Figure 8-1
+R2), 4 GND, 5 RX0 (GPIO12), 6 GPIO28; with a header fitted, the ESP-Prog's 1.27 mm cable plugs
+straight in. Pad 2 is the programmer's 5 V, into VSYS through D17 (REGULATORS sheet): an ESP-Prog
+with its PROG PWR SEL jumper at 5 V, or any USB-serial adapter's 5 V pin, runs the whole board
+without the pack; with the pack in, D17 blocks it. A 3.3 V supply pin there leaves VSYS at about
+3.0 V, under the L6981's 3.5 V minimum: the buck may still start (its VCC rising threshold is
+2.3-3.3 V, DS13554 Table 6) and run in dropout, 3V3_D about 2.8-2.9 V, below the module's 3.0 V
+(Table 6-2), so the radio may not run; nothing is damaged. 3V3_D has no pad at all. Recovery:
+hold pad 6 low and pulse pad 1; the ROM's UART download mode is in mask ROM, and only burned
+eFuses defeat it. Any USB-serial adapter with 3.3 V logic does it (esptool's own reset sequence
+needs DTR/RTS on EN and GPIO28, as the ESP-Prog wires them; with a plain adapter hold pad 6 to GND
+by hand and pulse pad 1). Pad 1 is square and marked on the silkscreen, which labels the pads.
 
 Links to the MCU (A.6). The C5 pins are those the chip datasheet ranks free of any restriction
 (ESP32-C5 Series Datasheet v1.5, section 2.3.5, priority 2: GPIO0, GPIO1, GPIO6, GPIO8-GPIO10,
@@ -80,7 +82,8 @@ drives a line before the firmware does.
 - SWD: GPIO0 to SWDIO (PA13); GPIO1 to SWCLK (PA14) through R86 22 Ohm (checklist, SPI: a series
   resistor on the clock trace).
 - NRST: GPIO23 to Reset, driven open-drain by the firmware (NRST has its 30-50 kOhm pull-up, SW3
-  and C21; DS13311 Table 61); high-Z until then, so the radio never holds the MCU in reset.
+  and C21; DS13311 Table 61); high-Z until then, so the radio never holds the MCU in reset. An
+  ST-Link's RST wire on SWD1 pad 1 (root sheet) drives the same line.
 - SPI3 half-duplex, three wires (the MCU the master, the C5 its spi_slave_hd 3-wire slave):
   ESP_SCK from PC10 (SPI3_SCK) to GPIO10 through R95 22 Ohm at PC10, the driver's end (a source
   series resistor on the clock trace, checklist SPI; it is the TX resistor of UART4_TX in the
@@ -126,9 +129,7 @@ load(
 Capacitor = Module("@stdlib/generics/Capacitor.zen")
 Resistor = Module("@stdlib/generics/Resistor.zen")
 ESP32_C5_MINI_1 = Module("github.com/Team-Micras/MicrasPCB/components/espressif/ESP32-C5-MINI-1/ESP32-C5-MINI-1.zen")
-HC_PZ127_2x3 = Module(
-    "github.com/Team-Micras/MicrasPCB/components/hong-cheng/HC-PZ127-7.2L-2x3PS/HC-PZ127-7.2L-2x3PS.zen"
-)
+EspProgPads = Module("github.com/Team-Micras/MicrasPCB/components/micras/EspProgPads/EspProgPads.zen")
 
 # Its own sheet in the board schematic (layout/main.kicad_sch).
 Project(name="Esp", path="layout", layout=False)
@@ -197,16 +198,8 @@ Resistor(name="R89", P1=V3V3_D, P2=ESP_EN, **R_10K_0402)
 Capacitor(name="C110", P1=GND, P2=ESP_EN, **C_1U_0402)
 Resistor(name="R90", P1=V3V3_D, P2=ESP_BOOT, **R_10K_0402)
 
-# Flashing header, ESP-Prog Program interface order.
-HC_PZ127_2x3(
-    name="J2",
-    P1=ESP_EN,
-    P2=V5V_IN,
-    P3=ESP_TXD0,
-    P4=GND,
-    P5=ESP_RXD0,
-    P6=ESP_BOOT,
-)
+# Flashing pads, ESP-Prog Program interface order.
+EspProgPads(name="J2", EN=ESP_EN, VDD=V5V_IN, TXD=ESP_TXD0, GND=GND, RXD=ESP_RXD0, IO0=ESP_BOOT)
 
 # MCU links.
 Resistor(name="R86", P1=ESP_SWCLK, P2=SWCLK, **R_22_0402)
@@ -220,6 +213,6 @@ Resistor(name="R97", P1=V3V3_D, P2=ESP_CSn, **R_100K_0402)
 SCHEMATIC_HINTS = {
     "blocks": [
         {"title": "EN RC delay and GPIO28 pull-up", "parts": ["R89", "C110", "R90"], "anchor": "R89"},
-        {"title": "Flashing header J2 (ESP-Prog Program interface)", "parts": ["J2"], "anchor": "J2"},
+        {"title": "Flashing pads J2 (ESP-Prog Program interface)", "parts": ["J2"], "anchor": "J2"},
     ],
 }

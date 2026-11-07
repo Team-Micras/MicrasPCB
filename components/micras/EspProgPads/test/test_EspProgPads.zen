@@ -1,0 +1,35 @@
+"""EspProgPads package: each signal on its pad in the ESP-Prog Program interface order (1 EN,
+2 VDD, 3 TXD, 4 GND, 5 RXD, 6 IO0), no BOM or placement entry."""
+
+EspProgPads = Module("../EspProgPads.zen")
+
+PADS = {"EN": "Pin_1", "VDD": "Pin_2", "TXD": "Pin_3", "GND": "Pin_4", "RXD": "Pin_5", "IO0": "Pin_6"}
+
+
+def pinout(module, inputs):
+    nets = module.nets()
+    for name, pin in PADS.items():
+        check([p for _, p in nets[name]] == [pin], name + " must be on " + pin + ", is on " + str(nets[name]))
+
+
+def bare_pads(module, inputs):
+    c = module.components()["J"]
+    check(c.skip_bom, "the pads are not a BOM line")
+    check(c.skip_pos, "the pads are not placed")
+
+
+TestBench(
+    name="EspProgPads",
+    module=EspProgPads,
+    test_cases={
+        "default": {
+            "EN": Net("EN"),
+            "VDD": Power("VDD", voltage="4.4V to 5.25V"),
+            "TXD": Net("TXD"),
+            "GND": Ground("GND"),
+            "RXD": Net("RXD"),
+            "IO0": Net("IO0"),
+        },
+    },
+    checks=[pinout, bare_pads],
+)

@@ -68,10 +68,10 @@ wires = [
 
 [[block]]
 at = [0, 0]
-frame = [[176, 168, 58, 54, "SWD header for an ST-Link (bare pads)"]]
+frame = [[176, 168, 58, 54, "SWD header for an ST-Link with reset (bare pads)"]]
 parts.SWD1 = { at = [200, 194], rot = 180, mirror = "x" }
-stubs."SWD1.2" = { point = "out" }
-stubs."SWD1.4" = { point = "out" }
+stubs."SWD1.3" = { point = "out" }
+stubs."SWD1.5" = { point = "out" }
 
 [[block]]
 at = [0, 0]

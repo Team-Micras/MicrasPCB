@@ -157,8 +157,8 @@ def buck_slope_compensation(module, inputs):
 def vsys_blocks_back_feed(module, inputs):
     # Research Power tree and A.4: VSYS is VBAT through a 40 V Schottky (D14, anode on the bridges'
     # VBAT) or 5V_IN through another (D17), and only the two regulators and their input parts load
-    # it. 5V_IN is a programmer's 5 V pin: J2 pin 2 (the ESP-Prog Program Interface's VDD) and SWD1
-    # pad 4. D14 keeps it off VBAT and the pack; D17 keeps the pack off the programmer. No connector
+    # it. 5V_IN is a programmer's 5 V pin: J2 pad 2 (the ESP-Prog Program Interface's VDD) and SWD1
+    # pad 5. D14 keeps it off VBAT and the pack; D17 keeps the pack off the programmer. No connector
     # pin reaches 3V3_D: a programmer's 3.3 V never meets the buck's output.
     b = index(module)
     p = []
@@ -179,9 +179,9 @@ def vsys_blocks_back_feed(module, inputs):
     if loads != sorted(["D14", "D17", BUCK]):
         p.append(vsys + " loads: " + str(loads) + "; only D14, D17 and IC7 (and U8 through its input resistor)")
     if net(b, "J2", "Pin_2") != v5:
-        p.append("J2 pin 2 (the programmer's VDD) is not on 5V_IN")
+        p.append("J2 pad 2 (the programmer's VDD) is not on 5V_IN")
     if net(b, "SWD", "VDD") != v5:
-        p.append("SWD1 pad 4 (the probe's 5 V) is not on 5V_IN")
+        p.append("SWD1 pad 5 (the probe's 5 V) is not on 5V_IN")
     on_v5 = sorted(refs_on(b, v5))
     if on_v5 != sorted(["D17", "J2", "SWD"]):
         p.append("5V_IN reaches " + str(on_v5) + "; only J2, SWD1 and D17 belong there")

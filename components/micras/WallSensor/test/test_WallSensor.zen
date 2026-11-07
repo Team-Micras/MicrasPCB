@@ -23,16 +23,27 @@ def hand_assembled(module, inputs):
     check(wall.emitter_pulse_current.value == 0.38, "the emitter's pulse rating at D 0.2, 150 us, 25 C is 0.38 A")
 
 
+def upright_footprint(module, inputs):
+    # The upright mount seats both flanges on an upright board, its leads straight (WallSensor.zen,
+    # Mounts); tests/test_wall.py checks the footprint on the wall board.
+    wall = [c for path, c in module.components().items() if path.endswith("WALL")][0]
+    check(wall.properties["assembly"] == "hand-soldered, leads straight", "upright leads are not formed")
+
+
+NETS = {"LED_A": Net("LED_A"), "LED_K": Net("LED_K"), "PT_C": Net("PT_C"), "PT_E": Net("PT_E")}
+UPRIGHT = dict(NETS)
+UPRIGHT["mount"] = "upright"
+
 TestBench(
     name="WallSensor_pins",
     module=WallSensor,
-    test_cases={
-        "default": {
-            "LED_A": Net("LED_A"),
-            "LED_K": Net("LED_K"),
-            "PT_C": Net("PT_C"),
-            "PT_E": Net("PT_E"),
-        },
-    },
+    test_cases={"default": NETS},
     checks=[pins_by_function, hand_assembled],
+)
+
+TestBench(
+    name="WallSensor_upright",
+    module=WallSensor,
+    test_cases={"upright": UPRIGHT},
+    checks=[pins_by_function, hand_assembled, upright_footprint],
 )

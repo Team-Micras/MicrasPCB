@@ -1,0 +1,29 @@
+"""HX PZ1.27-2x3P ZZ package facts: the orderable part and its six pins on their own nets."""
+
+HEADER = Module("../HX-PZ1.27-2x3P-ZZ.zen")
+
+
+def orderable_part(module, inputs):
+    c = module.components()["J"]
+    check(c.mpn == "HX PZ1.27-2x3P ZZ", "MPN must be HX PZ1.27-2x3P ZZ, got " + str(c.mpn))
+    check(c.manufacturer == "Hanxia", "manufacturer")
+    check(c.prefix == "J", "reference prefix J")
+
+
+def pinout(module, inputs):
+    nets = module.nets()
+    for n in range(1, 7):
+        name = "P" + str(n)
+        check([pin for _, pin in nets[name]] == ["Pin_" + str(n)], name + " must be on Pin_" + str(n))
+
+
+CASE = {}
+for n in range(1, 7):
+    CASE["P" + str(n)] = Net("P" + str(n))
+
+TestBench(
+    name="HX_PZ127_2x3_straddle",
+    module=HEADER,
+    test_cases={"default": CASE},
+    checks=[orderable_part, pinout],
+)

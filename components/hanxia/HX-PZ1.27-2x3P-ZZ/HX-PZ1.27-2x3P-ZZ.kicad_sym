@@ -2,17 +2,18 @@
 	(version 20251024)
 	(generator "micras")
 	(generator_version "10.0")
-	(symbol "HC-PZ127-7.2L-2x3PS"
+	(symbol "HX-PZ1.27-2x3P-ZZ"
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(in_pos_files yes)
 		(duplicate_pin_numbers_are_jumpers no)
 		(pin_names
+			(offset 1.016)
 			(hide yes)
 		)
 		(property "Reference" "J"
-			(at -5.08 6.35 0)
+			(at 0 5.08 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -21,8 +22,8 @@
 				)
 			)
 		)
-		(property "Value" "HC-PZ127-7.2L-2x3PS"
-			(at 5.08 6.35 0)
+		(property "Value" "HX-PZ1.27-2x3P-ZZ"
+			(at 0 -5.08 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -31,19 +32,8 @@
 				)
 			)
 		)
-		(property "Footprint" "HC-PZ127-7.2L-2x3PS"
-			(at 0 -10.16 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" "https://datasheet.lcsc.com/datasheet/pdf/261494a54b760cbbe7082940b5d71b8c.pdf?productCode=C27985144"
-			(at 0 -12.7 0)
+		(property "Footprint" "HX-PZ1.27-2x3P-ZZ_Straddle"
+			(at 0 -11.43 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -53,7 +43,18 @@
 				)
 			)
 		)
-		(property "Description" "Pin header, 2x03, 1.27 mm pitch, SMD vertical, odd pins on one row and even on the other (Hong Cheng HC-PZ127-7.2L-2x3PS)"
+		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2405221102_hanxia-HX-PZ1-27-2x3P-ZZ_C22438118.pdf"
+			(at 0 -13.97 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Pin header, 2x03, 1.27 mm pitch, straight, straddle (edge) mount (Hanxia HX PZ1.27-2x3P ZZ)"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -64,7 +65,7 @@
 				)
 			)
 		)
-		(property "ki_keywords" "connector pin header 2x03 1.27mm"
+		(property "ki_keywords" "connector pin header 2x03 1.27mm straight straddle"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -75,7 +76,7 @@
 				)
 			)
 		)
-		(property "ki_fp_filters" "PinHeader*2x03*P1.27mm*SMD* HC-PZ127*"
+		(property "ki_fp_filters" "HX-PZ1.27-2x3P-ZZ* PinHeader*2x03*P1.27mm*"
 			(at 0 0 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -86,10 +87,10 @@
 				)
 			)
 		)
-		(symbol "HC-PZ127-7.2L-2x3PS_1_1"
+		(symbol "HX-PZ1.27-2x3P-ZZ_1_1"
 			(rectangle
-				(start -5.08 5.08)
-				(end 5.08 -5.08)
+				(start -1.27 3.81)
+				(end 1.27 -3.81)
 				(stroke
 					(width 0.254)
 					(type default)
@@ -99,7 +100,7 @@
 				)
 			)
 			(pin passive line
-				(at -7.62 2.54 0)
+				(at -3.81 2.54 0)
 				(length 2.54)
 				(name "Pin_1"
 					(effects
@@ -117,7 +118,7 @@
 				)
 			)
 			(pin passive line
-				(at 7.62 2.54 180)
+				(at 3.81 2.54 180)
 				(length 2.54)
 				(name "Pin_2"
 					(effects
@@ -135,7 +136,7 @@
 				)
 			)
 			(pin passive line
-				(at -7.62 0.0 0)
+				(at -3.81 0 0)
 				(length 2.54)
 				(name "Pin_3"
 					(effects
@@ -153,7 +154,7 @@
 				)
 			)
 			(pin passive line
-				(at 7.62 0.0 180)
+				(at 3.81 0 180)
 				(length 2.54)
 				(name "Pin_4"
 					(effects
@@ -171,7 +172,7 @@
 				)
 			)
 			(pin passive line
-				(at -7.62 -2.54 0)
+				(at -3.81 -2.54 0)
 				(length 2.54)
 				(name "Pin_5"
 					(effects
@@ -189,7 +190,7 @@
 				)
 			)
 			(pin passive line
-				(at 7.62 -2.54 180)
+				(at 3.81 -2.54 180)
 				(length 2.54)
 				(name "Pin_6"
 					(effects

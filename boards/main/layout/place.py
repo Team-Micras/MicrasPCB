@@ -4,30 +4,32 @@
 
 Every part goes on the top side (the board rides 1.2 mm off the floor, MicrasHardware
 Board.bottom_z). The spec places what mates with the robot or the outline (spec/main.toml: screw
-holes, encoder slots, battery switch, ESP32 module, wall sensors); `ANCHORS` place the other large parts by function:
+holes, encoder slots, wall slots, battery switch, ESP32 module, the STM32); `ANCHORS` place the other
+large parts by function:
 
 - rear, open up to the battery: the ESP32-C5-MINI-1 in the rear-right corner (spec [u13]), its
   antenna over the board's notch there (spec [antenna_notch]); the battery input (J1, F1, D15, Q6)
-  and the 3V3_D buck in the rear-left corner by SW4, the buck in front of the tab between the two
-  notches; the flashing header J2 in the tab, 17 mm from the antenna's open end, and the 5V_IN
-  diode D17 by the buck;
-- behind the drive blocks (the only room for 7 mm parts near the motors): both motor chokes and
-  the motor connectors;
-- under the left motor (spec [drive_blocks] left_motor, parts up to 2.7 mm) the left bridge, inboard
-  of the right block the right bridge, each with its bulk capacitors; the shunts on the blocks'
-  bodies (parts up to 1.5 mm);
+  in the rear-left corner by SW4; the flashing pads J2 on the rear edge behind the right motor
+  connector, 10.5 mm from the antenna's open end (at least 10);
+- behind the drive blocks (the only room for 5-7.7 mm parts near the motors): both motor chokes and
+  the motor connectors, the chokes' pads clear of the drive blocks' outlines on the silkscreen;
+- the bridges inside the drive blocks' zones between the wheels, each with its shunt and its
+  current amplifier (zones up to 2.1 and 3.7 mm); the bulk capacitors where 2.5 mm parts fit (the
+  tab, behind the blocks, outside the fan ring);
 - the IMU between the encoder slots, on the axle;
-- the nose: the MCU, the wall-sensor channels and emitter sink, the LEDs, the buttons; beside the
-  fan hole, the fan driver (left) and the DIP switch, buzzer and 3V3_A LDO (right).
+- the nose: the MCU (spec [ic1]) with its capacitors in its 2.5 mm room, the LED row at the front
+  edge, the emitter sink and the user button (left pocket), the DIP switch, reset and the SWD header
+  (right pocket); in front of the wheels, the fan driver (left), and the 3V3_D buck and the buzzer
+  (right). Inside the fan ring (spec [fan_ring]) only parts up to its max_part_height.
 
-`HAND` fixes the parts the routing placed round the power copper (the battery path, the bridges'
-VM islands, the fan driver) and the ESP32's capacitors, as ANCHORS fix theirs.
+`HAND` fixes the STM32's capacitors and SMPS inductor, the parts the routing kept round the bridges,
+the fan driver, the IMU and the encoders, as ANCHORS fix theirs.
 
 Every other part is packed next to the pins it serves (`NEAR`, else the placed pads it shares a
 signal net with): the nearest free spot, in any of the four rotations, whose courtyard overlaps no
 other courtyard (the MCU's own parts in 45 degree steps, along its diagonal pin rows), stays on the
-board and keeps out of the drive-block zones taller parts may not enter (part heights from the 3D
-models). Of the spots within reach, the one whose pads lie nearest to the pins of their own nets
+board, keeps out of the drive-block zones and the fan ring taller parts may not enter (part
+heights from the 3D models) and keeps its pads off the spec's silkscreen lines. Of the spots within reach, the one whose pads lie nearest to the pins of their own nets
 wins, so a part faces the pins it serves and its tracks do not cross. Room is kept free of parts
 round the MCU for its escape vias, and in front of the bridges' logic and output pins for their
 tracks (`STRIPS`). Deterministic: the same board gives the same placement.
@@ -49,13 +51,18 @@ import pcbnew
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "tools"))
-from micras_pcb import mech  # noqa: E402
+from micras_pcb import mech, sexpr  # noqa: E402
 
-PCB = ROOT / "boards/main/layout/main.kicad_pcb"
+PCB = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else ROOT / "boards/main/layout/main.kicad_pcb"
 SPEC = tomllib.loads((ROOT / "spec/main.toml").read_text())
 S = {k: {kk: vv["value"] for kk, vv in v.items()} for k, v in SPEC.items()}
 OX, OY = S["kicad"]["origin_x"], S["kicad"]["origin_y"]
 RES = 0.1  # mm per raster cell
+SILK_MARGIN = 0.15  # mm past the test's clearance (the raster's error)
+CASE_UNDER = 3.0  # mm: the parts a sensor's case (sleeves round the lenses, no base) may stand over
+FINGER = {"SW1", "SW2", "SW3"}  # the switches: under no sensor case and in no view, for a finger
+SENSOR_ZONES: list[np.ndarray] = []  # the cases' and corridors' cells (zone_masks())
+VIEW_MARGIN = 0.5  # mm under a sensor's view corridor
 STEP = 0.25  # mm between candidate positions
 GAP = 0.2  # mm kept between two courtyards on the raster
 ESCAPE = 2.5  # mm round the MCU's courtyard kept for its pins' escapes: only its own supply parts
@@ -69,10 +76,9 @@ LANES = 1.6  # mm past the logic pins' outer ends: four 0.2 mm tracks at 0.14 mm
 OUT_LANE = 3.0  # mm past an output pin: its 0.8 mm path clear of the charge pump's capacitors
 STRIPS = {ref: [(LOGIC, LANES), (("8",), OUT_LANE), (("10",), OUT_LANE)] for ref in ("IC8", "IC9")}
 LANES_SIDE = 0.4  # mm
-# The STM32's VCAP2 and VCAP3 pins (49, 66) take their VCORE via on their own axis, past the 3V3_D
-# island round the chip (boards/main/layout/route.py, ESCAPE_REACH): a lane that deep in front of
-# each is kept free of every part (C15 and C16, beside them, took it)
-MCU_LANES = {"49": 2.2, "66": 2.2}  # mm past the pin tip
+# A lane in front of an STM32 pin, kept free of every part for its via on its own axis: none, the
+# VCAP pins' capacitors (C5, C6) sit radially on their pins' normals and take their VCORE vias
+MCU_LANES: dict[str, float] = {}  # pin -> mm past the pin tip
 MCU_LANE_HALF = 0.45  # mm each side of the pin's axis
 # The bridges' bulk capacitors pack behind the bridges' logic pins (robot x < BULK_X), the VBAT
 # pour's side: ahead lie the IMU and the encoders' connectors, whose signals their VBAT tracks
@@ -85,187 +91,217 @@ BULK_GAP = 5.0  # mm
 
 # Floorplan: reference -> (x, y, KiCad rotation), robot frame (x forward, y left, mm).
 ANCHORS = {
-    # behind the blocks: chokes, motor connectors
-    "L5": (-21.7, 4.1, 0),
-    "L4": (-21.4, -4.45, 0),
-    "M1": (-29.9, 3.9, 0),
-    "M2": (-29.6, -4.4, 0),
-    # the battery path's diode to VSYS, by the input
-    "D14": (-29.3, 12.0, 0),
-    # rear-left, beside SW4: battery input and the 3V3_D buck. J1's lead goes back over the low wall
-    # behind the left drive block; its BAT_P pin reaches F1 by a pour on the centre side, its GND_BAT
-    # pin Q6's sources by one along the edge (the pours cross nowhere). Q6's sources and gate face the
-    # board's centre, its drain the edge; the buck in front of the tab, its VIN (pin 7) toward C53
-    # and SW4, SW (pin 1) toward L3 at the module's inner corner; L3 against C54/C55's courtyard (0.03 mm),
-    # as far inboard as the fixed parts round the buck allow (M1/M2 in front, SW4, J1, J2, U13, the notch)
-    "J1": (-33.5, 22.0, 270),
-    "D15": (-24.4, 16.65, 180),
-    "Q6": (-20.35, 21.6, 90),
-    "F1": (-29.0, 17.1, 90),
-    "IC7": (-36.4, 7.87, 180),
-    "L3": (-36.0, -0.91, 0),
-    # the flashing header in the tab between the notches, its pads 17 mm from the antenna's open end
-    # (at least 10), its EN/TX0/RX0 row toward the antenna notch; D17 by the buck
-    "J2": (-43.9, 11.3, 180),
-    "D17": (-32.25, 11.06, 0),
-    # under the left motor: left bridge; inboard of the right block: right bridge
+    # behind the drive blocks (the only room for 5-7.7 mm parts near the motors): the right choke L4
+    # against the right block's zones, the left one L5 behind it to the left, its pads clear of the
+    # left block's outline (spec silkscreen); the motor connectors behind each choke
+    "L4": (-21.4, -1.95, 0),
+    "M2": (-33.73, -3.72, 180),
+    "L5": (-26.4, 6.4, 0),
+    "M1": (-33.73, 3.59, 180),
+    # rear-left, beside SW4: the battery connector, its fuse and switch packed at its pins (NEAR)
+    "J1": (-28.83, 21.25, 90),
+    # the flashing pads on the rear edge behind M2, reachable from the robot's rear, pin 1 10.5 mm
+    # from the antenna's open end (at least 10)
+    "J2": (-27.51, -5.0, 270),
+    # the current amplifiers beside their shunts, inside the drive blocks' zones (1.34 mm parts)
+    "U10": (-16.5, -9.5, 0),
+    "U11": (-15.85, 10.4, 0),
+    # the bridges, the right one clear of the left block's outline at y 0 (spec silkscreen)
     "IC9": (-10.5, 4.5, 270),
-    "IC8": (-10.5, -3.0, 270),
+    "IC8": (-10.5, -3.35, 270),
     # the shunts along x; R75 turned so its OUT1 pad faces IC9 (front) and its own pad the choke L5 (rear),
     # neither force lead under the part; R65's OUT1 pad behind, its own pad in front
     "R75": (-9.0, 11.25, -90),
     "R65": (-9.0, -9.6, 90),
-    # on the axle, between the encoder slots
+    # on the axle, between the encoder slots (owner, 2026-11-03)
     "IC2": (0.0, 0.0, 0),
-    # current amplifiers beside the wheel notches' rear corners, VS pins outwards with their 100 nF
-    # (SBOSA30D 8.3.1) between them and the board's side
-    "U10": (-10.7, -20.55, 0),
-    "C100": (-11.45, -24.45, 90),
-    "U11": (-10.7, 20.55, 180),
-    "C103": (-11.45, 24.45, 90),
-    # nose; the MCU turned 45 degrees, as on the previous board: its pin rows face the diagonals,
-    # their escapes fan out into widening wedges and the corners of its square stay free
-    "IC1": (36.0, 0.0, -135),
-    "D1": (51.25, 2.2, 0),  # WS2812C-2427: DI, VDD, DO and GND on the sides they had at 180 on the 2020
-    "D2": (51.25, -2.2, 0),
-    # each button on the side of the STM32 its pin faces: the user button (PA3, pin 20) on the
-    # left, reset (NRST, pin 12) on the right; the other way round, both nets circled the chip
-    "SW2": (35.9, 11.6, 180),
-    "SW3": (33.2, -11.9, 180),
-    "U12": (45.3, -1.85, 90),
-    "Q9": (45.3, 1.95, 90),
-    # beside the fan hole: fan driver (left); DIP switch, buzzer, analog LDO (right). The fan driver
-    # turned so its power side (OUT1, VS, OUT2) faces the board's edge and its logic pins the fan
-    # hole: the lines to the STM32 pass along the hole's rim, the power copper lies outside them
-    # (DS14341 Fig. 23); its choke behind it, its connector in front
-    "M3": (23.05, 22.4, 180),
-    "L6": (11.7, 20.65, 270),
-    "IC6": (16.8, 14.3, 90),
-    "SW1": (25.0, -20.5, 90),
-    "BZ1": (14.2, -20.5, 0),
-    "U8": (25.0, -12.0, 0),
+    # the front LED row, 5.9 mm behind the committed board's (the front edge moved 53.5 -> 47.6), in
+    # its arrangement (owner, 2026-11-03): D1, D2, D5, R5 as on that board, D4/R4 at their v1 spots
+    "D1": (45.35, 1.8, 0),
+    "D2": (45.35, -1.8, 0),
+    "D5": (45.35, -5.4, -90),
+    "R5": (45.35, -6.85, -90),
+    "D4": (45.35, 5.4, -90),
+    "R4": (45.35, 6.85, 90),
+    # the nose's left pocket, in front of W1 under its case (parts up to 3.0 mm): the emitter sink
+    # (Wall_Emitter_Set leaves the STM32's front-left face)
+    "U12": (39.5, 15.0, 90),
+    # beside the fan hole, in front of the left wheel: the fan driver turned so its power side (OUT1,
+    # VS, OUT2) faces the board's edge and its logic pins the fan hole (DS14341 Fig. 23), its VS
+    # capacitors in front of the VS pins, its choke behind it, its connector in front
+    "IC6": (20.7, 17.5, 90),
+    "C34": (19.0, 22.95, -90),
+    "C35": (22.4, 22.95, 90),
+    "M3": (28.65, 21.4, 90),
+    "L6": (14.0, 20.5, 0),
+    # in front of the right wheel: the 3V3_D buck's inductor (beside the STM32, which it feeds; the
+    # buck itself in HAND) and the DIP switch at the side edge, out of the sensors' cases and views for
+    # a finger (pins 2, 3, 10, 11 on the STM32's front-right face); the buttons are packed out of them
+    # too (FINGER)
+    "L3": (14.03, -20.85, 0),
+    "SW1": (26.97, -20.5, 90),
+    # the buttons beside IC1, each on the side of the STM32 its pin faces (the user button, PA3 pin 20,
+    # left; reset, NRST pin 12, right), out of the fan ring and the sensors' cases and views
+    "SW2": (28.325, 13.81, 180),
+    "SW3": (28.0, -13.5, 180),
+    # the buzzer in the nose's right pocket, under W4's case (sleeves round the lenses: parts up to 3.0 mm)
+    "BZ1": (38.5, -19.8, 0),
+    # the SWD header on the rear edge behind M2, beside J2 (SWDIO and SWCLK run to U13 there anyway)
+    "SWD1": (-41.96, 12.61, 90),
+    # two of the bridges' VBAT bulk capacitors (2.5 mm) at the nose's corners beside W2/W3, under the
+    # sensors' views: the only room left for them (the rest pack behind the drive blocks and in the tab)
+    "C112": (43.3, 9.85, 180),
+    "C96": (43.3, -9.95, 180),
+    # the 3V3_A LDO's input capacitor in the last 2.5 mm spot by the right wheel, the LDO at it
+    "C80": (12.4, -15.0, 90),
+    # the ESP32's 22 uF and 100 nF in front of the module, within 15.5 mm of its 3V3 pin (pin 3, on
+    # its edge row); the module decouples its chip itself (datasheet Figure 8-1)
+    "C109": (-20.2, -19.3, 0),
+    "C108": (-20.3, -22.0, 0),
 }
 
-# Parts the routing placed by hand round the power copper (layout/README.md, Power copper): the
-# battery path's gate network (in front of Q6's gate), the buck's capacitors (C53 under its VIN/GND
-# row, C54/C55 at its front end, C56/C57 at L3's output), IC9's bulk C93 on the VBAT pour's left
-# appendage (behind the bridges, BULK), the resized capacitors, each DRV8874's VM island (CVM1 in
-# line with pin 11, the charge pump below), the fan driver after DS14341 Fig. 23; and the ESP32's
-# parts: U13's 3V3 pin lies on its edge row, so the 22 uF and 100 nF sit where its 3V3_D runs out from
-# under the module at the front-right corner, the 10 uF on its feed by J2, the EN RC and the BOOT
-# pull-up by J2, the series resistors of the C5's link pins and the ESP_CSn pull-up R97 at its front
-# end, but R95 at PC10, the clock's driver, in line with its escape off the rear tip (the module decouples
-# its chip itself: 10 uF, 1 uF, 0.1 uF, datasheet Figure 8-1). Fixed as ANCHORS are.
+# Parts fixed by hand: the STM32's capacitors, each on its pin's face in the 2.5 mm room between the
+# chip and the wall slots (spec [ic1] block) or the fan hole, at least 1 mm off its pins for their
+# escape vias (VIA_RING): the 100 nF radial (one pad on the pin's normal) or along the face,
+# VDDSMPS's 10 uF (C1) and 4.7 uF (C2), VFBSMPS's 10 uF (C3 by the right vertex, C4 by the rear
+# tip, past the 3V3_D island on In2's VCORE band); and the parts the routing kept round the
+# bridges (their charge pumps and VM capacitors) and the IMU and encoders.
 HAND = {
-    # C6 (VCAP2, pin 49) radial on pin 49's own normal, off the escape normals of pins 44-48, so the
-    # rear-left lanes all pass it on one side; C21 (NRST) beside SW3, out of the right corridor's entrance
-    "C6": (29.6, 3.3, 45),
-    "C21": (30.3, -10.8, 90),
-    "C29": (28.524, -16.122, 90),
-    "C30": (27.079, 5.693, 90),
-    "C31": (19.6, 10.45, 270),
-    "C32": (13.05, 13.8, 0),
-    "C33": (11.5, 13.4, 0),
-    "C34": (15.75, 19.5, 180),
-    "C35": (18.45, 19.5, 180),
-    "C36": (8.0, -4.0, 90),
-    "C52": (-34.0, 15.35, 90),
-    "C53": (-37.7, 12.68, 90),
-    "C54": (-35.29, 3.58, 270),
-    "C55": (-37.68, 3.58, 270),
-    "C56": (-37.95, -6.51, 90),
-    "C57": (-34.47, -6.51, 270),
-    "C58": (-21.2, 17.2, 90),
-    "C73": (27.917, 19.505, 90),
-    "C80": (28.6, -14.0, 270),
-    "C82": (-15.5, -2.2, 90),
-    "C83": (-15.4, -8.3, 180),
-    "C84": (-20.2, -10.2, 90),
-    "C88": (-16.3, -3.7, 0),
-    "C89": (-15.1, -4.05, 0),
-    "C91": (-15.44, 5.35, 90),
-    "C92": (9.65, -15.2, 180),
-    "C93": (-25.5, 10.72, 180),
-    "C96": (28.5, 9.6, 180),
-    "C97": (-16.9, 4.0, 0),
-    "C98": (-15.4, 3.2, 0),
-    "C99": (17.1, 23.2, 90),
-    "C107": (-40.67, 12.15, 0),
-    "C108": (-23.13, -23.5, 270),
-    "C109": (-20.43, -23.85, 270),
-    "C110": (-40.3, 8.68, 90),
-    "C112": (24.5, 10.5, 90),
-    "C114": (-19.0, 18.4, 90),
-    "D3": (10.1, -20.9, 0),
-    "D4": (30.975, 9.23, 0),
-    "Q2": (27.75, 17.0, 0),
-    "R11": (29.262, 6.351, 90),
-    "R12": (26.477, 19.95, 0),
-    "R23": (30.229, -11.759, 90),
-    "R25": (24.837, -9.514, 90),
-    "R27": (27.338, 6.671, 90),
-    "R28": (21.0, 12.8, 90),
-    "R29": (21.0, 11.7, 90),
-    "R30": (21.0, 13.9, 90),
-    "R31": (22.6, 15.8, 90),
-    "R41": (-21.2, 18.4, 90),
-    "R43": (-19.0, 17.2, 90),
-    "R58": (16.246, -15.75, 90),
-    "R86": (-23.2, -21.7, 90),
-    "R88": (-21.7, -18.2, 90),
-    "R89": (-40.3, 9.9, 90),
-    "R90": (-34.6, 13.2, 90),
-    "R95": (28.6, -2.0, 90),
-    "R96": (-23.2, -19.4, 90),
-    "R97": (-19.6, -19.2, 0),
+    # the SMPS inductor along the front-right face in the capacitor row (LX pad on pin 5's axis, VCORE pad on
+    # VFBSMPS pin 7's), VDDSMPS's 4.7 uF past the right vertex, the row's other capacitors slid along it
+    "L1": (35.772, -5.063, -45),
+    "C8": (33.884, -6.979, 135),
+    "C2": (34.015, -8.234, 135),
+    "C12": (37.667, -3.338, -45),
+    "C1": (32.845, -9.405, -135),
+    "C3": (30.724, -8.202, 135),
+    "C10": (38.919, -1.945, -45),
+    # VDDA's 1 uF beside C10, off the tip's front-left so Wall_Sensor_2 crosses LED_ARGB's lane there on F.Cu
+    "C11": (39.85, -2.7, 135),
+    "C102": (40.385, -0.715, -45),
+    "C13": (37.738, 3.125, -135),
+    "C105": (35.475, 5.388, -135),
+    "C7": (33.955, 6.908, 45),
+    "C14": (30.045, 7.114, 45),
+    "C6": (26.686, 3.755, 45),
+    "C15": (25.944, 3.012, 45),
+    "C5": (29.338, -6.392, 135),
+    "C16": (30.045, -7.113, 135),
+    "C4": (26.75, -4.37, 135),
+    # each bridge's VM, VCP and CPH-CPL capacitors in a column behind its rear pins, under the 1.0 mm OUT2 path
+    "C82": (-15.44, -2.47, 90),
+    "C88": (-15.38, -3.41, -90),
+    "C89": (-15.4, -4.85, 0),
+    "C91": (-15.44, 5.38, 90),
+    "C97": (-15.38, 4.44, -90),
+    "C98": (-15.4, 3.0, 0),
+    "C103": (-18.12, 8.55, 180),
+    # the right bridge's references in front of its logic pins, out of OUT1's path round them
+    "R61": (-3.09, -0.8, 90),
+    "R86": (-19.55, -13.5, 180),
+    # the fan driver: pump and boot capacitors at the rear pins, the sense resistor at the LSS pins 23-24
+    # (DS14341 section 8), the reference divider and the enable pull-up inside the fan ring (0.35 mm parts)
+    "C32": (16.6, 17.0, -90),
+    "C33": (15.8, 15.3, 90),
+    "R31": (25.22, 16.33, 0),
+    "R30": (26.9, 17.5, 0),
+    "R27": (23.75, 10.2, 90),
+    "R28": (21.3, 11.2, 0),
+    "R29": (22.3, 11.0, 0),
+    "C99": (33.1, 10.5, 180),
+    # the 3V3_D buck turned so its SW pin (1) is the corner nearest L3's SW pad, the SW node a short F.Cu
+    # path with no via (DS13554 Fig. 32: L1 at U1's SW pin); BOOT's and VCC's capacitors under the
+    # SW/BOOT/VCC row, the 22 uF C56 between them and the board's edge on L3's output; the input
+    # capacitor C53 on the VIN row, across VIN (pin 7) and PGND (pin 8) (DS13554 Fig. 32-33: the input
+    # capacitor's ground at PGND), inside the fan ring (its 1.25 mm sets [fan_ring] max_part_height);
+    # the 3V3_A LDO's output capacitor C81 beside it, toward the fan hole, within reach of U8's VOUT pins
+    "IC7": (20.31, -17.5, 180),
+    "C55": (19.03, -21.8, -90),
+    "C54": (20.98, -21.8, -90),
+    "C56": (19.1, -23.38, -90),
+    "C53": (19.04, -12.79, 90),
+    "C81": (17.7, -10.33, 0),
+    # the battery switch's gate-source capacitor, its GND_BAT pad up on the pour's side of the gate chain
+    "C58": (-33.0, 14.6, 0),
+    # the current sense dividers off the fan hole's lanes, the left by the fan driver and the right
+    # behind the SMPS row; VBAT's 1 uF past the left vertex; BOOT0's pull-down and NRST's filter by
+    # the rear-right face (the lanes round the hole take the room at the rear tip)
+    "R79": (17.8, 12.4, 90),
+    "R78": (22.0, -11.0, 90),
+    "C17": (31.0, 8.0, 45),
+    "R42": (26.163, -7.319, 135),
+    "C60": (26.884, -8.04, -45),
+    "C21": (28.4, -9.8, 90),
+    # the ESP32-C5's EN RC and BOOT pull-up off the rear, where the right motor's paths pass under J2
+    "R89": (-20.0, -15.6, 180),
+    "C110": (-23.9, -7.5, 0),
+    "R90": (-16.7, -23.7, 270),
+    "C24": (-0.8, -2.9, 180),
+    "C25": (-2.6, 0.6, 90),
+    "C69": (-0.7, -4.5, 90),
+    "C70": (1.3, -4.5, 90),
+    "C71": (0.0, 4.4, 90),
+    "R73": (-4.7, 4.1, 180),
+    "R63": (-3.9, -3.4, 180),
+    "R64": (-3.3, -1.8, 90),
+    "R71": (-8.1, 7.9, -90),
+    "R60": (5.4, -0.2, -90),
 }
 
 # Parts packed next to a given pad: reference -> (reference, pad number).
 NEAR = {
-    # the IMU's, between the encoder slots, before anything takes the room
+    # in the order they are packed: the parts tied to one pin first
+    "L1": ("IC1", "5"),
+    "C102": ("IC1", "14"),
+    "C11": ("IC1", "16"),
+    "C34": ("IC6", "28"),
+    "C35": ("IC6", "29"),
+    "C99": ("IC6", "30"),
+    "F1": ("J1", "1"),
+    "Q6": ("J1", "2"),
+    "D15": ("F1", "2"),
+    # buck (DS13554: input capacitors at VIN, output at the inductor), its supply diodes
+    "C53": ("IC7", "5"),
+    "C52": ("IC7", "7"),
+    "C54": ("IC7", "3"),
+    "C55": ("IC7", "2"),
+    "C56": ("L3", "2"),
+    "C57": ("L3", "2"),
+    "D14": ("C52", "2"),
+    "D17": ("C53", "2"),
+    # INA241 at VS (SBOSA30D 8.3.1)
+    "C100": ("U10", "6"),
+    "C103": ("U11", "6"),
+    # the emitter sink: the switch at the op-amp's output, its shunt at the switch
+    "Q9": ("U12", "1"),
+    "R83": ("Q9", "2"),
+    "C106": ("U12", "5"),
+    "C105": ("IC1", "30"),
+    # the buzzer's driver at the buzzer
+    "Q1": ("BZ1", "2"),
+    "D3": ("BZ1", "2"),
+    "R3": ("Q1", "3"),
+    "R1": ("Q1", "1"),
+    "R2": ("Q1", "1"),
+    "U8": ("C80", "2"),
+    "C81": ("U8", "1"),
+    "R58": ("C80", "2"),
+    "C107": ("U13", "3"),
+    # the IMU's
     "C24": ("IC2", "8"),
     "C25": ("IC2", "5"),
-    # decoupling at its pin (tests/test_layout.py DECOUPLING: nearest pad centres within 3 mm),
-    # in the order they are packed: the 100 nF at each pin first, then the bulk
-    # STM32 (AN5419 Table 2, Figure 5): one 100 nF per VDD pin, VDDA, VBAT, each VCAP; VDDA's
-    # first, beside VDD's pin 9 on the same side
-    "C10": ("IC1", "16"),
-    "C12": ("IC1", "9"),
-    "C13": ("IC1", "22"),
-    "C14": ("IC1", "35"),
-    "C15": ("IC1", "51"),
-    "C16": ("IC1", "68"),
-    "C8": ("IC1", "1"),
-    "C7": ("IC1", "33"),
-    "C6": ("IC1", "49"),
-    "C5": ("IC1", "66"),
-    # DRV8874 CVM1 (SLVSF66A Table 1), STSPIN958 CS and VDD (DS14341 Table 12), INA241 and
-    # TLV9001 at VS
-    # the bridges' charge pumps first (the flying capacitor across CPH-CPL, VCP's at VCP), then
-    # VM's 100 nF beside them
+    # DRV8874 CVM1 (SLVSF66A Table 1), STSPIN958 VDD (DS14341 Table 12), TLV9001 at VS; the bridges'
+    # charge pumps first (the flying capacitor across CPH-CPL, VCP's at VCP), then VM's 100 nF
     "C89": ("IC8", "13"),
     "C98": ("IC9", "13"),
     "C88": ("IC8", "12"),
     "C97": ("IC9", "12"),
     "C82": ("IC8", "11"),
     "C91": ("IC9", "11"),
-    "C34": ("IC6", "28"),
-    "C35": ("IC6", "29"),
     "C31": ("IC6", "13"),
-    "C106": ("U12", "5"),
-    # ADP7142 input and output (Rev H Table 2)
-    "C80": ("U8", "6"),
-    "C81": ("U8", "1"),
-    # the rest of the STM32 supply: SMPS (pins 5-7), VDDA and VBAT 1 uF, bulk
-    "L1": ("IC1", "5"),
-    "C1": ("IC1", "6"),
-    "C2": ("IC1", "6"),
-    "C3": ("IC1", "7"),
-    "C4": ("IC1", "7"),
-    "C11": ("IC1", "16"),
+    # the rest of the STM32 supply: VDDA filter, VBAT 1 uF, bulk
     "R67": ("IC1", "16"),
     "C9": ("IC1", "1"),
-    "C17": ("IC1", "51"),
     # bridges' bulk at VM; fan driver's bulk at VS
     "C83": ("IC8", "11"),
     "C84": ("IC8", "11"),
@@ -276,44 +312,17 @@ NEAR = {
     "C96": ("IC9", "11"),
     "C112": ("IC9", "11"),
     "C36": ("IC6", "27"),
-    "C99": ("IC6", "30"),
-    # buck (DS13554: input capacitors at VIN, output at the inductor)
-    "C52": ("IC7", "7"),
-    "C53": ("IC7", "5"),
-    "C54": ("IC7", "3"),
-    "C56": ("L3", "2"),
-    "C57": ("L3", "2"),
-    # wall sensor channels: switch at the emitter's cathode, its resistor at the anode, the
-    # receiver's load at the receiver
-    "Q2": ("W1", "2"),
-    "Q3": ("W2", "2"),
-    "Q4": ("W3", "2"),
-    "Q5": ("W4", "2"),
-    "R13": ("W1", "1"),
-    "R17": ("W2", "1"),
-    "R21": ("W3", "1"),
-    "R25": ("W4", "1"),
-    "R14": ("W1", "4"),
-    "R18": ("W2", "4"),
-    "R22": ("W3", "4"),
-    "R26": ("W4", "4"),
-    "C26": ("R13", None),
-    "C27": ("R17", None),
-    "C28": ("R21", None),
-    "C29": ("R25", None),
     # ESP, IMU, encoders, LEDs, others
     "C69": ("EC1", None),
     "C70": ("EC1", None),
     "C71": ("EC2", None),
     "C72": ("EC2", None),
-    "D5": ("D2", None),
-    "R5": ("D5", None),
     "C18": ("D1", None),
     "C19": ("D2", None),
 }
 
 # Placement order of the packed parts that need a spot first (large or tied to one pad).
-FIRST = ["U10", "U11", "Q1", "R83", "D3", "R3", "R31"]
+FIRST = ["R83", "R31"]
 
 # Nets that do not pull a part towards a pad: supplies and ground reach everywhere through planes.
 RAILS = {"GND", "GND_BAT", "3V3_D", "3V3_A", "VBAT", "VDDA"}
@@ -441,13 +450,56 @@ def board_mask() -> np.ndarray:
 
 
 def zone_masks() -> list[tuple[float, np.ndarray]]:
-    """The chassis zones, grown by GAP: a courtyard keeps clear of a zone it may not enter."""
+    """The chassis zones, grown by GAP: a courtyard keeps clear of a zone it may not enter; and the
+    fan ring (spec [fan_ring]), where parts stay at or below its max_part_height."""
     out = []
     for _name, (x0, x1, y0, y1, h) in mech.keepout_zones(S):
         x0, x1, y0, y1 = x0 - GAP, x1 + GAP, y0 - GAP, y1 + GAP
         corners = [to_kicad(x, y) for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))]
         out.append((h, fill([np.array(corners)])))
+    r = S["fan_ring"]["diameter"] / 2 + GAP
+    ring = [to_kicad(S["fan_hole"]["x"] + r * math.cos(a), r * math.sin(a)) for a in np.linspace(0, 2 * math.pi, 96)]
+    out.append((S["fan_ring"]["max_part_height"], fill([np.array(ring)])))
+    # the wall sensors' printed cases (parts up to CASE_UNDER under them) and their view corridors
+    # (parts below the corridor's lower edge, less VIEW_MARGIN, at the corridor's far end on the
+    # board): tests/test_wall_joint.py draws both, tests/test_main_layout.py checks the parts
+    sys.path.insert(0, str(ROOT))
+    import tests.test_wall_joint as tw  # noqa: PLC0415
+
+    axis = tomllib.loads((ROOT / "spec/wall.toml").read_text())["sensor"]["v"]["value"]
+    tan = math.tan(math.radians(tw.VIEW_HALF_DEG))
+    for face, a in tw._sensors().values():
+        case = tw._case(face, a)
+        c = np.mean(case, 0)
+        grown = [(x + GAP * (x - c[0]) / math.dist((x, y), c), y + GAP * (y - c[1]) / math.dist((x, y), c)) for x, y in case]
+        out.append((CASE_UNDER, fill([np.array([to_kicad(x, y) for x, y in grown])])))
+        SENSOR_ZONES.append(out[-1][1])
+        d, n = (math.cos(a), math.sin(a)), (-math.sin(a), math.cos(a))
+        tip = (face[0] + tw.LED_TIP * d[0], face[1] + tw.LED_TIP * d[1])
+        for r0, r1 in ((0.0, 3.0), (3.0, 6.0), (6.0, 12.0)):  # in steps, each at its far end's limit
+            w0, w1 = tw.BODY_R + r0 * tan + GAP, tw.BODY_R + r1 * tan + GAP
+            pts = [(tip[0] + r * d[0] + s * w * n[0], tip[1] + r * d[1] + s * w * n[1]) for r, w, s in ((r0, w0, -1), (r1, w1, -1), (r1, w1, 1), (r0, w0, 1))]
+            out.append((axis - tw.BODY_R - r1 * tan - VIEW_MARGIN, fill([np.array([to_kicad(x, y) for x, y in pts])])))
+            SENSOR_ZONES.append(out[-1][1])
     return out
+
+
+def silk_near() -> np.ndarray:
+    """The cells a pad may not cover: within SILK_PAD (and the raster's margin) of the spec's
+    silkscreen lines (the fan ring, the drive blocks' outlines: mech.main_silk), which no pad may sit
+    under (tests/test_main_layout.py test_spec_silkscreen_keeps_off_every_pad)."""
+    m = np.zeros((NY, NX), bool)
+    for e in mech.main_silk(S, sexpr.parse(PCB.read_text())):
+        if isinstance(e, mech.Line):
+            n = max(1, int(math.dist(e.a, e.b) / (RES / 2)))
+            pts = [(e.a[0] + (e.b[0] - e.a[0]) * k / n, e.a[1] + (e.b[1] - e.a[1]) * k / n) for k in range(n + 1)]
+        else:
+            pts = mech.sample(e, 800)
+        for x, y in pts:
+            c = cell(*to_kicad(x, y))
+            if 0 <= c[0] < NX and 0 <= c[1] < NY:
+                m[c[1], c[0]] = True
+    return grow(m, mech.SILK_PAD + SILK_MARGIN)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -486,10 +538,21 @@ def local_mask(f, rot):
     c1 = math.ceil((hi[0] - KX0) / RES), math.ceil((hi[1] - KY0) / RES)
     shape = (c1[1] - c0[1], c1[0] - c0[0])
     m = fill(polys, shape, (KX0 + c0[0] * RES, KY0 + c0[1] * RES))
+    pp = []
+    for p in f.Pads():
+        poly = p.GetEffectivePolygon(pcbnew.F_Cu)
+        for i in range(poly.OutlineCount()):
+            o = poly.Outline(i)
+            pp.append(np.array([(pcbnew.ToMM(o.CPoint(k).x), pcbnew.ToMM(o.CPoint(k).y)) for k in range(o.PointCount())]))
+    pads = None  # the pads' cells on the courtyard's raster: they keep off the spec's silkscreen
+    if pp:
+        pads = np.zeros(shape, bool)
+        for q in pp:
+            pads |= fill([q], shape, (KX0 + c0[0] * RES, KY0 + c0[1] * RES))
     f.SetOrientationDegrees(old_rot)
     f.SetPosition(old_pos)
     origin_cell = (round(100 / RES), round(100 / RES))
-    return m, (c0[0] - origin_cell[0], c0[1] - origin_cell[1])
+    return m, (c0[0] - origin_cell[0], c0[1] - origin_cell[1]), pads
 
 
 def grow(m: np.ndarray, d: float) -> np.ndarray:
@@ -514,11 +577,13 @@ def stamp(occ, m, off, cx, cy):
     occ[y0 : y0 + m.shape[0], x0 : x0 + m.shape[1]] |= m
 
 
-def fits(free, m, off, cx, cy):
+def fits(free, m, off, cx, cy, pads=None, silk=None):
     x0, y0 = cx + off[0], cy + off[1]
     if x0 < 0 or y0 < 0 or y0 + m.shape[0] > free.shape[0] or x0 + m.shape[1] > free.shape[1]:
         return False
-    return not (m & ~free[y0 : y0 + m.shape[0], x0 : x0 + m.shape[1]]).any()
+    if (m & ~free[y0 : y0 + m.shape[0], x0 : x0 + m.shape[1]]).any():
+        return False
+    return silk is None or pads is None or not (pads & silk[y0 : y0 + m.shape[0], x0 : x0 + m.shape[1]]).any()
 
 
 def mcu_lanes(fps) -> np.ndarray:
@@ -603,6 +668,7 @@ def main():
 
     inside = board_mask()
     zones = zone_masks()
+    silk = silk_near()
     occ = np.zeros_like(inside)
     for ref in placed:
         for poly in courtyard(fps[ref]):
@@ -638,6 +704,9 @@ def main():
         hh = h.get(ref, 0.0)
         for zh, zm in zones:
             if hh > zh + 1e-6:
+                free &= ~zm
+        if ref in FINGER:
+            for zm in SENSOR_ZONES:
                 free &= ~zm
         return free
 
@@ -710,8 +779,8 @@ def main():
                     for rot in range(0, 360, 45 if NEAR.get(ref, (None,))[0] == "IC1" else 90):
                         if (ref, rot) not in masks:
                             masks[(ref, rot)] = local_mask(f, rot)
-                        m, off = masks[(ref, rot)]
-                        if not fits(free, m, off, cx, cy):
+                        m, off, pads = masks[(ref, rot)]
+                        if not fits(free, m, off, cx, cy, pads, silk):
                             continue
                         first = radius if first is None else first
                         # cost: the part's signal pads to their targets, then the distance moved
@@ -737,7 +806,7 @@ def main():
         x, y = to_robot(KX0 + cx * RES, KY0 + cy * RES)
         placed[ref] = (round(x, 3), round(y, 3), rot)
         set_at(f, *placed[ref])
-        m, off = masks[(ref, rot)]
+        m, off, _pads = masks[(ref, rot)]
         stamp(occ, m, off, cx, cy)
 
     board.Save(str(PCB))

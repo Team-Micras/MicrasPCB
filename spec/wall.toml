@@ -1,0 +1,74 @@
+# Wall-sensor board: mechanical single source of truth for its interface to the robot.
+#
+# One board per wall sensor (four on a robot), standing upright on the main board with the sensor
+# looking at the wall. A 2x3 1.27 mm straight header joins the two boards, straddling this board's
+# bottom edge: the board stands between its two rows, its bottom edge on the header's insulator, the
+# short pins soldered to pads on both faces; the long pins go down through the main board's plated
+# holes (components/micras/WallJoint) and the insulator sits on the main board. `micras-pcb mech
+# wall` draws the Edge.Cuts outline from this file, writes the aux/grid origin and the position of
+# the sensor W1 and the header J1 (locked footprints) into the layout, and exports
+# build/wall/wall_mech.json.
+#
+# Frame: origin on the main board's top surface, under the middle of this board's bottom edge (the
+# header's insulator between them). u points right, seen from the front (the sensor side, KiCad's
+# top), v points up, away from the main board. Millimetres. On the KiCad sheet:
+# x_kicad = origin_x + u, y_kicad = origin_y - v.
+#
+# Every value is {value, source}, as in micras-simulation's robot.toml.
+
+[pcb]
+thickness = { value = 0.79, source = "boards/wall/wall.zen stackup: the encoder board's 0.70 mm core and 35 um copper (spec/encoder.toml), 0.79 mm with Zener's 10 um mask a side; ordered as JLCPCB's 0.8 mm board (+-0.1 mm below 1.0 mm). It stands between the header's rows, 0.87 mm apart between the pins (header.row_pitch - header.pin_section): 0.04 mm a side at 0.79 mm, from 0.085 mm a side (0.7 mm, filled by the solder) to a 0.03 mm press fit (0.9 mm) over JLCPCB's tolerance" }
+copper_layers = { value = 2, source = "boards/wall/wall.zen Board(layers = 2)" }
+
+[kicad]
+origin_x = { value = 150.0, source = "a free point of the sheet: the main board's top surface under the bottom edge's middle" }
+origin_y = { value = 110.0, source = "a free point of the sheet: the main board's top surface under the bottom edge's middle" }
+
+[outline]
+# A paddle: a narrow handle at the bottom, standing in the header, and a wider blade above it for
+# the sensor. The neck between them is one smooth S-curve a side: an inside arc tangent to the
+# handle's side, then a long outside arc tangent to the blade's side at neck_top; the handle's
+# straight sides end where the two arcs fit (tools/micras_pcb/mech.py wall_neck: v 2.74).
+width = { value = 8.4, source = "the blade, for the sensor and its tracks (the owner, 2026-11-03: a paddle, 8.4 mm for more side margin round the lenses): the SFH 4550 flange (5.9 mm max, SFH-DS p.10) 1.25 mm from its sides. The owner accepts W1/W4's boards then standing exactly 1.0 mm inside the main board's side edge (spec/main.toml [w1]: LENS_MARGIN in tests/test_wall_joint.py, no spare); the lens cases are sleeves round the lenses, 8.0 mm across whatever the blade" }
+handle_width = { value = 4.2, source = "the owner (2026-11-03: a wider neck): within the main board's joint courtyard, the 3.81 mm insulator plus 0.25 mm a side (4.31 mm, components/micras/WallJoint), so that courtyard holds the handle; the header's outer pads (0.70 mm at +-1.27 mm) 0.48 mm from its edges" }
+neck_top = { value = 8.8, source = "the owner (2026-11-03): a gentle neck, spread as far as the TPS601A flange (5.8 mm max, axis at v 7.5) and the main board allow: the blade reaches its full width at v 8.8, the outline keeps 1.12 mm from the flange at every height (tests/test_wall.py), and the neck leaves the handle high enough that the blade clears the main board's 2.5 mm capacitors under W1/W4's overhang (C36, C52; joint.under_blade)" }
+neck_radius = { value = 8.8, source = "the neck's long outside arc, tangent to the blade's side at neck_top: above the 8.33 mm at which it would touch the flange's 1.1 mm margin" }
+neck_inside_radius = { value = 1.0, source = "the neck's inside arc from the handle's side: twice JLCPCB's 0.5 mm milled inside corner; it leaves the handle at v 2.74, the header pads' corners 0.48 mm or more from the edge" }
+bottom = { value = 1.0, source = "header.insulator_height: the bottom edge rests on the header's insulator, which sits on the main board" }
+top = { value = 17.0, source = "the SFH 4550 flange top, sensor.v + sensor.led_above + 2.95 mm (5.9 mm max flange) = 16.55 mm, plus 0.45 mm" }
+corner_radius = { value = 1.0, source = "the encoder board's top corners (spec/encoder.toml outline.corner_radius); the bottom corners stay square, on the insulator's line" }
+
+[sensor]
+# The TPS601A axis; the SFH 4550 axis is led_above higher (the WallSensor upright footprint).
+u = { value = 0.0, source = "the board's centre line, over the header's centre" }
+v = { value = 7.5, source = "the owner (2026-11-02, kept 2026-11-03 with the straddle header): the receiver's axis 7.5 mm over the main board's top, 6.5 mm over the board's bottom edge. The TPS601A flange (5.8 mm max, TPS-DS p.1) bottoms at v 4.6 on the centre line and 4.89 over the outer pins, 0.8 mm or more above the front pads' tops (v 3.8, header.v + header.pad_top), the pins' tips (3.3 +-0.2) further below; even a key tab (1.0 +-0.2 mm beyond the flange, 1.2 mm wide at most, 45 deg from the lead line beside pin 1, components/micras/WallSensor) pointing down at pin 1 instead of up keeps 0.93 mm from pin 1's pad (tests/test_wall.py)" }
+rotation = { value = 0, source = "pin 1 (SFH cathode, TPS601A emitter) on the left seen from the front, as on the bent-lead sensor (components/micras/WallSensor)" }
+path = { value = "W1.WALL", source = "boards/wall/wall.zen instance path" }
+led_above = { value = 6.1, source = "the WallSensor upright footprint: the SFH 4550 axis 6.1 mm above the TPS601A's, the two flanges (5.9 and 5.8 mm max) 0.25 mm apart" }
+
+[header]
+# The 2x3 1.27 mm straight header J1 (components/hanxia/HX-PZ1.27-2x3P-ZZ, its footprint
+# HX-PZ1.27-2x3P-ZZ_Straddle): odd pins on the front face, even pins behind them, pin 1 on the left
+# seen from the front. Drawing: Hanxia HX PZ1.27-2x3P ZZ rev A, 2023-07-18.
+u = { value = 0.0, source = "the footprint origin, the middle of the bottom edge between the rows: pins at u -1.27, 0, +1.27" }
+v = { value = 1.0, source = "outline.bottom: the footprint origin on the bottom edge" }
+rotation = { value = 0, source = "pin 1 on the left seen from the front (boards/wall/wall.zen pin map)" }
+path = { value = "J1.J", source = "boards/wall/wall.zen instance path" }
+pins = { value = 6, source = "boards/wall/wall.zen J1: 1 Wall_Sensor, 2 GND, 3 3V3_A, 4 3V3_D, 5 EMITTER_SINK, 6 PWM" }
+pitch = { value = 1.27, source = "drawing: 1.27 +-0.1 mm along the rows" }
+row_pitch = { value = 1.27, source = "drawing, end view: the rows 1.27 mm apart" }
+pin_section = { value = 0.4, source = "drawing: SQ 0.40 pins" }
+pin_up = { value = 2.3, source = "drawing: 2.30 +-0.2 mm from the insulator's face: the short pins, up along this board's faces" }
+pin_down = { value = 3.9, source = "drawing: 3.90 +-0.2 mm from the insulator's other face: the long pins, down through the main board (1.04 mm, spec/main.toml pcb.thickness), trimmed to 0.5 mm or less under it after soldering (the main board rides 0.7-0.85 mm off the floor)" }
+pin_tolerance = { value = 0.2, source = "drawing: +-0.2 mm on both pin lengths" }
+insulator_length = { value = 3.81, source = "drawing: DIM B = 3.81 +-0.3 mm for 3 positions, along the rows" }
+insulator_width = { value = 3.4, source = "drawing, top view: 3.40 mm across the rows, centred on this board's mid-plane: 1.305 mm in front of the front face" }
+insulator_height = { value = 1.0, source = "drawing: 1.00 mm (no tolerance given; the title block's X.XX +-0.20 if it applies, which moves the optical axes with it)" }
+pad_top = { value = 2.8, source = "components/hanxia/HX-PZ1.27-2x3P-ZZ footprint: the pads from 0.2 mm above the bottom edge (copper to edge) to 0.3 mm past the longest pin (pin_up + pin_tolerance)" }
+
+[joint]
+# What the main board drills for each wall board (components/micras/WallJoint).
+drill = { value = 0.7, source = "the drawing's recommended 0.65 mm holes, plus room for JLCPCB's -0.08 mm finished-hole tolerance against the 0.57 mm diagonal of the 0.40 mm pin" }
+pad = { value = 1.1, source = "a 0.20 mm annular ring (JLCPCB's preferred for multilayer boards, rules/jlcpcb-pdk.toml), 0.17 mm between pads at 1.27 mm" }
+back_parts = { value = 1.2, source = "the wall board's back-face parts stand at most 1.2 mm behind its back face (D1 and Q1, their 3D models)" }
+under_blade = { value = 2.55, source = "the blade's overhang beside the handle, a strip as wide as the blade and as deep as the board with its back-face parts, runs 3.06 mm or more over the main board outside the joint's courtyard (|u| >= 2.155 mm: the insulator plus 0.25 mm, where the main board's parts can stand): those parts stay 0.5 mm below it, at or below 2.55 mm (the owner, 2026-11-03)" }

@@ -1,4 +1,5 @@
-"""Wall-emitter drive: the AC-coupled selectors Q2-Q5 and the shared sink U12/Q9 with its DAC
+"""Wall-emitter drive: the wall joints W1-W4 (each wall board carries its emitter, its resistor and
+its AC-coupled selector, boards/wall and its bench) and the shared sink U12/Q9 with its DAC
 set-point.
 
 Sources: ams-OSRAM SFH 4550 v1.9 (p4: IF 100 mA DC max) and v1.8 (p.6: pulse handling), AOS AO3400A Rev 3.1 (p2), TI SBOS833R
@@ -9,11 +10,9 @@ research/next-revision/calculations/emitter/emitter_sink.py (emitter_sink_out.tx
 load(
     "./helpers.zen",
     "eng",
-    "farads",
     "index",
     "net",
     "ohms",
-    "refs_on",
     "report",
     "two_terminal",
 )
@@ -27,11 +26,8 @@ SENSE = "R83"
 # Emitter n's selector is driven from a TIM3 channel (boards/main/firmware_changes.toml, emitters):
 # PC9 CH4, PB0 CH3, PB5 CH2 (W3), PB4 CH1 (W4).
 CHANNELS = [("W1", "PC9"), ("W2", "PB0"), ("W3", "PB5"), ("W4", "PB4")]
-# A pin held high must let the gate fall below VGS(th) min 0.65 V (AO3400A p2) in milliseconds, so
-# the emitter never carries the sink's current as DC (SFH 4550 p4: 100 mA); and the gate may fall
-# at most 5 % over the firmware's 150 us pulse (the model's margin, emitter_sink_out.txt section 1).
-TAU_MIN = 0.150e-3 / 0.05
-TAU_MAX = 10e-3
+# Each receiver's load at the ADC (Sensors.zen, Receiver n; the v1 board's 1 kOhm).
+R_LOAD = 1e3
 # DAC1_OUT2 with the buffer off: 0 V to VREF+ through RO 10.3-16 kOhm (DS13311 Table 90).
 RO = [10.3e3, 16e3]
 VREF = 3.3
@@ -56,51 +52,28 @@ SINK_FLOOR = 0.21 + I_SET * 0.048
 HEADROOM_MIN = 0.5
 
 
-def _selector(b, sensor):
-    fets = [
-        r
-        for r in refs_on(b, net(b, sensor, "LED_K"))
-        if r.startswith("Q") and net(b, r, "D") == net(b, sensor, "LED_K")
-    ]
-    return fets[0] if len(fets) == 1 else None
-
-
-def wall_selector_gates_are_ac_coupled(module, inputs):
-    # Each selector's gate reaches its PWM pin only through a series capacitor, with a pull-down
-    # and a clamp from GND to the gate: a pin held high cannot keep an emitter on.
+def wall_joints_carry_the_drive(module, inputs):
+    # Each joint's PWM pin is its TIM3 channel (the wall board's selector gate network), its SINK
+    # pin the shared sink's drain (Q9 D, the selector's source), its OUT the receiver's ADC line
+    # with its 1 kOhm load to GND here, and its supplies 3V3_D (emitter) and 3V3_A (receiver).
     b = index(module)
     p = []
+    sink = net(b, SINK_FET, "D")
     for sensor, pin in CHANNELS:
-        q = _selector(b, sensor)
-        if q == None:
-            p.append(sensor + ": no selector FET on LED_K")
-            continue
-        gate, pwm = net(b, q, "G"), net(b, MCU, pin)
-        if net(b, q, "S") != net(b, SINK_FET, "D"):
-            p.append(q + " source is not on the sink " + net(b, SINK_FET, "D"))
-        if two_terminal(b, "resistor", pwm, gate) or gate == pwm:
-            p.append(q + " gate is DC-coupled to " + pin + ": a pin held high keeps " + sensor + " on")
-        downs = two_terminal(b, "resistor", gate, "GND")
-        caps = [c for c in refs_on(b, gate) if b.parts[c].type == "capacitor"]
-        coupled = []
-        for c in caps:
-            ns = [n.name for n in b.parts[c].pins.values()]
-            drive = ns[1] if ns[0] == gate else ns[0]
-            if drive != "GND" and two_terminal(b, "resistor", pwm, drive):
-                coupled.append(c)
-        clamps = [
-            d for d in refs_on(b, gate) if d.startswith("D") and net(b, d, "K") == gate and net(b, d, "A") == "GND"
-        ]
-        if len(coupled) != 1:
-            p.append(q + " gate needs one series capacitor from " + pin + "'s gate resistor, found " + str(coupled))
-        if len(downs) != 1:
-            p.append(q + " gate needs one pull-down to GND, found " + str(downs))
-        if len(clamps) != 1:
-            p.append(q + " gate needs a clamp diode from GND, found " + str(clamps))
-        if len(coupled) == 1 and len(downs) == 1:
-            tau = ohms(b, downs[0]) * farads(b, coupled[0])
-            if tau < TAU_MIN or tau > TAU_MAX:
-                p.append(q + ": " + downs[0] + " x " + coupled[0] + " = " + str(tau * 1e3) + " ms, outside 3-10 ms")
+        if net(b, sensor, "PWM") != net(b, MCU, pin):
+            p.append(sensor + " PWM is on " + net(b, sensor, "PWM") + ", not " + pin + "'s " + net(b, MCU, pin))
+        if net(b, sensor, "SINK") != sink:
+            p.append(sensor + " SINK is on " + net(b, sensor, "SINK") + ", not " + SINK_FET + "'s drain " + sink)
+        out = net(b, sensor, "OUT")
+        loads = [r for r in two_terminal(b, "resistor", out, "GND") if abs(ohms(b, r) - R_LOAD) <= 0.01 * R_LOAD]
+        if len(loads) != 1:
+            p.append(sensor + " OUT (" + out + ") needs one 1 kOhm load to GND, found " + str(loads))
+        if net(b, sensor, "GND") != "GND":
+            p.append(sensor + " GND is not GND")
+        if net(b, sensor, "3V3_D") != net(b, "IC1", "VDD"):
+            p.append(sensor + " 3V3_D is not the MCU's 3V3_D")
+        if net(b, sensor, "3V3_A") != net(b, SINK_AMP, "V+"):
+            p.append(sensor + " 3V3_A is not the sink's (and the ADC reference's) 3V3_A")
     report(p)
 
 
@@ -139,7 +112,7 @@ def emitter_sink_set_point_from_the_dac(module, inputs):
 
 
 def emitter_pulse_within_rating(module, inputs):
-    # SFH 4550 pulse handling (WallSensor.zen, emitter_pulse_current: tp <= 150 us, D <= 0.2, 25 C;
+    # SFH 4550 pulse handling (WallSensor.zen and WallJoint.zen, emitter_pulse_current: tp <= 150 us, D <= 0.2, 25 C;
     # the firmware lights each emitter 150 us per 1 ms frame, boards/main/firmware_changes.toml):
     # - the DAC's full scale (code 4095, VREF+ at VDDA max, RO at its 10.3 kOhm minimum) stays within it;
     # - so does a failed sink (Q9 shorted or U12 stuck high), which leaves only the emitter resistor and
@@ -158,12 +131,11 @@ def emitter_pulse_within_rating(module, inputs):
     k = ohms(b, bottom[0]) / (ohms(b, top[0]) + ohms(b, bottom[0]) + RO[0])
     full = VDDA_MAX * (k * (1 + rf / rb) - rf / rb) / rs
     for sensor, pin in CHANNELS:
+        # The emitter and its resistor sit on the wall board (boards/wall, its W1 and R1); the joint
+        # carries their values (components/micras/WallJoint; tests/test_wall.py compares them).
         rating = b.parts[sensor].emitter_pulse_current.value
-        r_em = two_terminal(b, "resistor", net(b, sensor, "LED_A"), net(b, MCU, "VDD"))
-        if len(r_em) != 1:
-            p.append(sensor + ": expected one emitter resistor from 3V3_D to LED_A, found " + str(r_em))
-            continue
-        re = ohms(b, r_em[0])
+        re = b.parts[sensor].emitter_resistor.value
+        r_name = sensor + "'s wall board R1"
         if full > rating:
             p.append(
                 sensor
@@ -180,7 +152,7 @@ def emitter_pulse_within_rating(module, inputs):
                 + ": a failed sink lets "
                 + eng(fault, "A")
                 + " through "
-                + r_em[0]
+                + r_name
                 + " "
                 + eng(re, "Ohm")
                 + " and "
@@ -191,7 +163,7 @@ def emitter_pulse_within_rating(module, inputs):
             )
         headroom = V3V3_D_PULSE_MIN - VF_MAX_SET - I_SET * re - SINK_FLOOR
         if headroom < HEADROOM_MIN:
-            p.append(sensor + ": " + r_em[0] + " leaves the selector " + eng(headroom, "V") + ", below 0.5 V")
+            p.append(sensor + ": " + r_name + " leaves the selector " + eng(headroom, "V") + ", below 0.5 V")
     report(p)
 
 
@@ -200,7 +172,7 @@ TestBench(
     module=MAIN,
     test_cases={"board": {}},
     checks=[
-        wall_selector_gates_are_ac_coupled,
+        wall_joints_carry_the_drive,
         emitter_sink_set_point_from_the_dac,
         emitter_pulse_within_rating,
     ],

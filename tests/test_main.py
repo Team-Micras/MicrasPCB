@@ -102,22 +102,22 @@ def _reach(edges, start):
 
 def test_vsys_never_back_feeds_the_battery(d):
     # Research Power tree: VBAT reaches VSYS through D14, and nothing on VSYS or the rails it makes
-    # reaches VBAT or the pack. 5V_IN, a programmer's 5 V pin on J2 pin 2 and SWD1 pad 4, reaches
+    # reaches VBAT or the pack. 5V_IN, a programmer's 5 V pin on J2 pad 2 and SWD1 pad 5, reaches
     # VSYS through D17 (Regulators.zen); D14 must stop it there, and D17 must keep VSYS (the pack)
     # off the programmer.
     vbat, pack, vsys = d.net("IC8", "VM"), d.net("J1", "1"), d.net("IC7", "VIN")
     v5 = d.net("J2", "2")
     edges = _edges(d)
     problems = []
-    for start in (vsys, v5, d.net("SWD1", "4")):
+    for start in (vsys, v5, d.net("SWD1", "5")):
         back = _reach(edges, start)
         problems += [f"{start} reaches {n} through {' -> '.join(back[n])}" for n in (vbat, pack) if n in back]
     if vsys not in _reach(edges, vbat):
         problems.append(f"{vbat} does not reach VSYS")
     if vsys not in _reach(edges, v5):
-        problems.append(f"{v5} (J2 pin 2) does not reach VSYS")
-    if d.net("SWD1", "4") != v5:
-        problems.append(f"SWD1 pad 4 is on {d.net('SWD1', '4')}, not J2 pin 2's {v5}")
+        problems.append(f"{v5} (J2 pad 2) does not reach VSYS")
+    if d.net("SWD1", "5") != v5:
+        problems.append(f"SWD1 pad 5 is on {d.net('SWD1', '5')}, not J2 pad 2's {v5}")
     for start in (vbat, vsys):
         if v5 in _reach(edges, start):
             problems.append(
@@ -127,15 +127,27 @@ def test_vsys_never_back_feeds_the_battery(d):
 
 
 def test_swd_header_follows_the_clone_st_link_order(d):
-    # The owner's clone ST-Link lead (main.zen): pads 1 SWDIO, 2 GND, 3 SWCLK, 4 its 5 V pin. Plugged
-    # turned round, or shifted one pad either way, the probe's 5 V pin never lands on GND.
-    want = {1: d.net(MCU, "PA13"), 2: "GND", 3: d.net(MCU, "PA14"), 4: "5V_IN"}
+    # SWD1 (main.zen): pad 1 NRST for the probe's RST wire, then the owner's clone ST-Link lead on
+    # pads 2-5: 2 SWDIO, 3 GND, 4 SWCLK, 5 its 5 V pin. main.zen's docstring gives what each misplug
+    # of the lead does; where the probe's 5 V lands must stay what it says.
+    want = {1: d.net(MCU, "NRST"), 2: d.net(MCU, "PA13"), 3: "GND", 4: d.net(MCU, "PA14"), 5: "5V_IN"}
     got = {pad: d.net("SWD1", str(pad)) for pad in want}
     assert got == want, f"SWD1 pads {got}, expected {want}"
-    probe_5v = 4  # the lead's pins in the same order: 1 SWDIO, 2 GND, 3 SWCLK, 4 5V
-    misplugs = {"turned round": 5 - probe_5v, "shifted +1": probe_5v + 1, "shifted -1": probe_5v - 1}
-    on_gnd = [how for how, pad in misplugs.items() if got.get(pad) == "GND"]
-    assert not on_gnd, f"the probe's 5 V lands on SWD1's GND pad when the lead is {on_gnd}"
+    lead = ["SWDIO", "GND", "SWCLK", "5V"]  # the lead's contacts in order
+    documented = {
+        (1, False): want[4],  # one pad toward pad 1: SWCLK
+        (2, False): "5V_IN",  # as meant
+        (3, False): None,  # one contact past pad 5: on no pad
+        (1, True): want[1],  # turned round on pads 1-4: NRST
+        (2, True): want[2],  # turned round: SWDIO
+        (3, True): "GND",  # turned round on pads 3-6: GND, the probe's ground on 5V_IN
+    }
+    lands = {}
+    for first, turned in documented:
+        contacts = lead[::-1] if turned else lead
+        pad = first + contacts.index("5V")
+        lands[(first, turned)] = got.get(pad)
+    assert lands == documented, f"the probe's 5 V lands {lands}; main.zen's misplug list says {documented}"
 
 
 def test_no_connector_pin_on_3v3(d):
@@ -178,6 +190,9 @@ ANALOG_LOADS = {
 }
 
 
+WALL_SLOTS = {"W1", "W2", "W3", "W4"}
+
+
 def test_analog_rail_feeds_only_analog_loads(d):
     a = d.net("U8", "VOUT")
     problems = []
@@ -187,8 +202,8 @@ def test_analog_rail_feeds_only_analog_loads(d):
             continue
         mpn = d.mpn(ref) or ""
         allowed = next((pins for prefix, pins in ANALOG_LOADS.items() if mpn.startswith(prefix)), None)
-        if d.nl.parts[ref].value == "WallSensor":
-            allowed = {"PT_C"}
+        if ref in WALL_SLOTS:
+            allowed = {"3V3_A"}  # the wall board's receiver collector (components/micras/WallJoint pin 3)
         if allowed is None or fn not in allowed:
             problems.append(f"{ref} ({mpn or d.nl.parts[ref].value}) pin {fn} is on the analog rail {a}")
     # VDDA through the 0 Ohm link, and nothing digital behind it
@@ -208,7 +223,7 @@ def test_no_usb_and_no_5v_rail(d):
     on_5v = sorted(r for r, _, _ in d.on("5V_IN"))
     assert on_5v == ["D17", "J2", "SWD1"], f"5V_IN reaches {on_5v}: only J2, SWD1 and D17"
     connectors = sorted(r for r in d.nl.parts if r.startswith("J"))
-    assert connectors == ["J1", "J2"], f"connectors {connectors}: J1 (the pack) and J2 (the radio's header) only"
+    assert connectors == ["J1", "J2"], f"connectors {connectors}: J1 (the pack) and J2 (the radio's flashing pads) only"
 
 
 # --- decoupling present on the schematic (its distance is test_layout's, once there is a layout) --
@@ -365,7 +380,7 @@ def test_current_sampling_time_settles_the_adc_kickback(d):
 # Firmware rules the hardware does not enforce (behaviour key -> words it must name).
 FIRMWARE_RULES = {
     # a debug halt: the timers freeze and the drive enables drop (Drivers.zen, R49 covers reset only);
-    # Motors_Enable (PB8) and Fan_Enable (PB12) are both port B pins: one GPIOB write
+    # Motors_Enable (PD2) and Fan_Enable (PB12): one GPIOD and one GPIOB write
     "debug_halt": ["TIM1", "TIM8", "TIM14", "Motors_Enable", "Fan_Enable", "GPIOB_BSRR"],
     # the IMU shares SPI_SCK/SPI_MOSI with the encoders and decodes them as I2C while deselected
     "imu_interface": ["I2C_I3C_disable", "IF_CFG"],
@@ -491,6 +506,9 @@ RESEARCH = ROOT / "research" / "next-revision" / "README.md"
 # A designator as the board's prefixes write it, standing alone (not in a path, a link anchor or a
 # part number); "H7..." is the MCU family (STM32H7, H725), not a mounting hole.
 DESIGNATOR = re.compile(r"(?<![\w./-])(R|C|L|D|Q|U|IC|J|M|SW|F|BZ|W|EC|H|TP|SWD)(\d{1,3})(?![\w])")
+# The research's numbered questions (its "### Q4." sections, "[Q4](#q4-...)" links to them, their
+# items "Q4.5" and the studies' "study Q2") are not designators.
+QUESTION = re.compile(r"### Q\d+\.|\[Q\d+\]\(#q\d|\bQ\d+\.\d|study Q\d+\b")
 
 
 def test_research_names_only_parts_on_the_board(d):
@@ -498,7 +516,7 @@ def test_research_names_only_parts_on_the_board(d):
     # part of the board's netlist, so a removed or renamed part cannot linger in the description.
     absent = {}
     for n, line in enumerate(RESEARCH.read_text().splitlines(), 1):
-        for m in DESIGNATOR.finditer(line):
+        for m in DESIGNATOR.finditer(QUESTION.sub(" ", line)):
             ref = m.group(0)
             if not ref.startswith("H7") and ref not in d.nl.parts:
                 absent.setdefault(ref, []).append(n)

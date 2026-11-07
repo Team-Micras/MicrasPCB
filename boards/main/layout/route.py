@@ -59,7 +59,7 @@ import router  # noqa: E402
 sys.path.insert(0, str(ROOT / "tools"))
 from micras_pcb import nets, tools  # noqa: E402
 
-PCB = HERE / "main.kicad_pcb"
+PCB = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else HERE / "main.kicad_pcb"
 OX, OY = 148.5011, 113.5036  # spec/main.toml [kicad]
 B: pcbnew.BOARD = None
 F, BK, IN1, IN2 = pcbnew.F_Cu, pcbnew.B_Cu, pcbnew.In1_Cu, pcbnew.In2_Cu
@@ -165,20 +165,26 @@ BOARD = rect(-47.0, 54.0, -25.5, 25.5)  # the outline clips every pour
 # the pour's front corner along the left wheel cut-out to the fan's VS strip, outside the fan hole's
 # rim, which the lines to the STM32 keep on both outer layers
 VBAT_POUR = [
-    (-8.6, 13.0),  # the middle: bridges, capacitors (x -24.5..-8.6, y -12.5..13)
-    (-11.6, 13.0),  # a notch under R75 (x -13..-11.6, y 8.5..13): Motor_L_Sense+ leaves the shunt's
-    (-11.6, 8.5),  # sense pad on B.Cu there, the OUT1 path and the SHUNT path closing F.Cu round it
-    (-13.0, 8.5),
-    (-13.0, 13.0),
-    (-22.4, 13.0),
-    (-22.4, 18.0),  # F1's VBAT pad, its vias, D15 (x -28.6..-22.4, y 11..18)
-    (-28.6, 18.0),
-    (-28.6, 11.0),
-    (-30.5, 11.0),  # D14, C93 (x -30.5..-24.5, y 7..11), behind M1's B.Cu terminal crossing
-    (-30.5, 7.0),
-    (-24.5, 7.0),
-    (-24.5, -12.5),
-    (-8.6, -12.5),
+    (-8.6, 12.6),  # the middle: both bridges, the chokes, the current amplifiers (x -36.5..-8.6)
+    (-18.9, 12.6),  # a notch to U11's OUT pin: CURRENT_L_AMP leaves its pocket on B.Cu there
+    (-18.9, 9.4),
+    (-19.7, 9.4),
+    (-19.7, 12.6),
+    (-21.9, 12.6),
+    (-21.9, 18.0),  # the battery input: F1's VBAT pad, D15, the bulk C111 (x -32..-21.9, y 12.6..18)
+    (-32.0, 18.0),
+    (-32.0, 16.0),
+    (-39.1, 16.0),  # the tab up to C111, clear of SWD1: Reset and SWDIO leave its pins on B.Cu outside the pour
+    (-39.1, 6.8),
+    (-36.0, 6.8),
+    (-36.0, -4.95),  # behind the motor connectors (C87); the rear strip to the edge (x -37.15) takes Reset and SWDIO
+    (-31.0, -4.95),  # J2's and the ESP32's lines pass under the notch to y -1.7
+    (-31.0, -1.7),
+    (-25.4, -1.7),
+    (-25.4, -4.95),
+    (-21.0, -4.95),
+    (-21.0, -8.2),  # in front of U13's inner edge
+    (-8.6, -8.2),
 ]
 
 
@@ -721,7 +727,7 @@ def mcu_escape() -> list[str]:
             pins[p.GetNetname()] = pins.get(p.GetNetname(), 0) + 1
     # the supplies first: their rows are fixed, a signal's row is the first free one of the three
     order = {"3V3_D": 0, "VCORE": 0, "VDDA": 0, "SMPS_LX": 0}
-    pads = sorted(f.Pads(), key=lambda p: (order.get(p.GetNetname(), 1), int(p.GetNumber())))
+    pads = sorted((p for p in f.Pads() if p.GetNumber()), key=lambda p: (order.get(p.GetNetname(), 1), int(p.GetNumber())))
     missed, links = [], []
     for p in pads:
         n = p.GetNetname()
@@ -1789,7 +1795,7 @@ SMD_SPOKE = 0.2  # mm
 THT_SPOKE = 0.4  # mm
 RELIEF_SOLID_AREA = 1.2  # mm2: an 0805 pad (1.0 x 1.45 mm) and larger
 POWER_STAGES = ("IC6", "IC7", "IC8", "IC9", "Q6")  # fan driver, buck, bridges, battery switch
-RELIEF_STARVED = {"C8.1", "C29.1", "C30.1", "D4.1", "IC1.4", "R2.1", "R12.1", "R30.1", "SWD1.2"}
+RELIEF_STARVED = {"C8.1", "C29.1", "C30.1", "D4.1", "IC1.4", "J2.4", "R2.1", "R12.1", "R30.1", "SWD1.2", "SWD1.3", "W1.2", "W2.2", "W3.2", "W4.2"}
 GROUND_LAYERS = {F: "F", BK: "B", IN1: "In1", IN2: "In2"}
 
 
@@ -1899,9 +1905,9 @@ STITCH_HOLE_GAP = 0.45  # mm from a stitching via's hole to a pad's hole (JLC ho
 STITCH_VIA_GAP = 0.25  # mm from a stitching via's hole to another via's (rules/jlcpcb.kicad_dru 0.2 mm)
 STITCH_PAD_GAP = 0.05  # mm from a stitching via's hole to a ground pad: never a via in a pad
 STITCH_ISLAND = 2.0  # mm2: smaller islands are left as they are
-NOTCH_FENCE = [  # robot frame
-    *[(-39.7, y) for y in (-8.25, -6.5, -4.75, -3.0, -1.25, 0.5, 2.25, 4.0, 5.65)],
-    *[(x, 6.5) for x in (-45.6, -44.0, -42.4, -40.8)],
+NOTCH_FENCE = [  # robot frame: 0.4 mm inside the rear edge beside the antenna notch, and the tab's wall over it
+    *[(-36.6, y) for y in (-8.25, -6.5, -4.75, -3.0, -1.25, 0.5, 2.25, 4.0, 5.0)],
+    *[(x, 6.5) for x in (-42.2, -40.6, -39.0, -37.6)],
 ]
 
 
@@ -2270,6 +2276,8 @@ def clear() -> None:
     for t in list(B.GetTracks()):
         remove(t)
     for z in list(B.Zones()):
+        if z.GetIsRuleArea() and z.GetZoneName().startswith("countersink"):
+            continue  # the screw holes' countersinks (layout README, Countersinks)
         remove(z)
 
 

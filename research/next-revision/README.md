@@ -58,7 +58,7 @@ assumed 90 %). The TPS61178 could not stay anyway: recommended VOUT tops out at 
          ├─ STSPIN958, 400 kHz, REF limit ─ XGL5030-472 4.7 µH ─ fan motor
          ├─ R44/R45 20k/2k ─ PC5 (battery voltage)
          └─ D14 B5819W Schottky 40 V ─ VSYS (11.4-17.4 V; 3.8-5.0 V on 5V_IN alone)
-   5V_IN (a programmer's 5 V pin: J2 pin 2, SWD1 pad 4) ─ D17 B5819W ─┘
+   5V_IN (a programmer's 5 V pin: J2 pad 2, SWD1 pad 5) ─ D17 B5819W ─┘
                                           ├─ L6981C33 ─ 3V3_D: H7 VDD/VDDSMPS, ESP32-C5-MINI-1, encoders, IMU,
                                           │              WS2812C-2020-V6 ×2, IR emitters (3.3 Ω each) → AC-coupled selectors → CC sink
                                           └─ 22 Ω + 10 µF ─ ADP7142ACPZN3.3 (EN = 3V3_D) ─ 3V3_A:
@@ -67,7 +67,7 @@ assumed 90 %). The TPS61178 could not stay anyway: recommended VOUT tops out at 
 ESP32-C5 ─ SWDIO GPIO0 / SWCLK GPIO1 / NRST GPIO23 ─ H7;  ESP_Flow GPIO24 ─ PA9
 ESP32-C5 ─ SPI3 half-duplex (H7 master): SCK GPIO10 ─ PC10, DATA GPIO8 ─ PC12, CSn GPIO9 ─ PC11  (UART4 fallback on PC10/PC11)
 ESP32-C5 UART0 TX0/RX0, EN, GPIO28, 5V_IN ─ J2 2 × 3 1.27 mm header (ESP-Prog Program interface)
-H7 SWDIO / SWCLK, 5V_IN ─ SWD1 bare 1.27 mm pads (clone ST-Link order: 1 SWDIO, 2 GND, 3 SWCLK, 4 5V)
+H7 NRST / SWDIO / SWCLK, 5V_IN ─ SWD1 bare 1.27 mm pads (1 NRST, then the clone ST-Link order: 2 SWDIO, 3 GND, 4 SWCLK, 5 5V)
 DRV8874 nFAULT ×2 wire-OR ─ PB2
 ```
 
@@ -81,7 +81,7 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   B5819W's typical curves (JCET p2): VF 0.32 V at 25 °C and 0.23 V at 100 °C at the 0.13 A it
   carries; reverse 5-6 µA at 25 °C, 55-64 µA at 75 °C, 0.42-0.59 mA at 100 °C at 1-5 V.
 - **Programming power, 5V_IN**: a USB-serial adapter's or a clone ST-Link's 5 V pin (USB VBUS,
-  4.40-5.25 V, USB 2.0 Table 7-7) on J2 pin 2 or SWD1 pad 4 feeds VSYS through D17, a second
+  4.40-5.25 V, USB 2.0 Table 7-7) on J2 pad 2 or SWD1 pad 5 feeds VSYS through D17, a second
   B5819W, so the board flashes without the pack; its 3.3 V pin goes nowhere (a 3.3 V pin on 5V_IN
   leaves VSYS at about 3.0 V, under the L6981's 3.5 V: the buck may still start, its VCC rising
   threshold being 2.3-3.3 V ([L6981] Table 6), and run in dropout, 3V3_D about 2.8-2.9 V, below the
@@ -507,7 +507,9 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   175 mA) and the 3V3_D minimum less droop (3.229 V) the selector and the sink FET keep 0.65 V;
   ≈ 0.1 W average in the sink FET, 15 mW per resistor at the firmware's 15 % per emitter
   (power-tree study §6; SFH 4550 VF 1.5 V typ / 1.7 V max at 100 mA, datasheet p5). The AO3400A
-  selectors keep the main board's AC-coupled gates (220 Ω, 220 nF, 22 kΩ, 1N4148WS clamp): the
+  selectors keep the v1 main board's AC-coupled gates (220 Ω, 220 nF, 22 kΩ, 1N4148WS clamp), on
+  each wall board (`boards/wall`) with its emitter and 3.3 Ω, joined to the main board's sink by a
+  6-pin header (PWM, sink, 3V3_D, GND, receiver output, 3V3_A): the
   selector works as a source follower in series with the sink, so the gate's droop over a pulse
   does not reach the current, and a pin held high turns its emitter off within 7.5 ms. The DAC
   must step with each selector (up at or after its rising edge, to 0 at or before its falling
@@ -546,12 +548,13 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
   on its feed (Figure 9-1), EN on a 10 kΩ / 1 µF RC (section 9), GPIO28, the boot strap, pulled up
   by R90 (schematic checklist, Strapping Pins). The other strapping pins (GPIO2, GPIO3, GPIO7,
   GPIO25-GPIO27) stay open at their defaults (Tables 4-1 to 4-7).
-- **No USB**: the radio flashes over the air and, for recovery, over its UART0 header **J2**
-  (HC-PZ127-7.2L-2x3PS, 2 × 3 1.27 mm SMD) wired as Espressif's ESP-Prog Program interface: 1 EN,
+- **No USB**: the radio flashes over the air and, for recovery, over its UART0 pads **J2**
+  (2 × 3 plated holes at 1.27 mm for wires soldered once, `components/micras/EspProgPads`, no part)
+  in the order of Espressif's ESP-Prog Program interface: 1 EN,
   2 VDD (5V_IN), 3 TX0 (GPIO11), 4 GND, 5 RX0 (GPIO12), 6 GPIO28 ([ESP-Prog] Program Interface).
   The module carries the 499 Ω the checklist asks on U0TXD inside its shield (Figure 8-1). Holding
-  pin 6 low and pulsing pin 1 enters the ROM's UART download mode, which only burned eFuses defeat.
-  Pin 2 takes the programmer's 5 V into VSYS through D17, which powers the whole board without the
+  pad 6 low and pulsing pad 1 enters the ROM's UART download mode, which only burned eFuses defeat.
+  Pad 2 takes the programmer's 5 V into VSYS through D17, which powers the whole board without the
   pack and blocks with it (Power tree, programming power); no connector pin reaches 3V3_D.
 - **H7 data link**: SPI3 in half-duplex on three wires, the H7 the master: ESP_SCK on PC10
   (SPI3_SCK), ESP_DATA on PC12 (the MOSI pad, IOSWP = 0, SPI_CFG2 COMM = 11, [RM0468] §55.4.2
@@ -588,13 +591,12 @@ DRV8874 nFAULT ×2 wire-OR ─ PB2
     the 1.27 mm Program cable. Boot: GPIO28 (pin 6) low and a pulse on EN (pin 1), which the
     ESP-Prog's DTR/RTS do for esptool; with a plain adapter, hold pin 6 to GND by hand, tap pin 1
     to GND, and tell esptool not to reset. Then `idf.py flash` or `esptool write_flash`.
-  - The H7: a clone ST-Link on SWD1, whose pads follow the clone's 1.27 mm 4-pin lead: 1 SWDIO,
-    2 GND, 3 SWCLK, 4 its 5 V pin (never its 3.3 V pin), so the lead plugs on pin 1 to pad 1 (the
-    square pad); turned round or shifted one pad, its 5 V never lands on GND, and nothing else
-    protects the header (the owner's choice). OpenOCD (`interface/stlink.cfg`,
-    `target/stm32h7x.cfg`) or STM32CubeProgrammer flashes it. SWD1 carries no NRST: if the running firmware keeps the core from
-    answering, hold SW3 (reset) while the probe connects and release it (connect under reset by
-    hand).
+  - The H7: a clone ST-Link on SWD1: pad 1 NRST for the probe's RST wire, then pads 2-5 for the
+    clone's 1.27 mm 4-pin lead, 2 SWDIO, 3 GND, 4 SWCLK, 5 its 5 V pin (never its 3.3 V pin); pad 1
+    is the square pad, and nothing protects the header against a misplugged lead (the owner's
+    choice; `boards/main/main.zen` lists each case). OpenOCD (`interface/stlink.cfg`,
+    `target/stm32h7x.cfg`) or STM32CubeProgrammer flashes it, under reset through the RST wire if
+    the running firmware keeps the core from answering (or holding SW3 while the probe connects).
 - **Debug probe**: over Wi-Fi only, CMSIS-DAP over TCP (bkuschak/cmsis_dap_tcp_esp32, "Tested with
   ESP32 S3, C3, and C6", up to 200 KB/s SRAM, ~6 MHz SWD; its GPIO code is ESP-IDF's portable
   layer, so a C5 port is small work, inference) for OpenOCD's `cmsis-dap backend tcp` (master only,
@@ -648,15 +650,19 @@ JLCPCB parts library.
          │ C2      fan Ø27 ring  │   sides: wheels, drive motors 4.6 mm from the edge,
   wheel  │▒▒▒▒ drive blocks ▒▒▒▒▒│   battery cells overhanging 27-38 mm above
          │▒▒▒▒ (parts ≤ 1.5 mm)▒▒│
-         │SW4  J1  IC7  M2  [ESP]│   rear zone x < −23: open sky, ≥ 18 mm from motors and battery
+         │SW4  J1  IC7  M2  [ESP]│   rear zone x < −19.2: open sky, ≥ 19 mm from metal
          └────────────────────   ┘
-          notch x −46.5…−40.1, y −25…6.1: the antenna area x −46.0…−40.15, y −24.3…−8.9
+          notch x −43.55…−37.15, y −25…6.1: the antenna area x −43.05…−37.2, y −24.3…−8.9
 ```
 
-- The robot has no top cover, so height never decides; the drive blocks (parts ≤ 1.5 mm over
-  x −22…13.5) and the fan's Ø27 part-free ring do.
-- **Rear-right corner**: metal-free for 18.1 mm, open sky. The module sits at x −32.4, y −16.6,
-  turned 180°, its pads from x −40.1 to −24.7 on the board, its 5.85 mm antenna area beyond them
+- The robot has no top cover, so height never decides; the drive-block zones (`spec/main.toml`
+  [drive_blocks], from MicrasHardware's model) and the fan's Ø27 ring (parts ≤ 1.0 mm, [fan_ring])
+  do. The module (2.4 mm high) cannot go under block_R, whose rear screw boss stands 2.6 mm over the
+  board down to x −18.9: its 22.1 mm from the rear edge to its courtyard's front keep the rear
+  edge at x −41.3 or further back (that boss's zone ends at x −19.2). The rear edge is at −43.55,
+  where the antenna's outer corner reaches the nose's turning circle (49.46 mm with the 4 mm nose radii; owner, 2026-11-03).
+- **Rear-right corner**: metal-free for 19 mm, open sky. The module sits at x −29.45, y −16.6,
+  turned 180°, its pads from x −37.15 to −21.75 on the board, its 5.85 mm antenna area beyond them
   over the notch, its antenna end 0.5 mm inside the rear edge's line. The C5-MINI-1's antenna has
   its ground point at the module's pin-1 end (the pad-62 corner) and its open, loaded end at the
   pin-45 end (Espressif's STEP model, parts ANT-C5-MINI-1-top and ANT-C5-MINI-1-buttom; the
@@ -669,15 +675,18 @@ JLCPCB parts library.
   the module's inner side. Dense ground vias run along the module's ground edge and the notch.
 - The battery switch SW4 and its notch take the rear-left corner (the v1 board's notch, mirrored),
   and the power input (J1, F1, D15, Q6) and the 3V3_D buck move beside it; the chassis's rear zones
-  are mirror images (`spec/main.toml` [drive_blocks] tail_left/tail_right, rear bosses), and the
+  differ (`spec/main.toml` [drive_blocks]: block_L reaches back to x −21.9 round the low left
+  motor, block_R ends at x −18.9 at its rear boss), and the
   battery basket's wire slots sit at the rear of both side walls (MicrasHardware `frame.py`), so
   the pack's leads reach J1 on either side.
 - Keep the DRV8874 bridges out of the rear-right corner; the WROOM modules fit only with the rear
   motor connectors and the buck moved.
 
-**MINI-1 rather than MINI-1U, on the evidence** (no bench test): every metal part sits 18.1 mm or
-more from the antenna (drive blocks 18.1 mm, the left motor's can, past the centre line, 23 mm,
-H4 25 mm, LiPo 35 mm), beyond
+**MINI-1 rather than MINI-1U, on the evidence** (no bench test): every metal part sits 19 mm or
+more from the antenna (MicrasHardware 6b48d17, the 5.85 mm antenna area as a 0.8 mm slab on the
+board: H4's M2 nut 19.4 mm and screw 19.7 mm, the left motor 22.8 mm, about 20 mm to the DCX 10 L
+can's lengthened end (`spec/main.toml` left_motor_can); the resin block_R 18.2 mm and the PTFE rear
+skid 8.8 mm are not metal), beyond
 Espressif's 15 mm ([ESP layout]) and Silicon Labs' 10 mm (BGM220P datasheet §7.2); only the floor
 (2.2-3 mm below) is closer, and no published measurement quantifies that detuning. At 5 GHz the
 same distances are 0.33-0.64 wavelengths, so metal detunes it less than at 2.4 GHz (inference).
@@ -730,7 +739,7 @@ New or changed parts; JLC numbers and prices as queried on 2026-10-15 (stock is 
 | Analog 3V3_A, alternative | TPS560430X3FDBVR + 12 µH + damped LC | documented alternative | forced PWM 1.1 MHz, 4-36 V; C2071721 $1.19 | [TPS560430] |
 | Motor drivers | DRV8874PWPR × 2 | replaces L6205D | 0.2 Ω HS+LS, 6 A peak, OCP 6 A min, 100 kHz, LS IPROPI 450 µA/A; C1855818, 25,990 stock, $1.01 / $0.66 | [DRV8874] |
 | Motor driver, alternative | DRV8262DDWR × 1 | if > 6 A or the stall margin proves short | 0.1 Ω, 8 A dual peak, 60 V; C22427252, $9.77 / $6.98 | [DRV8262] |
-| Motor chokes | XAL7070-473MEC 47 µH shielded (Isat 4.2 A, 97 mΩ max, 7.2 × 7.5 × 7.0 mm, 1.9-2.3 g) × 2; fan: XGL5030-472MEC 4.7 µH (5.3 × 5.5 × 3.1 mm) | new; 7.0 mm (7.13 mm with unreflowed terminations) within the 8.0 mm open height and the 7.2 mm `left_tail` zone of `spec/main.toml` | 0.05-0.30 W ripple heat in the motor at 100 kHz; choke +15 K at the run limit | drivetrain/choke_check.py, fan/fan_choke_check.py |
+| Motor chokes | XAL7070-473MEC 47 µH shielded (Isat 4.2 A, 97 mΩ max, 7.2 × 7.5 × 7.0 mm, 1.9-2.3 g) × 2; fan: XGL5030-472MEC 4.7 µH (5.3 × 5.5 × 3.1 mm) | new; 7.0 mm (7.13 mm with unreflowed terminations) within the 8.0 mm open height of `spec/main.toml`, off its drive-block zones (the highest allows 6.3 mm) | 0.05-0.30 W ripple heat in the motor at 100 kHz; choke +15 K at the run limit | drivetrain/choke_check.py, fan/fan_choke_check.py |
 | Motor shunts | WSK2512R0100FEA (±1 %, C3985410, 4955 stock) or WSK2512R0100DEA (±0.5 %, C1517461, 0 stock) × 2 | replaces the 40 mΩ 2-pad 2512 | 4-terminal, ±35 ppm/K | [WSK2512] |
 | Current amplifiers | INA241A2IDGKR × 2 | replaces TSC2020 | ±15 µV, ±0.01 %, 1 µs hold, ≤ 125 kHz PWM; C36752877, 2 stock, $5.71-4.08 | [INA241] |
 | Battery fuse | Littelfuse 0501012.WR1 (F1), 12 A fast-acting, 1206 | new | 32 VDC, 150 A interrupting, 3.11 mΩ, melting I²t 20.34 A²s ([Littelfuse 501], Revised 12/14/17); 8.2 A continuous at 75 °C, holds the 10.1 A summed limits; a 4S pack of ≤ 180 mAh cells shorts at 82 A at most (Battery input, Gaps) | `boards/main/Regulators.zen` |
@@ -740,7 +749,7 @@ New or changed parts; JLC numbers and prices as queried on 2026-10-15 (stock is 
 | Emitter drive | TLV9001 + AO3400A + 1.2 Ω 0.1 % sense; 3.3 Ω per emitter; AC-coupled selector gates (220 nF, 22 kΩ, 1N4148WS) | new | 175 mA (DAC set-point on PA5, 223 mA full scale) | power-tree study §6; emitter/emitter_sink.py |
 | Status LEDs | WS2812C-2020-V6 × 2 | replaces WS2815C-2020 (needs 9.5-13.5 V) | 3.3-5.3 V, 5 mA per colour; C55109522 | [WS2812C-2020-V6] |
 | Radio / probe | ESP32-C5-MINI-1-N4, rear-right corner, antenna over the rear-right notch | replaces HM-19 and P1 | 2.4 + 5 GHz Wi-Fi 6, 426 mA TX peak, ≥ 0.6 A supply; C54951860, 0 stock (read 2026-10-31) | [ESP32-C5-MINI-1], [ESP32 form factor](#esp32-form-factor) |
-| Radio header | J2 HC-PZ127-7.2L-2x3PS, 2 × 3 1.27 mm SMD, ESP-Prog Program interface | new | 5.5 mm over the board; C27985144 | [ESP-Prog]; `components/hong-cheng/HC-PZ127-7.2L-2x3PS` |
+| Radio pads | J2, 2 × 3 plated holes at 1.27 mm, ESP-Prog Program interface order, wires soldered once | new | board copper, no part | [ESP-Prog]; `components/micras/EspProgPads` |
 | Link resistors | R95 22 Ω 0402 at PC10 (SPI clock), R96 220 Ω 0402 at the C5 (data line), R97 100 kΩ ESP_CSn pull-up | new | 0402WGF220JTCE C25092, 0402WGF2200TCE C25091, 0402WGF1003TCE C25741, basic | [RM0468] Figure 643 note 3, [DS13311] Table 11 |
 | Switches, divider | SW4 → SK-12D29-G060 (DC 24 V 1 A, 6.0 mm lever, new footprint; ON with the lever at pin 3, B); R44/R45 20k/2k | modify | C2848877, 531 stock, $0.13; firmware constant 11.0 | drivetrain study §4; `components/g-switch/SK-12D29-G060` |
 | VDDA filter | FB1 → 0 Ω or ≤ 50 mΩ bead | modify | – | power-tree study §9 |
@@ -962,7 +971,7 @@ PWM ripple against these costs; both are fitted.
   motor and adds mass to a 76 g robot. The wheel choke is the XAL7070-473 (7.2 × 7.5 × 7.0 mm,
   1.9-2.3 g each), the fan's the XGL5030-472 (5.3 × 5.5 × 3.1 mm). Heights: 7.0 mm (7.13 mm with
   unreflowed terminations) and 3.1 mm, within the 8.0 mm open height of `spec/main.toml`; the
-  XAL7070 also fits the 7.2 mm `left_tail` zone and no lower zone.
+  XAL7070 sits off the drive-block zones (the highest allows 6.3 mm).
 - **Saturation current.** Both parts saturate softly (Coilcraft's saturation models): the XAL7070-473
   keeps 79 % of its inductance at the 3 A ITRIP, 69 % at its 4.2 A Isat and 60 % at the 5.48 A bound
   peak of a full-speed reversal; the XGL5030-472 keeps 77 % at 4.8 A and 66 % at 6.7 A. The
@@ -1061,7 +1070,7 @@ DRV8874's IPROPI, read with a probe across RIPROPI).
 | Fan motor and driver | STSPIN958 (≤ ~3 A continuous) / TPS28225 half-bridge (above) | Fan motor not chosen |
 | Radio module | C5-MINI-1-N4 (on the board) / C5-WROOM-1 | the WROOM-1 if Brazilian (Anatel) or Japanese (MIC) coverage must be clean; it fits only with the rear motor connectors and the buck moved |
 | Toolchain | CMSIS-DAP through OpenOCD (master) or probe-rs | ST-Link and CubeProgrammer workflows are lost |
-| Backstops | SWD1 pads (1 SWDIO, 2 GND, 3 SWCLK, 4 5V_IN, a clone ST-Link's order) for an ST-Link; SW3 (NRST); BOOT0 held low by R42 | – |
+| Backstops | SWD1 pads (1 NRST, then a clone ST-Link's order: 2 SWDIO, 3 GND, 4 SWCLK, 5 5V_IN) for an ST-Link; SW3 (NRST); BOOT0 held low by R42 | – |
 
 ## Gaps and TODOs
 
@@ -1110,13 +1119,13 @@ MB, git-ignored) into their `out/` folder; the netlists (`.cir`), logs and summa
 | [current_sense/q1_sampling.py](calculations/current_sense/q1_sampling.py) | `q1_sampling_out.txt` | What each sensor sees over a period, bias of each mean estimate, ITRIP overshoot |
 | [current_sense/q1_error_table.py](calculations/current_sense/q1_error_table.py) | `q1_error_table_out.txt` | Q1 error budgets at 0.1-3 A |
 | [current_sense/ina241_riso.py](calculations/current_sense/ina241_riso.py) | `ina241_riso_out.txt` | INA241A2 into R_iso + C_f with TI's PSpice model: peaking, step overshoot, ADC kickback settling over tolerance corners (ngspice, about 8 min; downloads the model) |
-| [drivers/q4_drivers.py](calculations/drivers/q4_drivers.py) | `q4_drivers_out.txt` | Q4 losses, junction rise, stall and reversal currents, duty distortion |
+| [drivers/q4_drivers.py](calculations/drivers/q4_drivers.py) | `q4_drivers_out.txt` | [Q4](#q4-l6205d-vs-drv8874-vs-drv8262) losses, junction rise, stall and reversal currents, duty distortion |
 | [drivers/area.py](calculations/drivers/area.py) | `area_out.txt` | Courtyard areas from the KiCad 10 library (reads `/usr/share/kicad/footprints/`) |
 | [drivers/area_board.py](calculations/drivers/area_board.py) | `area_board_out.txt` | As-built areas of the v1 board; KiCad's `pcbnew` module, run with its layout (`git show e34fb9a:boards/main/layout/main.kicad_pcb`) as argument |
 | [esp/placement.py](calculations/esp/placement.py) | `placement.png` | ESP candidate positions on the main-board-fixes layout with the MicrasHardware chassis projected; `pcbnew` and matplotlib, the board file as argument |
 | [esp/link_budget.py](calculations/esp/link_budget.py) | `link_budget_out.txt` | The ESP32-C5-MINI-1's 5 GHz link margin at 1-20 m in free space |
 | [drivers/jlc_query.py](calculations/drivers/jlc_query.py) | `jlc_out.txt`, `../fan/jlc_fan_out.txt` | JLCPCB parts search by MPN (online; results dated 2026-10-15) |
-| [fan/fan_driver_calc.py](calculations/fan/fan_driver_calc.py) | `fan_driver_calc_out.txt` | Q3: drone motor data, duty, stall current, ripple, driver losses |
+| [fan/fan_driver_calc.py](calculations/fan/fan_driver_calc.py) | `fan_driver_calc_out.txt` | [Q3](#q3-the-fan-driver): drone motor data, duty, stall current, ripple, driver losses |
 | [fan/fan_choke_check.py](calculations/fan/fan_choke_check.py) | `fan_choke_check_out.txt` | Fan ripple and L6 loss over the motor range, the limiter in a locked rotor at 400 / 100 / 50 kHz, STSPIN958 heat with bounds, the REF rule |
 | [supply3v3/sim3v3.py](calculations/supply3v3/sim3v3.py), [analyze.py](calculations/supply3v3/analyze.py) | `out/summary_meas.txt`, `out/summary_slots.txt` | Averaged 3V3/VDDA droop model during the emitter pulses (ngspice, seconds) |
 | [power_tree/sim_power_tree.py](calculations/power_tree/sim_power_tree.py), [analyze.py](calculations/power_tree/analyze.py) | `out/summary.txt` | Switching-level analog-rail model, cases A-F (ngspice, about 5 min per case, 6 in parallel) |
@@ -1309,8 +1318,8 @@ Source: [INA241] §6.5, §7.3.1.1, pin functions; current-sensing study §8.
 - **Emitter sink**: op-amp (from 3V3_A) + N-FET (AO3400A) + 1.2 Ω 0.1 % ≤ 50 ppm/K sense
   (175 mA at 0.21 V); set-point from the DAC on PA5 (buffer off) through 200 kΩ / 20 kΩ, 0 when no
   emitter is selected; 1 kΩ sense → IN- with 1 nF C0G OUT → IN-, 200 kΩ 3V3_A → IN-; emitters from
-  3V3_D through 3.3 Ω each, the AO3400A selectors with the main board's AC-coupled gates (220 Ω,
-  220 nF, 22 kΩ to GND, 1N4148WS clamp).
+  3V3_D through 3.3 Ω each, the AO3400A selectors with the v1 main board's AC-coupled gates (220 Ω,
+  220 nF, 22 kΩ to GND, 1N4148WS clamp), on the wall boards.
 - **LEDs**: WS2812C-2020-V6 × 2 on 3V3_D, 100 nF each, DIN from PB9 (TIM17_CH1).
 - **Alternative 3V3_A**: TPS560430X3FDBVR, 12 µH, 22 µF / 10 V, CIN ≥ 4.7 µF / 50 V, CBOOT 100 nF,
   then 2.2 µH (≤ 50 mΩ, ≥ 100 mA, shielded) → 22 µF X7R/X5R 0805 ‖ (0.33 Ω + 47 µF); feedback at the
@@ -1363,5 +1372,5 @@ No capacitor across the fan motor. Pin numbers from the repo symbol
 Every H7 line lands on a GPIO free of any restriction ([ESP32-C5] §2.3.5, priority 2), with its
 input and output off and no pull at reset ([ESP32-C5 TRM] Table 8.13-1). J2 is the ESP-Prog
 Program interface: 1 EN, 2 5V_IN, 3 TX0, 4 GND, 5 RX0, 6 GPIO28 ([ESP-Prog]). SW3 and the SWD1 pads
-on GND/PA13/PA14 stay as the backstop. Source: [ESP32-C5-MINI-1] Tables 3-1, 4-1 to 4-3, 6-2 to
+on NRST/GND/PA13/PA14 stay as the backstop. Source: [ESP32-C5-MINI-1] Tables 3-1, 4-1 to 4-3, 6-2 to
 6-5, section 9; `boards/main/Esp.zen`.

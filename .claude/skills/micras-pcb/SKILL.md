@@ -226,7 +226,8 @@ Origin, mechanically critical parts and the board outline come from `spec/<board
 value `{value, source}`. `make gen` writes them into the layout (parts locked) and exports
 `build/<board>/<board>_mech.json` for MicrasHardware, micras-simulation and the firmware. The main
 board's outline is the spec's (`spec/main.toml`: nose, wheel notches, encoder slots, fan hole,
-antenna and switch notches; `micras-pcb mech` draws it, `mech.OUTLINES`). The encoder's outline is
+antenna and switch notches; `micras-pcb mech` draws it, `mech.OUTLINES`), and so is the wall
+board's (`spec/wall.toml`: bottom edge, sides, corners). The encoder's outline is
 layout geometry (the board keeps its previous revision's), and `micras-pcb mech` checks it has
 every interface feature of its spec (`spec/encoder.toml`: tab, reliefs, shoulder, tapers,
 corners, extents). Change a mechanical number in the spec, never in the layout or in another repo; a

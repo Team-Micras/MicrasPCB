@@ -36,116 +36,48 @@ taps = ["R83.1"]
 stubs."R83.1" = { label = "right" }
 
 [[block]]
-title = "Wall sensor 0: W1, emitter selector Q2 (AC-coupled gate), receiver load R14"
+title = "Wall sensor 0: wall joint W1 (the wall board's emitter, selector and receiver), receiver load R14"
 at = [10, 64]
-size = [116, 38]
-parts.R11 = { at = [22, 26], rot = 270, fields = "top" }
-parts.C73 = { at = [44, 26], rot = 90, fields = "top" }
-parts.D9 = { at = [57, 31], fields = "bottom" }
-parts.R12 = { at = [67, 30], rot = 180, fields = "right" }
-parts.Q2 = [73, 26]
-parts.R13 = [50, 12, 180]
-parts.C26 = { at = [40, 12], rot = 180, fields = "left" }
-parts.W1 = [85, 18]
-parts.R14 = [97, 22, 180]
+size = [116, 30]
+parts.W1 = { at = [40, 16], fields = [8, -5] }
+parts.R14 = [60, 20, 180]
 wires = [
-    ["R13.2", [50, 8], [40, 8], "C26.2"],
-    [[40, 8], [36, 8]],
-    ["W1.1", [50, 16], "R13.1"],
-    ["W1.2", [75, 18], "Q2.D"],
-    ["R11.1", "C73.1"],
-    ["C73.2", "Q2.G"],
-    ["D9.K", [64, 31], [64, 26]],
-    ["R12.2", [67, 26]],
-    ["W1.3", [95, 16], [95, 12]],
-    ["W1.4", [97, 18], "R14.2"],
-    [[97, 18], [100, 18]],
+    ["W1.OUT", [60, 16], "R14.2"],
+    [[60, 16], [64, 16]],
 ]
-stubs."Q2.2" = { label = "right" }
 
 [[block]]
-title = "Wall sensor 1: W2, emitter selector Q3 (AC-coupled gate), receiver load R18"
-at = [10, 104]
-size = [116, 38]
-parts.R15 = { at = [22, 26], rot = 270, fields = "top" }
-parts.C74 = { at = [44, 26], rot = 90, fields = "top" }
-parts.D10 = { at = [57, 31], fields = "bottom" }
-parts.R16 = { at = [67, 30], rot = 180, fields = "right" }
-parts.Q3 = [73, 26]
-parts.R17 = [50, 12, 180]
-parts.C27 = { at = [40, 12], rot = 180, fields = "left" }
-parts.W2 = [85, 18]
-parts.R18 = [97, 22, 180]
+title = "Wall sensor 1: wall joint W2 (the wall board's emitter, selector and receiver), receiver load R18"
+at = [10, 96]
+size = [116, 30]
+parts.W2 = { at = [40, 16], fields = [8, -5] }
+parts.R18 = [60, 20, 180]
 wires = [
-    ["R17.2", [50, 8], [40, 8], "C27.2"],
-    [[40, 8], [36, 8]],
-    ["W2.1", [50, 16], "R17.1"],
-    ["W2.2", [75, 18], "Q3.D"],
-    ["R15.1", "C74.1"],
-    ["C74.2", "Q3.G"],
-    ["D10.K", [64, 31], [64, 26]],
-    ["R16.2", [67, 26]],
-    ["W2.3", [95, 16], [95, 12]],
-    ["W2.4", [97, 18], "R18.2"],
-    [[97, 18], [100, 18]],
+    ["W2.OUT", [60, 16], "R18.2"],
+    [[60, 16], [64, 16]],
 ]
-stubs."Q3.2" = { label = "right" }
 
 [[block]]
-title = "Wall sensor 2: W3, emitter selector Q4 (AC-coupled gate), receiver load R22"
-at = [10, 144]
-size = [116, 38]
-parts.R19 = { at = [22, 26], rot = 270, fields = "top" }
-parts.C75 = { at = [44, 26], rot = 90, fields = "top" }
-parts.D11 = { at = [57, 31], fields = "bottom" }
-parts.R20 = { at = [67, 30], rot = 180, fields = "right" }
-parts.Q4 = [73, 26]
-parts.R21 = [50, 12, 180]
-parts.C28 = { at = [40, 12], rot = 180, fields = "left" }
-parts.W3 = [85, 18]
-parts.R22 = [97, 22, 180]
+title = "Wall sensor 2: wall joint W3 (the wall board's emitter, selector and receiver), receiver load R22"
+at = [10, 128]
+size = [116, 30]
+parts.W3 = { at = [40, 16], fields = [8, -5] }
+parts.R22 = [60, 20, 180]
 wires = [
-    ["R21.2", [50, 8], [40, 8], "C28.2"],
-    [[40, 8], [36, 8]],
-    ["W3.1", [50, 16], "R21.1"],
-    ["W3.2", [75, 18], "Q4.D"],
-    ["R19.1", "C75.1"],
-    ["C75.2", "Q4.G"],
-    ["D11.K", [64, 31], [64, 26]],
-    ["R20.2", [67, 26]],
-    ["W3.3", [95, 16], [95, 12]],
-    ["W3.4", [97, 18], "R22.2"],
-    [[97, 18], [100, 18]],
+    ["W3.OUT", [60, 16], "R22.2"],
+    [[60, 16], [64, 16]],
 ]
-stubs."Q4.2" = { label = "right" }
 
 [[block]]
-title = "Wall sensor 3: W4, emitter selector Q5 (AC-coupled gate), receiver load R26"
-at = [10, 184]
-size = [116, 38]
-parts.R23 = { at = [22, 26], rot = 270, fields = "top" }
-parts.C76 = { at = [44, 26], rot = 90, fields = "top" }
-parts.D12 = { at = [57, 31], fields = "bottom" }
-parts.R24 = { at = [67, 30], rot = 180, fields = "right" }
-parts.Q5 = [73, 26]
-parts.R25 = [50, 12, 180]
-parts.C29 = { at = [40, 12], rot = 180, fields = "left" }
-parts.W4 = [85, 18]
-parts.R26 = [97, 22, 180]
+title = "Wall sensor 3: wall joint W4 (the wall board's emitter, selector and receiver), receiver load R26"
+at = [10, 160]
+size = [116, 30]
+parts.W4 = { at = [40, 16], fields = [8, -5] }
+parts.R26 = [60, 20, 180]
 wires = [
-    ["R25.2", [50, 8], [40, 8], "C29.2"],
-    [[40, 8], [36, 8]],
-    ["W4.1", [50, 16], "R25.1"],
-    ["W4.2", [75, 18], "Q5.D"],
-    ["R23.1", "C76.1"],
-    ["C76.2", "Q5.G"],
-    ["D12.K", [64, 31], [64, 26]],
-    ["R24.2", [67, 26]],
-    ["W4.3", [95, 16], [95, 12]],
-    ["W4.4", [97, 18], "R26.2"],
-    [[97, 18], [100, 18]],
+    ["W4.OUT", [60, 16], "R26.2"],
+    [[60, 16], [64, 16]],
 ]
-stubs."Q5.2" = { label = "right" }
 
 [[block]]
 title = "IMU: LSM6DSV on the SPI bus, mode 1 (SDx, SCx grounded)"

@@ -6,7 +6,7 @@ Power tree (research/next-revision, Power tree):
 - VSYS, VBAT behind D14 or 5V_IN behind D17, feeds only the 3V3_D buck IC7 and, through R58, the
   3V3_A LDO U8.
 - The board has no USB and no 5 V rail. 5V_IN is programming power only: a USB-serial adapter's or
-  a clone ST-Link's 5 V pin on the flashing header J2 (pin 2, ESP sheet) or on SWD1's pad 4 (root
+  a clone ST-Link's 5 V pin on the flashing pads J2 (pad 2, ESP sheet) or on SWD1's pad 5 (root
   sheet) runs the 3V3 rails without the pack, for flashing; the bridges and the fan driver stay
   unpowered (VBAT). On the bench, a current-limited supply at 12-16.8 V goes into J1 (a lead with
   the pack's JST PA plug) with SW4 on, and the board starts as from the pack; with the motors and
@@ -36,8 +36,8 @@ about 24 s (the 20 A row does not open below 40 A in 100 s). The 10 A row (6.8 A
 75 C) carries the rms budget too, but not the summed peak limits at 75 C (8.5 A). Every row
 interrupts 150 A at 32 VDC (note 1: at the rated voltage, time constant < 0.5 ms) and has the same
 1206 body; 16 mV and 66 mW at 4 A at most (the 49.27 mV drop at 12 A taken as a resistance). A
-1206 part (0.835 mm high) because F1 sits under the chassis's 1.5 mm tail_right zone
-(spec/main.toml).
+1206 part (0.835 mm high); F1 sits behind the left drive block, beside J1, clear of the chassis
+zones (spec/main.toml).
 The pack's short circuit stays inside those 150 A. Cells in series all carry the one current, so
 a 4S pack shorts at VCELL / RCELL whatever its cell count: the 4.35 V of a full HV cell over its
 ohmic resistance. The lowest published for cells of the pack's class is 52.8 mOhm (a 1S 180 mAh
@@ -132,7 +132,7 @@ VSYS (research A.4):
   driven below GND (D15 forward with a pack forced in reversed, until F1 opens) off the
   regulators' inputs.
 - 5V_IN -> VSYS: D17, a second B5819W. 5V_IN is a programmer's 5 V pin (USB VBUS, 4.40-5.25 V at
-  the connector, USB 2.0 Table 7-7): the flashing header J2 pin 2 and SWD1 pad 4. Never a 3.3 V
+  the connector, USB 2.0 Table 7-7): the flashing pads J2 pad 2 and SWD1 pad 5. Never a 3.3 V
   pin: 3.3 V on 5V_IN leaves VSYS at about 3.0 V, under the L6981's 3.5 V minimum; the buck may
   still start (VCC rising threshold VINH 2.3-3.3 V, DS13554 Table 6) and run in dropout, 3V3_D
   about 2.8-2.9 V, below the ESP32-C5's 3.0 V (ESP32-C5-MINI-1 Table 6-2), so the radio may not
@@ -153,7 +153,7 @@ VSYS (research A.4):
     4.75 V port: 0.41-0.68 V; on a 4.40 V port at D17's maximum 0.06-0.08 V while flashing, and the
     TX peak 0.06 V short (3V3_D dips by that much, still far above the module's 3.0 V).
   - The programmer's own losses: its 5 V pin is its USB VBUS behind its own fuse and lead, so pad 4
-    or J2 pin 2 can sit a few hundred mV under the port's minimum. Below the margins above the buck
+    or J2 pad 2 can sit a few hundred mV under the port's minimum. Below the margins above the buck
     runs at its maximum duty and 3V3_D follows VSYS: at VSYS 3.6 V and 0.27 A, Eq. 45 solved for
     VOUT (D 0.919, RDSON +20 %, L3's DCR) gives 3.22 V, inside the MCU's 1.62-3.6 V (DS13311
     Table 13) and the C5's 3.0 V, so flashing still works.

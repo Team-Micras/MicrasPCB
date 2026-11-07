@@ -29,8 +29,8 @@ MCU = "IC1"
 FAN = "IC6"
 # bridge -> (motor connector, shunt, choke, amplifier, MCU EN pin, MCU PH pin, ADC pin)
 BRIDGES = {
-    "IC8": ("M2", "R65", "L4", "U10", "PA10", "PB6", "PC1"),
-    "IC9": ("M1", "R75", "L5", "U11", "PC6", "PA12", "PB1"),
+    "IC8": ("M2", "R65", "L4", "U10", "PA10", "PB7", "PC1"),
+    "IC9": ("M1", "R75", "L5", "U11", "PC6", "PA9", "PB1"),
 }
 # research Drivetrain: ITRIP 2.5-3 A typ. Overshoot above ITRIP in a full-speed reversal at 17.4 V
 # with the choke at -20 % and DC-biased (drivetrain/choke_check.py): 0.94 A at the datasheet's
@@ -91,22 +91,22 @@ def drv8874_modes_and_current_limit(module, inputs):
 
 def drv8874_control_lines(module, inputs):
     # Section 7.3.2 Table 3: EN/IN1 takes the timer PWM, PH/IN2 the direction (main.zen pin
-    # swaps: right motor PA10/PB6, left PC6/PA12). nSLEEP of both bridges on Motors_Enable (PB7) with a
+    # swaps: right motor PA10/PB7, left PC6/PA9). nSLEEP of both bridges on Motors_Enable (PD2) with a
     # pull-down, so they sleep while the MCU is in reset, when its pins float in analog mode
-    # (RM0468 section 11.3.1). nFAULT (open drain) wire-ORed on PD2 with one pull-up.
+    # (RM0468 section 11.3.1). nFAULT (open drain) wire-ORed on PB6 with one pull-up.
     b = index(module)
     p = []
-    sleep = net(b, MCU, "PB7")
-    fault = net(b, MCU, "PD2")
+    sleep = net(b, MCU, "PD2")
+    fault = net(b, MCU, "PB6")
     for ic, (motor, shunt, choke, amp, en, ph, adc) in BRIDGES.items():
         if net(b, ic, "EN/IN1") != net(b, MCU, en):
             p.append(ic + " EN/IN1 is not on " + en)
         if net(b, ic, "PH/IN2") != net(b, MCU, ph):
             p.append(ic + " PH/IN2 is not on " + ph)
         if net(b, ic, "~{SLEEP}") != sleep:
-            p.append(ic + " nSLEEP is not on Motors_Enable (PB7)")
+            p.append(ic + " nSLEEP is not on Motors_Enable (PD2)")
         if net(b, ic, "~{FAULT}") != fault:
-            p.append(ic + " nFAULT is not on PD2")
+            p.append(ic + " nFAULT is not on PB6")
     if not [r for r in two_terminal(b, "resistor", sleep, "GND") if ohms(b, r) <= 100e3 * 1.01]:
         p.append(sleep + " needs a pull-down of at most 100 kOhm to hold the bridges asleep in reset")
     ups = [r for r in refs_on(b, fault) if b.parts[r].type == "resistor" and not b.parts[r].dnp]

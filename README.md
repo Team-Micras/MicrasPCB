@@ -7,7 +7,8 @@ CI.
 | Board | Status |
 |---|---|
 | `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.79 mm | the previous revision's placement and routing, plus pull resistors on the sensor's SPI inputs; passes every check ([open items](boards/encoder/layout/README.md#open-items)) |
-| `main`: STM32H725 controller, 4S power, DRV8874 wheel bridges with INA241 current sensing, fan driver, sensors, ESP32-C5 dual-band radio and debug probe, no USB ([research/next-revision](research/next-revision/README.md)), 4 layers, 1.04 mm | placed and routed, 0 unconnected; passes every gate ([known faults](boards/main/layout/README.md#known-faults), [open items](boards/main/layout/README.md#open-items)) |
+| `wall`: wall-sensor daughterboard (SFH 4550 over a TPS601A, upright, with the emitter's resistor and its AC-coupled selector, joined to the main board by a 2x3 1.27 mm header straddling its bottom edge), one per sensor, 2 layers, 0.79 mm, a paddle 16.0 mm high: 4.2 mm handle, 8.4 mm blade; JLCPCB fits the SMD parts, the sensor and header are hand-soldered | placed and routed, passes every check; the main board's wall joints W1-W4 take four ([open items](boards/wall/layout/README.md#open-items)) |
+| `main`: STM32H725 controller, 4S power, DRV8874 wheel bridges with INA241 current sensing, fan driver, sensors, ESP32-C5 dual-band radio and debug probe, no USB ([research/next-revision](research/next-revision/README.md)), 4 layers, 1.04 mm, 91.15 x 50 mm | placed and routed for the six-pin wall slots, the fan ring and the ESP32 flashing pads: every connection routed, DRC and DFM pass; two layout tests still fail, the buck's switch node and C5 under the fan ring's silk line ([open items](boards/main/layout/README.md#open-items)) |
 
 The v1 main board and its HM-19 Bluetooth module, which plugged into the v1 board's USB-C port,
 are at the tag `v1` (e34fb9a).
@@ -43,10 +44,13 @@ boards/<board>/schematic/*.toml ────────────────
   drafts into the file to adopt and adjust. The `micras-pcb` skill has the file format, the rules
   and the hints.
 - **`spec/` owns the mechanics.** `micras-pcb mech` writes the origin and the locked position of
-  mechanically critical parts (the encoder's sensor and tab, the main board's screw holes, battery
-  switch, ESP32 module and wall sensors) into the `.kicad_pcb`, and exports the board for the other
-  repos. The main board's Edge.Cuts outline is the spec's (`micras-pcb mech` draws it: the nose,
-  wheel notches, encoder slots, fan hole, antenna and switch notches); the encoder's is layout
+  mechanically critical parts (the encoder's sensor and tab, the wall board's sensor and header,
+  the main board's screw holes, battery switch, ESP32 module and wall sensors) into the
+  `.kicad_pcb`, and exports the board for the other repos. The main board's and the wall board's
+  Edge.Cuts outlines are the spec's (`micras-pcb mech` draws them: the main board's nose, wheel
+  notches, encoder slots, fan hole, antenna and switch notches; the wall board's bottom edge,
+  sides and corners), and so is the main board's silkscreen of the fan ring and the drive
+  blocks' outlines; the encoder's is layout
   geometry (it keeps its previous revision's), and the spec checks its interface features (tab,
   shoulder, tapers and extents). CI fails if the layout drifts.
 - **KiCad owns placement and routing**, which stay human-led.
@@ -136,7 +140,7 @@ and fails if any gate failed.
 | lint | `ruff` | Python lint and format |
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 
-Every board passes every gate. A schematic-only board (its root declares `Project(layout = False)`, so it has no
+Every board passes every gate once laid out, but for the main board's two open layout tests. A schematic-only board (its root declares `Project(layout = False)`, so it has no
 `.kicad_pcb`) passes the schematic gates, and LVS, DRC, DFM, the layout tests and the gerber, CPL
 and 3D outputs skip it with that reason; `make fab` writes
 its BOM alone. The main board's README ([known faults](boards/main/layout/README.md#known-faults))
@@ -183,7 +187,8 @@ boards/main/firmware.toml  the firmware's pin map and drive settings (from Micra
 boards/main/firmware_changes.toml  the firmware changes the board needs, applied on top of firmware.toml in the tests
 boards/<board>/test/   Zener test benches of the board's circuit
 components/<mfr>/<P>/  reusable Zener packages: symbol, footprint (STEP embedded), .zen, test bench, README
-spec/                  mechanical single source of truth per board
+spec/                  mechanical single source of truth per board; main_chassis.json, the chassis's shadow over the
+                       main board from MicrasHardware's model (tools/chassis_shadow.py, run in that repo's environment)
 parts/jlc.toml         MPN -> LCSC mapping
 rules/                 JLCPCB KiCad DRC rules, DFM PDK, KiCad rule severities
 tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, outputs, previous, firmware, layout, schematic placement

@@ -26,7 +26,10 @@ needs_pcb = pytest.mark.skipif(shutil.which("pcb") is None, reason="pcb not inst
 PER_PAD = None
 # reach of the capacitors that cannot sit at their pin (mm, pad centre to pad centre; see below)
 REACH_C109, REACH_C108 = 15.5, 13.5
-REACH_VDDSMPS = 4.6  # mm: the main board's C1/C2 from VDDSMPS (pin 6)
+REACH_VDDSMPS = 4.6  # mm: the main board's C2 (4.7 uF, the local input capacitor) from VDDSMPS (pin 6)
+# C1 (10 uF 0603) cannot sit in the 1.8 mm room between IC1 and the wall joint W3 (spec [ic1] block):
+# it stands just past the chip's right vertex, the nearest spot (AN5419 Table 2 asks only "close")
+REACH_VDDSMPS_BULK = 5.6  # mm: the main board's C1 from VDDSMPS (pin 6)
 REACH_VFBSMPS = 7.5  # mm: the main board's C3/C4 from VFBSMPS (pin 7)
 DECOUPLING = [
     (
@@ -43,10 +46,18 @@ DECOUPLING = [
     (
         "STM32H725",
         ("VDDSMPS",),
-        2,
-        (4.2e-6, 11e-6),
+        1,
+        (4.2e-6, 5.2e-6),
         "AN5419 Rev 3 Table 2 p8: 10 uF + 4.7 uF on VDDSMPS (best performance)",
         REACH_VDDSMPS,
+    ),
+    (
+        "STM32H725",
+        ("VDDSMPS",),
+        1,
+        (9e-6, 11e-6),
+        "AN5419 Rev 3 Table 2 p8: 10 uF + 4.7 uF on VDDSMPS (best performance)",
+        REACH_VDDSMPS_BULK,
     ),
     (
         "STM32H725",

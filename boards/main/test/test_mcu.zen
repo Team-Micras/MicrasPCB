@@ -117,13 +117,19 @@ def boot0_pulled_down(module, inputs):
 
 
 def swd_header(module, inputs):
-    # The owner's ST-Link backstop, in his clone ST-Link lead's order: SWD1 pads 1 SWDIO (PA13),
-    # 2 GND, 3 SWCLK (PA14), 4 5V_IN (the probe's 5 V pin, into VSYS through D17), no NRST
-    # (main.zen). The pins are checked here by name; the SwdHeader4 symbol maps them to the pads,
-    # and tests/test_main.py checks the pad numbers in the netlist.
+    # The owner's ST-Link backstop: SWD1 pad 1 NRST (the MCU's reset, the probe's RST wire), then his
+    # clone ST-Link lead's order, 2 SWDIO (PA13), 3 GND, 4 SWCLK (PA14), 5 5V_IN (the probe's 5 V pin,
+    # into VSYS through D17) (main.zen). The pins are checked here by name; the SwdHeader5 symbol
+    # maps them to the pads, and tests/test_main.py checks the pad numbers in the netlist.
     b = index(module)
     p = []
-    want = {"GND": "GND", "SWDIO": net(b, MCU, "PA13"), "SWCLK": net(b, MCU, "PA14"), "VDD": "5V_IN"}
+    want = {
+        "NRST": net(b, MCU, "NRST"),
+        "GND": "GND",
+        "SWDIO": net(b, MCU, "PA13"),
+        "SWCLK": net(b, MCU, "PA14"),
+        "VDD": "5V_IN",
+    }
     for pin, n in want.items():
         if net(b, "SWD", pin) != n:
             p.append("SWD1 " + pin + " must be on " + n + ", is " + net(b, "SWD", pin))

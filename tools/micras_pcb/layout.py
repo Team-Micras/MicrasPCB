@@ -30,6 +30,7 @@ class Pad:
     xy: tuple[float, float]
     size: tuple[float, float]
     local: tuple[float, float] = (0.0, 0.0)  # centre in footprint coordinates
+    angle: float = 0.0  # the pad's orientation on the board (degrees, KiCad's sense), its footprint's included
     paste_margin: float = 0.0
     paste_ratio: float = 0.0
 
@@ -170,7 +171,8 @@ def _footprint(fp) -> Footprint:
     )
     for pad in fp.children("pad"):
         a = pad.atoms()
-        px, py = _xy(pad.child("at"))
+        at_ = pad.child("at").atoms()
+        px, py = float(at_[0]), float(at_[1])
         dx, dy = _rotate(px, py, rot)
         size = _xy(pad.child("size")) if pad.child("size") else (0.0, 0.0)
         net = pad.child("net")
@@ -183,6 +185,7 @@ def _footprint(fp) -> Footprint:
                 xy=(fx + dx, fy + dy),
                 size=size,
                 local=(px, py),
+                angle=float(at_[2]) if len(at_) > 2 else 0.0,
                 paste_margin=float(pad.child("solder_paste_margin").atoms()[0])
                 if pad.child("solder_paste_margin")
                 else 0.0,
