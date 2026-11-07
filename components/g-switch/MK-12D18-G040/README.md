@@ -27,3 +27,8 @@ Rating: DC 12 V 0.5 A / DC 6 V 1.0 A; contact resistance 100 mOhm max; -20 to +7
 `SW-TH_MK-12D18-G040.kicad_mod`: three plated 0.6 x 1.0 mm slots at 2.5 mm pitch, from the Micras
 Altium library (MicrasMainBoard), with the Micras switch STEP embedded. `pcb rectify check`
 passes.
+
+Paste: none; the three pads are plated through-holes, which take no stencil paste.
+
+Courtyard: an F.CrtYd rectangle around the body and lever outline (User.15) and the pads, 0.25 mm,
+the IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).

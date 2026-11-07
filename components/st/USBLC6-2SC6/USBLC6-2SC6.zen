@@ -1,0 +1,45 @@
+"""USBLC6-2SC6 - two-line very low capacitance ESD protection with a rail clamp, SOT23-6L. Bare part.
+
+Datasheet: ST USBLC6-2, DocID 11265 Rev 5 (October 2011).
+
+Pins (Figure 1, top view): 1 I/O1, 2 GND, 3 I/O2, 4 I/O2, 5 VBUS, 6 I/O1. Each line passes
+through the package: pads 1 and 6 are the same line (I/O1), pads 3 and 4 the other (I/O2).
+
+Topology (section 2.1, Figure 6): rail to rail. Each I/O has a steering diode to the VBUS pin
+and one to GND, and a transil clamps the VBUS pin to GND. A positive surge on an I/O is clamped
+at VTRANSIL + VF, a negative one at -VF. The VBUS pin connects to the protected circuit's supply
+(section 2.2, "the connections from the pin VBUS to VCC"); an I/O that rises a diode drop above
+that supply conducts into it.
+
+Ratings (Table 1, p2): IEC 61000-4-2 15 kV air and 15 kV contact discharge; Tj -40 to 125 C.
+Electrical characteristics (Table 2, Tamb 25 C): leakage IRM 10 / 150 nA at VRM 5.25 V;
+breakdown VBUS to GND 6 V min at 1 mA; VF 1.1 V max at 10 mA; clamping, any I/O to GND, 12 V at
+IPP 1 A and 17 V at 5 A (8/20 us); capacitance I/O to GND 2.5 / 3.5 pF and I/O to I/O 1.2 /
+1.7 pF at VR 1.65 V.
+
+Layout (section 2.3): the tracks from the lines to the I/O pins, from the supply to VBUS and
+from GND to the GND pin must be as short as possible; the part sits at the connector.
+
+The component type is "esd", so board checks find it as the ESD protection of its lines.
+"""
+
+# Table 2: the leakage is specified up to VRM 5.25 V on the VBUS rail.
+VBUS = io(Power(voltage="0V to 5.25V"))
+GND = io(Ground)
+IO1 = io(Net)
+IO2 = io(Net)
+
+Component(
+    name="USBLC6",
+    prefix="U",
+    symbol=Symbol(library="USBLC6-2SC6.kicad_sym"),
+    footprint=File("SOT-23-6_ST_USBLC6-2SC6.kicad_mod"),
+    part=Part(mpn="USBLC6-2SC6", manufacturer="STMicroelectronics"),
+    type="esd",
+    pins={
+        "I/O1": IO1,
+        "GND": GND,
+        "I/O2": IO2,
+        "VBUS": VBUS,
+    },
+)

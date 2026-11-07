@@ -1,0 +1,27 @@
+"""1N4148WS package facts: anode and cathode by name, sourced part (JCET 1N4148WS rev. A)."""
+
+Diode = Module("../1N4148WS.zen")
+
+
+def clamp_orientation(module, inputs):
+    # A gate clamp to ground: anode on GND, cathode on the clamped node.
+    got = {}
+    for net, ports in module.nets().items():
+        for path, pin in ports:
+            if path.endswith(".D"):
+                got[pin] = net
+    check(got == {"A": "GND", "K": "NODE"}, "pinout changed: " + str(got))
+
+
+def sourcing(module, inputs):
+    d = [c for path, c in module.components().items() if path.endswith("D")][0]
+    check(d.mpn == "1N4148WS", "MPN")
+    check(d.prefix == "D", "reference prefix D")
+
+
+TestBench(
+    name="1N4148WS_clamp",
+    module=Diode,
+    test_cases={"default": {"A": Ground("GND"), "K": Net("NODE")}},
+    checks=[clamp_orientation, sourcing],
+)

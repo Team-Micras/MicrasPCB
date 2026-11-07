@@ -1,8 +1,26 @@
 """Micras wall sensor: an SFH 4550 IR LED stacked over a TPS601A phototransistor, through-hole.
 
-A custom part: the two leaded devices are bent 90 degrees to lie flat and look
-forward over the board edge, the LED (pads 1-2) above the phototransistor
-(pads 3-4). Footprint and STEP (WALL_SENSOR_STACKED) from the Altium MicrasLib.
+A custom part: the two leaded devices, bare (no casing), have their leads bent
+90 degrees so they lie flat and look forward, the LED (pads 1-2) above the
+phototransistor (pads 3-4). Pads from the Altium MicrasLib; bodies from the
+datasheet outlines below.
+
+Mechanics, in the footprint frame (the sensor looks along -y; heights above the
+board top). The STEP (WALL_SENSOR_STACKED) draws both parts at nominal size; it
+is MicrasHardware micras/leds.py sensor_model(), built from these numbers:
+| | SFH 4550 (SFH-DS p.10) | TPS601A(F) (TPS-DS p.1, package 0-5A1) |
+|---|---|---|
+| optical axis height | 9.75 mm | 3.25 mm |
+| seating plane (flange back) | y = 2.32 | y = 0.445 |
+| flange | 5.5-5.9 dia, cathode flat | 5.8 dia max, 0.5 +/- 0.2 thick, key tab 1.0 x 1.0 |
+| body | 4.8-5.1 dia, hemispherical lens | can 4.7 +0.1/-0.15 dia, 4.5 +/- 0.3 high, lens |
+| seating plane to lens tip | 8.2-9.0 (tip y = -6.28 nominal) | 6.5 +/- 0.5 (tip y = -6.055 nominal) |
+| leads | 0.4-0.6 square, bent 2.55 behind the body | 0.45 +/- 0.1 round, bent 2.0 behind the body |
+The TPS601A leads are formed at the 2 mm minimum of TPS-DS p.2 (Precaution 2);
+the SFH 4550 datasheet sets no forming distance. The courtyard (F.CrtYd) is
+both bodies at their largest plus the pads, with 0.25 mm excess (IPC-7351B);
+the silkscreen outlines the bodies 0.15 mm outside their largest outline and
+the lead area behind them; User.13 draws the bodies at nominal size.
 
 Pins (pad = symbol pin):
 | Pad | Pin | Device |

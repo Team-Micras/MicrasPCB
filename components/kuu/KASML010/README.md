@@ -24,6 +24,8 @@ KASML010(name="F1", P1=V3V3, P2=PROTECTED)
 ## Footprint
 
 `Fuse_0402.kicad_mod` is the Altium MicrasLib footprint `F0402` of the Micras main board: two
-0.5 x 0.8 mm pads at x = +/-0.45 mm. Body graphics are on User.15 (Altium mechanical layer);
-there is no F.CrtYd courtyard. The embedded STEP is `F0402.step`. `pcb rectify check`: model
+0.5 x 0.8 mm pads at x = +/-0.45 mm. Body graphics are on User.15 (Altium mechanical layer). The embedded STEP is `F0402.step`. `pcb rectify check`: model
 transform OK.
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.15) and the pads, 0.15 mm, the excess
+KiCad Library Conventions F5.3 gives parts smaller than 0603.

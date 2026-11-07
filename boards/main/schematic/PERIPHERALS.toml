@@ -1,47 +1,44 @@
 # Placement of the main board's PERIPHERALS sheet (micras-pcb sch; units of 1.27 mm, y down).
 paper = "A3"
 title = "User interface and USB-C"
-ports = { at = [256, 86], rows = 13, title = "Sheet ports" }
+ports = { at = [172, 156], rows = 13, title = "Sheet ports" }
 
 [[block]]
-title = "USB-C receptacle: CC sink, D+/D- series resistors, SBU supply fuse"
+title = "USB-C receptacle: VBUS sense, CC sink, ESD"
 at = [10, 10]
-size = [170, 68]
+size = [140, 68]
 parts.U2 = [84, 40]
+parts.R47 = [24, 20]
+parts.R48 = [24, 26, 180]
+parts.D8 = [48, 20, 90]
 parts.R6 = [40, 36, 180]
 parts.R7 = [56, 48, 180]
-parts.R9 = [136, 20, 90]
-parts.R10 = [146, 16, 180]
-parts.C23 = [152, 24, 180]
-parts.R8 = [136, 34, 90]
-parts.C22 = [152, 38, 180]
-parts.F1 = { at = [140, 54], mirror = "y" }
+parts.U6 = { at = [124, 31], fields = "top" }
+parts.C79 = [114, 40, 180]
 wires = [
-    # VBUS on +5V
-    ["U2.A4B9", [66, 28], [66, 22]],
+    # VBUS: +5V, the TVS and the sense divider
+    ["U2.A4B9", [66, 28], [66, 18], "R47.1"],
     ["U2.B4A9", [66, 30], [66, 28]],
+    [[66, 18], [66, 14]],
+    ["R47.2", "R48.2"],
+    ["R48.2", [18, 24]],
     # CC1/CC2 sink pull-downs
     ["U2.A5", "R6.2"],
     [[40, 34], [36, 34]],
     ["U2.B5", [66, 36], [66, 46], "R7.2"],
     [[56, 46], [52, 46]],
-    # D+: series R9, R10 pull-up and C23 on the MCU side
-    ["U2.A6", [102, 28], [102, 20], "R9.1"],
+    # D+/D- through the ESD clamp
+    ["U2.A6", "U6.1"],
     ["U2.B6", [100, 30], [100, 28]],
-    [[104, 20], [104, 16], { label = "right" }],
-    ["R9.2", [158, 20]],
-    ["R10.1", [146, 20]],
-    ["C23.2", [152, 20]],
-    # D-: series R8 and C22 on the MCU side
-    ["U2.B7", "R8.1"],
-    ["U2.A7", [104, 32], [104, 34]],
-    [[108, 34], [108, 38], { label = "right" }],
-    ["R8.2", [158, 34]],
-    ["C22.2", [152, 34]],
-    # SBU1/SBU2 from 3V3 through the PTC fuse
+    ["U2.A7", [104, 32], [104, 30], "U6.3"],
+    ["U2.B7", [104, 34], [104, 32]],
+    [[108, 28], [108, 24], { label = "right" }],
+    [[104, 34], [104, 48], { label = "right" }],
+    ["U6.5", [114, 34], "C79.2"],
+    [[114, 36], [110, 36]],
+    # SBU1/SBU2 to the switched supply
     ["U2.A8", [100, 38], [100, 40], "U2.B8"],
-    [[100, 40], [100, 52], "F1.2"],
-    [[104, 52], [104, 48], { label = "right" }],
+    [[100, 40], [100, 54], [102, 54], { label = "right" }],
     # ground and shell
     ["U2.A1B12", [78, 60], [92, 60], "U2.4"],
     ["U2.B1A12", [82, 60]],
@@ -52,8 +49,43 @@ wires = [
 ]
 
 [[block]]
+title = "Bluetooth module supply on SBU: CC signature detector and switch"
+at = [10, 82]
+size = [180, 66]
+parts.R50 = [24, 40, 90]
+parts.D13 = [48, 40]
+parts.C77 = [60, 42, 180]
+parts.R51 = [78, 42, 180]
+parts.R52 = [60, 12]
+parts.R53 = [60, 18, 180]
+parts.R54 = [100, 16, 90]
+parts.U7 = { at = [92, 38], fields = [5, 6] }
+parts.C78 = [102, 30, 180]
+parts.R55 = [126, 36]
+parts.Q7 = { at = [140, 38], mirror = "x", fields = "right" }
+parts.F1 = [140, 52, 270]
+wires = [
+    ["R50.2", "D13.2"],
+    [[28, 40], [28, 44], { label = "right" }],
+    ["D13.1", "U7.4"],
+    [[56, 40], [56, 36], { label = "right" }],
+    ["R52.2", "R53.2"],
+    ["R53.2", "R54.1"],
+    ["U7.3", [82, 36], [82, 16]],
+    [[70, 16], [70, 12], { label = "right" }],
+    ["U7.5", [90, 24]],
+    ["C78.2", [90, 28]],
+    ["U7.1", "Q7.1"],
+    ["R54.2", [120, 16], [120, 38]],
+    [[108, 38], [108, 42], { label = "right" }],
+    ["Q7.3", "F1.1"],
+    [[142, 44], [146, 44], { label = "right" }],
+    ["F1.2", [142, 60], [146, 60]],
+]
+
+[[block]]
 title = "Buzzer: low-side switch Q1, flyback D3"
-at = [184, 10]
+at = [154, 10]
 size = [66, 58]
 parts.D3 = { at = [34, 24], rot = 90, fields = "left" }
 parts.BZ1 = [48, 20]
@@ -76,8 +108,8 @@ wires = [
 
 [[block]]
 title = "Indicator LEDs"
-at = [254, 10]
-size = [66, 32]
+at = [224, 10]
+size = [96, 32]
 parts.R4 = { at = [20, 12], rot = 270, fields = "bottom" }
 parts.D4 = { at = [40, 12], rot = 180, fields = "bottom" }
 parts.R5 = { at = [20, 26], rot = 270, fields = "bottom" }
@@ -91,8 +123,8 @@ wires = [
 
 [[block]]
 title = "DIP switch"
-at = [254, 46]
-size = [66, 26]
+at = [224, 46]
+size = [96, 26]
 parts.SW1 = [30, 12]
 wires = [
     ["SW1.8", [40, 8], [40, 14], "SW1.5"],
@@ -102,40 +134,8 @@ wires = [
 ]
 
 [[block]]
-title = "Buttons: user, reset, boot"
-at = [10, 86]
-size = [146, 30]
-parts.SW2 = [14, 12]
-parts.C20 = [26, 16, 180]
-parts.SW3 = [60, 12]
-parts.C21 = [72, 16, 180]
-parts.SW5 = { at = [106, 12], mirror = "y" }
-parts.C60 = { at = [106, 18], rot = 270, fields = "bottom" }
-parts.R42 = [122, 16, 180]
-wires = [
-    ["SW2.1", [6, 10], [6, 12], "SW2.2"],
-    [[6, 12], [6, 14]],
-    ["SW2.3", [22, 10], [22, 12], "SW2.4"],
-    ["SW2.4", [26, 12], "C20.2"],
-    [[26, 12], [30, 12]],
-    ["SW3.1", [52, 10], [52, 12], "SW3.2"],
-    [[52, 12], [52, 14]],
-    ["SW3.3", [68, 10], [68, 12], "SW3.4"],
-    ["SW3.4", [72, 12], "C21.2"],
-    [[72, 12], [76, 12]],
-    # BOOT0: SW5 and C60 to 3V3, R42 to GND
-    ["SW5.3", [98, 10], [98, 12], "SW5.4"],
-    [[98, 10], [98, 6]],
-    [[98, 12], [98, 18], "C60.2"],
-    ["SW5.1", [114, 10], [114, 12], "SW5.2"],
-    [[114, 12], [114, 18], "C60.1"],
-    ["SW5.2", [132, 12]],
-    ["R42.2", [122, 12]],
-]
-
-[[block]]
-title = "Addressable LEDs: WS2815C chain on 3V3"
-at = [160, 86]
+title = "Addressable LEDs on VBAT"
+at = [194, 82]
 size = [90, 36]
 parts.D1 = { at = [24, 22], mirror = "x", fields = "bottom" }
 parts.D2 = { at = [64, 22], mirror = "x", fields = "bottom" }
@@ -150,3 +150,33 @@ wires = [
 ]
 stubs."D1.2" = { point = "out" }
 stubs."D2.2" = { point = "out" }
+
+[[block]]
+title = "Buttons: user, reset, boot"
+at = [10, 152]
+size = [156, 28]
+parts.SW2 = [14, 12]
+parts.C20 = [26, 16, 180]
+parts.SW3 = [60, 12]
+parts.C21 = [72, 16, 180]
+parts.SW5 = { at = [106, 12], mirror = "y" }
+parts.R42 = [118, 16, 180]
+parts.C60 = [134, 16]
+wires = [
+    ["SW2.1", [6, 10], [6, 12], "SW2.2"],
+    [[6, 12], [6, 14]],
+    ["SW2.3", [22, 10], [22, 12], "SW2.4"],
+    ["SW2.4", [26, 12], "C20.2"],
+    [[26, 12], [30, 12]],
+    ["SW3.1", [52, 10], [52, 12], "SW3.2"],
+    [[52, 12], [52, 14]],
+    ["SW3.3", [68, 10], [68, 12], "SW3.4"],
+    ["SW3.4", [72, 12], "C21.2"],
+    [[72, 12], [76, 12]],
+    ["SW5.3", [98, 10], [98, 12], "SW5.4"],
+    [[98, 10], [98, 6]],
+    ["SW5.1", [114, 10], [114, 12], "SW5.2"],
+    ["SW5.2", [134, 12], "C60.1"],
+    ["R42.2", [118, 12]],
+    [[134, 12], [138, 12]],
+]

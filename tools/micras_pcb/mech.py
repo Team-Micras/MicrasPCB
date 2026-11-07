@@ -203,11 +203,22 @@ def features(s: dict, root: sexpr.Node) -> list[str]:
             problems.append(f"outline {name} at {got:.4f}, spec {want}")
 
     e = s["encoder_slots"]
-    hl, hw = e["length"] / 2, e["width"] / 2
+    hl, hw, r = e["length"] / 2, e["width"] / 2, e.get("corner_radius", 0.0)
     for path, (cx, cy) in slots(s).items():
-        c = [(cx - hl, cy - hw), (cx + hl, cy - hw), (cx + hl, cy + hw), (cx - hl, cy + hw)]
-        if not all(_has_line(lines, a, b) for a, b in zip(c, [*c[1:], c[0]], strict=True)):
-            problems.append(f"no {e['length']} x {e['width']} mm encoder slot at ({cx}, {cy}) for {path}")
+        # straight sides along the slot, straight ends if the corners leave any, and corner arcs
+        # (centred r in from each corner) that together sweep a full circle
+        want = [((cx - hl + r, cy + sy * hw), (cx + hl - r, cy + sy * hw)) for sy in (1, -1)]
+        if hw - r > TOL:
+            want += [((cx + sx * hl, cy - hw + r), (cx + sx * hl, cy + hw - r)) for sx in (1, -1)]
+        centres = {(cx + sx * (hl - r), cy + sy * (hw - r)) for sx in (1, -1) for sy in (1, -1)}
+        corner = [
+            a for a in arcs if any(math.dist(_circle(a)[:2], c) < TOL for c in centres) and abs(_circle(a)[2] - r) < TOL
+        ]
+        rounded = r <= TOL or abs(sum(map(_sweep, corner)) - 2 * math.pi) < 1e-3
+        if not all(_has_line(lines, a, b) for a, b in want) or not rounded:
+            problems.append(
+                f"no {e['length']} x {e['width']} mm encoder slot with R{r} ends at ({cx}, {cy}) for {path}"
+            )
 
     p = s["usb_pegs"]
     for cx, cy in pegs(s):
@@ -562,7 +573,13 @@ def main_json(s: dict, root: sexpr.Node) -> dict:
             {"name": h["path"].split(".")[0], "pos": [h["x"], h["y"]], "drill": s["holes"]["diameter"]} for h in holes
         ],
         "encoder_slots": [
-            {"name": path.split(".")[1], "centre": list(c), "length": sl["length"], "width": sl["width"]}
+            {
+                "name": path.split(".")[1],
+                "centre": list(c),
+                "length": sl["length"],
+                "width": sl["width"],
+                "corner_radius": sl.get("corner_radius", 0.0),
+            }
             for path, c in slots(s).items()
         ],
         "usb_pegs": [{"centre": list(c), "diameter": s["usb_pegs"]["diameter"]} for c in pegs(s)],

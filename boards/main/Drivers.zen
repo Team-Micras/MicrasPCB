@@ -2,29 +2,37 @@
 
 Locomotion, IC5 (L6205D dual full bridge, ST L6205 datasheet, September 2003):
 - VSA/VSB on +20V, decoupled by C38 100 nF at the pins and C37 100 uF bulk (p12 Table 2:
-  C1 100 uF, C2 100 nF).
+  C1 100 uF, C2 100 nF), plus C65/C66 10 uF 50 V ceramics at the pins: the bridges draw
+  0.5-1.4 A of ripple per bridge at 100 kHz (I x sqrt(D (1 - D))), which the electrolytic
+  (ohm-level ESR, JVS p2-3) and the 100 nF cannot supply, and the boost's ceramics sit
+  centimetres away.
 - Charge pump (p8 Table 1, Figure 3): D6 from VS to the pump node, D7 from the pump node to
   VBOOT, C39 220 nF CBOOT from VBOOT to VS, R34 100 Ohm + C40 10 nF from the pump node to VCP.
-- ENA and ENB tied together on BRIDGE_EN and driven from Motor_Enable (PA10) through R35
+- ENA and ENB tied together on BRIDGE_EN and driven from Motors_Enable (PA10) through R35
   100 kOhm, with C41 10 nF to GND: the push-pull drive of Figure 6 p8. An overcurrent on
-  either bridge pulls both enables low.
-- Bridge A (IN1A/IN2A = Motor_Left_PWM_FW/BW) drives connector M1 from OUT2A, back through
-  M1 pin 2 and the 40 mOhm shunt R32 to OUT1A. Bridge B (IN1B/IN2B = Motor_Right_PWM_FW/BW)
-  drives M2 the same way through R33. SENSEA and SENSEB are grounded: the current is sensed
-  in line with the motor, by the TSC2020 amplifiers on the sensors sheet, across R32 (nets
-  Motor_R_Sense+/-) and R33 (Motor_L_Sense+/-).
+  either bridge pulls both enables low. R49 100 kOhm holds Motors_Enable low while the MCU is
+  in reset, when its pins float in analog mode (RM0468 section 11.3.1) and the L6205 inputs
+  have no pull (Figure 4 p8); the same line enables the 20 V boost.
+- Bridge A (IN1A/IN2A = Motor_Left_PWM_FW/BW) drives the left motor connector M1 from
+  OUT2A, back through M1 pin 2 and the 40 mOhm shunt R32 to OUT1A. Bridge B (IN1B/IN2B =
+  Motor_Right_PWM_FW/BW) drives the right motor connector M2 the same way through R33. SENSEA
+  and SENSEB are grounded: the current is sensed in line with the motor, by the TSC2020
+  amplifiers on the sensors sheet, across R32 (nets Motor_L_Sense+/-) and R33
+  (Motor_R_Sense+/-).
 
 Fan, IC6 (STSPIN958, DS14341 Rev 1), driving connector M3:
 - MODE1 = H, MODE2 = L, MODE3 = H: single half-bridge, parallel mode, PWM trimming
   (Table 8 p12). OUT1/OUT2 and LSS1/LSS2 are tied (section 5.4.3).
 - M3 between OUT (FAN_OUT) and LSS (FAN_LSS); R31 50 mOhm 3 W from LSS to GND (Table 12:
-  RSNS 50 mOhm, 3 W).
+  RSNS 50 mOhm, 3 W). PWM2/PH on GND: with the load between OUT and LSS the high side drives
+  it and the current limiter recirculates through the low side (sections 5.6.1.2 and
+  5.6.2.2, Figures 11 and 14).
 - REF from the R28 24 kOhm / R29 75 kOhm divider on 3V3: 3.3 x 75 / 99 = 2.50 V; with
   OFFSET low, Eq. 1 (section 5.6) gives I_peak = 2.50 / (0.05 x 10) = 5.0 A.
 - SR: R30 5.6 kOhm, 0.6 V/ns (Table 7).
 - EN/nFAULT: R27 39 kOhm to 3V3 and C30 10 nF (Table 12), on Fan_Enable (PB14). TOFF is a
-  digital output in PWM trimming (section 5.6.2), read on Fan_Overcurrent (PB13). PWM1 on
-  Fan_PWM (PB15); PWM2/PH and nSTBY on 3V3.
+  digital output in PWM trimming (section 5.6.2), the current-limiter flag, read on Fan_TOFF
+  (PB13). PWM1 on Fan_PWM (PB15); nSTBY on 3V3.
 - VS on VBAT with C34/C35 470 nF and C36 220 uF bulk (Table 12: CS 470 nF, CBULK 220 uF).
   VDD on 3V3 with C31 220 nF. C32 100 nF CP1-CP2 flying capacitor and C33 1 uF from
   VSPUMP to VBOOT (Table 12; VSPUMP to CBOOT only, as in Figure 22).
@@ -35,6 +43,7 @@ load(
     "./passives.zen",
     "C_100N_0402",
     "C_10N_0402",
+    "C_10U_0805",
     "C_1U_0402",
     "C_220N_0402",
     "C_220N_0805",
@@ -74,7 +83,7 @@ Motor_Left_PWM_FW = io(Net)
 Motor_Left_PWM_BW = io(Net)
 Motor_Right_PWM_FW = io(Net)
 Motor_Right_PWM_BW = io(Net)
-Motor_Enable = io(Net)
+Motors_Enable = io(Net)
 MOTOR_R_SENSE_P = io(Net)
 MOTOR_R_SENSE_N = io(Net)
 MOTOR_L_SENSE_P = io(Net)
@@ -82,7 +91,7 @@ MOTOR_L_SENSE_N = io(Net)
 
 Fan_PWM = io(Net)
 Fan_Enable = io(Net)
-Fan_Overcurrent = io(Net)
+Fan_TOFF = io(Net)
 
 BRIDGE_EN = Net("BRIDGE_EN")
 BRIDGE_VCP = Net("BRIDGE_VCP")
@@ -114,27 +123,30 @@ L6205D(
     IN1B=Motor_Right_PWM_FW,
     IN2B=Motor_Right_PWM_BW,
     ENB=BRIDGE_EN,
-    OUT1A=MOTOR_R_SENSE_P,
+    OUT1A=MOTOR_L_SENSE_P,
     OUT2A=BRIDGE_OUT2A,
     SENSEA=GND,
-    OUT1B=MOTOR_L_SENSE_P,
+    OUT1B=MOTOR_R_SENSE_P,
     OUT2B=BRIDGE_OUT2B,
     SENSEB=GND,
 )
 Capacitor(name="C38", P1=GND, P2=V20V, **C_100N_0402)
+Capacitor(name="C65", P1=GND, P2=V20V, **C_10U_0805)
+Capacitor(name="C66", P1=GND, P2=V20V, **C_10U_0805)
 JVS25V100M6X4(name="C37", POS=V20V, NEG=GND)
 D1N4148W(name="D6", A=V20V, K=BRIDGE_PUMP)
 D1N4148W(name="D7", A=BRIDGE_PUMP, K=BRIDGE_VBOOT)
 Capacitor(name="C39", P1=BRIDGE_VBOOT, P2=V20V, **C_220N_0805)
 Resistor(name="R34", P1=BRIDGE_PUMP, P2=BRIDGE_PUMP_RC, **R_100_0402)
 Capacitor(name="C40", P1=BRIDGE_PUMP_RC, P2=BRIDGE_VCP, **C_10N_0402)
-Resistor(name="R35", P1=BRIDGE_EN, P2=Motor_Enable, **R_100K_0402)
+Resistor(name="R35", P1=BRIDGE_EN, P2=Motors_Enable, **R_100K_0402)
+Resistor(name="R49", P1=GND, P2=Motors_Enable, **R_100K_0402)
 Capacitor(name="C41", P1=BRIDGE_EN, P2=GND, **C_10N_0402)
 
-B02B_PASK(name="M1", prefix="M", P1=BRIDGE_OUT2A, P2=MOTOR_R_SENSE_N)
-R2512(name="R32", P1=MOTOR_R_SENSE_N, P2=MOTOR_R_SENSE_P, **R_40M_2512)
-B02B_PASK(name="M2", prefix="M", P1=BRIDGE_OUT2B, P2=MOTOR_L_SENSE_N)
-R2512(name="R33", P1=MOTOR_L_SENSE_N, P2=MOTOR_L_SENSE_P, **R_40M_2512)
+B02B_PASK(name="M1", prefix="M", P1=BRIDGE_OUT2A, P2=MOTOR_L_SENSE_N)
+R2512(name="R32", P1=MOTOR_L_SENSE_N, P2=MOTOR_L_SENSE_P, **R_40M_2512)
+B02B_PASK(name="M2", prefix="M", P1=BRIDGE_OUT2B, P2=MOTOR_R_SENSE_N)
+R2512(name="R33", P1=MOTOR_R_SENSE_N, P2=MOTOR_R_SENSE_P, **R_40M_2512)
 
 # Fan driver.
 STSPIN958(
@@ -153,7 +165,7 @@ STSPIN958(
     V1=NotConnected(),
     V2=NotConnected(),
     PWM1=Fan_PWM,
-    PWM2_PH=V3V3,
+    PWM2_PH=GND,
     EN_NFAULT=Fan_Enable,
     NSTBY=V3V3,
     MODE1=V3V3,
@@ -161,7 +173,7 @@ STSPIN958(
     MODE3=V3V3,
     OFFSET=GND,
     REF=FAN_REF,
-    TOFF=Fan_Overcurrent,
+    TOFF=Fan_TOFF,
     SR=FAN_SR,
 )
 Capacitor(name="C34", P1=VBAT, P2=GND, **C_470N_0603)

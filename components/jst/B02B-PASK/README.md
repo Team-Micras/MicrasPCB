@@ -28,3 +28,6 @@ Footprint `JST_PA_B02B-PASK_1x02_P2.00mm_Vertical.kicad_mod`: 1.2 mm pads on 0.7
 (MicrasMainBoard), with the B02B-PASK STEP embedded. `pcb rectify check` reports a 1.89 mm z
 offset for the model; a KiCad 3D render shows the housing seated on the board top and the pins
 through the holes, so the transform is kept.
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.13) and the pads, 0.5 mm, the
+connector courtyard excess of KiCad Library Conventions F5.3.

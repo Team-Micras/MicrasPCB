@@ -42,9 +42,12 @@ LSM6DSV(name="IC2", VDD=V3V3, VDDIO=V3V3, GND=GND, SPI=IMU_SPI, INT1=IMU_INT1, I
 Micras main board. It matches the LGA-14L 2.5 x 3.0 mm, 0.5 mm pitch package of DS13476
 Figure 31: pads 1-4 and 8-11 on the 2.5 mm sides at x = -/+1.15 mm, pads 5-7 and 12-14 on the
 3.0 mm sides at y = +/-0.9 mm, all 0.6 x 0.3 mm over terminals of 0.475 x 0.25 mm; pad 1 top
-left, numbering counter-clockwise in top view (Figure 4). Body and courtyard outlines are on
-User.13 and User.15 (Altium mechanical layers).
+left, numbering counter-clockwise in top view (Figure 4). The body outline is on User.13
+(Altium mechanical layer).
 
 The embedded STEP is `LSM6DSV320XTR.stp`: a 3.0 x 2.5 mm LGA body, 0.74 mm tall, while the
 LSM6DSV is 0.86 mm max (Figure 31). The 3D view and STEP export show the IMU 0.12 mm lower than
 the real part. `pcb rectify check`: model transform OK.
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.13) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).

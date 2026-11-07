@@ -110,31 +110,80 @@ def key_on_pio0(module, inputs):
     check(len(pads) == 1, "PIO0 (" + pio0 + ") needs an open pad to GND, found " + str(pads))
 
 
-def usb_c_sbu_not_a_supply(module, inputs):
-    # Type-C R2.0 Table 3-5 note 3 (p69): "Contacts A8 and B8 (SBU1 and SBU2) shall be not
-    # connected unless required for a specified purpose (e.g., Audio Adapter Accessory Mode)";
-    # section 4.3 (p139): a port's SBU pins are open or held by a weak pull-down (Table 4-28 p236:
-    # >= 950 kOhm). A device takes its supply from VBUS, which a source applies once it sees the
-    # sink's Rd on CC (sections 4.5.1.3.2, 4.5.2.2). This plug feeds the module from SBU and leaves
-    # VBUS and CC open (review M6).
-    b = index(module)
+def signature_problems(b):
+    # Review M6: the module identifies itself with its CC contacts on its D+ contacts. D+ is the
+    # main board's UART4 TX (PA12), which idles high, so the main board's CC contacts (5.1 kOhm Rd
+    # each) sit at the UART idle level, about 3.2 V, while the module is plugged in. A USB Type-C
+    # source makes at most 2.04 V across a +-10 % Rd (Type-C R2.0 Table 4-36, vRd-Connect max;
+    # 2.18 V with +-20 %, Table 4-35), and cables and accessories only put Ra (800 Ohm-1.2 kOhm,
+    # Table 4-26) or Rd to GND on CC (sections 4.5.2.2.14-4.5.2.2.20): no other partner makes that
+    # level. Both CC contacts must carry it, as the plug's CC1 meets the receptacle's CC1 or CC2
+    # depending on the orientation (Table 3-5 p69).
+    dp = net(b, PLUG, "D+")
     p = []
+    for pin in ["CC1", "CC2"]:
+        if net(b, PLUG, pin) != dp:
+            p.append("USB1 " + pin + " (" + net(b, PLUG, pin) + ") is not on the plug's D+ (" + dp + ")")
+    # Nothing may pull the signature down: no resistor or capacitor from D+ to GND or the supply,
+    # which would also load the main board's TX.
+    vcc = net(b, MODULE, "VCC")
+    for other in ["GND", vcc]:
+        for kind in ["resistor", "capacitor"]:
+            for r in two_terminal(b, kind, dp, other):
+                p.append(r + " loads the signature net " + dp + " to " + other)
+    return p
+
+
+def usb_c_sbu_supply_is_signed(module, inputs):
+    # Type-C R2.0 Table 3-5 note 3 (p69): "Contacts A8 and B8 (SBU1 and SBU2) shall be not
+    # connected unless required for a specified purpose"; section 4.3 (p139): a port's SBU pins
+    # are open or held by a weak pull-down (Table 4-28 p236: >= 950 kOhm). The main board puts
+    # 3V3 on SBU only while it reads this module's signature on its CC contacts (review M6), so a
+    # host, cable or accessory on its receptacle finds SBU open. A plug that takes its supply
+    # from SBU must therefore present that signature, or it would never be powered, and nothing
+    # else may make the main board drive SBU.
+    b = index(module)
+    supplied = []
     for pin in ["SBU1", "SBU2"]:
         n = net(b, PLUG, pin)
         if [r for r, _ in b.nets.get(n, []) if r == MODULE]:
-            p.append("USB1 " + pin + " (" + n + ") supplies U1 (the HM-19's VCC)")
+            supplied.append(pin)
+    p = []
+    if supplied:
+        p = ["USB1 " + ", ".join(supplied) + " supply U1 without the signature: " + q for q in signature_problems(b)]
     report(p)
+
+
+def usb_c_cc_signature(module, inputs):
+    # The signature itself, independently of where the module takes its supply.
+    report(signature_problems(index(module)))
+
+
+def usb_c_vbus_open(module, inputs):
+    # The main board's VBUS is its USB power input (a sink, Type-C R2.0 4.5.2.2.3.1 p170: it
+    # shall not drive VBUS); the module neither takes nor gives power there.
+    b = index(module)
+    n = net(b, PLUG, "VBUS")
+    # a pin left open sits on the unnamed no-connect net, shared by every open pin
+    others = [r for r, _ in b.nets.get(n, []) if r != PLUG] if n else []
+    check(len(others) == 0, "USB1 VBUS (" + n + ") connects " + str(sorted(others)))
 
 
 def module_reset_not_floating(module, inputs):
     # CC2640R2F SWRS204C Table 7-1 (and every package's signal table): "RESET_N ... Reset,
     # active-low. No internal pullup." The HM-19 datasheet (V107 6.8) gives RESETB as "Reset if low
-    # >1000ms" and does not say whether the module pulls it up.
+    # >1000ms" and does not say whether the module pulls it up. A 10-100 kOhm resistor to VCC holds
+    # it high (VIH = 0.8 VDDS, SWRS204C 8.25) with negligible current while it is high.
     b = index(module)
     reset = net(b, MODULE, "RESETB")
+    vcc = net(b, MODULE, "VCC")
     # a pin left open sits on the unnamed no-connect net
     others = [r for r, _ in b.nets.get(reset, []) if r != MODULE] if reset else []
     check(len(others) > 0, "U1 RESETB is left open: the CC2640R2F has no internal pull-up on RESET_N")
+    ups = two_terminal(b, "resistor", reset, vcc)
+    check(len(ups) == 1, "U1 RESETB needs one pull-up resistor to VCC (" + vcc + "), found " + str(ups))
+    ohms = b.parts[ups[0]].resistance.value
+    check(ohms >= 10e3 and ohms <= 100e3, ups[0] + " is " + str(ohms) + " Ohm, outside 10-100 kOhm")
 
 
 TestBench(
@@ -146,7 +195,9 @@ TestBench(
         vcc_capacitors,
         status_led_current,
         key_on_pio0,
-        usb_c_sbu_not_a_supply,
+        usb_c_sbu_supply_is_signed,
+        usb_c_cc_signature,
+        usb_c_vbus_open,
         module_reset_not_floating,
     ],
 )

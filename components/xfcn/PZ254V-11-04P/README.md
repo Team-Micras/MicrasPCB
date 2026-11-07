@@ -26,5 +26,8 @@ PZ254V_11_04P(name="P1", P1=V3V3, P2=GND, P3=SWDIO, P4=SWCLK)
 `HDR MALE 1x4` of the Micras main board: 1.0 mm drills, 1.8 mm pads (pad 1 rounded square, the
 others round), pads along +X from pad 1 at the origin. Pitch, drill and numbering match KiCad's
 `PinHeader_1x04_P2.54mm_Vertical` (pads along +Y there, 1.7 mm). The outline is drawn on F.SilkS
-and B.Fab; there is no F.CrtYd courtyard. The embedded STEP is
+and B.Fab. The embedded STEP is
 `Pin Header 1x4 TH Pitch 2.54mm.stp`. `pcb rectify check`: model transform OK.
+
+Courtyard: an F.CrtYd rectangle around the header outline (B.Fab) and the pads, 0.5 mm, the
+connector courtyard excess of KiCad Library Conventions F5.3.

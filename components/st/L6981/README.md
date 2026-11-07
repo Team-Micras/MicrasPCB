@@ -50,3 +50,6 @@ TJ -40 to 125 C, Table 6-7), `VCC` is `Power(3.0 V to 3.6 V)` (Table 6).
 `SOIC127P600X175-8N.kicad_mod`: IPC-7351 SO-8 land pattern from the Micras Altium library
 (MicrasMainBoard), pad numbers equal to the package pins, with the L6981N33DR STEP embedded.
 `pcb rectify check` passes.
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.13) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).

@@ -1,0 +1,42 @@
+"""LM66100 package facts: pinout (SLVSEZ8A p3) and the always-on reverse current blocking wiring."""
+
+DIODE = Module("../LM66100.zen")
+
+
+def part(module):
+    return module.components()["LM66100"]
+
+
+def orderable_part(module, inputs):
+    c = part(module)
+    check(c.mpn == "LM66100DCKR", "MPN must be LM66100DCKR, got " + str(c.mpn))
+    check(c.prefix == "U", "reference prefix must be U")
+
+
+def reverse_current_blocking(module, inputs):
+    # Section 8.3.2: CE tied to VOUT makes the comparator block reverse current; ST to GND when
+    # the status is not used (Pin Functions).
+    pins = part(module).pins
+    check(sorted(pins.keys()) == ["GND", "N/C", "ST", "VIN", "VOUT", "~{CE}"], "pins: " + str(sorted(pins.keys())))
+    check(pins["~{CE}"].name == pins["VOUT"].name, "CE must be on VOUT for reverse current blocking")
+    check(pins["VIN"].name == "SUPPLY_IN", "VIN io must reach the VIN pin")
+    check(pins["ST"].name == "GND", "ST must be on GND when unused")
+
+
+GND = Ground("GND")
+OUT = Power("SUPPLY_OUT", voltage="3.3V")
+
+TestBench(
+    name="LM66100_rcb",
+    module=DIODE,
+    test_cases={
+        "rcb": {
+            "VIN": Power("SUPPLY_IN", voltage="3.3V"),
+            "VOUT": OUT,
+            "GND": GND,
+            "CE": OUT,
+            "ST": GND,
+        },
+    },
+    checks=[orderable_part, reverse_current_blocking],
+)

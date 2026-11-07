@@ -1,0 +1,38 @@
+"""USBLC6-2SC6 package facts: pinout (DocID 11265 Rev 5 Figure 1) and ESD part type."""
+
+ESD = Module("../USBLC6-2SC6.zen")
+
+
+def part(module):
+    return module.components()["USBLC6"]
+
+
+def orderable_part(module, inputs):
+    c = part(module)
+    check(c.mpn == "USBLC6-2SC6", "MPN must be USBLC6-2SC6, got " + str(c.mpn))
+    check(c.prefix == "U", "reference prefix must be U")
+    check(c.type == "esd", "component type must be esd, got " + str(c.type))
+
+
+def lines_and_rail(module, inputs):
+    # Figure 1: I/O1 on pads 1 and 6, I/O2 on pads 3 and 4, VBUS rail on pad 5, GND on pad 2.
+    pins = part(module).pins
+    check(sorted(pins.keys()) == ["GND", "I/O1", "I/O2", "VBUS"], "pins: " + str(sorted(pins.keys())))
+    check(pins["I/O1"].name == "D_P", "IO1 must reach I/O1")
+    check(pins["I/O2"].name == "D_N", "IO2 must reach I/O2")
+    check(pins["VBUS"].name == "VCC", "VBUS must reach the rail pin")
+
+
+TestBench(
+    name="USBLC6_lines",
+    module=ESD,
+    test_cases={
+        "usb": {
+            "VBUS": Power("VCC", voltage="3.3V"),
+            "GND": Ground("GND"),
+            "IO1": Net("D_P"),
+            "IO2": Net("D_N"),
+        },
+    },
+    checks=[orderable_part, lines_and_rail],
+)

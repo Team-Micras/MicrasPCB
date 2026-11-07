@@ -59,3 +59,6 @@ threshold (section 7.5); effective inductance 0.47 to 3.3 uH (section 7.3).
 `RNW0013A.kicad_mod`: TI RNW0013A land pattern from the Micras Altium library (MicrasMainBoard),
 one pad per pin (PGND, SW and VOUT are 0.25 x 3.4 mm bars under the body), with the
 TPS611781RNWR STEP embedded. `pcb rectify check` passes.
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.13) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).
