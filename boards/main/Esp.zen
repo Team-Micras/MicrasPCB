@@ -73,29 +73,30 @@ eFuses defeat it. Any USB-serial adapter with 3.3 V logic does it (esptool's own
 needs DTR/RTS on EN and GPIO28, as the ESP-Prog wires them; with a plain adapter hold pad 6 to GND
 by hand and pulse pad 1). Pad 1 is square and marked on the silkscreen, which labels the pads.
 
-USB pads J3 (components/micras/UsbPads: three 1.0 mm SMD pads at 1.27 mm, no part): 1 GND, 2 D-, 3
-D+, labelled "G", "D-" and "D+" on the silkscreen, for a USB cable's wires soldered once. They reach
-the C5's USB Serial/JTAG controller, a USB 2.0 full-speed device: GPIO13 is USB_D- (module pin 23)
-and GPIO14 USB_D+ (pin 24) (module datasheet v1.4 Table 3-1; Hardware Design Guidelines, Schematic
-Checklist, USB: "GPIO13 and GPIO14 can be used as D- and D+ of USB respectively"). With the default
-eFuses the controller enumerates as a CDC-ACM serial port and a JTAG adapter: the console, idf.py
-flash (the ROM's Joint Download Boot 0 takes USB-Serial-JTAG downloads, Strapping Pins table note;
-download mode is GPIO28 low at EN's rise, J2 pads 6 and 1, or esptool's reset over the
-USB-Serial-JTAG controller) and OpenOCD, with no adapter. J3 carries no VBUS: the cable's 5 V
-wire goes to J2 pad 2 (5V_IN) if the board is to run without the pack; with the pack in, D17 blocks
-it. GPIO14 has the controller's D+ pull-up (USB_PU, TRM Table 8.13-1; checklist IO Pin Default
-Functions), so no external pull-up; the checklist adds one only for a stable D+ while the chip
-powers up, which a cable soldered to a board already running does not need. The checklist reserves
-series resistors (22/33 Ohm) and unpopulated capacitors to ground "close to the chip" ("initially
-can be unpopulated"): there is no room for two 0402s at pins 23/24 (the outer side of the module's
-edge row holds the pair itself and ESP_CSn_IO, its inner side ESP_DATA_IO 0.45 mm from the pads),
-and the pair is 10.4 mm long, about 70 ps against full-speed edges of 4-20 ns (USB 2.0
-Specification, Full-speed Source Electrical Characteristics, TFR/TFF), so it is a lumped load and
-the controller's own drivers set the source impedance; nothing is fitted. No ESD array: a cable
-soldered once, not a receptacle plugged by hand. The layout routes the pair as a 90 Ohm differential
-pair on F.Cu over In1.Cu's ground, with no via, 0.2248 mm wide at a 0.127 mm gap (the board's
-differential-pair rule, main.zen), matched in length (layout README, ESP32 radio; Hardware Design
-Guidelines, PCB Layout Design, USB).
+USB pads J3 (components/micras/UsbPads: three plated holes at 1.27 mm, J2's 1.05 mm pads on 0.65 mm
+drills, no part): 1 GND, 2 D-, 3 D+, labelled "G", "D-" and "D+" on both silkscreens, for a USB
+cable's wires put in from the top and soldered on the bottom, once, their ends trimmed under the
+board like the through-hole leads. They reach the C5's USB Serial/JTAG controller, a USB 2.0
+full-speed device: GPIO13 is USB_D- (module pin 23) and GPIO14 USB_D+ (pin 24) (module datasheet
+v1.4 Table 3-1; Hardware Design Guidelines, Schematic Checklist, USB: "GPIO13 and GPIO14 can be used
+as D- and D+ of USB respectively"). With the default eFuses the controller enumerates as a CDC-ACM
+serial port and a JTAG adapter: the console, idf.py flash (the ROM's Joint Download Boot 0 takes
+USB-Serial-JTAG downloads, Strapping Pins table note; download mode is GPIO28 low at EN's rise, J2
+pads 6 and 1, or esptool's reset over the USB-Serial-JTAG controller) and OpenOCD, with no adapter.
+J3 carries no VBUS: the cable's 5 V wire goes to J2 pad 2 (5V_IN) if the board is to run without the
+pack; with the pack in, D17 blocks it. GPIO14 has the controller's D+ pull-up (USB_PU, TRM Table
+8.13-1; checklist IO Pin Default Functions), so no external pull-up; the checklist adds one only for
+a stable D+ while the chip powers up, which a cable soldered to a board already running does not
+need. The checklist reserves series resistors (22/33 Ohm) and unpopulated capacitors to ground
+"close to the chip" ("initially can be unpopulated"): there is no room for two 0402s at pins 23/24
+(the outer side of the module's edge row holds the pair itself and ESP_CSn_IO, its inner side
+ESP_DATA_IO 0.45 mm from the pads), and the pair is 10.4 mm long, about 70 ps against full-speed
+edges of 4-20 ns (USB 2.0 Specification, Full-speed Source Electrical Characteristics, TFR/TFF), so
+it is a lumped load and the controller's own drivers set the source impedance; nothing is fitted. No
+ESD array: a cable soldered once, not a receptacle plugged by hand. The layout routes the pair as a
+90 Ohm differential pair on F.Cu over In1.Cu's ground, with no via, 0.2248 mm wide at a 0.127 mm gap
+(the board's differential-pair rule, main.zen), matched in length (layout README, ESP32 radio;
+Hardware Design Guidelines, PCB Layout Design, USB).
 
 Links to the MCU (A.6). The C5 pins are those the chip datasheet ranks free of any restriction
 (ESP32-C5 Series Datasheet v1.5, section 2.3.5, priority 2: GPIO0, GPIO1, GPIO6, GPIO8-GPIO10,

@@ -1557,7 +1557,7 @@ POWER_STAGES = {"IC6", "IC7", "IC8", "IC9", "Q6"}
 RELIEF_STARVED = {"C8.1", "C29.1", "IC1.4"}
 # the hand-soldered ground pins: inherited from rules/jlcpcb.kicad_dru, relieved on the inner planes and
 # B.Cu, solid on F.Cu (routing review RP2); the small parts' one-spoke pads (RP3)
-HAND_GROUND = {"W1.2", "W2.2", "W3.2", "W4.2", "SWD1.3", "J2.4"}
+HAND_GROUND = {"W1.2", "W2.2", "W3.2", "W4.2", "SWD1.3", "J2.4", "J3.1"}
 ONE_SPOKE = {"R2.1", "D4.1", "C30.1", "R30.1", "C58.1", "R41.1", "R44.1"}
 RELIEF_RING = 0.8  # share of the ring in the relief's gap a plane may still cover (its spokes)
 ZONE_SOLID, ZONE_THERMAL = "2", "1"  # a pad's zone_connect in the .kicad_pcb
@@ -2269,7 +2269,8 @@ USB_PAIR = {"ESP.USB_DN": ("J3.2", "U13.23"), "ESP.USB_DP": ("J3.3", "U13.24")}
 USB_WIDTH, USB_PITCH = 0.2248, 0.2248 + 0.127
 USB_SKEW_MAX = 0.25  # mm
 USB_LENGTH_MAX = 12.0  # mm, each line, J3 to the module (the layout: 10.4)
-USB_COUPLED_MIN = 7.0  # mm, side by side at the pair's pitch (the layout: 8.2)
+USB_COUPLED_MIN = 7.0  # mm, side by side at the pair's pitch (the layout: 8.1)
+USB_DRILL_MIN, USB_PAD_MIN = 0.6, 1.0  # mm: J3's holes take a 28-30 AWG wire (components/micras/UsbPads)
 
 
 def _pad(pcb, ref_pad: str):
@@ -2330,20 +2331,27 @@ def test_usb_pair_is_short_matched_and_via_free():
 
 
 def test_usb_pads_stay_reachable():
-    # J3 takes a cable's wires soldered by hand: its pads are bare copper on the top side, under no
-    # other part's courtyard, its own courtyard clear of every other part's
+    # J3 takes a cable's wires put in from the top and soldered on the bottom (owner, 2026-11-08): its
+    # pads are plated holes open on both sides (EspProgPads' geometry: drill USB_DRILL_MIN or more,
+    # pad USB_PAD_MIN or more), under no other part's courtyard on either side, its own courtyard
+    # clear of every other part's
     pcb = layout.load("main")
     j3 = pcb.footprints["J3"]
     assert j3.side == "top"
-    pads = {p.number: p for p in j3.pads}
-    assert {n: p.net for n, p in pads.items()} == {"1": "GND", "2": "ESP.USB_DN", "3": "ESP.USB_DP"}
-    assert all(p.kind == "smd" and {"F.Cu", "F.Mask"} <= set(p.layers) and min(p.size) >= 1.0 for p in pads.values())
+    nodes = {pad.number: (node, pad) for ref, node, pad in _pad_nodes() if ref == "J3"}
+    assert {n: p.net for n, (_node, p) in nodes.items()} == {"1": "GND", "2": "ESP.USB_DN", "3": "ESP.USB_DP"}
+    problems = []
+    for n, (node, p) in sorted(nodes.items()):
+        drill = float(node.child("drill").atoms()[0]) if node.child("drill") else 0.0
+        both = {"*.Cu", "*.Mask"} <= set(p.layers) or {"F.Cu", "B.Cu", "F.Mask", "B.Mask"} <= set(p.layers)
+        if p.kind != "thru_hole" or drill < USB_DRILL_MIN or min(p.size) < USB_PAD_MIN or not both:
+            problems.append(f"J3.{n}: {p.kind}, drill {drill} mm, pad {min(p.size)} mm, layers {p.layers}")
     own = j3.courtyard_box()
-    over = []
     for ref, f in pcb.footprints.items():
         box = f.courtyard_box()
         if ref == "J3" or box is None:
             continue
-        if own[0] < box[2] and box[0] < own[2] and own[1] < box[3] and box[1] < own[3]:
-            over.append(ref)
-    assert not over, f"courtyards over J3's: {over}"
+        e = 0.001  # mm: courtyards that touch (C110's meets J3's) do not overlap
+        if own[0] < box[2] - e and box[0] < own[2] - e and own[1] < box[3] - e and box[1] < own[3] - e:
+            problems.append(f"{ref}'s courtyard ({f.side}) over J3's")
+    assert not problems, "\n".join(problems)

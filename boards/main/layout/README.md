@@ -191,22 +191,25 @@ STSPIN958 in parallel half-bridge mode, PWM trimming, on TIM14 at 400 kHz: R31 2
   v1.4 Table 6-3), so that plug can destroy the module: the silkscreen marks pad 1 ("1") and pad 2
   ("5V") beside the pads; there are no protection parts. The pads sit at a board edge the robot
   leaves open, easy to reach.
-- **USB pads J3** (`components/micras/UsbPads`: three 1.0 mm SMD pads at 1.27 mm, no part in the
-  BOM): 1 GND, 2 D- (GPIO13, module pin 23), 3 D+ (GPIO14, pin 24), labelled "G", "D-" and "D+" on
-  the silkscreen, for a USB cable's wires soldered once on the C5's USB Serial/JTAG controller:
-  its CDC-ACM console, flashing (idf.py flash, esptool; the ROM's Joint Download Boot 0 takes
-  USB-Serial-JTAG downloads) and JTAG (OpenOCD), with no adapter. J3 has no VBUS pad: the cable's
-  5 V wire goes on J2 pad 2 (5V_IN, through D17) to run the board without the pack, and stays off
-  with the pack in. J3 sits off the module's front-left corner, between the right choke L4 and the
-  module, 1.0 mm from L4's terminal pad (switching, but the pair is digital, not analog). The pair is the board's differential-pair rule, 0.2248 mm at a 0.127 mm gap (90 Ohm
-  on this stackup, v1's USB pair), on F.Cu over In1.Cu's ground with no via: from J3 it runs
-  coupled along the outer side of the module's edge row (D+ 0.1 mm off the unconnected pads
-  25-30, D- 0.352 mm outside it) into pins 24 and 23; D- 10.40 mm and D+ 10.35 mm, 0.05 mm apart
-  (D+ leaves J3 by a 0.83 mm riser that takes up D-'s longer turn into pin 23), 8.2 mm of it
-  coupled (`test_usb_pair_is_short_matched_and_via_free`). No series resistors: the checklist's
-  22/33 Ohm "close to the chip" have no room at pins 23/24 (the row's outer side holds the pair and
-  ESP_CSn_IO 0.17 mm from it, the inner side ESP_DATA_IO), and a 10 mm pair is a lumped load at
-  full speed (`Esp.zen`); no ESD array (a cable soldered once) and no D+ pull-up (GPIO14 has
+- **USB pads J3** (`components/micras/UsbPads`: three plated holes at 1.27 mm, J2's 1.05 mm pads on
+  0.65 mm drills, no part in the BOM): 1 GND (square), 2 D- (GPIO13, module pin 23), 3 D+ (GPIO14,
+  pin 24), labelled "G", "D-" and "D+" on both silkscreens, for a USB cable's wires put in from the
+  top and soldered on the bottom, once, on the C5's USB Serial/JTAG controller: its CDC-ACM console,
+  flashing (idf.py flash, esptool; the ROM's Joint Download Boot 0 takes USB-Serial-JTAG downloads)
+  and JTAG (OpenOCD), with no adapter. J3 has no VBUS pad: the cable's 5 V wire goes on J2 pad 2
+  (5V_IN, through D17) to run the board without the pack, and stays off with the pack in. J3 sits
+  off the module's front-left corner, between the right choke L4 and the module, 1.0 mm from L4's
+  terminal pad (switching, but the pair is digital, not analog); on B.Cu ESP_TXD0 passes 1.0 mm from
+  its pads. J3's ground hole joins the pours as the other hand-soldered ground pins do (Layout,
+  Pours and pad joins). The pair is the board's differential-pair rule, 0.2248 mm at a 0.127 mm gap
+  (90 Ohm on this stackup, v1's USB pair), on F.Cu over In1.Cu's ground with no via: from J3 it runs
+  coupled along the outer side of the module's edge row (D+ 0.1 mm off the unconnected pads 25-30,
+  D- 0.352 mm outside it) into pins 24 and 23; D- 10.40 mm and D+ 10.35 mm, 0.05 mm apart (D+ leaves
+  J3 by a 0.83 mm riser, 0.35 mm off D-'s hole, that takes up D-'s longer turn into pin 23), 8.1 mm
+  of it coupled (`test_usb_pair_is_short_matched_and_via_free`). No series resistors: the
+  checklist's 22/33 Ohm "close to the chip" have no room at pins 23/24 (the row's outer side holds
+  the pair and ESP_CSn_IO 0.17 mm from it, the inner side ESP_DATA_IO), and a 10 mm pair is a lumped
+  load at full speed (`Esp.zen`); no ESD array (a cable soldered once) and no D+ pull-up (GPIO14 has
   the controller's).
 - **Links to the MCU** (C5 GPIOs free of strapping and other roles, off with no pull at reset):
   SWDIO GPIO0 -> PA13, SWCLK GPIO1 -> PA14 (22 Ohm), NRST GPIO23 (open drain); SPI3 half-duplex
@@ -521,7 +524,7 @@ connection is routed, and DRC, DFM and the layout tests pass.
   that carry current or heat join solid: exposed pads and every pad of 1.2 mm2 and more, the power
   stages' pins (IC6, IC7, IC8, IC9, Q6), the pads inside the power paths' own pours, and 5 pads
   the pour reaches from one side only (`route.py` `relief()`, `RELIEF_STARVED`). The hand-soldered
-  ground pins (the wall joints' pin 2, SWD1 pin 3, J2 pin 4) take their joins from
+  ground pins (the wall joints' pin 2, SWD1 pin 3, J2 pin 4, J3 pin 1) take their joins from
   `rules/jlcpcb.kicad_dru`: 0.25 mm gap, 0.4 mm spoke reliefs on B.Cu and the inner planes, so the
   iron heats the joint and not the planes, and solid on F.Cu, which the pour reaches from one side.
   Seven small parts whose pour pad the pour reaches from one side (R2, D4, C30, R30 on ground, C58
@@ -579,8 +582,8 @@ connection is routed, and DRC, DFM and the layout tests pass.
   inside JLCPCB's 0.40 mm copper clearance to a V-score (`rules/jlcpcb-pdk.toml`
   `jlc.copper.minimum_vscore_clearance`), and snapping a scored rail beside an MLCC cracks it.
   Order note (assembly): trim every through-hole lead to 0.5 mm or less under the board after
-  soldering. As fitted, J1's and M1-M3's leads stand 1.96 mm below the board, SW4's 1.17 mm and
-  the wall boards' header pins 2.71 mm, against a 0.7-0.85 mm gap to the floor (MicrasHardware `Board.bottom_z` 1.2 mm,
+  soldering, and the wire ends at J3 (the USB cable) likewise. As fitted, J1's and M1-M3's leads
+  stand 1.96 mm below the board, SW4's 1.17 mm and the wall boards' header pins 2.71 mm, against a 0.7-0.85 mm gap to the floor (MicrasHardware `Board.bottom_z` 1.2 mm,
   less the skates); M2 also lies under the rear skate (for MicrasHardware to clear).
   JLCPCB prints no paste on the parts the team solders itself (`assembly = "hand"` in
   `parts/jlc.toml`: IC1, IC2, IC6, IC7, U13 and D4; J1, M1-M3 and SW4 are through-hole): `make fab`
@@ -649,8 +652,8 @@ Each is a visible TODO in the sheet that owns it.
   3.5 mm from IC1.14, where ST AN2834 section 4.2.8 asks for the pin: the front-right face's escapes
   leave no 0402 spot nearer (C105 is 1.9 mm from IC1.25; `test_adc_filter_caps_at_the_pin` holds
   each at its reach).
-- Assembly: every through-hole lead trimmed to 0.5 mm or less (Ordering); M2's leads lie under
-  MicrasHardware's rear skate.
+- Assembly: every through-hole lead trimmed to 0.5 mm or less (Ordering), the USB cable's wire
+  ends at J3 too; M2's leads lie under MicrasHardware's rear skate.
 - Silkscreen: the KiCad library passives (stdlib 0402-1210, 0603 LED) keep their 0.12 mm outlines;
   U13's outline and SW4's run past the board's edge (the module over its notch, the switch's
   lever at the cut corner), where the fab clips them. Every reference designator is on the board (the

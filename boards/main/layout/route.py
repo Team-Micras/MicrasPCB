@@ -1831,7 +1831,7 @@ def square_corners() -> int:
 # (POWER_STAGES) and every pad inside one of the power paths' own pours (the named zones, solid
 # throughout), and the pads the pour reaches from one side only (RELIEF_STARVED: no room for two
 # spokes, KiCad's minimum). Two exceptions to those solid joins (routing review RP2, RP3): the
-# hand-soldered ground pins (HAND_GROUND: the wall joints' pin 2, SWD1 pin 3, J2 pin 4) inherit their
+# hand-soldered ground pins (HAND_GROUND: the wall joints' pin 2, SWD1 pin 3, J2 pin 4, J3 pin 1) inherit their
 # connection from rules/jlcpcb.kicad_dru, which relieves them on B.Cu and the inner planes (0.25 mm
 # gap, 0.4 mm spokes, so the iron heats the joint; the planes stayed solid before) and joins them solid
 # on F.Cu, where the pour reaches them from one side; and the small parts whose pour pad would sit
@@ -1843,7 +1843,7 @@ THT_SPOKE = 0.4  # mm
 RELIEF_SOLID_AREA = 1.2  # mm2: an 0805 pad (1.0 x 1.45 mm) and larger
 POWER_STAGES = ("IC6", "IC7", "IC8", "IC9", "Q6")  # fan driver, buck, bridges, battery switch
 RELIEF_STARVED = {"C8.1", "C29.1", "IC1.4", "R12.1", "SWD1.2"}
-HAND_GROUND = {"W1.2", "W2.2", "W3.2", "W4.2", "SWD1.3", "J2.4"}
+HAND_GROUND = {"W1.2", "W2.2", "W3.2", "W4.2", "SWD1.3", "J2.4", "J3.1"}
 ONE_SPOKE = {"R2.1", "D4.1", "C30.1", "R30.1", "C58.1", "R41.1", "R44.1"}
 GROUND_LAYERS = {F: "F", BK: "B", IN1: "In1", IN2: "In2"}
 

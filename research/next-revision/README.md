@@ -569,8 +569,8 @@ DRV8874 nFAULT ×2 wire-OR ─ PB6
   pad 6 low and pulsing pad 1 enters the ROM's UART download mode, which only burned eFuses defeat.
   Pad 2 takes the programmer's 5 V into VSYS through D17, which powers the whole board without the
   pack and blocks with it (Power tree, programming power); no connector pin reaches 3V3_D.
-  Bare USB pads **J3** (`components/micras/UsbPads`: three 1.0 mm SMD pads at 1.27 mm, 1 GND, 2 D-,
-  3 D+, no part) take a USB cable's wires soldered once on the C5's USB Serial/JTAG controller
+  Bare USB pads **J3** (`components/micras/UsbPads`: three plated holes at 1.27 mm, J2's geometry,
+  1 GND, 2 D-, 3 D+, no part) take a USB cable's wires, soldered once from the bottom, on the C5's USB Serial/JTAG controller
   (GPIO13 D-, GPIO14 D+, [ESP32-C5-MINI-1] Table 3-1): its console, flashing (the ROM's Joint
   Download Boot 0 takes USB-Serial-JTAG downloads) and JTAG with no adapter. The cable's 5 V wire
   goes on J2 pad 2 to run the board without the pack. No ESD array (a cable soldered once) and no

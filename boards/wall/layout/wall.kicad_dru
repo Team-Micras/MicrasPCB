@@ -121,18 +121,18 @@
 	(condition "A.Type == 'Zone' && (A.Layer == 'In1.Cu' || A.Layer == 'In2.Cu')")
 	(constraint edge_clearance (min 0.50mm)))
 
-# The main board's hand-soldered ground pins (the wall joints' pin 2, SWD1 pin 3, J2 pin 4) join the
-# pours by their zones' thermal reliefs on B.Cu and the inner planes (0.25 mm gap; boards/main/layout/
-# route.py relief() gives them 0.4 mm spokes: JLCPCB's thermal relief guide, 0.30-0.50 mm for
+# The main board's hand-soldered ground pins (the wall joints' pin 2, SWD1 pin 3, J2 pin 4, J3 pin 1)
+# join the pours by their zones' thermal reliefs on B.Cu and the inner planes (0.25 mm gap; boards/
+# main/layout/route.py relief() gives them 0.4 mm spokes: JLCPCB's thermal relief guide, 0.30-0.50 mm for
 # through-hole pads), so a soldering iron heats the joint instead of the planes, one spoke enough
 # where the pour reaches a pad from one side; solid on F.Cu, which the pour reaches from one side
 # only (the pads inherit these rules). No other board has a ground pad on these references.
 (rule "main: hand-soldered ground pins, reliefs"
-	(condition "A.Type == 'Pad' && A.NetName == 'GND' && (A.memberOfFootprint('W1') || A.memberOfFootprint('W2') || A.memberOfFootprint('W3') || A.memberOfFootprint('W4') || A.memberOfFootprint('SWD1') || A.memberOfFootprint('J2'))")
+	(condition "A.Type == 'Pad' && A.NetName == 'GND' && (A.memberOfFootprint('W1') || A.memberOfFootprint('W2') || A.memberOfFootprint('W3') || A.memberOfFootprint('W4') || A.memberOfFootprint('SWD1') || A.memberOfFootprint('J2') || A.memberOfFootprint('J3'))")
 	(constraint min_resolved_spokes 1))
 (rule "main: hand-soldered ground pins, solid on F.Cu"
 	(layer F.Cu)
-	(condition "A.Type == 'Pad' && A.NetName == 'GND' && (A.memberOfFootprint('W1') || A.memberOfFootprint('W2') || A.memberOfFootprint('W3') || A.memberOfFootprint('W4') || A.memberOfFootprint('SWD1') || A.memberOfFootprint('J2'))")
+	(condition "A.Type == 'Pad' && A.NetName == 'GND' && (A.memberOfFootprint('W1') || A.memberOfFootprint('W2') || A.memberOfFootprint('W3') || A.memberOfFootprint('W4') || A.memberOfFootprint('SWD1') || A.memberOfFootprint('J2') || A.memberOfFootprint('J3'))")
 	(constraint zone_connection solid))
 
 # The main board's small parts whose pour pad the pour reaches from one side (route.py ONE_SPOKE):
