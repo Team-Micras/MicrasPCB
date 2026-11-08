@@ -131,7 +131,7 @@ VBAT ─┬─ IC8/IC9 DRV8874 VM, IC6 STSPIN958 VS
 
 STSPIN958 in parallel half-bridge mode, PWM trimming, on TIM14 at 400 kHz: R31 25 mOhm, REF from
 4.7k/2.0k on 3V3_D (current limit 3.94 A), RSR 1 kOhm (1.0 V/ns at 17 V), 2 x 470 nF 50 V X7R 0805 +
-2 x 10 uF 50 V on VS, CBOOT 1 uF 50 V X7R (the IC runs hot), and a 4.7 uH XGL5030-472 choke between FAN_OUT and the motor. Fan_PWM on PA7 (TIM14_CH1), Fan_TOFF on PB10; Fan_Enable on PB12, driven open drain and read back as the driver's nFAULT.
+2 x 10 uF 50 V on VS, CBOOT 1 uF 50 V X7R (the IC runs hot), and a 4.7 uH MPL-AL5030-4R7 choke between FAN_OUT and the motor (its start-of-winding dot, pad 1, on FAN_OUT). Fan_PWM on PA7 (TIM14_CH1), Fan_TOFF on PB10; Fan_Enable on PB12, driven open drain and read back as the driver's nFAULT.
 
 ## Sensors
 

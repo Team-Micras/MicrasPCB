@@ -55,7 +55,7 @@ assumed 90 %). The TPS61178 could not stay anyway: recommended VOUT tops out at 
    [reverse polarity: keyed connector only]  [TVS D15 SMAJ18A from VBAT to GND_BAT, behind F1]
    VBAT ─┬─ DRV8874 (right) ─ WSK2512 10 mΩ ─ XAL7070-473 47 µH ─ DCX 10 L 4.5 V   INA241A2 on the shunt
          ├─ DRV8874 (left)  ─ WSK2512 10 mΩ ─ XAL7070-473 47 µH ─ DCX 10 L 4.5 V   INA241A2 on the shunt
-         ├─ STSPIN958, 400 kHz, REF limit ─ XGL5030-472 4.7 µH ─ fan motor
+         ├─ STSPIN958, 400 kHz, REF limit ─ MPL-AL5030-4R7 4.7 µH ─ fan motor
          ├─ R44/R45 20k/2k ─ PC5 (battery voltage)
          └─ D14 B5819W Schottky 40 V ─ VSYS (11.4-17.4 V; 3.8-5.0 V on 5V_IN alone)
    5V_IN (a programmer's 5 V pin: J2 pad 2, SWD1 pad 5) ─ D17 B5819W ─┘
@@ -466,24 +466,27 @@ DRV8874 nFAULT ×2 wire-OR ─ PB6
   I_peak = V_REF / (R_sense · 10) = 3.94 A (3.65-4.31 A over the tolerances); RSR 5.6 kΩ → 1-2.2 kΩ
   (1.2-2 V/ns), which cuts the switching loss 2-3.3× at 400 kHz; C36 → at least 25 V, or 2 × 10 µF
   50 V X7R 1210 at VS plus the shared VBAT bulk; C34/C35 470 nF → 50 V X7R 0805; C33 → 1 µF 50 V
-  X7R 0805 (X7R beside the hot driver); L6 **XGL5030-472MEC 4.7 µH** shielded choke (5.3 × 5.5 ×
-  3.1 mm, Isat 4.8 A at 20 %).
+  X7R 0805 (X7R beside the hot driver); L6 **MPL-AL5030-4R7 4.7 µH** molded choke (5.5 × 5.3 ×
+  2.9 mm, 4.5 A at a 20 % drop on its inductance curve, [MPL-AL5030] p2).
 - **REF for the chosen motor** (fan/fan_choke_check.py §4): with I_run its running current at the
   highest duty the fan will use, I_peak = max(1.5 × I_run, (I_run + h) / 0.925), h the ripple
   half-amplitude at the lowest plausible inductance (1.05 A for 1S, 1.4 A for 2S); V_REF =
   I_peak × 0.25 V/A; R29 = 4.7 kΩ × V_REF / (3.3 V − V_REF), the next E24 value up. The band's top
-  (× 1.093) stays at or below L6's 4.8 A: I_run up to 2.9 A (1S) or 2.66 A (2S). 2.0 kΩ suits a 1S
-  motor running at up to 2.5 A; a 2S motor at 2.5 A takes 2.2 kΩ.
+  (× 1.093) stays at or below L6's 4.5 A: I_run up to 2.74 A (1S) or 2.44 A (2S). 2.0 kΩ suits a 1S
+  motor running at up to 2.5 A; a 2S motor runs at up to 2.44 A.
 - **Ripple and limiter over the motor range** (fan/fan_choke_check.py §1-2; L6 at −20 % and DC-biased
-  with Coilcraft's saturation model, R 0.2-1.2 Ω, 17.4 V): at 400 kHz the ripple stays within
-  2.1 A pp (1S) and 2.8 A pp (2S), at most 0.76 W of ripple heat in the motor and 0.53 W of core
-  loss in L6 (Coilcraft's loss-tool data for the part; +17 K with the DCR at 2.5 A). A locked rotor
+  with [MPL-AL5030]'s p2 inductance curve, R 0.2-1.2 Ω, 17.4 V): at 400 kHz the ripple stays within
+  2.1 A pp (1S) and 2.7 A pp (2S), at most 0.74 W of ripple heat in the motor. MPS publishes no
+  core loss: about 0.27 W in L6 at the worst ripple (its p3 Q curve, scaled by the large-signal
+  factor Coilcraft's loss tool shows on the XGL5030-472), bounded at 1.04 W (twice [Coilcraft loss
+  data] for the XGL5030-472 and XAL5030-472 at that ripple); at 40 K/W (its p2 rise curve) L6
+  reaches 62 °C at 2.5 A from 40 °C, 95 °C with the bound. A locked rotor
   defeats the cycle-by-cycle limiter at 400 kHz for a low-resistance motor: the on-time cannot fall
   below the limiter's blanking (unpublished; 280-500 ns taken), so a 0.2-0.5 Ω stall averages
-  5-13 A. The overcurrent protection trips per MOSFET (IOC 7-14 A, [STSPIN958] Table 5; 91 % of it
+  5-12 A. The overcurrent protection trips per MOSFET (IOC 7-14 A, [STSPIN958] Table 5; 91 % of it
   at 17 V, Figure 20), and parallel mode shares the current between two, so the device trips only
   at about 12.8-28 A: such a stall mostly persists (up to 12 W of conduction loss, thermal-shutdown
-  cycling). At 50 kHz every case up to 500 ns of blanking peaks at 4.8-5.7 A, so the fan starts at
+  cycling). At 50 kHz every case up to 500 ns of blanking peaks at 4.8-5.5 A, so the fan starts at
   50 kHz.
 - **STSPIN958 heat** (§3): RDS(on) against temperature, the dead time and the VS operating current are
   unpublished ([STSPIN958] Rev 1, the only revision found); bound by the silicon mobility law (1.95×
@@ -749,12 +752,12 @@ New or changed parts; JLC numbers and prices as queried on 2026-10-15 (stock is 
 | Analog 3V3_A, alternative | TPS560430X3FDBVR + 12 µH + damped LC | documented alternative | forced PWM 1.1 MHz, 4-36 V; C2071721 $1.19 | [TPS560430] |
 | Motor drivers | DRV8874PWPR × 2 | replaces L6205D | 0.2 Ω HS+LS, 6 A peak, OCP 6 A min, 100 kHz, LS IPROPI 450 µA/A; C1855818, 25,990 stock, $1.01 / $0.66 | [DRV8874] |
 | Motor driver, alternative | DRV8262DDWR × 1 | if > 6 A or the stall margin proves short | 0.1 Ω, 8 A dual peak, 60 V; C22427252, $9.77 / $6.98 | [DRV8262] |
-| Motor chokes | XAL7070-473MEC 47 µH shielded (Isat 4.2 A, 97 mΩ max, 7.2 × 7.5 × 7.0 mm, 1.9-2.3 g) × 2; fan: XGL5030-472MEC 4.7 µH (5.3 × 5.5 × 3.1 mm) | new; 7.0 mm (7.13 mm with unreflowed terminations) within the 8.0 mm open height of `spec/main.toml`, off its drive-block zones (the highest allows 6.3 mm) | 0.05-0.30 W ripple heat in the motor at 100 kHz; choke +15 K at the run limit | drivetrain/choke_check.py, fan/fan_choke_check.py |
+| Motor chokes | XAL7070-473MEC 47 µH shielded (Isat 4.2 A, 97 mΩ max, 7.2 × 7.5 × 7.0 mm, 1.9-2.3 g) × 2; fan: MPL-AL5030-4R7 4.7 µH (5.5 × 5.3 × 2.9 mm) | new; 7.0 mm (7.13 mm with unreflowed terminations) within the 8.0 mm open height of `spec/main.toml`, off its drive-block zones (the highest allows 6.3 mm) | 0.05-0.30 W ripple heat in the motor at 100 kHz; choke +15 K at the run limit | drivetrain/choke_check.py, fan/fan_choke_check.py |
 | Motor shunts | WSK2512R0100FEA (±1 %, C3985410, 4955 stock) or WSK2512R0100DEA (±0.5 %, C1517461, 0 stock) × 2 | replaces the 40 mΩ 2-pad 2512 | 4-terminal, ±35 ppm/K | [WSK2512] |
 | Current amplifiers | INA241A2IDGKR × 2 | replaces TSC2020 | ±15 µV, ±0.01 %, 1 µs hold, ≤ 125 kHz PWM; C36752877, 2 stock, $5.71-4.08 | [INA241] |
 | Battery fuse | Littelfuse 0501012.WR1 (F1), 12 A fast-acting, 1206 | new | 32 VDC, 150 A interrupting, 3.11 mΩ, melting I²t 20.34 A²s ([Littelfuse 501], Revised 12/14/17); 8.2 A continuous at 75 °C, holds the 10.1 A summed limits; a 4S pack of ≤ 180 mAh cells shorts at 82 A at most (Battery input, Gaps) | `boards/main/Regulators.zen` |
 | Bridge decoupling | 4 × CL32B106KBJNNNE 10 µF X7R 50 V 1210 per bridge (and 2 at the fan), all ceramic on merit (VBAT capacitance) | new | 265 mV pp worst case at 100 kHz; C138687 $0.33 | calculations/power_tree/vbat_bulk.py |
-| Fan driver | STSPIN958 (keep); R31 20-25 mΩ 1206; RSR 1-2.2 kΩ; C36 ≥ 25 V; C34/C35 50 V X7R 0805; C33 X7R; L6 XGL5030-472 4.7 µH | modify | 5.05-58 V, 500 kHz, 280 ns min pulse; C20033901, 0 stock, $4.23 | [STSPIN958], fan study §5 |
+| Fan driver | STSPIN958 (keep); R31 20-25 mΩ 1206; RSR 1-2.2 kΩ; C36 ≥ 25 V; C34/C35 50 V X7R 0805; C33 X7R; L6 MPL-AL5030-4R7 4.7 µH | modify | 5.05-58 V, 500 kHz, 280 ns min pulse; C20033901, 0 stock, $4.23 | [STSPIN958], fan study §5 |
 | Fan fallback | TPS28225DR + 2 × CSD17578Q3A + TLV3201/TLV7031 + shunt | only above ~3 A | TPS28225DR C52897 $0.85; CSD17578Q3A $0.42 | fan study §3 |
 | Emitter drive | TLV9001 + AO3400A + 1.2 Ω 0.1 % sense; 3.3 Ω per emitter; AC-coupled selector gates (220 nF, 22 kΩ, 1N4148WS) | new | 175 mA (DAC set-point on PA5, 223 mA full scale) | power-tree study §6; emitter/emitter_sink.py |
 | Status LEDs | WS2812C-2020-V6 × 2 | replaces WS2815C-2020 (needs 9.5-13.5 V) | 3.3-5.3 V, 5 mA per colour; C55109522 | [WS2812C-2020-V6] |
@@ -977,27 +980,30 @@ currents must not share copper with the VDDA/VSSA return and the receiver load r
 
 ## Series choke with a motor: downsides
 
-A choke in series with a wheel motor (XAL7070-473, 47 µH) or the fan (XGL5030-472, 4.7 µH) trades
+A choke in series with a wheel motor (XAL7070-473, 47 µH) or the fan (MPL-AL5030-4R7, 4.7 µH) trades
 PWM ripple against these costs; both are fitted.
 
 - **Size, height and mass.** A shielded part rated for the current is the largest passive near each
   motor and adds mass to a 76 g robot. The wheel choke is the XAL7070-473 (7.2 × 7.5 × 7.0 mm,
-  1.9-2.3 g each), the fan's the XGL5030-472 (5.3 × 5.5 × 3.1 mm). Heights: 7.0 mm (7.13 mm with
+  1.9-2.3 g each), the fan's the MPL-AL5030-4R7 (5.5 × 5.3 × 2.9 mm). Heights: 7.0 mm (7.13 mm with
   unreflowed terminations) and 3.1 mm, within the 8.0 mm open height of `spec/main.toml`; the
   XAL7070 sits off the drive-block zones (the highest allows 6.3 mm).
 - **Saturation current.** Both parts saturate softly (Coilcraft's saturation models): the XAL7070-473
   keeps 79 % of its inductance at the 3 A ITRIP, 69 % at its 4.2 A Isat and 60 % at the 5.48 A bound
-  peak of a full-speed reversal; the XGL5030-472 keeps 77 % at 4.8 A and 66 % at 6.7 A. The
+  peak of a full-speed reversal; the MPL-AL5030-4R7 keeps 80 % at 4.5 A and 70 % at 6.7 A ([MPL-AL5030] p2). The
   wheel peaks stay under the DRV8874's 6 A OCP minimum ([Drivetrain](#drivetrain)), the fan's
-  at 4.8-5.7 A once it starts at 50 kHz ([Fan](#fan)), far under the STSPIN958's overcurrent trip.
+  at 4.8-5.5 A once it starts at 50 kHz ([Fan](#fan)), far under the STSPIN958's overcurrent trip.
 - **DCR and core loss.** The DCR adds to the 2.9 Ω loop: each 100 mΩ costs 0.1 W at 1 A rms
   and adds 3.4 % to the loop resistance (computed). Coilcraft's Power Inductor tool (40 °C ambient, 2026-10-25) gives the
   losses outright: a wheel choke (XAL7070-473, 100 kHz, 1.1 A pp) takes 330 mW in all and reaches
-  49 °C at a 1.0 A run current, 799 mW and 63 °C at 2.5 A; L6 (XGL5030-472, 400 kHz, 2.8 A pp,
-  2.5 A) 673 mW and 57 °C. The models' bounds sit at or above these: at most 467 mW of core loss
-  per wheel choke (the series' loss-tool coefficient extrapolated to 47 µH and doubled; 276-309 mW
-  from the part's Document 267 SPICE model, drivetrain/choke_spice_loss.py), +15 K at 1.0 A with
-  the DCR, and at most 0.53 W in L6, +17 K (drivetrain/choke_check.py, fan/fan_choke_check.py).
+  49 °C at a 1.0 A run current, 799 mW and 63 °C at 2.5 A. The models' bounds sit at or above
+  these: at most 467 mW of core loss per wheel choke (the series' loss-tool coefficient
+  extrapolated to 47 µH and doubled; 276-309 mW from the part's Document 267 SPICE model,
+  drivetrain/choke_spice_loss.py), +15 K at 1.0 A with the DCR. MPS publishes no loss data for
+  L6 (MPL-AL5030-4R7, 400 kHz, 2.7 A pp): 0.27 W estimated from its Q curve, 1.04 W bound (twice
+  Coilcraft's loss tool for the 5030 4.7 µH XGL and XAL parts), 62-95 °C at 2.5 A from a 40 °C
+  board and at most 121 °C with the limiter's 4.31 A held, under its 155 °C
+  (drivetrain/choke_check.py, fan/fan_choke_check.py).
 - **Stray field.** Use a shielded part, keep it away from the AS5047U magnetic encoders and the IMU,
   and keep the bridge → shunt → choke → motor loop tight (inference).
 - **Slower current.** The electrical time constant grows from 15.5 µs (motor alone, datasheet L) to
@@ -1183,6 +1189,7 @@ refer to these editions.
 | [AN2606] | [ST AN2606 Rev 70, system bootloader](https://www.st.com/resource/en/application_note/an2606-introduction-to-system-memory-boot-mode-on-stm32-mcus-stmicroelectronics.pdf) |
 | [L6981] | [ST L6981 DS13554](https://www.st.com/resource/en/datasheet/l6981.pdf) |
 | [STSPIN958] | [ST STSPIN958 DS14341](https://www.st.com/resource/en/datasheet/stspin958.pdf) |
+| [MPL-AL5030] | [MPS MPL-AL5030-4R7 Rev. 1.1](https://www.monolithicpower.com/en/documentview/productdocument/index/version/2/document_type/Datasheet/lang/en/sku/MPL-AL5030-4R7/document_id/5806/) |
 | [TPS61178] | [TI TPS61178 SLVSDA7E](https://www.ti.com/lit/ds/symlink/tps61178.pdf) |
 | [TPS2121] | [TI TPS2121 SLVSEA3F](https://www.ti.com/lit/ds/symlink/tps2121.pdf) |
 | [TPS560430] | [TI TPS560430 SLVSE22B](https://www.ti.com/lit/ds/symlink/tps560430.pdf) |
@@ -1229,6 +1236,7 @@ refer to these editions.
 [AN2606]: https://www.st.com/resource/en/application_note/an2606-introduction-to-system-memory-boot-mode-on-stm32-mcus-stmicroelectronics.pdf
 [L6981]: https://www.st.com/resource/en/datasheet/l6981.pdf
 [STSPIN958]: https://www.st.com/resource/en/datasheet/stspin958.pdf
+[MPL-AL5030]: https://www.monolithicpower.com/en/documentview/productdocument/index/version/2/document_type/Datasheet/lang/en/sku/MPL-AL5030-4R7/document_id/5806/
 [TPS61178]: https://www.ti.com/lit/ds/symlink/tps61178.pdf
 [TPS2121]: https://www.ti.com/lit/ds/symlink/tps2121.pdf
 [TPS560430]: https://www.ti.com/lit/ds/symlink/tps560430.pdf
@@ -1349,7 +1357,7 @@ VSPUMP (4) ── C33 1 µF 50 V X7R ── VBOOT (7) ; CP1 (5) ── C32 100 n
 3V3_D ── VDD (13) ── C31 220 nF ; nSTBY (10) ── 3V3_D
 MODE1 (20) = 3V3, MODE2 (19) = GND, MODE3 (18) = 3V3   (parallel half-bridge, PWM trimming, Table 8)
 OFFSET (9) = GND
-OUT1 (31, 32) + OUT2 (25, 26) ── FAN_OUT ──[ L6 XGL5030-472 4.7 µH ]── M3 pin 1 (fan +)
+OUT1 (31, 32) + OUT2 (25, 26) ── FAN_OUT ──[ L6 MPL-AL5030-4R7 4.7 µH ]── M3 pin 1 (fan +)
 LSS1 (1, 2) + LSS2 (23, 24)  ── FAN_LSS ── M3 pin 2 (fan −) ; R31 20-25 mΩ 1206 FAN_LSS → GND (Kelvin to the pins)
 PWM2/PH (12) ── GND   (load OUT→LSS: low-side recirculation on limit, Fig. 11/14)
 PWM1 (11)    ── Fan_PWM (PA7, TIM14_CH1, 400 kHz)

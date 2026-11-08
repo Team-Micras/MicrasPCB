@@ -2,10 +2,9 @@
 fan driver IC6 (STSPIN958).
 
 Sources: TI SLVSF66A (DRV8874; the package's checks.zen holds the datasheet rules), TI SBOSA30D
-(INA241A2), Vishay WSK2512 doc 30108, the MetalLions MTQH707050S datasheet and Coilcraft Doc 1576
-(XGL5030), ST
-DS14341 Rev 1 (STSPIN958), ST RM0468 (GPIO state in reset), research/next-revision (Drivetrain,
-Current sensing, Fan; A.1, A.3, A.5).
+(INA241A2), Vishay WSK2512 doc 30108, the MetalLions MTQH707050S datasheet and MPS MPL-AL5030-4R7
+Rev. 1.1, ST DS14341 Rev 1 (STSPIN958), ST RM0468 (GPIO state in reset), research/next-revision
+(Drivetrain, Current sensing, Fan; A.1, A.3, A.5).
 """
 
 load("github.com/Team-Micras/MicrasPCB/components/ti/DRV8874/checks.zen", "drv8874_requirements", "drv8874_settings")
