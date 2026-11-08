@@ -43,8 +43,8 @@ LEDs:
   1.3-2.2 mA for the KT-0603R's VF 1.8-2.4 V (LCSC C2286 listing, at its rated current; VF is
   lower at 2 mA), an indicator's brightness at a tenth of its 20 mA rating.
 - D4 (blue, KENTO KT-0603B datasheet, LCSC C2288, p3 sections 4-5: VF 2.6-3.1 V and IV
-  70-175 mcd at IF = 5 mA, IF 30 mA DC max) from LED_Red (PB2, the firmware's label) through
-  R4 100 Ohm. VF rises with IF, so 3.1 V bounds it at every current below 5 mA. PB2's high level
+  70-175 mcd at IF = 5 mA, IF 30 mA DC max) from LED_Blue (PB2; LED_Red in the v1 firmware,
+  firmware_changes.toml leds) through R4 100 Ohm. VF rises with IF, so 3.1 V bounds it at every current below 5 mA. PB2's high level
   is VDD - 0.4 V at 8 mA (DS13311 Table 56): at most 0.4 V / 8 mA = 50 Ohm of driver, whose drop
   shrinks with the current. Dimmest (3V3_D 3.284 V, VF 3.1 V, R4 +1 %, 50 Ohm driver):
   (3.284 - 3.1) / (101 + 50) = 1.2 mA, at least 17 mcd at the 70 mcd/5 mA bin's slope (light
@@ -97,7 +97,7 @@ Switch_2 = io(Net)
 Switch_3 = io(Net)
 Buzzer = io(Net)
 LED_ARGB = io(Net)
-LED_Red = io(Net)
+LED_Blue = io(Net)
 
 BUZZER_GATE = Net("BUZZER_GATE")
 BUZZER_DRAIN = Net("BUZZER_DRAIN")
@@ -141,7 +141,7 @@ WS2812C(name="D1", VDD=LED_VDD, GND=GND, DI=LED_ARGB, DO=LED_CHAIN)
 WS2812C(name="D2", VDD=LED_VDD, GND=GND, DI=LED_CHAIN, DO=NotConnected())
 Capacitor(name="C19", P1=GND, P2=V3V3_D, **C_100N_0402)
 Capacitor(name="C18", P1=GND, P2=V3V3_D, **C_100N_0402)
-Resistor(name="R4", P1=LED_BLUE_A, P2=LED_Red, **R_100_0402)
+Resistor(name="R4", P1=LED_BLUE_A, P2=LED_Blue, **R_100_0402)
 Led(name="D4", A=LED_BLUE_A, K=GND, **LED_BLUE_0603)
 Resistor(name="R5", P1=LED_RED_A, P2=V3V3_D, **R_680_0402)
 Led(name="D5", A=LED_RED_A, K=GND, **LED_RED_0603)

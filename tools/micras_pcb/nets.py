@@ -89,7 +89,7 @@ SLOW_DIGITAL = {
     "Fan_TOFF",
     "IMU_INT",
     "IMU_SPI_CSn",
-    "LED_Red",
+    "LED_Blue",
     *(f"Motor_{s}_PH" for s in ("Left", "Right")),
     "Motors_Enable",
     "Motors_nFault",

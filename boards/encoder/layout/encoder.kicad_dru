@@ -110,6 +110,17 @@
 	(condition "A.Type == 'Zone'")
 	(constraint edge_clearance (min 0.21mm)))
 
+# The inner planes keep 0.5 mm from every routed edge (the outline, the fan hole, the slots):
+# JLCPCB mills edges to +-0.2 mm (regular; "Dimension tolerance for routed board edges",
+# jlcpcb.com/capabilities/pcb-capabilities), so a plane at the 0.2 mm minimum may be cut open, its
+# copper exposed in the edge beside the outer layers' (team review 2026-11-08, owner's choice). The
+# outer layers' pours and tracks keep the 0.20/0.21 mm minimum above; a plane loses only a 0.3 mm
+# strip. (The pours are single-layer zones; KiCad's edge test does not honour a (layer inner)
+# clause, so the condition names the layers.)
+(rule "pours: inner planes to board edge"
+	(condition "A.Type == 'Zone' && (A.Layer == 'In1.Cu' || A.Layer == 'In2.Cu')")
+	(constraint edge_clearance (min 0.50mm)))
+
 # The main board's hand-soldered ground pins (the wall joints' pin 2, SWD1 pin 3, J2 pin 4) join the
 # pours by their zones' thermal reliefs on B.Cu and the inner planes (0.25 mm gap; boards/main/layout/
 # route.py relief() gives them 0.4 mm spokes: JLCPCB's thermal relief guide, 0.30-0.50 mm for

@@ -1894,6 +1894,67 @@ def _covers(poly, c, r: float) -> bool:
     return all(_seg_dist(c, a, b) >= r - 0.002 for a, b in zip(poly, poly[1:] + poly[:1], strict=True))
 
 
+# --- milled edges: JLCPCB routes edges to +-0.2 mm (regular), so copper at the 0.2 mm minimum may be
+# cut where nothing else holds it off (team review, 2026-11-08) ---------------------------------------
+
+SLOT_KEEP = 0.3  # mm from an encoder slot's milled edge to a track or via (its joint pads excepted)
+INNER_EDGE = 0.5  # mm from every routed edge to the inner planes (rules/jlcpcb.kicad_dru)
+
+
+def _slot_gap(q, a, c) -> float:
+    """Distance from the segment a-c to the stadium slot whose centre line is q[0]-q[1], radius q[2]."""
+    (s0, s1, r) = q
+    best = math.inf
+    n = max(1, int(math.dist(a, c) / 0.01))
+    for k in range(n + 1):
+        p = (a[0] + (c[0] - a[0]) * k / n, a[1] + (c[1] - a[1]) * k / n)
+        best = min(best, mech._seg_distance(p, s0, s1) - r)
+    return best
+
+
+def test_tracks_and_vias_keep_off_the_encoder_slots():
+    pcb = layout.load("main")
+    sl = S["encoder_slots"]
+    half, r = sl["length"] / 2 - sl["width"] / 2, sl["width"] / 2
+    slots = []
+    for key in ("right_path", "left_path"):
+        ref = sl[key].split(".")[-2]  # "SENSORS.EC1.SLOT" -> EC1
+        assert "EncoderSlot" in pcb.footprints[ref].lib_id, f"{ref} is no encoder slot"
+        # the slot's long axis runs along the robot's x, KiCad's y
+        x, y = pcb.footprints[ref].xy
+        slots.append(((x, y - half), (x, y + half), r))
+    problems = []
+    for tr in pcb.tracks:
+        if tr.kind != "segment":
+            continue
+        for q in slots:
+            if math.dist(tr.start, q[0]) > 9 and math.dist(tr.end, q[0]) > 9:
+                continue
+            gap = _slot_gap(q, tr.start, tr.end) - tr.width / 2
+            if gap < SLOT_KEEP - 1e-3:
+                problems.append(f"{tr.net} {tr.layer} track {_xy(tr.start)}-{_xy(tr.end)}: {gap:.3f} mm")
+    for v in pcb.vias:
+        for q in slots:
+            gap = _slot_gap(q, v.xy, v.xy) - v.size / 2
+            if gap < SLOT_KEEP - 1e-3:
+                problems.append(f"{v.net} via {_xy(v.xy)}: {gap:.3f} mm")
+    assert not problems, f"copper within {SLOT_KEEP} mm of an encoder slot:\n" + "\n".join(problems)
+
+
+def test_inner_planes_keep_off_the_routed_edges():
+    # the rule is what holds them (KiCad refills and checks under it); this keeps the rule
+    import re
+
+    rules = (board_pcb("main").parent / "main.kicad_dru").read_text()
+    m = re.search(
+        r'\(rule "pours: inner planes to board edge"\s*\(condition "([^"]*)"\)\s*\(constraint edge_clearance \(min ([0-9.]+)mm\)\)\)',
+        rules,
+    )
+    assert m, "no inner-plane edge rule in main.kicad_dru (rules/jlcpcb.kicad_dru)"
+    assert "In1.Cu" in m.group(1) and "In2.Cu" in m.group(1), m.group(1)
+    assert float(m.group(2)) >= INNER_EDGE, f"inner planes {m.group(2)} mm from the edge, under {INNER_EDGE}"
+
+
 def test_countersinks_keep_the_copper_off():
     keepouts = _keepouts()
     pcb = layout.load("main")

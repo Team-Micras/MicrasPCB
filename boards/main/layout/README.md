@@ -232,7 +232,7 @@ round it, so no line crosses the rear tip and no two escapes cross there:
 - **Fan**: Fan_PWM on PA7 (TIM14_CH1), Fan_Enable on PB12 (open drain, its fault on EXTI12),
   Fan_TOFF on PB10.
 - **User interface**: LED_ARGB on PA2 (TIM15_CH1, DMA on tim15_up), the buzzer on PB9
-  (TIM17_CH1), LED_Red on PB2, Button on PC4 (EXTI4), Switch_0-3 on PH0, PH1, PC15 and PC14 (the MCU has
+  (TIM17_CH1), LED_Blue on PB2, Button on PC4 (EXTI4), Switch_0-3 on PH0, PH1, PC15 and PC14 (the MCU has
   no VBUS input).
 
 Every GPIO of the VFQFPN68 is used.
@@ -300,9 +300,10 @@ connection is routed, and DRC, DFM and the layout tests pass.
   The 3V3_A LDO (U8, C80, R58) sits inboard of L3, its output capacitor C81 between U8 and the fan
   hole beside C53, U8's 3V3_D (EN) line passing between C81's pads; C57 is
   L3's second 22 uF, on the 3V3_D trunk behind it.
-- **The tab and the module's inner side**: the flashing header J2 sits in the tab between the two
-  notches, its pads 9.2-11.6 mm from the antenna's keep-out (pad centres) and reachable from the
-  robot's rear, with the 10 uF C107 on U13's 3V3_D feed beside it; the EN RC (R89, C110) and the BOOT pull-up R90
+- **The tab and the module's inner side**: the rear tab between the two notches holds SWD1 (with
+  C111 and R43); the flashing pads J2 sit inboard of the antenna notch, in front of the motor
+  connectors M1/M2, 8.4-9.6 mm from the notch's floor and 9.2-11.6 mm from the antenna's keep-out
+  (pad centres), reached from above; the EN RC (R89, C110) and the BOOT pull-up R90
   sit off the module's front-right side, because the right motor's OUT2 and TERMINAL paths pass
   under J2, and the B.Cu VBAT pour stops short of J2 so its lines reach the module on B.Cu. EN, TX0, RX0 and BOOT run inboard
   on B.Cu, past the notch's wall, to the module's pins 45/39/40/4. Ground vias fence the notch's
@@ -384,7 +385,7 @@ connection is routed, and DRC, DFM and the layout tests pass.
   via 0.2 mm from the loop. Outside the row the wall lines leave forward and to the side
   (Wall_Sensor_1 from pin 20 to W2, Wall_Sensor_0 from pin 23 to W1, Wall_Sensor_2 from pin 30 in
   front of the tip to W3), with the emitter set-point (pin 24), the battery divider (pin 28),
-  Wall_Sensor_PWM_1 (pin 29) and LED_Red (pin 31), crossing on F.Cu and B.Cu by vias outside the
+  Wall_Sensor_PWM_1 (pin 29) and LED_Blue (pin 31), crossing on F.Cu and B.Cu by vias outside the
   row. Fan_PWM and the buzzer keep 0.45 mm from every wall receiver's line, escapes included
   (`test_fan_and_buzzer_keep_clear_of_the_wall_sensors`).
   The fan driver's 3V3_D pins join on B.Cu above the fan motor's B.Cu band, which no track
@@ -477,7 +478,7 @@ connection is routed, and DRC, DFM and the layout tests pass.
   just inside the pad row, pins 1-2 by the ground point two more, and ground vias fence the notch's
   inner wall from in front of the antenna's open end to the tab, and the tab's wall over the notch
   (`route.py` `NOTCH_FENCE`, see The tab and the module's inner side). The module's capacitors
-  C109 and C108 sit off its front-right corner and C107 by J2, all off the notch. The board's U13
+  C107, C108 and C109 sit off its front-right corner, off the notch. The board's U13
   carries the footprint's antenna keep-out (on every copper layer) where its antenna is.
 - **Pours and pad joins**: F.Cu and B.Cu carry ground pours over what the tracks leave. The
   board-wide pours and planes (ground on every layer, VBAT on B.Cu) join pads by thermal reliefs,
@@ -532,6 +533,13 @@ connection is routed, and DRC, DFM and the layout tests pass.
   another net's copper, the via sits off its tracks' joint by up to 0.18 mm (each track end stays
   inside its copper), or the other net's segment moved sideways by a few hundredths of a
   millimetre, its neighbours following along their own lines or by a 45-degree jog.
+- **Milled edges**: JLCPCB routes the outline, the fan hole and the slots to +-0.2 mm (regular;
+  capabilities page, Dimension tolerance for routed board edges), against its 0.20 mm minimum copper
+  clearance. The outer layers keep that minimum (pours 0.21 mm, `rules/jlcpcb.kicad_dru`); the inner
+  planes keep 0.5 mm from every routed edge, so a cut on the tolerance's far side cannot open them
+  (`test_inner_planes_keep_off_the_routed_edges`); and every track and via keeps 0.3 mm from the
+  encoder slots, whose joint pads take the encoder boards' solder
+  (`test_tracks_and_vias_keep_off_the_encoder_slots`).
 - **Ordering**: as a single board or on rails joined by breakaway tabs (mouse bites), not V-cut:
   SW4's pads are 0.20 mm from the outline, C100's and C103's 0.24 mm and U13's pad 46 0.30 mm,
   inside JLCPCB's 0.40 mm copper clearance to a V-score (`rules/jlcpcb-pdk.toml`

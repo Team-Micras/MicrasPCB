@@ -66,7 +66,7 @@ BOOT0 is held low by R42: the MCU always starts from its flash.
   (TIM8_CH1, slaved to TIM1 over ITR0, RM0468 Table 350: TIM8 ITR0 = tim1_trgo, in gated mode)
   and PH on PA9, both GPIOs; Motors_Enable on PD2 and Motors_nFault on PB6 (EXTI6).
 - LED_ARGB on PA2 (TIM15_CH1, its CCR1 written by DMA on tim15_up, DMAMUX1 input 106, RM0468
-  Table 118), the buzzer on PB9 (TIM17_CH1), LED_Red on PB2 and Button on PC4 (EXTI4).
+  Table 118), the buzzer on PB9 (TIM17_CH1), LED_Blue on PB2 and Button on PC4 (EXTI4).
 - The sensor bus's chip selects, GPIOs: Encoder_Left_CSn on PA8, IMU_SPI_CSn on PA12 and
   Encoder_Right_CSn on PB8; IMU_INT on PC7 (EXTI7). The right encoder's A on PA15 (TIM2_CH1) and
   B on PB3 (TIM2_CH2), the left's A on PA0 (TIM5_CH1) and B on PA1 (TIM5_CH2). The fan's Fan_TOFF on PB10 (an input sampled in step with the PWM)
@@ -84,7 +84,7 @@ BOOT0 is held low by R42: the MCU always starts from its flash.
   signal review's model: 4-24 LSB16 rms per scan beside the fan's PWM). Wall_Sensor_1 on PA3
   (pin 20) sits beside LED_ARGB (PA2, pin 19), which the firmware keeps quiet during an emitter
   slot (firmware_changes.toml, emitter_slot_quiet), and Wall_Sensor_2 on PB1 (pin 30) between
-  Wall_Sensor_PWM_1 (PB0, pin 29, idle during another sensor's scan) and LED_Red (PB2, pin 31).
+  Wall_Sensor_PWM_1 (PB0, pin 29, idle during another sensor's scan) and LED_Blue (PB2, pin 31).
 - The ESP32-C5 link leaves the STM32 from the rear-right row, on the side of the module: SPI2's
   clock exists only on PA9, PA12, PB10 and PB13 and its data pins only on PB14, PB15 and PC1
   (DS13311 Rev 5 Table 9, Port A p95-96, Port B p97-98, Port C p99-100), none on that row, so the
@@ -255,7 +255,7 @@ ESP_FLOW = Net("ESP_Flow")
 BUTTON = Net("Button")
 BUZZER = Net("Buzzer")
 LED_ARGB = Net("LED_ARGB")
-LED_RED = Net("LED_Red")
+LED_BLUE = Net("LED_Blue")
 SWITCH_0 = Net("Switch_0")
 SWITCH_1 = Net("Switch_1")
 SWITCH_2 = Net("Switch_2")
@@ -336,7 +336,7 @@ STM32H725RGV6(
     PA15=ENCODER_RIGHT_ABI_A,
     PB0=WALL_SENSOR_PWM_1,
     PB1=WALL_SENSOR_2,
-    PB2=LED_RED,
+    PB2=LED_BLUE,
     PB3=ENCODER_RIGHT_ABI_B,
     PB4=WALL_SENSOR_PWM_3,
     PB5=WALL_SENSOR_PWM_2,
@@ -485,7 +485,7 @@ Peripherals(
     Switch_3=SWITCH_3,
     Buzzer=BUZZER,
     LED_ARGB=LED_ARGB,
-    LED_Red=LED_RED,
+    LED_Blue=LED_BLUE,
 )
 
 Esp(
