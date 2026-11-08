@@ -36,10 +36,9 @@ error stays under 1 mA from 0.61 us on in every corner of the model (C_f +-25 %,
 2-10 pF on the pin, VCM 0-16.8 V, and the model's output impedance raised to Figure 6-24's),
 against 0.84 us with the basic 100 Ohm part, which still leaves 1.40 mA at 0.8 us. The firmware
 samples PA6/PC1 for at least 0.7 us (boards/main/firmware_changes.toml, current;
-tests/test_main.py). C102 sits 3.5 mm from PC1; C105 sits beside R79, 23 mm of track from PA6,
-since the escapes and lanes of the STM32's front-left pad row leave no spot by the pin (layout
-README). An estimate, not a datasheet figure: the track's ~20 nH between C105 and the 4 pF
-sample capacitor rings above 500 MHz,
+tests/test_main.py). C102 sits 3.5 mm from PC1 and C105 1.9 mm from PA6, 2 mm of track from the
+pin (layout README). An estimate, not a datasheet figure: the track's ~2 nH between C105 and the
+4 pF sample capacitor rings near 2 GHz,
 damped by the ADC switch's resistance within nanoseconds, well inside the sampling time. On
 the slow channel one conversion per PWM centre still fits (research H7 pin budget).
 

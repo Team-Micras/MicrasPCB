@@ -226,9 +226,9 @@ HAND = {
     # behind the SMPS row; VBAT's 1 uF past the left vertex; BOOT0's pull-down and NRST's filter by
     # the rear-right face (the lanes round the hole take the room at the rear tip)
     "R79": (17.8, 12.4, 90),
-    # the left current's ADC filter capacitor beside its R_iso (R79): the front-left pad row's strip and
-    # the face outside it are full (layout README, Front-left face)
-    "C105": (18.31, 11.2, 90),
+    # the left current's ADC filter capacitor at its pin (IC1.25, ST AN2834 4.2.8): along the front-left
+    # face just past pins 25-27's escape vias, its pad 2 by pin 25's (layout README, Front-left face)
+    "C105": (36.5036, 4.6011, 0),
     # the 3V3_A LDO's soft-start capacitor at its SS pin, outside the fan ring's silk line
     "C115": (10.75, -12.75, 90),
     "R78": (22.0, -11.0, 90),
@@ -283,7 +283,6 @@ NEAR = {
     "Q9": ("U12", "1"),
     "R83": ("Q9", "2"),
     "C106": ("U12", "5"),
-    "C105": ("R79", "2"),
     # the buzzer's driver at the buzzer
     "Q1": ("BZ1", "2"),
     "D3": ("BZ1", "2"),

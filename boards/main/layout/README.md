@@ -124,7 +124,7 @@ VBAT ─┬─ IC8/IC9 DRV8874 VM, IC6 STSPIN958 VS
 - **Current**: INA241A2 (gain 20) on each shunt, VS and REF1 on 3V3_A, REF2 on GND: 0.2 V/A
   around VDDA / 2, +7.25 / -8.15 A at 3V3_A 3.3 V, into PA6 (left, a fast ADC channel) and PC1 (right)
   through 150 Ohm (R78/R79, R_iso), with 1 nF X7R on the ADC line (C102 3.5 mm from PC1, C105
-  beside R79, 23 mm of track from PA6); the firmware samples them
+  1.9 mm from PA6, 2 mm of track from the pin); the firmware samples them
   for at least 0.7 us, so the ADC's kickback from a wall-sensor conversion settles below 1 mA.
 
 ## Fan
@@ -332,14 +332,21 @@ connection is routed, and DRC, DFM and the layout tests pass.
   VDD pin 9 also takes C12's via, and the VCORE band steps back round it. The signals' escape vias just
   past the pin tips sit between the two islands, and the lines that leave them on B.Cu run over the
   islands: B.Cu's reference plane is In2.Cu, so over an island a line's return runs in that island,
-  not in In1.Cu's ground, which lies beyond In2.Cu and does not shield them. Over VCORE: Wall_Sensor_3
-  9.4 mm, Wall_Sensor_2 8.6 mm, Battery_Voltage 5.0 mm, Current_Sensor_Left and Current_Sensor_Right
-  2.4 mm each, the other wall lines 1.0-1.4 mm, and 1-7 mm of digital lines (the DIP switch,
-  encoders, IMU, motor and buzzer lines); over 3V3_D 62 mm of 11 lines, the longest the buzzer's
-  10.3 mm, Current_Sensor_Right's 7.9 mm and Current_Sensor_Left's 7.4 mm (86 mm over VCORE in
-  all). The lines cross the islands' edges at least 43 times, mostly over 0.10-0.15 mm moats; the
-  widest, 0.8 mm, lie under the left encoder's A and B where they pass from 3V3_D to VCORE behind
-  the chip. Both islands are decoupled to ground at the STM32's pins (C3-C12), so a line over them
+  not in In1.Cu's ground, which lies beyond In2.Cu and does not shield them. The islands give way to
+  the lines where that was free (`MCU_3V3_SPANS`, `VCORE_CUTS`): 3V3_D spans the 0.8 mm gap to the
+  VCORE band from pin 35's tab past the left encoder's A and B lines and at the front vertex under the
+  buzzer's line, and the band is cut back off the rear-right arm's end and the front-left and
+  front-right arms' outer edges where lines ran along or clipped it. Over VCORE: Wall_Sensor_3 9.4 mm,
+  Wall_Sensor_2 3.2 mm, Current_Sensor_Left and Current_Sensor_Right 2.3-2.4 mm, Battery_Voltage
+  1.9 mm, the other wall lines 1.0-2.9 mm, and 1-6 mm of digital lines (the DIP switch, encoders, IMU,
+  motor and buzzer lines); over 3V3_D 65 mm of 11 lines, the longest the buzzer's 11.4 mm, the left
+  encoder's A and B 9.2-9.4 mm, Current_Sensor_Right's 7.9 mm and Current_Sensor_Left's 7.3 mm
+  (78 mm over VCORE in all). The lines change In2.Cu net under them 34 times, all but one over the
+  fill clearance's 0.12-0.24 mm gap (Switch_2 leaves VCORE's right vertex over 0.54 mm): once or
+  twice for each line from under the chip (3V3_D to ground, through VCORE's band where it rings the
+  chip), three times for the battery divider, four
+  for Wall_Sensor_PWM_2 (`test_analog_and_encoder_lines_keep_to_their_in2_plane` bounds the analog
+  and encoder lines). Both islands are decoupled to ground at the STM32's pins (C3-C12), so a line over them
   couples into the islands' own noise (VCORE's SMPS ripple), not into a floating plane; at a moat
   its return current detours to the nearest decoupling capacitor. B.Cu carries the VBAT pour over
   the power entry and both bridges, and no other net's track runs on B.Cu inside it.
@@ -381,13 +388,16 @@ connection is routed, and DRC, DFM and the layout tests pass.
   innermost: Current_Sensor_Left (pin 25) on x + y = 36.2, Fan_PWM (pin 26) on 37.05 and Button
   (pin 27) on 37.75 (robot frame), Fan_PWM 0.48 mm from the analog line beside it (the legs, under
   the pads, are the pins' escapes). Past the vertex Button goes to SW2, Current_Sensor_Left to R79
-  and C105 and Fan_PWM to the fan driver; at IC6 it rises inside 3V3_D's loop round pins 10-13 on a
+  and Fan_PWM to the fan driver; at IC6 it rises inside 3V3_D's loop round pins 10-13 on a
   via 0.2 mm from the loop. Outside the row the wall lines leave forward and to the side
   (Wall_Sensor_1 from pin 20 to W2, Wall_Sensor_0 from pin 23 to W1, Wall_Sensor_2 from pin 30 in
   front of the tip to W3), with the emitter set-point (pin 24), the battery divider (pin 28),
   Wall_Sensor_PWM_1 (pin 29) and LED_Blue (pin 31), crossing on F.Cu and B.Cu by vias outside the
-  row. Fan_PWM and the buzzer keep 0.45 mm from every wall receiver's line, escapes included
-  (`test_fan_and_buzzer_keep_clear_of_the_wall_sensors`).
+  row. C105, pin 25's ADC capacitor, lies across the escapes just past pins 25-27's vias, its pad 2
+  0.75 mm of F.Cu from pin 25's escape via and pad 1 on its own ground via: the emitter set-point
+  passes under it on B.Cu, Wall_Sensor_PWM_1 below it on F.Cu, and Wall_Sensor_2's hop over the
+  battery divider and LED_Blue go round it. Fan_PWM and the buzzer keep 0.45 mm from every wall
+  receiver's line, escapes included (`test_fan_and_buzzer_keep_clear_of_the_wall_sensors`).
   The fan driver's 3V3_D pins join on B.Cu above the fan motor's B.Cu band, which no track
   crosses.
 - **Front-right quadrant** (`reports/scratch/agentC4/plan.png`): the DIP switch's lines (pins 2, 3,
@@ -609,12 +619,12 @@ Each is a visible TODO in the sheet that owns it.
   lose.
 - Routing, round the escape rows: Current_Sensor_Right (62 mm: its run from C102 to R78 past the
   STM32's rear tip is the link's and the IMU's and encoders' corridor, so it goes round by the DIP
-  switch and the buzzer), Wall_Emitter_Set and
+  switch and the buzzer) and
   Wall_Sensor_2 are longer than the layout tests' detour rule; no analog line runs within 0.45 mm
   of a fast digital line on its layer outside the STM32's escapes. The ADC filter capacitor C102 sits
-  3.5 mm from IC1.14 and C105 beside R79, 23 mm of track from IC1.25, where ST AN2834 section 4.2.8
-  asks for the pin: the front-left face's lanes and escapes leave no 0402 spot within 3 mm of
-  IC1.25 (the test is marked as an expected failure until they move).
+  3.5 mm from IC1.14, where ST AN2834 section 4.2.8 asks for the pin: the front-right face's escapes
+  leave no 0402 spot nearer (C105 is 1.9 mm from IC1.25; `test_adc_filter_caps_at_the_pin` holds
+  each at its reach).
 - Assembly: every through-hole lead trimmed to 0.5 mm or less (Ordering); M2's leads lie under
   MicrasHardware's rear skate.
 - Silkscreen: the KiCad library passives (stdlib 0402-1210, 0603 LED) keep their 0.12 mm outlines;

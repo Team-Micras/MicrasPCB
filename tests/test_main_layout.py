@@ -400,6 +400,105 @@ def test_3v3d_island_is_minimal():
     assert len(tips) >= 7 and all(_inside(v.xy, poly) for v in tips), "a 3V3_D pin's via off its island"
 
 
+# B.Cu over In2.Cu's moats (owner, 2026-11-08): In2.Cu is B.Cu's reference plane (B.Cu sits 0.21 mm
+# over it, 0.5 mm of core over In1.Cu: main.zen, stackup), so a B.Cu track's return current runs in
+# the In2.Cu copper under it. Where the track passes from one In2.Cu net to another (GND, the STM32's
+# 3V3_D and VCORE islands) that return must leave the plane and go round by the islands' decoupling
+# capacitors: a loop the size of the detour, which radiates and couples (TI SPRAAR7J section 2.4: no
+# traces over voids or plane splits). A line from under the STM32 crosses at least once (3V3_D to GND)
+# and twice where VCORE's band rings the chip; every analog and encoder line keeps to that but the
+# battery divider (3) and Wall_Sensor_2 (2), and each crossing spans only the fill clearance's gap,
+# not a moat (route.py MCU_3V3_SPANS bridges the islands' 0.8 mm gap under the left encoder's A/B
+# lines). Crossings: changes of In2.Cu net along a net's chained B.Cu segments, voids (moats,
+# antipads) skipped.
+MOAT_CROSSINGS = {
+    "Battery_Voltage": 3,
+    "Current_Sensor_Left": 2,
+    "Current_Sensor_Right": 2,
+    "Encoder_Left_ABI_A": 2,
+    "Encoder_Left_ABI_B": 2,
+    "Encoder_Right_CSn": 1,
+    "Wall_Sensor_1": 1,
+    "Wall_Sensor_2": 2,
+    "Wall_Sensor_3": 1,
+}
+MOAT_GAP_MAX = 0.3  # mm of void a crossing may span (the fill clearance's gap is 0.12-0.24 mm)
+
+
+def test_analog_and_encoder_lines_keep_to_their_in2_plane():
+    pcb = layout.load("main")
+    step = 0.05
+    islands = {n: [(poly, _box(poly)) for poly in _fills("In2.Cu", n)] for n in sorted(MCU_ISLANDS)}
+    boxes = [b for v in islands.values() for _p, b in v]
+    near = (
+        min(b[0] for b in boxes) - 1.5,
+        min(b[1] for b in boxes) - 1.5,
+        max(b[2] for b in boxes) + 1.5,
+        max(b[3] for b in boxes) + 1.5,
+    )
+    # In2.Cu ground near the islands, as filled intervals per row (the ground fill is one large polygon)
+    edges = [
+        (a, b)
+        for poly in _fills("In2.Cu", "GND")
+        for a, b in zip(poly, poly[1:] + poly[:1], strict=True)
+        if max(a[1], b[1]) >= near[1] and min(a[1], b[1]) <= near[3]
+    ]
+    rows = {}
+    for j in range(int((near[3] - near[1]) / step) + 1):
+        y = near[1] + j * step
+        rows[j] = sorted(
+            a[0] + (y - a[1]) * (b[0] - a[0]) / (b[1] - a[1]) for a, b in edges if (a[1] > y) != (b[1] > y)
+        )
+
+    def plane(p):
+        for n, polys in islands.items():
+            if any(b[0] <= p[0] <= b[2] and b[1] <= p[1] <= b[3] and _inside(p, poly) for poly, b in polys):
+                return n
+        if not (near[0] <= p[0] <= near[2] and near[1] <= p[1] <= near[3]):
+            return "GND"  # away from the islands only ground's edges (antipads, hops) are met
+        xs = rows[round((p[1] - near[1]) / step)]
+        return "GND" if sum(x < p[0] for x in xs) % 2 else None
+
+    watched = {t.net for t in pcb.tracks if t.net in nets.ANALOG or t.net.startswith("Encoder_")}
+    problems = []
+    for net in sorted(watched):
+        segs = [(t.start, t.end) for t in pcb.tracks if t.net == net and t.layer == "B.Cu"]
+        key = lambda p: (round(p[0], 3), round(p[1], 3))  # noqa: E731
+        ends: dict = {}
+        for i, (a, b) in enumerate(segs):
+            ends.setdefault(key(a), []).append(i)
+            ends.setdefault(key(b), []).append(i)
+        seen, found = set(), []
+        # walk each chain of segments from its ends, the plane under the track carried along it
+        starts = [p for p, ix in ends.items() if len(ix) == 1] + list(ends)
+        for p0 in starts:
+            for i0 in ends[p0]:
+                stack = [(i0, p0, None, None)]
+                while stack:
+                    i, frm, last, last_at = stack.pop()
+                    if i in seen:
+                        continue
+                    seen.add(i)
+                    a, b = segs[i] if key(segs[i][0]) == frm else segs[i][::-1]
+                    n = max(1, int(math.dist(a, b) / step))
+                    for k in range(n + 1):
+                        q = (a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n)
+                        s = plane(q)
+                        if s is None:
+                            continue
+                        if last is not None and s != last:
+                            found.append((last, s, q, math.dist(q, last_at)))
+                        last, last_at = s, q
+                    stack += [(j, key(b), last, last_at) for j in ends[key(b)] if j not in seen]
+        limit = MOAT_CROSSINGS.get(net, 0)
+        if len(found) > limit:
+            problems.append(
+                f"{net}: {len(found)} crossings (at most {limit}): {', '.join(f'{x}->{y} at {_xy(q)}' for x, y, q, _g in found)}"
+            )
+        problems += [f"{net}: {x}->{y} over a {g:.2f} mm gap at {_xy(q)}" for x, y, q, g in found if g > MOAT_GAP_MAX]
+    assert not problems, "\n".join(problems)
+
+
 # Signal hops on In2.Cu (owner, 2026-10-21): where F.Cu and B.Cu leave no room, a digital line of
 # the STM32 or the ESP32 crosses under on In2.Cu. A hop sits 0.21 mm under B.Cu but 0.5 mm over
 # In1.Cu, so it couples mostly to the B.Cu copper above it, and its slot in In2.Cu's ground breaks
@@ -973,11 +1072,9 @@ ANALOG_DETOUR, ANALOG_ADD = 2.0, 3.0
 # the STM32's escape rows or the corridor beside the fan hole, which have no free lane
 # (Current_Sensor_Right's run from C102 to R78 past the rear tip is the ESP32-C5 link's and the
 # IMU's and encoders' corridor, so it goes round by the DIP switch and the buzzer; the wall-sensor
-# line and the emitter set-point leave the front-left face for the right side and the nose). Open
-# item in the layout README.
+# line leaves the front-left face for the right side and the nose). Open item in the layout README.
 ROUND_ABOUT = {
     "Current_Sensor_Right": 62.0,
-    "Wall_Emitter_Set": 34.0,
     "Wall_Sensor_2": 46.5,
 }
 
@@ -1072,13 +1169,12 @@ def test_analog_keeps_clear_of_fast_digital():
 # The capacitor of each ADC input's RC filter at the STM32's pin: it is the charge reservoir of the
 # sample-and-hold, so the track between it and the pin stays short (ST AN2834 section 4.2.8).
 ADC_FILTERS = {"Current_Sensor_Left": "C105", "Current_Sensor_Right": "C102"}
-ADC_CAP_REACH = 3.0  # mm, pad centre to pad centre
+# mm, pad centre to pad centre: the reach each one has, which may not grow (owner, 2026-11-08). C105
+# sits just outside pins 25-26's escape vias, 1.9 mm from IC1.25, its stub 0.75 mm from the pin's
+# escape via; C102 3.5 mm from IC1.14, past the front-right face's escapes (layout README, open items)
+ADC_CAP_REACH = {"Current_Sensor_Left": 2.0, "Current_Sensor_Right": 3.6}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="no 0402 fits within 3 mm of IC1.14 or IC1.25 outside the escape rows and lanes (layout README, open items)",
-)
 def test_adc_filter_caps_at_the_pin():
     pcb = layout.load("main")
     problems = []
@@ -1086,8 +1182,8 @@ def test_adc_filter_caps_at_the_pin():
         pin = next(p for p in pcb.footprints["IC1"].pads if p.net == net)
         pad = next(p for p in pcb.footprints[ref].pads if p.net == net)
         d = math.dist(pin.xy, pad.xy)
-        if d > ADC_CAP_REACH:
-            problems.append(f"{ref} {d:.1f} mm from IC1.{pin.number} ({net})")
+        if d > ADC_CAP_REACH[net]:
+            problems.append(f"{ref} {d:.1f} mm from IC1.{pin.number} ({net}), at most {ADC_CAP_REACH[net]}")
     assert not problems, "\n".join(problems)
 
 

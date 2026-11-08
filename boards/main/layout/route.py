@@ -209,6 +209,21 @@ VCORE_INNER = 7.4  # the band's inner edge (|dx| + |dy|): outside the 3V3_D vias
 # 3V3_D's island (owner, 2026-10-25) is the square under the chip out to its pin tips, with a tab to
 # each 3V3_D pin's via: (mm past the via's edge, mm either side of the pin)
 MCU_3V3_TAB = (0.35, 0.55)
+# In2.Cu is B.Cu's reference plane (main.zen stackup): where a B.Cu line crosses from one In2.Cu net to
+# another its return detours by the islands' capacitors (tests/test_main_layout.py MOAT_CROSSINGS), so
+# the islands give way to the lines (owner, 2026-11-08). 3V3_D spans in the chip's frame (u0, u1, v0,
+# v1, as mcu_3v3_outline() builds it) across the 0.8 mm gap to VCORE's band: along the rear-left face
+# from pin 35's tab past the left encoder's A/B lines, and at the front vertex under the buzzer's line.
+MCU_3V3_SPANS = ((4.3, 5.25, 1.1, 2.7), (-4.95, -3.65, 4.3, 5.25))
+# VCORE's band cut back where lines ran along or clipped it: (a, b, c, box) removes a * dx + b * dy < c
+# inside the box (dx0, dy0, dx1, dy1), KiCad mm from the chip's centre: the rear-right arm's end (the
+# right encoder's B line, Motors_Enable), the front-left arm's outer edge (the battery divider's and
+# Wall_Sensor_2's runs), the front-right arm's outer edge (Wall_Sensor_2 past W3, Switch_3)
+VCORE_CUTS = (
+    (1, -1, -2.447, (1.0, 3.346, 6.0, 9.846)),
+    (1, 1, -8.805, (-7.501, -6.154, -3.901, -2.854)),
+    (-1, 1, -10.553, (3.999, -7.654, 8.999, -2.854)),
+)
 FANOUT_MAX_OF = {MCU: 2.0}  # a VCORE pin's via, past the 3V3_D island
 
 
@@ -232,7 +247,8 @@ def pin_square(ref: str, grow: float) -> list:
 
 def vcore_outline() -> list:
     """VCORE's In2.Cu island (robot frame): the band VCORE_REACH describes round IC1's centre, from
-    VCORE_INNER (just outside the pin tips' 3V3_D vias) out, open at the rear tip."""
+    VCORE_INNER (just outside the pin tips' 3V3_D vias) out, open at the rear tip, cut back by
+    VCORE_CUTS."""
     f = B.FindFootprintByReference(MCU)
     kx, ky = xy(f.GetPosition())
     cx, cy = OY - ky, OX - kx
@@ -255,14 +271,36 @@ def vcore_outline() -> list:
         (0, inner),  # the inner edge round the front
         (-(inner - tl), tl),  # back to the rear-left arm's end
     ]
-    return [(cx + u, cy + v) for u, v in d]
+    shape = pcbnew.SHAPE_POLY_SET()
+    c = pcbnew.SHAPE_LINE_CHAIN()
+    for u, v in d:  # robot frame to KiCad
+        c.Append(mm(OX - (cy + v)), mm(OY - (cx + u)))
+    c.SetClosed(True)
+    shape.AddOutline(c)
+    for a, b, k, (x0, y0, x1, y1) in VCORE_CUTS:
+        box, cut = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)], pcbnew.SHAPE_LINE_CHAIN()
+        side = [a * x + b * y - k for x, y in box]
+        for i, (p, q) in enumerate(zip(box, box[1:] + box[:1], strict=True)):
+            sp, sq = side[i], side[(i + 1) % 4]
+            if sp < 0:
+                cut.Append(mm(kx + p[0]), mm(ky + p[1]))
+            if (sp < 0) != (sq < 0):
+                t = sp / (sp - sq)
+                cut.Append(mm(kx + p[0] + t * (q[0] - p[0])), mm(ky + p[1] + t * (q[1] - p[1])))
+        cut.SetClosed(True)
+        hole = pcbnew.SHAPE_POLY_SET()
+        hole.AddOutline(cut)
+        shape.BooleanSubtract(hole)
+    shape.Simplify()
+    o = shape.Outline(0)
+    return [(OY - pcbnew.ToMM(o.CPoint(i).y), OX - pcbnew.ToMM(o.CPoint(i).x)) for i in range(o.PointCount())]
 
 
 def mcu_3v3_outline() -> list:
     """3V3_D's In2.Cu island (robot frame): the square under IC1 out to its pin tips, with a tab out
     to each 3V3_D pin's via at the tip (ESCAPE_REACH): VBAT (pin 1), VDDSMPS (pin 6) and VDD (pins 9,
-    22, 35, 51, 68), all on 3V3_D (main.zen; DS13311 pinout). Built in the chip's frame and turned
-    with it, so the outline is octilinear as the chip sits."""
+    22, 35, 51, 68), all on 3V3_D (main.zen; DS13311 pinout), and MCU_3V3_SPANS. Built in the chip's
+    frame and turned with it, so the outline is octilinear as the chip sits."""
     f = B.FindFootprintByReference(MCU)
     kx, ky = xy(f.GetPosition())
     a = math.radians(f.GetOrientationDegrees())
@@ -302,6 +340,8 @@ def mcu_3v3_outline() -> list:
             s = math.copysign(1, v)
             tab = rect(u - half, u + half, min(s * (h - 0.5), s * out), max(s * (h - 0.5), s * out))
         shape.BooleanAdd(tab)
+    for u0, u1, v0, v1 in MCU_3V3_SPANS:
+        shape.BooleanAdd(rect(u0, u1, v0, v1))
     shape.Simplify()
     o = shape.Outline(0)
     pts = []
