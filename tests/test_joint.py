@@ -29,13 +29,20 @@ ENCODER_ROLES = {
     "Encoder_ABI_A": "A",
     "Encoder_ABI_B": "B",
 }
-# Firmware signal or label on the MCU pin -> role.
-FIRMWARE_ROLES = {"SPI3_SCK": "SCK", "SPI3_MISO": "MISO", "SPI3_MOSI": "MOSI"}
+# Firmware signal or label on the MCU pin -> role: the IMU and encoder bus is SPI2
+# (boards/main/firmware_changes.toml, sensor_bus).
+FIRMWARE_ROLES = {"SPI2_SCK": "SCK", "SPI2_MISO": "MISO", "SPI2_MOSI": "MOSI"}
+# The firmware's pin map with the changes the main board declares for it.
+FW = firmware.apply_changes(firmware.load("main"), firmware.load_changes("main"))
+
+
+# Main board supply net -> role: the encoders run from the digital 3.3 V rail (boards/main/Sensors.zen).
+SUPPLY_ROLES = {"3V3_D": "3V3", "GND": "GND"}
 
 
 def _role(d, fw, net: str) -> str:
-    if net in ("3V3", "GND"):
-        return net
+    if net in SUPPLY_ROLES:
+        return SUPPLY_ROLES[net]
     for pin, f in fw["pins"].items():
         if d.net("IC1", pin) != net:
             continue
@@ -50,8 +57,7 @@ def _role(d, fw, net: str) -> str:
 
 @pytest.mark.parametrize("slot", ["EC1", "EC2"])
 def test_slot_pinout_is_the_encoder_tab_pinout(slot):
-    d = design("main")
-    fw = firmware.load("main")
+    d, fw = design("main"), FW
     want = {pad: ENCODER_ROLES[net] for pad, net in TAB_PINOUT.items()}
     got = {pad: _role(d, fw, d.net(slot, pad)) for pad in TAB_PINOUT}
     assert got == want, f"{slot} pads carry {got}, the encoder tab expects {want}"
@@ -59,8 +65,7 @@ def test_slot_pinout_is_the_encoder_tab_pinout(slot):
 
 def test_each_slot_is_one_encoder():
     # CSn, A and B of a slot belong to the same wheel in the firmware (Encoder_<side>_*).
-    d = design("main")
-    fw = firmware.load("main")
+    d, fw = design("main"), FW
     labels = {d.net("IC1", p): f.get("label", "") for p, f in fw["pins"].items()}
     for slot in ("EC1", "EC2"):
         sides = set()

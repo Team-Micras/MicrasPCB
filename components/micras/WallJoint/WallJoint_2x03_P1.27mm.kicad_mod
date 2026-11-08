@@ -1,0 +1,171 @@
+(footprint "WallJoint_2x03_P1.27mm"
+	(version 20260206)
+	(generator "micras")
+	(layer "F.Cu")
+	(descr "Micras wall joint: the main board's side of the joint with a wall-sensor board (boards/wall), whose 2x03 1.27 mm header (HX PZ1.27-2x3P ZZ) straddles its bottom edge: 6 plated holes, 0.70 mm drill (drawing: 0.65 mm) and 1.10 mm pads at 1.27 x 1.27 mm, pad n = header pin n; origin on the pattern's centre, under the wall board's mid-plane, the sensor looking along -y. F.CrtYd: the header's insulator, on which the wall board's 4.2 mm handle stands, plus 0.25 mm; F.Fab: the 8.4 mm blade's overhang with its back-face parts, 3.06 mm or more over the board outside the courtyard, under which parts stay at or below 2.55 mm")
+	(tags "Micras wall sensor joint board-to-board 2x03 1.27mm")
+	(property "Reference" "REF**"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(effects
+			(font
+				(size 0.5 0.5)
+				(thickness 0.08)
+			)
+		)
+	)
+	(property "Value" "WallJoint_2x03_P1.27mm"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" "https://github.com/Team-Micras/MicrasPCB/blob/main/spec/wall.toml"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" "the wall board's joint (spec/wall.toml header, components/hanxia/HX-PZ1.27-2x3P-ZZ)"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr through_hole exclude_from_pos_files exclude_from_bom)
+	(duplicate_pad_numbers_are_jumpers no)
+	(pad "1" thru_hole rect
+		(at 1.27 -0.635)
+		(size 1.1 1.1)
+		(drill 0.7)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+	)
+	(pad "2" thru_hole circle
+		(at 1.27 0.635)
+		(size 1.1 1.1)
+		(drill 0.7)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+	)
+	(pad "3" thru_hole circle
+		(at 0 -0.635)
+		(size 1.1 1.1)
+		(drill 0.7)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+	)
+	(pad "4" thru_hole circle
+		(at 0 0.635)
+		(size 1.1 1.1)
+		(drill 0.7)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+	)
+	(pad "5" thru_hole circle
+		(at -1.27 -0.635)
+		(size 1.1 1.1)
+		(drill 0.7)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+	)
+	(pad "6" thru_hole circle
+		(at -1.27 0.635)
+		(size 1.1 1.1)
+		(drill 0.7)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+	)
+	(fp_rect
+		(start -1.905 -1.7)
+		(end 1.905 1.7)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+	)
+	(fp_rect
+		(start -2.155 -1.95)
+		(end 2.155 1.95)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+	)
+	(fp_rect
+		(start -4.2 -0.395)
+		(end 4.2 1.595)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+	)
+	(fp_text user "blade >= 3.06 mm up: parts <= 2.55 mm"
+		(at 0 2.095 0)
+		(layer "F.Fab")
+		(effects
+			(font
+				(size 0.4 0.4)
+				(thickness 0.06)
+			)
+		)
+	)
+	(fp_rect
+		(start -2.005 -1.8)
+		(end 2.005 1.8)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.SilkS")
+	)
+	(fp_line
+		(start -4.2 -0.595)
+		(end -2.205 -0.595)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+	)
+	(fp_line
+		(start 2.205 -0.595)
+		(end 4.2 -0.595)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+	)
+	(fp_line
+		(start 1.47 -2.05)
+		(end 2.17 -2.05)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+	)
+)

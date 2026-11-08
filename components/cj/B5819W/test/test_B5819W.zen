@@ -1,0 +1,58 @@
+"""B5819W package facts (JCET B5817W-B5819W, D, Mar 2015) as the main board's OR-ing diodes into VSYS: D14
+from VBAT and D17 from 5V_IN, a programmer's 5 V pin."""
+
+Diode = Module("../B5819W.zen")
+
+# DS p.1: VRRM = VRWM = VR = 40 V.
+VR_MAX = 40.0
+
+
+def pins(module):
+    got = {}
+    for net, ports in module.nets().items():
+        for path, pin in ports:
+            if path.endswith(".D"):
+                got[pin] = net
+    return got
+
+
+def or_ing_orientation(module, inputs):
+    # Anode on its source (the switched pack, or a programmer's 5 V pin), cathode on the system
+    # node: VSYS never feeds VBAT or the programmer.
+    got = pins(module)
+    check(str(got.get("K")).startswith("VSYS") and got.get("A") in ["VBAT", "5V_IN"], "pinout changed: " + str(got))
+
+
+def reverse_voltage(module, inputs):
+    # Worst-case reverse bias: the highest cathode voltage against the lowest anode voltage.
+    d = [c for path, c in module.components().items() if path.endswith("D")][0]
+    vr = d.pins["K"].voltage.max - d.pins["A"].voltage.min
+    check(vr <= VR_MAX, "reverse voltage up to " + str(vr) + " V exceeds the 40 V VRRM")
+
+
+def sourcing(module, inputs):
+    d = [c for path, c in module.components().items() if path.endswith("D")][0]
+    check(d.mpn == "B5819W", "MPN")
+    check(d.manufacturer == "JCET", "manufacturer")
+    check(d.prefix == "D", "reference prefix D")
+
+
+TestBench(
+    name="B5819W_or_ing",
+    module=Diode,
+    test_cases={
+        # D14: the 4S pack with HV cells, switched off to 0 V; VSYS from the pack or from 5V_IN
+        # through D17 (3.8-5.0 V).
+        "4s_hv": {
+            "A": Power("VBAT", voltage="0V to 17.4V"),
+            "K": Power("VSYS", voltage="3.8V to 17.4V"),
+        },
+        # D17: 5V_IN absent (0 V) while the pack holds VSYS up to D15's 24.2 V clamp (Regulators.zen):
+        # 61 % of VRRM.
+        "5v_in_reversed_at_clamp": {
+            "A": Power("5V_IN", voltage="0V to 5.25V"),
+            "K": Power("VSYS_AT_CLAMP", voltage="3.8V to 24.2V"),
+        },
+    },
+    checks=[or_ing_orientation, reverse_voltage, sourcing],
+)

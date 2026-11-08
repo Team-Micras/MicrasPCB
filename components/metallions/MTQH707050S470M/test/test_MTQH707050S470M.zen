@@ -1,0 +1,40 @@
+"""MTQH707050S470MGT (MetalLions MTQH707050S datasheet): ratings, and the motor-choke requirement."""
+
+INDUCTOR = Module("../MTQH707050S470M.zen")
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def ratings(module, inputs):
+    # p2, Electrical Properties, MTQH707050S470M_T row (rated "Max" columns for the currents)
+    c = part(module)
+    check(c.type == "inductor", "type")
+    check(c.mpn == "MTQH707050S470MGT", "MPN")
+    check(c.manufacturer == "MetalLions", "manufacturer")
+    check(c.prefix == "L", "reference prefix must be L")
+    check(len(c.pins) == 2, "two terminals")
+    check(c.properties["inductance"].matches("47uH 20%"), "inductance")
+    check(c.properties["isat"].matches("4.5A"), "Isat (30 % drop, rated)")
+    check(c.properties["irms"].matches("3.0A"), "Irms (40 C rise, rated)")
+    check(c.properties["dcr"].matches("140mOhm"), "DCR max")
+
+
+def motor_choke_requirement(module, inputs):
+    # Next-revision proposal, Drivetrain: Isat above the ITRIP band's 3.23 A top plus the 0.94 A
+    # blanking overshoot (boards/main/test/test_drivers.zen), and the 1-1.5 A rms continuous motor
+    # current within the rated Irms (3.0 A, p2).
+    c = part(module)
+    check(c.properties["isat"].value >= 4.17, "Isat must exceed 4.17 A (ITRIP 3.23 A + 0.94 A overshoot)")
+    check(c.properties["irms"].value >= 1.5, "Irms must exceed the 1.5 A rms motor current")
+
+
+TestBench(
+    name="MTQH707050S470M",
+    module=INDUCTOR,
+    test_cases={"default": {"P1": Net("A"), "P2": Net("B")}},
+    checks=[ratings, motor_choke_requirement],
+)

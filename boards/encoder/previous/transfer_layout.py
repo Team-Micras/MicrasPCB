@@ -12,7 +12,7 @@ boards/encoder/layout/encoder.kicad_pcb, and rewrites the layout:
    copied byte for byte. The board keeps the previous net names, so every net stays as it was
    (checked by pad membership, see `check_nets`). Each copied item gets a UUID derived from its
    content, since the Altium import draws new random ones on every run. Teardrops become plain
-   zones of the same outline, as on the main board (boards/main/previous/transfer_layout.py
+   zones of the same outline, as on the v1 main board (MicrasPCB e34fb9a boards/main/previous/transfer_layout.py
    `teardrop_to_zone`: KiCad does not save a teardrop's UUID, so a board with teardrop zones is
    never byte-stable). The pours keep the Altium neck widths (`POUR_MIN_WIDTH`). The Edge.Cuts
    line shorter than 1 um is left out (`outline_snaps`), and the board-level STEP files no
@@ -24,11 +24,13 @@ boards/encoder/layout/encoder.kicad_pcb, and rewrites the layout:
    translation for each candidate rotation, the smallest residual wins). Each reference
    designator text takes the previous one's position, size, layer and orientation. The aux and
    grid origins are the spec's (the previous board's), the solder mask expansion the previous
-   board's (0.02 mm). Zones are refilled.
+   board's (0.02 mm). Parts the previous board does not have (R1-R3, boards/encoder/changes.toml)
+   stay where the netlist sync put them. Zones are refilled.
 3. `pcb layout` syncs the result, which normalises the file the way `make gen` writes it.
 
-The script is a fixed point: running it on its own output changes nothing. Run `make gen` and
-`make check` afterwards.
+The script is a fixed point: running it on its own output changes nothing. Its output is the
+previous layout; boards/encoder/layout/fixes.py then turns it into the board's layout. Run
+`make gen` and `make check` afterwards.
 """
 
 from __future__ import annotations
@@ -266,7 +268,12 @@ def place(path: Path, old_path: Path) -> list[str]:
     report = []
     for fp in new.GetFootprints():
         ref = fp.GetReference()
-        src = by_ref[ref]
+        src = by_ref.get(ref)
+        if src is None:
+            # a part the previous board does not have (boards/encoder/changes.toml):
+            # boards/encoder/layout/fixes.py places it
+            report.append(f"{ref}: not on the previous board, left where the netlist sync put it")
+            continue
         if fp.IsFlipped() != src.IsFlipped():
             fp.Flip(fp.GetPosition(), pcbnew.FLIP_DIRECTION_LEFT_RIGHT)
         target = _centres(src)

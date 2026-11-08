@@ -2,9 +2,11 @@
 
 build/<board>/review/:
   <board>-schematic.pdf / .svg   generated schematic
-  <board>-<layer>.svg            copper, mask and silk layers, page fitted to the board
+  <board>-<layer>.svg            top and bottom (copper, mask, silk) and each inner copper layer, fitted to the board
   <board>-top.png / -bottom.png / -iso.png   3D renders
   <board>.glb / <board>.step     3D models in the spec frame (drill origin = spec origin)
+
+A schematic-only board (no layout yet) gets the schematic alone.
 """
 
 from __future__ import annotations
@@ -12,7 +14,8 @@ from __future__ import annotations
 import shutil
 import subprocess
 
-from .paths import board_pcb, board_sch, build_dir
+from .jlc import copper_layers
+from .paths import SCHEMATIC_ONLY, board_pcb, board_sch, build_dir, has_layout
 from .tools import kicad_cli
 
 LAYER_SVGS = {
@@ -34,7 +37,12 @@ def run(board: str) -> int:
     k("sch", "export", "pdf", "-o", str(out / f"{board}-schematic.pdf"), sch)
     k("sch", "export", "svg", "-o", str(out), sch)
     (out / f"{board}.svg").rename(out / f"{board}-schematic.svg")
-    for name, layers in LAYER_SVGS.items():
+    if not has_layout(board):
+        print(f"{board}: layer SVGs, renders and 3D models skipped: {SCHEMATIC_ONLY}")
+        _list(board, out)
+        return 0
+    inner = {n[:-3].lower(): f"{n},Edge.Cuts" for n in copper_layers(board) if n.startswith("In")}
+    for name, layers in {**LAYER_SVGS, **inner}.items():
         k(
             "pcb",
             "export",
@@ -85,6 +93,10 @@ def run(board: str) -> int:
         pcbf,
     )
     k("pcb", "export", "step", "--drill-origin", "-f", "-o", str(out / f"{board}.step"), pcbf)
+    _list(board, out)
+    return 0
+
+
+def _list(board: str, out) -> None:
     for f in sorted(out.iterdir()):
         print(f"  {f.relative_to(build_dir(board).parent.parent)}")
-    return 0

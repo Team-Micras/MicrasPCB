@@ -1,0 +1,61 @@
+"""WS2812C-2427-V6 - 3.3-5.3 V addressable RGB LED, single-wire data, 2.7 x 2.4 mm SMD-4P.
+
+Datasheet: Worldsemi WS2812C-2427-V6 V1.0 (2026-05-26, "由2812C-2427升级变更", p.9 revision
+record), 9 pages, LCSC C55109524 ("WS-DS").
+
+Supply: VDD +3.3 to +5.3 V (WS-DS p.3, maximum ratings table, "电源电压"); the LED is rated at
+5 V and the driving voltage must never exceed 7 V; a reversed supply does not damage it; static
+current below 1 uA; "stable supply down to 3.3 V" (p.1 features; p.4 LED table, "静态电流").
+The electrical, switching and LED tables are given at VDD = 5 V only: 3.3 V appears only in the
+feature text and the ratings range. The p.6 "VF 恒流曲线" shows each channel's constant-current
+sink holding 4.95-4.99 mA from 0.4 V across it (0.59 mA at 0 V, 4.07 mA at 0.3 V), so a channel
+keeps its full current while its LED's VF is at most VDD - 0.4 V. VDD is declared with the
+3.3-5.3 V range, so a rail whose declared range dips below 3.3 V raises a build warning.
+
+Data (WS-DS p.3, VDD = 5 V): DIN VIH 0.55 x VDD min (1.82 V at 3.3 V), VIL 0.3 x VDD max
+(0.99 V at 3.3 V), hysteresis 0.35 V typ, input current +-1 uA, input capacitance 15 pF max;
+DIN to DOUT delay 300 ns max. The ratings table gives the logic input range as
+"VDD-0.7～VDD+0.7" (p.3), which would forbid a logic low and contradicts VIL: a misprint, the
+WS2812C-2020-V6 sheet gives -0.3 V to VDD + 0.7 V. p.1 and the p.2 pin table call DI and DO
+interchangeable ("双向信号输入，DI、DO可任意切换"); wire DI to DO all the same.
+Bit timing (p.4): T0H 220-380 ns, T1H 580 ns-1 us, T0L 580 ns-1 us, T1L 580 ns-1 us, reset
+(RES) low > 280 us; up to 800 kbit/s (p.1); 24 bits per LED, GRB order, MSB first (p.5). The
+same table as the WS2812C-2020-V6.
+
+Current: 5 mA per colour channel (p.4 LED table, "工作电流 5mA"); at 5 mA: red 120-200 mcd
+618-623 nm, green 350-500 mcd 522-527 nm, blue 55-75 mcd 462-467 nm.
+
+External parts: a 100 nF filter capacitor between VDD and GND, "according to the supply
+quality" ("建议取值100nf", p.5 typical application circuit); integrator-owned.
+
+Pins (p.2, "引出端排列" top view and "引脚功能" table): 1 DIN, 2 VDD, 3 DOUT, 4 GND,
+counter-clockwise from top left seen from the top; the body's cut corner (top view) is at GND.
+The p.5 application drawing numbers the pins differently (1 VDD, 2 DO, 3 GND, 4 DI): it
+contradicts both p.2 drawings and is not used.
+Package (p.2, "机械尺寸"): 2.70 +-0.1 x 2.40 +-0.1 mm, 1.10 +-0.05 mm high, lens d2.0 mm; bottom
+view: four terminals 0.75 mm long (from the body edge) x 0.40 mm wide, 1.20 mm apart across the
+body and on a 1.30 mm pitch along it. The datasheet gives no recommended land pattern.
+Footprint: lands derived from those terminals, 0.90 x 0.50 mm at x +-1.00, y +-0.65 mm (0.10 mm
+toe, 0.05 mm heel, 0.05 mm each side): pad 1 (-1.00, -0.65), 2 (-1.00, +0.65), 3 (+1.00, +0.65),
+4 (+1.00, -0.65). Moisture sensitivity level 2a, 4 weeks floor life at <= 30 C/60 %RH (p.7);
+bake 70 C >= 24 h (reel) or 120 C >= 4 h (loose) when exceeded (p.8); reflow peak 245 C (p.8).
+"""
+
+VDD = io(Power(voltage="3.3V to 5.3V"))
+GND = io(Ground)
+DI = io(Net)
+DO = io(Net)
+
+Component(
+    name="LED",
+    prefix="D",
+    symbol=Symbol(library="WS2812C-2427.kicad_sym"),
+    footprint=File("LED-SMD_4P-L2.7-W2.4-P1.30_WS2812C-2427-V6.kicad_mod"),
+    part=Part(mpn="WS2812C-2427-V6", manufacturer="Worldsemi"),
+    pins={
+        "DI": DI,
+        "VDD": VDD,
+        "DO": DO,
+        "GND": GND,
+    },
+)

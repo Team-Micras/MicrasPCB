@@ -1,0 +1,61 @@
+Wheel choke check: DCX 10 L 4.5 V (R 2.9 ohm, L 45.3 uH at 1 kHz) + MTQH707050S470MGT, DRV8874 at 100 kHz
+Choke model: L at -20 % = 37.6 uH at 0 A; incremental L relative to 0 A:
+  1 A 97 %, 2 A 90 %, 3 A 83 %, 3.23 A 81 %, 4.17 A 73 %, 4.5 A 70 %, 5 A 66 %, 6 A 58 %
+
+1. Ripple at D = 0.5 (worst), 100 kHz; motor ripple loss Irms^2 x 2.9 ohm; choke AC loss with the
+   XAL7070-473 stand-in coefficient (MetalLions publishes no core loss)
+   choke corners: 'nom' = 47 uH at 0 A, 'min' = -20 % and biased at 3 A (ITRIP)
+       V    k choke L tot uH  dIpp A  motor W stand-in mW
+    12.0  0.2   nom     56.1   0.536    0.069       100.5
+    12.0  0.2   min     40.2   0.741    0.133       198.7
+    12.0  0.3   nom     60.6   0.493    0.059        84.3
+    12.0  0.3   min     44.7   0.668    0.108       159.8
+    12.0  0.5   nom     69.7   0.429    0.045        63.1
+    12.0  0.5   min     53.7   0.558    0.075       109.5
+    12.0  0.8   nom     83.2   0.359    0.031        43.5
+    12.0  0.8   min     67.3   0.444    0.048        67.7
+    12.0  1.0   nom     92.3   0.324    0.025        35.0
+    12.0  1.0   min     76.4   0.392    0.037        52.0
+    16.8  0.2   nom     56.1   0.750    0.135       203.7
+    16.8  0.2   min     40.2   1.038    0.261       402.7
+    16.8  0.3   nom     60.6   0.690    0.115       170.9
+    16.8  0.3   min     44.7   0.935    0.211       323.9
+    16.8  0.5   nom     69.7   0.601    0.087       127.8
+    16.8  0.5   min     53.7   0.781    0.147       222.0
+    16.8  0.8   nom     83.2   0.503    0.061        88.1
+    16.8  0.8   min     67.3   0.621    0.094       137.2
+    16.8  1.0   nom     92.3   0.454    0.050        71.0
+    16.8  1.0   min     76.4   0.548    0.073       105.4
+    17.4  0.2   nom     56.1   0.777    0.145       219.2
+    17.4  0.2   min     40.2   1.075    0.280       433.5
+    17.4  0.3   nom     60.6   0.715    0.124       184.0
+    17.4  0.3   min     44.7   0.969    0.227       348.6
+    17.4  0.5   nom     69.7   0.622    0.094       137.6
+    17.4  0.5   min     53.7   0.809    0.157       239.0
+    17.4  0.8   nom     83.2   0.521    0.066        94.9
+    17.4  0.8   min     67.3   0.644    0.100       147.7
+    17.4  1.0   nom     92.3   0.470    0.054        76.4
+    17.4  1.0   min     76.4   0.568    0.078       113.5
+   worst: 1.075 A pp, 0.280 W in the motor, 434 mW stand-in AC loss (V 17.4, k 0.2, min)
+   against the DCX 10 L's continuous loss budget of about 1.28 W (extra.py): 22 % at the worst corner;
+   ripple rms 0.31 A. maxon's no-choke-needed rule (Ipp < 1.5 x IN = 0.97 A, p7) holds at every point but V 17.4, k 0.2, 'min'
+
+2. Choke temperature (Rth 32 K/W, board at 40 C), Rdc at 140 mOhm max + 0.393 %/K copper;
+   core loss: the stand-in (434 mW), and the most the part takes before it reaches 125 C (note 6)
+   run limit 1.0 A rms (60 s)        : DC   161 mW + AC 434 mW -> +19.0 K,  59.0 C; core loss up to 2458 mW stays under 125 C
+   run limit 0.86 A rms (120 s)      : DC   119 mW + AC 434 mW -> +17.7 K,  57.7 C; core loss up to 2510 mW stays under 125 C
+   2.5 A rms (beyond the run limits) : DC  1114 mW + AC 434 mW -> +49.5 K,  89.5 C; core loss up to 1420 mW stays under 125 C
+
+3. ITRIP band (equation 3, tolerances, AERR -5.5/+5.5 %): 2.76 / 2.97 / 3.23 A
+   Overshoot above ITRIP during a full-speed reversal at 17.4 V (V + E = 22.7 V), current at ITRIP max when the pulse starts:
+      k | t 1.70 us | t 1.85 us | t 2.55 us   (t = tBLK + tDEG; + tFALL; x 1.5)
+    0.0 | 1.37 -> 4.60 A | 1.50 -> 4.73 A | 2.15 -> 5.37 A
+    0.2 | 1.02 -> 4.25 A | 1.11 -> 4.34 A | 1.57 -> 4.80 A
+    0.3 | 0.91 -> 4.14 A | 0.99 -> 4.22 A | 1.38 -> 4.61 A
+    0.5 | 0.74 -> 3.97 A | 0.81 -> 4.04 A | 1.13 -> 4.36 A
+    0.8 | 0.59 -> 3.82 A | 0.64 -> 3.87 A | 0.89 -> 4.12 A
+    1.0 | 0.51 -> 3.74 A | 0.56 -> 3.79 A | 0.78 -> 4.01 A
+   worst peak 5.37 A: 0.63 A below the 6 A OCP minimum (which also needs 3 us above
+   it, tOCP); inside the INA241's +7.25 / -8.15 A; the choke keeps 63 % of its inductance
+   there (soft saturation; the rated Isat is the 70 % point, 4.5 A)
+   at the datasheet timing (1.7 us) and the maxon factor 0.3: 0.91 A; at the typical ITRIP, 16.8 V, nominal choke at 0 A bias: 0.62 A

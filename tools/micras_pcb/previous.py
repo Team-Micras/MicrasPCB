@@ -1,26 +1,25 @@
 """The previous board revision as a committed reference, and a connectivity comparator against it.
 
-The main, encoder and Bluetooth boards are replicated from their previous revisions (Altium,
-in `hw_debug`). `snapshot` reads a board's previous revision once and writes
-`boards/<board>/previous/board.json`, so the checks never need `hw_debug`. `compare` proves the
-new board connects exactly what the old one did, except for the changes declared in
+The encoder is replicated from its previous revision (Altium, in `hw_debug`). `snapshot` reads a
+board's previous revision once and writes `boards/<board>/previous/board.json`, so the checks
+never need `hw_debug`. `compare` proves the new board connects exactly what the old one did, and
+names its nets as the old one did, except for the changes declared in
 `boards/<board>/changes.toml`.
 
-    MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot            # (re)write main's board.json
-    MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot encoder    # the encoder's
-    MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot bluetooth  # the Bluetooth module's
-    MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot --check    # fail if it is stale
-    micras-pcb previous compare main                                         # new board vs previous
+    MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot encoder            # (re)write its board.json
+    MICRAS_PREVIOUS=~/codes/hw_debug micras-pcb previous snapshot encoder --check    # fail if it is stale
+    micras-pcb previous compare encoder                                              # new board vs previous
 
-Where each board's previous revision lives is in `SOURCES`: the main board as the KiCad 10
-conversion of its Altium project (`hw_debug/kicad`), the encoder and the Bluetooth module as
-the Altium files themselves (`hw_debug/modules/<board>`): the PcbDoc is converted with
-`kicad-cli pcb import` on each run, the part fields come from the SchDoc's component parameters,
-and the netlist export must group the pads as the PCB does.
+Where each board's previous revision lives is in `SOURCES`: the encoder as the Altium files
+themselves (`hw_debug/modules/<board>`): the PcbDoc is converted with `kicad-cli pcb import` on
+each run, the part fields come from the SchDoc's component parameters,
+and the netlist export must group the pads as the PCB does. A source can also be a KiCad 10
+conversion of an Altium project (`Source.schematics` for the part fields, `Source.bom` for a
+JLCPCB BOM's LCSC numbers).
 
-Snapshot (`board.json`, format 1). The PCB's pad nets are the ground truth: the main board's
-converted schematic merges `Motor_L_Sense-` and `Motor_R_Sense-`, the PCB keeps them apart. The
-schematic and the JLCPCB BOM only add part fields. Keys are in natural order (R2 before R10),
+Snapshot (`board.json`, format 1). The PCB's pad nets are the ground truth: a converted schematic
+can merge nets the PCB keeps apart. The schematic, the SchDoc and the JLCPCB BOM only add part
+fields. Keys are in natural order (R2 before R10),
 floats are rounded to 6 decimals, so a re-run on the same inputs is byte-identical.
 
     source    root ("hw_debug") and {relative path: sha256} of every input
@@ -29,7 +28,7 @@ floats are rounded to 6 decimals, so a re-run on the same inputs is byte-identic
     parts     per designator: lib_id, value, mpn, manufacturer, lcsc, description, sheet, side
               (top/bottom), x, y, rotation (KiCad frame, degrees), dnp, exclude_from_bom,
               in_jlc_bom, and pads {pad number: net name, or null when the pad has no net}.
-              Pads without a number (U3's SOT-89 tab) are left out: nothing can connect to them.
+              Pads without a number (a SOT-89 tab) are left out: nothing can connect to them.
     unnamed   footprints with an empty designator under a synthetic id ("NONAME1"...,
               numbered by position), with position, uuid and pad geometry for the layout transfer
 
@@ -59,13 +58,31 @@ later uses join it). A pad or net that does not exist is an error, so a typo can
     remove_parts = ["U3"]                            # the part and its pads disappear
     rename_parts = { "20V" = "TP1" }                 # same part, new designator
 
+    [[change]]
+    id = "m15"
+    summary = "Current sense nets named after the motor they measure"
+    rename_nets = { "Current_Sensor_Left" = "Current_Sensor_Right", "Current_Sensor_Right" = "Current_Sensor_Left" }
+                                                     # renames apply at once, so two nets can swap names
+
+    [[change]]
+    id = "m2"
+    summary = "Boost feedback divider for 18.8 V"
+    part_numbers = { R39 = "0603WAF1004T5E", R40 = "0603WAF6802T5E" }   # same pads, another part
+    dnp = ["C22"]                                    # the footprint stays, the part is not fitted
+
 Within one change the actions run in the order rename_parts, remove_parts, add_parts, isolate,
-move, merge. An added part's pads not listed are unconnected.
+move, merge, rename_nets. An added part's pads not listed are unconnected. part_numbers and dnp
+change no connectivity; they declare what a board's part-number check expects, and name parts the
+board must have.
+
+Net names are part of the comparison: a net the previous board named (not an Altium automatic
+name such as "NetR25_1") whose pads form the same net on the new board must carry the same name
+there, unless a change renames it.
 
     from micras_pcb import previous
-    snap = previous.load("main")                        # board.json as a dict
-    expected = previous.apply_changes(previous.from_snapshot(snap), previous.load_changes("main"))
-    report = previous.diff(expected, previous.from_netlist(netlist.load("main")))
+    snap = previous.load("encoder")                     # board.json as a dict
+    expected = previous.apply_changes(previous.from_snapshot(snap), previous.load_changes("encoder"))
+    report = previous.diff(expected, previous.from_netlist(netlist.load("encoder")))
     report.ok, print(report)
     previous.groups(snap)                               # {frozenset{(ref, pad), ...}} multi-pad nets
 """
@@ -87,9 +104,6 @@ from . import sexpr
 from .paths import BOARDS, ROOT
 
 FORMAT = 1
-PCB_FILE = "kicad/MicrasMainBoard.kicad_pcb"
-BOM_FILE = "MicrasMainBoard-BOM-jlc.csv"
-SCH_GLOB = "kicad/*.kicad_sch"
 
 Pad = tuple[str, str]  # (designator, pad number)
 
@@ -106,16 +120,10 @@ class Source:
 
 
 SOURCES = {
-    "main": Source(pcb=PCB_FILE, schematics=SCH_GLOB, bom=BOM_FILE),
     "encoder": Source(
         pcb="modules/encoder/MicrasEncoder.PcbDoc",
         altium_sch="modules/encoder/Encoder.SchDoc",
         netlist="modules/encoder/Encoder.netlist.txt",
-    ),
-    "bluetooth": Source(
-        pcb="modules/bluetooth/MicrasBluetoothModule.PcbDoc",
-        altium_sch="modules/bluetooth/MicrasBluetoothModule.SchDoc",
-        netlist="modules/bluetooth/MicrasBluetoothModule.netlist.txt",
     ),
 }
 
@@ -125,7 +133,7 @@ def default_source() -> Path:
     return Path(env).expanduser() if env else ROOT.parent / "hw_debug"
 
 
-def snapshot_path(board: str = "main") -> Path:
+def snapshot_path(board: str) -> Path:
     return BOARDS / board / "previous" / "board.json"
 
 
@@ -421,7 +429,7 @@ def altium_pcb(path: Path) -> str:
         return out.read_text()
 
 
-def build_snapshot(source: Path, board: str = "main") -> dict:
+def build_snapshot(source: Path, board: str) -> dict:
     src = SOURCES[board]
     pcb_path = source / src.pcb
     sch_paths = sorted(p for p in source.glob(src.schematics) if p.name != ".kicad_sch") if src.schematics else []
@@ -508,11 +516,11 @@ def dumps(snapshot: dict) -> str:
     return json.dumps(snapshot, indent=1, ensure_ascii=False) + "\n"
 
 
-def load(board: str = "main", path: Path | None = None) -> dict:
+def load(board: str, path: Path | None = None) -> dict:
     return json.loads((path or snapshot_path(board)).read_text())
 
 
-def snapshot(source: Path | None = None, board: str = "main", check: bool = False) -> int:
+def snapshot(source: Path | None, board: str, check: bool = False) -> int:
     source = (source or default_source()).resolve()
     out = snapshot_path(board)
     text = dumps(build_snapshot(source, board))
@@ -553,8 +561,9 @@ def from_snapshot(snap: dict) -> Connectivity:
 
 
 def from_netlist(nl) -> Connectivity:
-    """From a micras_pcb.netlist.Netlist (the generated schematic, as LVS reads it)."""
-    nets = {name: frozenset((p.ref, p.pin) for p in pins) for name, pins in nl.nets.items()}
+    """From a micras_pcb.netlist.Netlist (the generated schematic, as LVS reads it). KiCad's
+    leading "/" on a root-sheet net name is dropped."""
+    nets = {name.lstrip("/"): frozenset((p.ref, p.pin) for p in pins) for name, pins in nl.nets.items()}
     return Connectivity(set(nl.parts), nets)
 
 
@@ -572,7 +581,17 @@ class ChangeError(ValueError):
     pass
 
 
-ACTIONS = ("rename_parts", "remove_parts", "add_parts", "isolate", "move", "merge")
+ACTIONS = (
+    "rename_parts",
+    "remove_parts",
+    "add_parts",
+    "isolate",
+    "move",
+    "merge",
+    "rename_nets",
+    "part_numbers",
+    "dnp",
+)
 KEYS = {"id", "summary", "review", *ACTIONS}
 
 
@@ -587,6 +606,9 @@ class Change:
     isolate: list[str] = field(default_factory=list)
     move: dict[str, str] = field(default_factory=dict)
     merge: list[list[str]] = field(default_factory=list)
+    rename_nets: dict[str, str] = field(default_factory=dict)
+    part_numbers: dict[str, str] = field(default_factory=dict)
+    dnp: list[str] = field(default_factory=list)
 
 
 def parse_changes(text: str) -> list[Change]:
@@ -702,7 +724,45 @@ def apply_changes(conn: Connectivity, changes: list[Change]) -> Connectivity:
             for other in {where_is[p] for p in pads[1:]} - {keep}:
                 for p in list(nets[other]):
                     put(p, keep)
+        if c.rename_nets:
+            for old in c.rename_nets:
+                if old not in nets:
+                    raise ChangeError(f"{w}: rename of unknown net {old!r}")
+            for new in c.rename_nets.values():
+                if new in nets and new not in c.rename_nets:
+                    raise ChangeError(f"{w}: rename target {new!r} is an existing net")
+            if len(set(c.rename_nets.values())) != len(c.rename_nets):
+                raise ChangeError(f"{w}: two nets renamed to one name")
+            renamed = {new: nets.pop(old) for old, new in c.rename_nets.items()}
+            nets.update(renamed)
+            for new, pads in renamed.items():
+                for p in pads:
+                    where_is[p] = new
+            known_nets.update(renamed)
+        for ref in [*c.part_numbers, *c.dnp]:
+            if ref not in parts:
+                raise ChangeError(f"{w}: part number or dnp of unknown part {ref}")
     return Connectivity(parts, {k: frozenset(v) for k, v in nets.items()})
+
+
+def part_numbers(snap: dict, changes: list[Change]) -> dict[str, str | None]:
+    """The MPN each part of the new board must have: the previous board's, then the declared
+    part_numbers in order; parts added by a change have none unless declared."""
+    out: dict[str, str | None] = {r: p["mpn"] for r, p in snap["parts"].items()}
+    for c in changes:
+        for old, new in c.rename_parts.items():
+            out[new] = out.pop(old, None)
+        for ref in c.remove_parts:
+            out.pop(ref, None)
+        for ref in c.add_parts:
+            out[ref] = None
+        out.update(c.part_numbers)
+    return out
+
+
+def dnp_parts(changes: list[Change]) -> set[str]:
+    """The parts the declared changes leave unfitted."""
+    return {ref for c in changes for ref in c.dnp}
 
 
 # ---------------------------------------------------------------------------------------------
@@ -719,10 +779,11 @@ class Report:
     only_actual: list[str] = field(default_factory=list)  # parts the new board adds
     splits: list[tuple[str, dict[str, frozenset[Pad]]]] = field(default_factory=list)
     joins: list[tuple[str, dict[str, frozenset[Pad]]]] = field(default_factory=list)
+    renamed: list[tuple[str, str]] = field(default_factory=list)  # (expected name, name on the new board)
 
     @property
     def ok(self) -> bool:
-        return not (self.only_expected or self.only_actual or self.splits or self.joins)
+        return not (self.only_expected or self.only_actual or self.splits or self.joins or self.renamed)
 
     def lines(self) -> list[str]:
         out = [f"  part missing from the new board: {r}" for r in self.only_expected]
@@ -733,6 +794,9 @@ class Report:
         for name, dist in self.joins:
             out.append(f"  joined: new net {name} joins pads of {len(dist)} expected nets:")
             out += [f"      {old}: {_fmt_pads(pads)}" for old, pads in dist.items()]
+        out += [
+            f"  renamed: net {old} is {new} on the new board (declare it in rename_nets)" for old, new in self.renamed
+        ]
         return out
 
     def __str__(self) -> str:
@@ -748,12 +812,22 @@ def _distribution(pads, net_of: dict[Pad, str], multi: set[str], absent: str) ->
     return {k: frozenset(dist[k]) for k in sorted(dist, key=natural_key)}
 
 
+# Altium's automatic names for unnamed nets ("NetR25_1"): nobody chose them, so they are not compared.
+AUTO_NAMED = re.compile(r"Net[A-Z]+\d+_\d+$")
+
+
+def named(name: str) -> bool:
+    """A net name someone chose: not Altium's automatic name, not an unconnected pad."""
+    return not AUTO_NAMED.match(name) and not name.startswith("unconnected-")
+
+
 def diff(expected: Connectivity, actual: Connectivity) -> Report:
-    """Every way actual connects pads differently from expected, in net names a human can act on.
+    """Every way actual connects or names pads differently from expected, in terms a human can act on.
 
     A split: the pads of one expected net end up on several new nets (or unconnected). A join: one
     new net holds pads of several expected nets (or pads expected unconnected). A pad that moved
-    from net A to net B shows as a split of A and a join of B.
+    from net A to net B shows as a split of A and a join of B. A rename: an expected net with a
+    chosen name (see `named`) is the same set of pads on the new board under another name.
     """
     rep = Report(
         only_expected=sorted(expected.parts - actual.parts, key=natural_key),
@@ -777,6 +851,11 @@ def diff(expected: Connectivity, actual: Connectivity) -> Report:
         dist = _distribution(g, exp_net, exp_multi, "(pad absent on the previous board)")
         if len(dist) > 1:
             rep.joins.append((name, dist))
+    act_name = {g: n for n, g in actual.nets.items() if len(g) > 1}
+    for name in sorted(exp_multi, key=natural_key):
+        new = act_name.get(expected.nets[name])
+        if named(name) and new is not None and new != name:
+            rep.renamed.append((name, new))
     return rep
 
 

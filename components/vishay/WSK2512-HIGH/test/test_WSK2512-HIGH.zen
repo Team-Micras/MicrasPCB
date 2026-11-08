@@ -1,0 +1,70 @@
+"""WSK2512 0.005-0.2 Ohm package facts (Vishay doc 30108): part selection, ratings, Kelvin terminal
+mapping, and the motor shunt of the next main-board revision (research/next-revision appendix A.3:
+driver output on force pad 1, choke on force pad 4, the INA241 on the sense pads)."""
+
+SHUNT = Module("../WSK2512-HIGH.zen")
+
+MOTOR_OUT1 = Net("MOTOR_OUT1")
+MOTOR_CHOKE = Net("MOTOR_CHOKE")
+SENSE_P = Net("SENSE_P")
+SENSE_N = Net("SENSE_N")
+MOTOR = {"P1": MOTOR_OUT1, "P2": MOTOR_CHOKE, "S1": SENSE_P, "S2": SENSE_N}
+
+
+def part(module):
+    return module.components()["WSK2512"]
+
+
+def resistor(module, inputs):
+    c = part(module)
+    check(c.type == "resistor", "the board tests find resistors by type")
+    check(c.prefix == "R", "designator prefix must be R")
+    check(c.manufacturer == "Vishay Dale", "manufacturer must be Vishay Dale")
+    check(c.properties["package"] == "2512", "package property must be 2512")
+    check(c.power.matches("1W"), "power rating must be 1 W at 70 C: " + str(c.power))
+
+
+def part_number(module, inputs):
+    # Global Part Number Information: R0100 = 0.01 Ohm, 5L000 = 5 mOhm; F = 1 %, D = 0.5 %.
+    c = part(module)
+    expected = {
+        "WSK2512R0100FEA": (0.010, 0.01),
+        "WSK2512R0100DEA": (0.010, 0.005),
+        "WSK25125L000FEA": (0.005, 0.01),
+    }[inputs.get("mpn", "WSK2512R0100FEA")]
+    check(c.mpn == inputs.get("mpn", "WSK2512R0100FEA"), "MPN " + str(c.mpn))
+    r = c.resistance
+    check(abs(r.value - expected[0]) < 1e-9, "resistance " + str(r))
+    check(abs((r.max - r.value) / r.value - expected[1]) < 1e-6, "tolerance of " + str(r))
+    # Standard Electrical Specifications: this land pattern is the 0.005 to 0.2 Ohm band.
+    check(r.value >= 0.005 and r.value <= 0.2, "resistance outside the 0.005-0.2 Ohm band of this footprint")
+
+
+def kelvin_terminals(module, inputs):
+    # Electrical Connection figure: I1/I2 current, E1/E2 voltage sense; E1 belongs to the I1 end.
+    pins = part(module).pins
+    check(sorted(pins.keys()) == ["E1", "E2", "I1", "I2"], "pins: " + str(sorted(pins.keys())))
+    check(pins["I1"].name == "MOTOR_OUT1" and pins["I2"].name == "MOTOR_CHOKE", "force pads carry P1/P2")
+    check(pins["E1"].name == "SENSE_P" and pins["E2"].name == "SENSE_N", "sense pads carry S1/S2")
+
+
+def motor_dissipation(module, inputs):
+    # Derating figure: 1 W to 70 C, linear to 0 at 170 C. At 85 C ambient the rating is 0.85 W;
+    # the A.3 motor at 3 A rms dissipates I^2 R = 90 mW in 10 mOhm, the 7.25 A sensing limit 0.53 W.
+    r = part(module).resistance.value
+    rating_85c = 1.0 * (170 - 85) / (170 - 70)
+    for i in [3.0, 7.25]:
+        p = i * i * r
+        check(p < rating_85c, str(i) + " A rms dissipates " + str(p) + " W, above the 85 C rating")
+
+
+TestBench(
+    name="WSK2512_HIGH_motor_shunt",
+    module=SHUNT,
+    test_cases={
+        "10m_1pct": MOTOR,
+        "10m_0p5pct": MOTOR | {"mpn": "WSK2512R0100DEA"},
+        "5m_1pct": MOTOR | {"mpn": "WSK25125L000FEA"},
+    },
+    checks=[resistor, part_number, kelvin_terminals, motor_dissipation],
+)

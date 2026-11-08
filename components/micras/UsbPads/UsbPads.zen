@@ -1,0 +1,35 @@
+"""Bare USB pads: three plated holes for a USB cable's data pair and ground, soldered once, so a
+chip's USB 2.0 full-speed device port (on the ESP32-C5, its USB Serial/JTAG controller) can be
+reached without a receptacle.
+
+Holes in a column at 1.27 mm: 1 GND, 2 D-, 3 D+ (D- before D+ as on the USB connector, USB 2.0
+Specification Table 6-1: 1 VBUS, 2 D-, 3 D+, 4 GND; ground at the D- end). The board supplies
+VBUS's pad, if it takes the cable's 5 V at all: these holes carry no supply. Both silkscreens label
+each hole ("G", "D-", "D+") beside it, so the cable goes on the right way round from either side.
+
+Footprint: three plated holes at 1.27 mm with the geometry of components/micras/EspProgPads (KiCad's
+PinHeader 1.27 mm pads grown from 1.0 to 1.05 mm on 0.65 mm drills: a 0.2 mm ring against JLCPCB's
+0.18 mm PTH minimum, 0.22 mm between pads, rules/jlcpcb.kicad_dru), pad 1 square. A 28-30 AWG wire
+(0.25-0.32 mm) goes in from the top and is soldered on the bottom, where it is trimmed like any
+through-hole lead. The courtyard is 0.25 mm beside the pads and 0.235 mm past the column's ends. Not
+a purchased part: copper on the board, excluded from the BOM and the placement file; no 3D model
+(nothing is mounted).
+
+Integrator-owned (left to the board): series resistors and capacitors on the pair at the chip, ESD
+protection, routing as a 90 Ohm differential pair (Espressif ESP32-C5 Hardware Design Guidelines,
+Schematic Checklist and PCB Layout Design, USB).
+"""
+
+GND = io(Ground)
+DN = io(Net, help="pad 2: USB D-")
+DP = io(Net, help="pad 3: USB D+")
+
+Component(
+    name="J",
+    prefix="J",
+    symbol=Symbol(library="UsbPads.kicad_sym"),
+    footprint=File("UsbPads_1x03_P1.27mm.kicad_mod"),
+    pins={"Pin_1": GND, "Pin_2": DN, "Pin_3": DP},
+    skip_bom=True,
+    skip_pos=True,
+)

@@ -1,0 +1,44 @@
+"""SwdHeader package: GND, SWDIO and SWCLK on their pins (and VDD with `supply`, on the four-pad
+symbol in a clone ST-Link's order; NRST too with `reset`, on the five-pad symbol, NRST first), no
+BOM or placement entry."""
+
+SwdHeader = Module("../SwdHeader.zen")
+
+GND = Ground("GND")
+SWDIO = Net("SWDIO")
+SWCLK = Net("SWCLK")
+VDD = Power("VDD", voltage="4.4V to 5.25V")
+NRST = Net("NRST")
+
+
+def pinout(module, inputs):
+    # SwdHeader.kicad_sym maps the pins to pads: SwdHeader 1 GND, 2 SWDIO, 3 SWCLK; SwdHeader4 (with
+    # `supply`) 1 SWDIO, 2 GND, 3 SWCLK, 4 VDD, a clone ST-Link's 4-pin order; SwdHeader5 (with
+    # `reset`) 1 NRST, 2 SWDIO, 3 GND, 4 SWCLK, 5 VDD. A pin's pad number is not visible here:
+    # tests/test_main.py checks the main board's SWD1 pads in the netlist.
+    nets = module.nets()
+    names = ["GND", "SWDIO", "SWCLK"] + (["VDD"] if "VDD" in inputs else []) + (["NRST"] if "NRST" in inputs else [])
+    for name in names:
+        check([pin for _, pin in nets[name]] == [name], name + " must be on the " + name + " pin")
+    c = module.components()["J"]
+    check(sorted(c.pins.keys()) == sorted(names), "pins: " + str(names))
+    want = "SwdHeader5" if "NRST" in inputs else ("SwdHeader4" if "VDD" in inputs else "SwdHeader")
+    check(c.symbol_name == want, "symbol " + str(c.symbol_name) + ", expected " + want)
+
+
+def bare_pads(module, inputs):
+    c = module.components()["J"]
+    check(c.skip_bom, "the header is not a BOM line")
+    check(c.skip_pos, "the header is not placed")
+
+
+TestBench(
+    name="SwdHeader",
+    module=SwdHeader,
+    test_cases={
+        "default": {"GND": GND, "SWDIO": SWDIO, "SWCLK": SWCLK},
+        "supply": {"GND": GND, "SWDIO": SWDIO, "SWCLK": SWCLK, "VDD": VDD, "supply": True},
+        "reset": {"GND": GND, "SWDIO": SWDIO, "SWCLK": SWCLK, "VDD": VDD, "NRST": NRST, "supply": True, "reset": True},
+    },
+    checks=[pinout, bare_pads],
+)

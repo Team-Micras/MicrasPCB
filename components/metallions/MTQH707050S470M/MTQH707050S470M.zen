@@ -1,0 +1,68 @@
+"""MTQH707050S470MGT - 47 uH 20 % molded power inductor, MetalLions MTQH707050S (7.2 x 7.0 x 5.0 mm). Bare part.
+
+Datasheet: MetalLions MTQH707050S Series, Molded Power Inductors (6 pages, no revision number; the
+LCSC copy of C53235274, the URL in pcb.toml). Role: the series choke of a DCX 10 L 4.5 V wheel motor
+behind a DRV8874 at 100 kHz (next-revision proposal, Drivetrain): Isat above the ITRIP band's 3.23 A
+top plus the 0.94 A blanking overshoot, 4.17 A.
+
+Electrical (p2, Electrical Properties table, MTQH707050S470M_T row; notes 1-7):
+- L0 47 uH +-20 % at 0 A, 1 MHz, 1.0 Vrms (note 2; part-number code M, p1).
+- Rdc 120 mOhm typ, 140 mOhm max.
+- Isat 5.3 A typ, 4.5 A in the "Max" column: the DC current that lowers L0 by about 30 % (note 4).
+  The column is the rated value, below the typical one, so it is read as the guaranteed minimum.
+- Irms 3.3 A typ, 3.0 A rated ("Max" column): the DC current for about a 40 C rise (note 3).
+- All data at 25 C ambient (note 1). Operating range -55 to +125 C including self-heating; the part
+  (ambient + rise) must stay at or below 125 C (notes 5-6). No 20 C-rise Irms, no SRF, no rated
+  voltage, no mass and no core-loss data are published.
+
+Dimensions (p1 Dimensions): L 7.2 +-0.2 mm (along the terminals), W 7.0 +-0.2 mm, T 5.0 mm max;
+two bottom terminals E 2.30 +-0.2 mm wide, G 2.6 +-0.2 mm apart, across the full W. MetalLions'
+own land pattern (p1): A 7.50 mm outer span, B 2.40 mm gap, C 7.30 mm long, i.e. 2.55 x 7.30 mm
+pads at 4.95 mm pitch. This package keeps the Coilcraft XAL7070 land instead (1.92 x 6.50 mm pads
+at 4.82 mm pitch, the land the board was routed on): each pad spans 1.45-3.37 mm from the centre
+and +-3.25 mm along W, inside a terminal's 1.3-3.6 mm and +-3.5 mm even at the drawing's
+tolerance limits (inner edge at most 1.4 mm, outer edge at least 3.5 mm, W at least 6.8 mm), so
+every pad lies under its terminal with no part of it outside. The dot on the top marks pin 1
+(p2, Structure); the datasheet does not say which end starts the winding.
+
+Under DC bias (p2, Current Characteristic, MTQH707050S470MBT, typical; read from the plot) the
+inductance keeps 97.5 / 94.6 / 89.8 / 84.4 / 78.4 / 72.1 % of its 48.8 uH zero-current value at
+1 / 2 / 3 / 4 / 5 / 6 A: a soft saturation whose 30 % point (about 6.4 A) lies beyond the table's
+typical 5.3 A. The plotted temperature rise is 22.7 K at 3 A and 45 K at 4 A, below the table's
+Irms. research calculations/drivetrain/choke_check.py fits Coilcraft's saturation form to the plot
+and compresses its current axis so the 30 % drop falls at the rated 4.5 A.
+
+The `current` property is the lower of the rated Irms and Isat, as for the other inductor packages
+in this registry.
+"""
+
+load("@stdlib/units.zen", "Current", "Inductance", "Resistance")
+load("@stdlib/utils.zen", "format_value")
+
+P1 = io(Net)
+P2 = io(Net)
+
+# p2, Electrical Properties, MTQH707050S470M_T row.
+inductance = Inductance("47uH 20%")
+isat = Current("4.5A")  # 30 % drop, rated ("Max" column); 5.3 A typ (note 4)
+irms = Current("3.0A")  # 40 C rise, rated ("Max" column); 3.3 A typ (note 3)
+current = Current("3.0A")
+dcr = Resistance("140mOhm")  # max; 120 mOhm typ
+
+Component(
+    name="MTQH707050S470M",
+    prefix="L",
+    symbol=Symbol(library="MTQH707050S470M.kicad_sym"),
+    footprint=File("L_MetalLions_MTQH707050S.kicad_mod"),
+    part=Part(mpn="MTQH707050S470MGT", manufacturer="MetalLions"),
+    pins={"1": P1, "2": P2},
+    properties={
+        "value": format_value(inductance, current),
+        "inductance": inductance,
+        "current": current,
+        "isat": isat,
+        "irms": irms,
+        "dcr": dcr,
+    },
+    type="inductor",
+)

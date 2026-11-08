@@ -6,8 +6,11 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import checks, firmware, jlc, lvs, mech, outputs, placement, previous
-from .paths import boards
+from . import assembly, checks, firmware, jlc, lvs, mech, order, outputs, placement, previous
+from .paths import SCHEMATIC_ONLY, boards, has_layout
+
+# Commands that read the layout: a schematic-only board skips them with the reason.
+LAYOUT_COMMANDS = {"lvs", "drc", "dfm"}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -43,14 +46,22 @@ def main(argv: list[str] | None = None) -> int:
     board_cmd("drc", "KiCad DRC with the JLCPCB rules and zone refill")
     board_cmd("lvs", "connectivity of the generated schematic vs the PCB")
     board_cmd("dfm", "Diode DFM against the JLCPCB PDK")
-    board_cmd("fab", "JLCPCB gerbers, drill, BOM and CPL into build/<board>/fab")
+    board_cmd(
+        "fab", "JLCPCB gerbers, drill, BOM, CPL and order options into build/<board>/fab (a panel's, if spec has one)"
+    )
+    p = board_cmd("quote", "JLCPCB's bare-board price with each board's order options (online)")
+    p.add_argument("--qty", type=int, default=5, help="boards, or panels for a panelised board (default: 5)")
     board_cmd("outputs", "review outputs: schematic PDF/SVG, layer SVGs, 3D renders, GLB/STEP")
+    sub.add_parser(
+        "assembly",
+        help="the main board with its wall and encoder boards in place: build/main/review/assembly.glb/.step and renders",
+    )
     p = sub.add_parser("parts", help="check parts/jlc.toml covers every board")
     p.add_argument("--online", action="store_true", help="also query JLCPCB stock and library type")
     p = sub.add_parser("previous", help="a board's previous revision: snapshot and connectivity comparison")
     psub = p.add_subparsers(dest="action", required=True)
     s = psub.add_parser("snapshot", help="write boards/<board>/previous/board.json from the previous revision")
-    s.add_argument("board", nargs="?", default="main", choices=sorted(previous.SOURCES), help="board (default: main)")
+    s.add_argument("board", choices=sorted(previous.SOURCES), help="board")
     s.add_argument(
         "--source", type=Path, help="previous revision directory (default: $MICRAS_PREVIOUS, else ../hw_debug)"
     )
@@ -67,6 +78,8 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--check", action="store_true", help="verify only; fail if firmware.toml is stale")
 
     a = ap.parse_args(argv)
+    if a.cmd == "assembly":
+        return assembly.run()
     if a.cmd == "parts":
         return jlc.check_parts(a.online)
     if a.cmd == "firmware":
@@ -75,11 +88,16 @@ def main(argv: list[str] | None = None) -> int:
         if a.action == "snapshot":
             return previous.snapshot(a.source, a.board, check=a.check)
         return previous.compare(a.board)
+    if a.cmd == "quote":
+        return order.quote_all(a.boards, a.qty)
     if a.cmd == "sch" and a.info:
         return placement.info(a.boards[0], a.info, a.boards[1:])
     status = 0
     for b in a.boards or boards():
         print(f"== {a.cmd} {b}")
+        if a.cmd in LAYOUT_COMMANDS and not has_layout(b):
+            print(f"{b}: {a.cmd} skipped: {SCHEMATIC_ONLY}")
+            continue
         if a.cmd == "mech":
             status |= mech.run(b, a.check)
         elif a.cmd == "rules":

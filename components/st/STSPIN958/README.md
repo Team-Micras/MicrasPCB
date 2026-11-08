@@ -71,6 +71,15 @@ from the Micras Altium library (MicrasLib), with its STEP model (`STSPIN958.stp`
 0.80 x 0.25 mm pads, 4.06 mm inner span): its pads are 0.80 x 0.30 mm centred 2.5 mm from the
 package centre (4.2 mm inner span). The exposed pad matches (3.80 mm).
 
+`paste` (config, default `"whole"`): `"split"` takes
+`QFN50P500X500X100-33N-D_SplitPaste.kicad_mod`, the same land (Figure 25 gives no stencil) with
+the exposed pad's paste in four 1.09 x 1.7 mm windows (51 % of the pad) clear of three 0.36 mm
+lanes at x = -1.45, 0, +1.45 mm that hold nine via sites, 0.2 mm circles on Cmts.User, where the
+layout places its vias (TI SLUA271C (QFN and SON PCB Attachment) section 4.4: exposed-pad paste in windows covering 50-70 % of the pad, which lets it outgas; section 3.4.1: a smaller via loses less solder, and tenting a pad's via from the back traps air).
+
+Courtyard: an F.CrtYd rectangle around the body outline (User.13) and the pads, 0.25 mm, the
+IPC-7351B nominal courtyard excess (KiCad Library Conventions F5.3).
+
 ## Design requirements (board side)
 
 - Mode straps (Table 8): MODE1/2/3 tied to GND or VDD (or left open: internal pull-ups), never
@@ -82,7 +91,9 @@ package centre (4.2 mm inner span). The exposed pad matches (3.80 mm).
   (PH = 0) or high (PH = 1). A check can compare PH with the load connection.
 - Current limit (section 5.6, equation 1): VREF = I_peak x RSENSE x ACL + VAMPoffset, ACL 10 V/V
   (9.5-10.5, Table 5), VAMPoffset 0 (OFFSET low) or VDD/2 (OFFSET high). REF 0.1 V to VDD
-  (Table 2). Overcurrent protection trips at 7-14 A (Table 5).
+  (Table 2). Overcurrent protection trips when the current in one of the MOSFETs exceeds IOC,
+  7-14 A (Table 5, section 5.7), lower at low VS (Figure 20); in parallel mode two MOSFETs share
+  the load current, so the device trips at about twice that.
 - VS (section 8, Table 12): two 470 nF low-ESR ceramics at the VS pins plus bulk (220 uF);
   dVS/dt at most 0.5 V/us (Table 1).
 - VDD (section 8): 220 nF low-ESR ceramic at the pin.

@@ -1,0 +1,16 @@
+Error at the period-mean current (RSS of terms; 'n/s' = not specified by the datasheet)
+path                                                       0.1 A                 0.5 A                 1.0 A                 3.0 A
+(a) INA241A2+WSK2512, uncalibrated                6.1 mA   6.1 %       12.5 mA   2.5 %       20.4 mA   2.0 %       52.2 mA   1.7 %
+(a) INA241A2+WSK2512, zero+gain cal               3.6 mA   3.6 %        4.7 mA   0.9 %        6.0 mA   0.6 %       11.3 mA   0.4 %
+(b) DRV8874 IPROPI, uncalibrated (max)           31.9 mA  31.9 %       39.3 mA   7.9 %       63.5 mA   6.4 %      174.8 mA   5.8 %
+(b) DRV8874 IPROPI, 1-pt cal (typ)                2.8 mA   2.8 %        6.8 mA   1.4 %       11.8 mA   1.2 %       31.9 mA   1.1 %
+(b) DRV8874 IPROPI, 2-pt cal (typ)                2.5 mA   2.5 %        6.5 mA   1.3 %       11.5 mA   1.2 %       31.6 mA   1.1 %
+(c) DRV8262 IPROPI, uncal, rated=8 A              n/s                   n/s                 122.1 mA  12.2 %      217.9 mA   7.3 %
+(c) DRV8262 IPROPI, uncal, rated=5 A              n/s                  61.4 mA  12.3 %       73.1 mA   7.3 %      132.9 mA   4.4 %
+
+Noise per conversion (ADC SNR 77 dB s.e. -> 0.165 mV rms):
+  (a) INA241A2 output noise 1.29 mV rms -> 6.5 mA rms per conversion; /sqrt(8) per period (2 centres x JOVSE 4) 2.3 mA; /sqrt(80) per 10 kHz tick 0.73 mA
+  (b) DRV8874: ADC only 0.18 mA rms per conversion at 0.9 V/A; mirror noise NOT specified
+  (c) DRV8262: ADC only 0.18 mA rms per conversion at 0.91 V/A; mirror noise NOT specified
+
+Ranges: (a) +7.25/-8.0 A linear, signed; (b) 0..~3 A (clamped near VREF = ITRIP), unsigned; (c) 0..~3.4 A at 4.3 kOhm and VREF <= 3.3 V, unsigned

@@ -1,0 +1,37 @@
+=== 1. Pack short circuit against F1 (Littelfuse 501: 150 A at 32 VDC, note 1) ===
+  sea jump 180 mAh        52.8 mOhm:  82.4 A bound,  71.7 A with F1, J1 and the leads
+  Dualsky ECO 150 mAh     60.1 mOhm:  72.4 A bound,  64.0 A with F1, J1 and the leads
+  sea jump 220 mAh        72.9 mOhm:  59.6 A bound,  53.8 A with F1, J1 and the leads
+  U-K 100 mAh             73.4 mOhm:  59.3 A bound,  53.5 A with F1, J1 and the leads
+  Hyperion G3 130 mAh     75.3 mOhm:  57.8 A bound,  52.3 A with F1, J1 and the leads
+  BLLRC 150 mAh           90.0 mOhm:  48.3 A bound,  44.4 A with F1, J1 and the leads
+  150 A needs RCELL below 29.0 mOhm (no external resistance).
+
+=== 2. 5V_IN programming power (pack absent) ===
+  L6981 DMAX = 1 - 185 ns x 440 kHz = 0.9186
+  5V_IN at high-power port 4.75 V (USB 2.0 Table 7-7, the minimum at the connector):
+    C5 UART flashing        : 5V_IN  195 mA, D17 0.35 V typ / 0.60 V max -> VSYS 4.40 / 4.15 V; the buck regulates from 3.72 V: margin +0.68 / +0.43 V
+    H7 SWD flashing, C5 RX  : 5V_IN  259 mA, D17 0.37 V typ / 0.60 V max -> VSYS 4.38 / 4.15 V; the buck regulates from 3.74 V: margin +0.63 / +0.41 V
+    C5 TX peak              : 5V_IN  545 mA, D17 0.43 V typ / 0.60 V max -> VSYS 4.32 / 4.15 V; the buck regulates from 3.86 V: margin +0.46 / +0.29 V
+  5V_IN at low-power port 4.40 V (USB 2.0 Table 7-7, the minimum at the connector):
+    C5 UART flashing        : 5V_IN  212 mA, D17 0.36 V typ / 0.60 V max -> VSYS 4.04 / 3.80 V; the buck regulates from 3.72 V: margin +0.32 / +0.08 V
+    H7 SWD flashing, C5 RX  : 5V_IN  281 mA, D17 0.38 V typ / 0.60 V max -> VSYS 4.02 / 3.80 V; the buck regulates from 3.74 V: margin +0.28 / +0.06 V
+    C5 TX peak              : 5V_IN  593 mA, D17 0.44 V typ / 0.60 V max -> VSYS 3.96 / 3.80 V; the buck regulates from 3.86 V: margin +0.10 / -0.06 V
+  ADP7142 typical: VSYS 4.38 V, 9.7 mA -> LDO_IN 4.16 V, dropout 20 mV typ (Figure 22) -> 3V3_A about 3.30 V, not guaranteed below VOUT + 1 V
+  ADP7142 worst: VSYS 3.80 V, 22.5 mA -> LDO_IN 3.30 V, dropout 30 mV typ (Figure 22) -> 3V3_A about 3.27 V, not guaranteed below VOUT + 1 V
+  D17 with the pack in (VSYS 11.4-17.4 V, 24.2 V clamp; 5V_IN 0-5.25 V): VR up to 24.2 V, 61 % of 40 V; reverse current into 5V_IN 25 C 12 uA, 50 C 36 uA, 85 C 257 uA
+  D17 dissipation at the TX peak: 0.24 W against Pd 0.5 W (p1)
+  10k/2k (ratio 6.00, Thevenin 1.67 kOhm, 1.45 mA from the pack): PC5 2.90 V at 17.4 V, 4.10 V at the 24.2 V clamp; VBAT on 5V_IN alone: 25 C 0.07 V, 50 C 0.24 V, 70 C 0.61 V, 85 C 1.87 V
+  100k/20k (ratio 6.00, Thevenin 16.67 kOhm, 0.14 mA from the pack): PC5 2.90 V at 17.4 V, 4.10 V at the 24.2 V clamp; VBAT on 5V_IN alone: 25 C 0.72 V, 50 C 2.35 V, 70 C 4.40 V, 85 C 4.40 V
+  200k/22k (ratio 10.09, Thevenin 19.82 kOhm, 0.08 mA from the pack): PC5 1.72 V at 17.4 V, 2.44 V at the 24.2 V clamp; VBAT on 5V_IN alone: 25 C 1.33 V, 50 C 4.35 V, 70 C 4.40 V, 85 C 4.40 V
+  20k/2k (ratio 11.00, Thevenin 1.82 kOhm, 0.79 mA from the pack): PC5 1.58 V at 17.4 V, 2.24 V at the 24.2 V clamp; VBAT on 5V_IN alone: 25 C 0.13 V, 50 C 0.43 V, 70 C 1.11 V, 85 C 3.42 V
+  20k/2k, pack in, SW4 off, 85 C: D14 3.42 V + Q6 0.5 V (23 uA, allowed) = 3.92 V; the 4.3 V UVLO minimum is reached at 40 uA of Q6 leakage
+
+=== 3. ADP7142 junction temperature at the worst case ===
+  PD = (17.4 - 3.24) x 22.5 mA + 17.4 x 190 uA = 0.322 W
+  Table 6, 25 mm2 (minimum traces)    182.8 C/W: +58.8 K, TJ 143.8 C at 85 C ambient; 125 C up to  66.2 C ambient
+  Table 6, 100 mm2                    142.6 C/W: +45.9 K, TJ 130.9 C at 85 C ambient; 125 C up to  79.1 C ambient
+  Figures 53-54, the 500 mm2 line     143.0 C/W: +46.0 K, TJ 131.0 C at 85 C ambient; 125 C up to  79.0 C ambient
+  Table 6, 500 mm2                     83.9 C/W: +27.0 K, TJ 112.0 C at 85 C ambient; 125 C up to  98.0 C ambient
+  Table 4, JEDEC 4-layer               72.1 C/W: +23.2 K, TJ 108.2 C at 85 C ambient; 125 C up to 101.8 C ambient
+  Table 6, 1000 mm2                    71.7 C/W: +23.1 K, TJ 108.1 C at 85 C ambient; 125 C up to 101.9 C ambient

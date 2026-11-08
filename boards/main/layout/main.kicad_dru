@@ -25,7 +25,15 @@
 (rule "jlc: via hole (preferred)"
 	(severity warning)
 	(condition "A.Type == 'Via'")
-	(constraint hole_size (min 0.30mm)))
+	(constraint hole_size (min 0.20mm)))
+
+# JLCPCB charges for a 0.2 or 0.25 mm via hole whose copper is under 0.45 mm across ("0.2mm or 0.25mm
+# hole size with via diameter less than 0.45mm, will cost more", capabilities page); every board's
+# vias are 0.45 mm and up (spec/<board>.toml pcb.via_diameter), JLCPCB's free class.
+(rule "jlc: via diameter (free class)"
+	(severity warning)
+	(condition "A.Type == 'Via'")
+	(constraint via_diameter (min 0.45mm)))
 
 (rule "jlc: via annular ring"
 	(condition "A.Type == 'Via'")
@@ -101,3 +109,35 @@
 (rule "pours: copper to board edge"
 	(condition "A.Type == 'Zone'")
 	(constraint edge_clearance (min 0.21mm)))
+
+# The inner planes keep 0.5 mm from every routed edge (the outline, the fan hole, the slots):
+# JLCPCB mills edges to +-0.2 mm (regular; "Dimension tolerance for routed board edges",
+# jlcpcb.com/capabilities/pcb-capabilities), so a plane at the 0.2 mm minimum may be cut open, its
+# copper exposed in the edge beside the outer layers' (team review 2026-11-08, owner's choice). The
+# outer layers' pours and tracks keep the 0.20/0.21 mm minimum above; a plane loses only a 0.3 mm
+# strip. (The pours are single-layer zones; KiCad's edge test does not honour a (layer inner)
+# clause, so the condition names the layers.)
+(rule "pours: inner planes to board edge"
+	(condition "A.Type == 'Zone' && (A.Layer == 'In1.Cu' || A.Layer == 'In2.Cu')")
+	(constraint edge_clearance (min 0.50mm)))
+
+# The main board's hand-soldered ground pins (the wall joints' pin 2, SWD1 pin 3, J2 pin 4, J3 pin 1)
+# join the pours by their zones' thermal reliefs on B.Cu and the inner planes (0.25 mm gap; boards/
+# main/layout/route.py relief() gives them 0.4 mm spokes: JLCPCB's thermal relief guide, 0.30-0.50 mm for
+# through-hole pads), so a soldering iron heats the joint instead of the planes, one spoke enough
+# where the pour reaches a pad from one side; solid on F.Cu, which the pour reaches from one side
+# only (the pads inherit these rules). No other board has a ground pad on these references.
+(rule "main: hand-soldered ground pins, reliefs"
+	(condition "A.Type == 'Pad' && A.NetName == 'GND' && (A.memberOfFootprint('W1') || A.memberOfFootprint('W2') || A.memberOfFootprint('W3') || A.memberOfFootprint('W4') || A.memberOfFootprint('SWD1') || A.memberOfFootprint('J2') || A.memberOfFootprint('J3'))")
+	(constraint min_resolved_spokes 1))
+(rule "main: hand-soldered ground pins, solid on F.Cu"
+	(layer F.Cu)
+	(condition "A.Type == 'Pad' && A.NetName == 'GND' && (A.memberOfFootprint('W1') || A.memberOfFootprint('W2') || A.memberOfFootprint('W3') || A.memberOfFootprint('W4') || A.memberOfFootprint('SWD1') || A.memberOfFootprint('J2') || A.memberOfFootprint('J3'))")
+	(constraint zone_connection solid))
+
+# The main board's small parts whose pour pad the pour reaches from one side (route.py ONE_SPOKE):
+# one 0.2 mm spoke is their join, so the pad heats as fast as the other pad on its thin track in
+# reflow (no tombstoning).
+(rule "main: one-spoke pads"
+	(condition "A.Type == 'Pad' && A.Pad_Number == '1' && (A.NetName == 'GND' || A.NetName == 'GND_BAT' || A.NetName == 'VBAT') && (A.memberOfFootprint('R2') || A.memberOfFootprint('D4') || A.memberOfFootprint('C30') || A.memberOfFootprint('R30') || A.memberOfFootprint('C58') || A.memberOfFootprint('R41') || A.memberOfFootprint('R44'))")
+	(constraint min_resolved_spokes 1))

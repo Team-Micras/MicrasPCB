@@ -3,6 +3,7 @@
 # The source is restricted to the base architecture: the ubuntu-26.04 runners enable the amd64v3
 # variant, whose PPA index carries only the arch-independent packages, and apt then silently
 # installs the distribution's KiCad 9. Fails unless kicad-cli reports versions.env's KICAD_VERSION.
+# numpy for KiCad's Python: the layout scripts' router (tests/test_router.py runs it there).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 . ./versions.env
@@ -16,7 +17,7 @@ curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x$KEY" | sudo
 printf 'Types: deb\nURIs: %s\nSuites: %s\nComponents: main\nArchitectures: %s\nSigned-By: /etc/apt/keyrings/kicad.gpg\n' \
   "$PPA" "$VERSION_CODENAME" "$(dpkg --print-architecture)" | sudo tee /etc/apt/sources.list.d/kicad-10.0-releases.sources >/dev/null
 sudo apt-get update -qq
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends kicad
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends kicad python3-numpy
 
 got="$(kicad-cli version)"
 if [ "$got" != "$KICAD_VERSION" ]; then

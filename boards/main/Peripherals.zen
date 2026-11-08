@@ -1,47 +1,71 @@
-"""User interface and USB-C: buttons, DIP switch, buzzer, LEDs and the USB-C receptacle.
+"""User interface: buttons, DIP switch, buzzer and LEDs.
 
-Buttons (GT-TC048B tactile switches to GND, MCU internal pull-ups):
-- SW2 on Button (PA7) with C20 100 nF to GND.
+Buttons (GT-TC048B tactile switches, MCU internal pull-ups), as on the v1 main board:
+- SW2 on Button (PC4) with C20 100 nF to GND.
 - SW3 on NRST with C21 100 nF to GND, the recommended NRST protection (DS13311 Figure 27
-  p168: 0.1 uF; the pin has an internal 30-50 kOhm pull-up, Table 61 p167).
-- SW5 from BOOT0 to 3V3, with R42 10 kOhm from BOOT0 to GND (AN5419 Figure 19 p30) and C60
-  100 nF from BOOT0 to 3V3.
-SW1, a 4-way DIP switch, pulls Switch_0..3 to GND.
+  p168: 0.1 uF; the pin has an internal 30-50 kOhm pull-up, Table 61 p167). The ESP32 also
+  drives NRST, open drain (ESP sheet), and so does an ST-Link's RST wire on SWD1 pad 1 (root
+  sheet).
+BOOT0: R42 10 kOhm (AN5419 Figure 19 p30) and C60 100 nF to GND hold it low, so the MCU always
+boots from flash; there is no BOOT0 button.
+SW1, a 4-way DIP switch, pulls Switch_0..3 to GND (Switch_0 on PH0, Switch_1-3 on PH1, PC15, PC14,
+all with the MCU's internal pull-ups).
 
-Buzzer: BZ1 (FUET-5030, 3 V electromagnetic, externally driven) from 3V3 through R3 10 Ohm to
-the low-side switch Q1 (AO3400A), driven from Buzzer (PA2, TIM15) through R1 220 Ohm with
-R2 10 kOhm gate pull-down. D3 (1N4148W) clamps the coil: anode on the coil's low side,
-cathode on 3V3.
+Buzzer: BZ1 (FUET-5025, 3 V electromagnetic, externally driven) from 3V3_D through R3 10 Ohm to
+the low-side switch Q1 (AO3400A), driven from Buzzer (PB9, TIM17) through R1 220 Ohm with R2
+10 kOhm gate pull-down; D3 (1N4148WS) clamps the coil: at most
+the 174 mA coil current below, decaying, against its 300 mA IFM and 2 A IFSM at 1 us. R3 is a 1206 (250 mW): at the firmware's
+50 % duty and low tones the coil current approaches 3.3 V / (9 + 10) Ohm = 174 mA with the 9 Ohm
+minimum coil (FUET-5025 p2), 151 mW in R3.
 
 LEDs:
-- D1, D2: WS2815C-2020 addressable LEDs in a chain, DI of D1 on LED_ARGB (PC6), D1 DO to
-  D2 DI; VDD on 3V3 with C19 (D1) and C18 (D2) 100 nF.
-- D4 (yellow) from LED_Blue (PB12) through R4 680 Ohm; D5 (red) from 3V3 through R5 680 Ohm,
-  the power indicator.
-
-USB-C, U2 (GT-USB-7010ASV), a USB 2.0 device port that also carries the Bluetooth module's
-UART (UART4 on PA11/PA12):
-- VBUS on +5V for the USB LDO; R6/R7 5.1 kOhm Rd on CC1/CC2 (sink).
-- D+/D- to the MCU through R9/R8 33 Ohm, with C23/C22 18 pF to GND on the MCU side and R10
-  1.5 kOhm pull-up from D+ to 3V3.
-- SBU1/SBU2 fed from 3V3 through the 0402 PTC fuse F1 (KASML010), powering the plug-in
-  Bluetooth module.
-- The shell (pads 1-4) on GND.
+- D1, D2: WS2812C-2427-V6 addressable LEDs (2.7 x 2.4 mm) in a chain on 3V3_D (research IR emitters
+  and status LEDs; A.4), replacing the v1 main board's WS2815C-2020, whose 9.5-13.5 V supply range
+  fits neither 4S nor 3.3 V. DI of D1 on LED_ARGB (PA2, TIM15_CH1), D1 DO to D2 DI. VDD 3.3-5.3 V,
+  DI VIH 0.55 x VDD, 1.81-1.84 V on this rail, and VIL 0.3 x VDD, 0.99 V (Worldsemi WS2812C-2427-V6
+  datasheet V1.0 p3), so PA2 (VOH >= VDD - 0.4 V, VOL <= 0.4 V, DS13311 Table 56) drives it
+  directly with 1 V and 0.59 V of margin; C19 (D1) and C18 (D2) 100 nF on VDD (p5). The bit timing
+  caps T0L and T1L at 1 us and asks 1.25 us a bit (p4), against the WS2815C's 5 us
+  (boards/main/firmware_changes.toml, leds); it is the WS2812C-2020-V6's.
+  3.3 V operation: the datasheet's tables are at VDD = 5 V; its supply range is 3.3-5.3 V (p3).
+  Each channel's constant-current sink holds its 5 mA from 0.4 V across it (p6 curve), so a channel
+  keeps its full current while its LED's VF is at most VDD - 0.4 V, 2.884 V at the rail's 3.284 V
+  minimum. Worldsemi gives no per-colour VF; a comparable InGaN RGB part reads 2.76 V blue and
+  2.88 V green at 5 mA (Everlight EAST1616RGBA4 Rev 1, Figures p7-8, typical), so red and blue keep
+  full current and green sits at the knee: about -18 % for a die 0.1 V above typical. At worst
+  white and yellow lean slightly away from green; the colours stay recognisable, and the IC starts
+  (rated from 3.3 V, the rail 16 mV below; send the first frame 1 ms or more after power-up). No
+  addressable LED of this size rates its supply below 3.3 V in its electrical table (SK6805-EC20
+  3.5-5.5 V, XL-2020RGBC-2812B 3.5-5.5 V, SK6812-EC20 3.7-5.5 V), and of the WS2812C family JLCPCB
+  stocks the 2427-V6 for Economic assembly (the 2020-V6 had 4 in stock on 2026-11-02, its /W reel
+  is Standard PCBA only).
+- D5 (red) from 3V3_D through R5 680 Ohm, the power indicator: (3.3 V - VF) / 680 Ohm is
+  1.3-2.2 mA for the KT-0603R's VF 1.8-2.4 V (LCSC C2286 listing, at its rated current; VF is
+  lower at 2 mA), an indicator's brightness at a tenth of its 20 mA rating.
+- D4 (blue, KENTO KT-0603B datasheet, LCSC C2288, p3 sections 4-5: VF 2.6-3.1 V and IV
+  70-175 mcd at IF = 5 mA, IF 30 mA DC max) from LED_Blue (PB2; LED_Red in the v1 firmware,
+  firmware_changes.toml leds) through R4 100 Ohm. VF rises with IF, so 3.1 V bounds it at every current below 5 mA. PB2's high level
+  is VDD - 0.4 V at 8 mA (DS13311 Table 56): at most 0.4 V / 8 mA = 50 Ohm of driver, whose drop
+  shrinks with the current. Dimmest (3V3_D 3.284 V, VF 3.1 V, R4 +1 %, 50 Ohm driver):
+  (3.284 - 3.1) / (101 + 50) = 1.2 mA, at least 17 mcd at the 70 mcd/5 mA bin's slope (light
+  about proportional to IF at low current), against the red D5's 20-33 mcd (300 mcd at 20 mA,
+  C2286 listing); brightest (3.346 V, no driver drop, VF 2.6 V, which holds from 5 mA up, R4
+  -1 %): 0.746 V / 99 Ohm = 7.5 mA, within the 8 mA of PB2's VOH specification and a quarter of
+  the LED's rating; a mid-bin 2.85 V part draws about 4 mA. R4 680 Ohm would leave a 3.1 V die at
+  0.25 mA. The datasheet draws no IF-VF curve; a comparable InGaN 0603 blue rises about 0.3 V from
+  0 to 10 mA (Everlight 19-217/BHC-ZL1M2RY/6T DSE-0014124 Rev 5 p5, Forward Current vs. Forward
+  Voltage, typical), so the dimmest case runs above 1.2 mA in practice.
 """
 
-load("@stdlib/interfaces.zen", "Usb2")
 load(
     "./passives.zen",
     "C_100N_0402",
-    "C_18P_0402",
+    "LED_BLUE_0603",
     "LED_RED_0603",
-    "LED_YELLOW_0603",
+    "R_100_0402",
     "R_10K_0402",
-    "R_10_0603",
-    "R_1K5_0402",
+    "R_10_1206",
     "R_220_0402",
-    "R_33_0402",
-    "R_5K1_0402",
     "R_680_0402",
 )
 
@@ -49,22 +73,19 @@ Capacitor = Module("@stdlib/generics/Capacitor.zen")
 Led = Module("@stdlib/generics/Led.zen")
 Resistor = Module("@stdlib/generics/Resistor.zen")
 AO3400A = Module("github.com/Team-Micras/MicrasPCB/components/aos/AO3400A/AO3400A.zen")
-D1N4148W = Module("github.com/Team-Micras/MicrasPCB/components/hongjiacheng/1N4148W/1N4148W.zen")
+D1N4148WS = Module("github.com/Team-Micras/MicrasPCB/components/cj/1N4148WS/1N4148WS.zen")
 DSHP04TJGER = Module("github.com/Team-Micras/MicrasPCB/components/kangshen/DSHP04TJGER/DSHP04TJGER.zen")
-FUET_5030 = Module("github.com/Team-Micras/MicrasPCB/components/fuet/FUET-5030/FUET-5030.zen")
+FUET_5025 = Module("github.com/Team-Micras/MicrasPCB/components/fuet/FUET-5025/FUET-5025.zen")
 GT_TC048B = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/GT-TC048B-H025-L1/GT-TC048B-H025-L1.zen")
-GT_USB_7010ASV = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/GT-USB-7010ASV/GT-USB-7010ASV.zen")
-KASML010 = Module("github.com/Team-Micras/MicrasPCB/components/kuu/KASML010/KASML010.zen")
-WS2815C = Module("github.com/Team-Micras/MicrasPCB/components/worldsemi/WS2815C-2020/WS2815C-2020.zen")
+WS2812C = Module("github.com/Team-Micras/MicrasPCB/components/worldsemi/WS2812C-2427/WS2812C-2427.zen")
 
-# Its own sheet in the board schematic (layout/main.kicad_sch); the layout stays the board's.
+# Its own sheet in the board schematic (layout/main.kicad_sch).
 Project(name="Peripherals", path="layout", layout=False)
 
 # A signal port takes the name of the board net it carries (the firmware's pin label) wherever
 # that name is an identifier, so its sheet pin and hierarchical label match the root's label:
 # KiCad's ERC flags labels whose names differ only in case (similar_labels).
-V3V3 = io(Power)
-V5V = io(Power)
+V3V3_D = io(Power)
 GND = io(Ground)
 
 Button = io(Net)
@@ -77,28 +98,21 @@ Switch_3 = io(Net)
 Buzzer = io(Net)
 LED_ARGB = io(Net)
 LED_Blue = io(Net)
-USBD_P = io(Net)
-USBD_N = io(Net)
 
 BUZZER_GATE = Net("BUZZER_GATE")
 BUZZER_DRAIN = Net("BUZZER_DRAIN")
 BUZZER_COIL = Net("BUZZER_COIL")
 LED_CHAIN = Net("LED_CHAIN")
-LED_YELLOW_A = Net("LED_YELLOW_A")
+LED_BLUE_A = Net("LED_BLUE_A")
 LED_RED_A = Net("LED_RED_A")
-USB = Usb2("USB_CONN")
-CC1 = Net("USB_CC1")
-CC2 = Net("USB_CC2")
-SBU_PWR = Net("SBU_PWR")
 
 # Buttons and switches.
 GT_TC048B(name="SW2", A=GND, B=Button)
 Capacitor(name="C20", P1=GND, P2=Button, **C_100N_0402)
 GT_TC048B(name="SW3", A=GND, B=Reset)
 Capacitor(name="C21", P1=GND, P2=Reset, **C_100N_0402)
-GT_TC048B(name="SW5", A=Boot, B=V3V3)
 Resistor(name="R42", P1=GND, P2=Boot, **R_10K_0402)
-Capacitor(name="C60", P1=Boot, P2=V3V3, **C_100N_0402)
+Capacitor(name="C60", P1=Boot, P2=GND, **C_100N_0402)
 DSHP04TJGER(
     name="SW1",
     S1_A=Switch_0,
@@ -112,40 +126,22 @@ DSHP04TJGER(
 )
 
 # Buzzer.
-FUET_5030(name="BZ1", POS=V3V3, NEG=BUZZER_COIL)
-Resistor(name="R3", P1=BUZZER_DRAIN, P2=BUZZER_COIL, **R_10_0603)
+FUET_5025(name="BZ1", POS=V3V3_D, NEG=BUZZER_COIL)
+Resistor(name="R3", P1=BUZZER_DRAIN, P2=BUZZER_COIL, **R_10_1206)
 AO3400A(name="Q1", G=BUZZER_GATE, S=GND, D=BUZZER_DRAIN)
 Resistor(name="R1", P1=BUZZER_GATE, P2=Buzzer, **R_220_0402)
 Resistor(name="R2", P1=GND, P2=BUZZER_GATE, **R_10K_0402)
-D1N4148W(name="D3", A=BUZZER_COIL, K=V3V3)
+D1N4148WS(name="D3", A=BUZZER_COIL, K=V3V3_D)
 
-# LEDs.
-WS2815C(name="D1", VDD=V3V3, GND=GND, DI=LED_ARGB, DO=LED_CHAIN)
-WS2815C(name="D2", VDD=V3V3, GND=GND, DI=LED_CHAIN, DO=NotConnected())
-Capacitor(name="C19", P1=GND, P2=V3V3, **C_100N_0402)
-Capacitor(name="C18", P1=GND, P2=V3V3, **C_100N_0402)
-Resistor(name="R4", P1=LED_YELLOW_A, P2=LED_Blue, **R_680_0402)
-Led(name="D4", A=LED_YELLOW_A, K=GND, **LED_YELLOW_0603)
-Resistor(name="R5", P1=LED_RED_A, P2=V3V3, **R_680_0402)
+# LEDs. Accepted build warning: 3V3_D's range (3.284-3.346 V, DS13554 Table 6) dips 16 mV below
+# the WS2812C's 3.3 V minimum (WS2812C-2427-V6 V1.0 p3); the owner's choice of LED, its 3.3 V operation above.
+# Only the LEDs see the rail as 3.3-3.346 V, so the build warns for any other part below its range.
+LED_VDD = Power(V3V3_D, voltage="3.3V to 3.346V")
+WS2812C(name="D1", VDD=LED_VDD, GND=GND, DI=LED_ARGB, DO=LED_CHAIN)
+WS2812C(name="D2", VDD=LED_VDD, GND=GND, DI=LED_CHAIN, DO=NotConnected())
+Capacitor(name="C19", P1=GND, P2=V3V3_D, **C_100N_0402)
+Capacitor(name="C18", P1=GND, P2=V3V3_D, **C_100N_0402)
+Resistor(name="R4", P1=LED_BLUE_A, P2=LED_Blue, **R_100_0402)
+Led(name="D4", A=LED_BLUE_A, K=GND, **LED_BLUE_0603)
+Resistor(name="R5", P1=LED_RED_A, P2=V3V3_D, **R_680_0402)
 Led(name="D5", A=LED_RED_A, K=GND, **LED_RED_0603)
-
-# USB-C.
-GT_USB_7010ASV(
-    name="U2",
-    VBUS=V5V,
-    GND=GND,
-    SHIELD=GND,
-    CC1=CC1,
-    CC2=CC2,
-    SBU1=SBU_PWR,
-    SBU2=SBU_PWR,
-    USB=USB,
-)
-Resistor(name="R6", P1=GND, P2=CC1, **R_5K1_0402)
-Resistor(name="R7", P1=GND, P2=CC2, **R_5K1_0402)
-Resistor(name="R9", P1=USB.D.P, P2=USBD_P, **R_33_0402)
-Resistor(name="R8", P1=USB.D.N, P2=USBD_N, **R_33_0402)
-Capacitor(name="C23", P1=GND, P2=USBD_P, **C_18P_0402)
-Capacitor(name="C22", P1=GND, P2=USBD_N, **C_18P_0402)
-Resistor(name="R10", P1=USBD_P, P2=V3V3, **R_1K5_0402)
-KASML010(name="F1", P1=V3V3, P2=SBU_PWR)

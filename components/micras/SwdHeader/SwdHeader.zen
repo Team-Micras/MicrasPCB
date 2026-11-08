@@ -1,0 +1,65 @@
+"""SWD header: bare through-hole pads at 1.27 mm pitch for an ST-Link's SWD lines, and optionally
+its supply and reset pins.
+
+Default: three pads, 1 GND, 2 SWDIO, 3 SWCLK: the middle three contacts of the v1 main board's SWD
+connector P1 (MicrasPCB e34fb9a, boards/main: 1 SWD_VDD, 2 GND, 3 SWDIO, 4 SWCLK, 5 NRST) in the
+same order, without NRST.
+With `supply`: four pads in the 4-pin order of a clone ST-Link's 1.27 mm SWD lead (owner,
+2026-11-01): 1 SWDIO, 2 GND, 3 SWCLK, 4 VDD, VDD taking the probe's 5 V pin into the board (the
+board decides what that pin feeds; the main board takes it through a Schottky diode into its regulators'
+input). The lead plugs on pin 1 to pad 1; turned round, or shifted one pad either way, the probe's
+5 V never lands on the board's GND.
+With `supply` and `reset`: five pads, the reset line first and then the lead's four: 1 NRST,
+2 SWDIO, 3 GND, 4 SWCLK, 5 VDD (owner, 2026-11-03): the 4-pin lead plugs on pads 2-5 and the
+probe's RST wire on pad 1. The variants number their pads differently: a board switching
+variants re-routes the header.
+
+Misplugs of the four-pin lead on the five-pad variant (lead contacts SWDIO, GND, SWCLK, 5 V):
+- on pads 1-4 (one pad toward pad 1): 5 V on SWCLK (pad 4), the probe's ground on SWDIO;
+- on pads 3-6 (one pad off the far end): 5 V on no pad, the probe's SWCLK on VDD and SWDIO on GND;
+- turned round on pads 2-5: 5 V on SWDIO (pad 2), the probe's ground on SWCLK;
+- turned round on pads 1-4: 5 V on NRST (pad 1), the grounds together;
+- turned round on pads 3-6: 5 V on GND (pad 3), the probe's ground on VDD.
+What each case does depends on the board's nets; the board's docstring says.
+
+Footprints: KiCad's PinHeader_1x03_P1.27mm_Vertical, PinHeader_1x04_P1.27mm_Vertical and
+PinHeader_1x05_P1.27mm_Vertical (kicad-footprint-generator, connector/pin_header_socket) with their
+1.0 mm pads grown to 1.05 mm and their 0.12 mm silkscreen lines to 0.15 mm (JLCPCB's minimum),
+square pad 1 with the silkscreen's pin-1 corner beside it, on 0.65 mm drills at 1.27 mm pitch: a
+0.2 mm ring against JLCPCB's 0.18 mm PTH minimum and 0.22 mm between pads (rules/jlcpcb.kicad_dru).
+The pads are numbered along the row; the symbols map the signals onto them. No part is placed: a
+1.27 mm pitch header (or the probe's wires) is soldered by hand, so the header is excluded from the
+BOM and the placement file. Each footprint embeds KiCad's model of its header all the same, so the
+layout's height checks see the soldered header.
+"""
+
+prefix = config(str, default="J", help="Reference designator prefix")
+supply = config(bool, default=False, help="four pads in a clone ST-Link's order, 1 SWDIO, 2 GND, 3 SWCLK, 4 VDD")
+reset = config(bool, default=False, help="with supply: five pads, 1 NRST, 2 SWDIO, 3 GND, 4 SWCLK, 5 VDD")
+
+GND = io(Ground)
+SWDIO = io(Net)
+SWCLK = io(Net)
+VDD = io(Power, optional=True, help="pad 4 (pad 5 with reset), with supply = True: the probe's supply pin")
+NRST = io(Net, optional=True, help="pad 1, with reset = True: the target's reset line")
+
+if reset and not supply:
+    error("SwdHeader: reset = True needs supply = True (the five-pad variant)")
+
+pins = {"GND": GND, "SWDIO": SWDIO, "SWCLK": SWCLK}
+if supply:
+    pins["VDD"] = VDD
+if reset:
+    pins["NRST"] = NRST
+
+Component(
+    name="J",
+    prefix=prefix,
+    symbol=Symbol(
+        library="SwdHeader.kicad_sym",
+        name="SwdHeader5" if reset else ("SwdHeader4" if supply else "SwdHeader"),
+    ),
+    pins=pins,
+    skip_bom=True,
+    skip_pos=True,
+)
