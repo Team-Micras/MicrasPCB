@@ -657,9 +657,10 @@ Each is a visible TODO in the sheet that owns it.
 - Silkscreen: the KiCad library passives (stdlib 0402-1210, 0603 LED) keep their 0.12 mm outlines;
   U13's outline and SW4's run past the board's edge (the module over its notch, the switch's
   lever at the cut corner), where the fab clips them. Every reference designator is on the board (the
-  mounting holes' aside), 0.4 mm high with a 0.1 mm stroke, each within 1.2 mm of its part's
-  courtyard, clear of the mask openings, the other silkscreen and the edge, and off every part's
-  body (`silk.py`).
+  mounting holes' aside), 0.4 mm high with a 0.1 mm stroke, at 0, 90 or 45 degrees, written along
+  its part's side with its centre as near the part's centre as the room allows, within 1.2 mm of the
+  courtyard, clear of the mask openings, the other silkscreen and the edge, and off every part's body
+  (`silk.py`; `test_every_designator_is_shown_by_its_part`).
 - STM32 SMPS: C1/C2 sit 3.8-4.6 mm from VDDSMPS and C3/C4 6.5-7.1 mm from L1 and VFBSMPS (AN5419
   Rev 3 Table 2 asks for them "close"); `tests/test_layout.py` holds them to those reaches.
 - VBAT bulk: C87, C92, C111 and C36 sit in the middle, off a 0.4 mm B.Cu spur of the pour, where the

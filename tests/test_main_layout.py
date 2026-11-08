@@ -1041,6 +1041,41 @@ def test_silkscreen_texts_clear_pads_edges_and_other_silkscreen(drc_violations):
     assert not found, "\n".join(found)
 
 
+LABEL_NEAR = 1.2  # mm, boards/main/layout/silk.py NEAR: the farthest a label's box sits from its part's courtyard
+LABEL_SIZE = 0.4  # mm, silk.py SIZE
+
+
+def test_every_designator_is_shown_by_its_part():
+    # Every part's reference designator is on the board's silkscreen, the mounting holes' aside (the
+    # owner, 2026-11-07), within silk.py's reach of its part, so it names that part and no other
+    # (boards/main/layout/silk.py places them; a label it cannot fit is hidden, which this catches)
+    pcb = layout.load("main")
+    problems = []
+    for fp in _root().children("footprint"):
+        ref = fp.prop("Reference")
+        if fp.atoms()[0].split(":")[-1].startswith("MountingHole"):
+            continue
+        prop = next(p for p in fp.children("property") if p.atoms()[:1] == ["Reference"])
+        effects = prop.child("effects")
+        hidden = prop.child("hide") is not None and prop.child("hide").atoms()[:1] in ([], ["yes"])
+        hidden |= effects is not None and "hide" in effects.atoms()
+        layer = prop.child("layer").atoms()[0]
+        if hidden or layer not in ("F.SilkS", "F.Silkscreen"):
+            problems.append(f"{ref}: not on the silkscreen ({layer}{', hidden' if hidden else ''})")
+            continue
+        f = pcb.footprints[ref]
+        box = f.courtyard_box()
+        if box is None:
+            continue
+        dx, dy = layout._rotate(*(float(a) for a in prop.child("at").atoms()[:2]), f.rotation)
+        x, y = f.xy[0] + dx, f.xy[1] + dy
+        gap = math.hypot(max(box[0] - x, x - box[2], 0), max(box[1] - y, y - box[3], 0))
+        reach = LABEL_NEAR + len(ref) * LABEL_SIZE / 2 + 0.1  # the box's gap plus half its length
+        if gap > reach:
+            problems.append(f"{ref}: its label {gap:.1f} mm from its courtyard, at most {reach:.1f}")
+    assert not problems, "\n".join(problems)
+
+
 @needs_kicad
 def test_no_via_drill_or_diameter_warnings(drc_violations):
     # rules/jlcpcb.kicad_dru warns below JLCPCB's preferred via hole (0.20 mm) and below its free

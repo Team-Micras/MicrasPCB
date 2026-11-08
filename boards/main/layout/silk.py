@@ -5,7 +5,8 @@
     /usr/bin/python3 boards/main/layout/silk.py --size 0.6   # a trial text size (mm)
 
 Every reference goes on F.Silkscreen (the wall joints' footprints keep theirs on F.Fab; the mounting
-holes' references stay there) and becomes SIZE high with a STROKE line, at 0 or 90 degrees, within NEAR of its part's courtyard, on a spot that is
+holes' references stay there) and becomes SIZE high with a STROKE line, at 0, 90, 45 or 135 degrees (the
+owner, 2026-11-08), within NEAR of its part's courtyard, on a spot that is
 
 - never over an opening in the solder mask (pads, untented vias) nor nearer than SILK_GAP to one
   (JLCPCB clips silkscreen off exposed copper; KiCad's DRC reports it as silk_over_copper);
@@ -14,8 +15,11 @@ holes' references stay there) and becomes SIZE high with a STROKE line, at 0 or 
 - never nearer than EDGE_GAP to the board edge or a cut-out (DRC silk_edge_clearance);
 - never over a part's body (its F.Fab drawing): a label there is hidden once the board is assembled;
 
-and, cheapest first, close to its part, nearer its own part than any other (so it names the right
-one), over few courtyard margins and tented vias, upright before turned. The labels with the fewest
+and, cheapest first, with its centre as near its part's centre as it can be, which puts it along the
+part's side (the owner, 2026-11-08), nearer its own part than any other (so it names the right one),
+over few courtyard margins and tented vias, parallel to the part's sides (upright before turned) before
+askew. Each angle is searched in its own frame, turned with the label, so a 45 degree label is
+checked against its own outline, not its bounding box. The labels with the fewest
 spots choose first; then a local search moves a label to another of its spots, evicting the labels
 it clashes with to their cheapest spot still free, and keeps the moves that lower the total cost.
 A label with no spot left is hidden: a label far from its part names the wrong one, and the fab
@@ -52,10 +56,12 @@ T0, T1 = 20.0, 0.05  # annealing temperature, start and end
 # cost weights
 W_BODY = 40.0  # per mm2 of a part body under the label (hidden once assembled)
 W_COURTYARD = 1.0  # per mm2 of a courtyard margin under the label (visible, but crowds the part)
-W_DIST = 6.0  # per mm between the label and its part's courtyard
+W_CENTRE = 6.0  # per mm between the label's centre and its part's centre, beyond the label's nearest spot
 W_FOREIGN = 12.0  # the label's centre is nearer another part's courtyard than its own
 W_VIA = 2.0  # per mm2 of tented via under the label
-W_TURNED = 0.4  # a label at 90 degrees
+W_TURNED = 0.4  # a label parallel to its part's sides but not upright (90 degrees, or 45/135 on a part at 45)
+W_ASKEW = 1.5  # a label at 45 degrees to its part's sides
+ANGLES = (0, 90, 45, 135)  # degrees, counterclockwise as KiCad turns text; 135 is drawn upright (-45)
 
 
 def iu(v: float) -> int:
@@ -178,23 +184,73 @@ def rect_gap(px, py, b):
     return np.hypot(dx, dy)
 
 
+def axes(ang: float):
+    """The label's frame: u along the text, v across it (KiCad's frame, y down; ang counterclockwise)."""
+    a = math.radians(ang)
+    return (math.cos(a), -math.sin(a)), (math.sin(a), math.cos(a))
+
+
+def to_frame(polys, ang):
+    (ux, uy), (vx, vy) = axes(ang)
+
+    def t(pts):
+        return [(x * ux + y * uy, x * vx + y * vy) for x, y in pts]
+
+    return [(t(o), [t(h) for h in hs]) for o, hs in polys]
+
+
+def box_to_hull(cx, cy, hw, hh, P):
+    """Distance from axis-aligned boxes (centres cx, cy; half extents hw, hh) to a convex polygon P
+    (K x 2), 0 where they overlap (separating axes)."""
+    P = np.asarray(P, float)
+    sep = (P[:, 0].max() < cx - hw) | (P[:, 0].min() > cx + hw) | (P[:, 1].max() < cy - hh) | (P[:, 1].min() > cy + hh)
+    Q = np.roll(P, -1, axis=0)
+    E = Q - P
+    n = np.stack([E[:, 1], -E[:, 0]], 1)
+    n /= np.maximum(np.hypot(n[:, 0], n[:, 1]), 1e-12)[:, None]
+    pp = P @ n.T  # (K vertices, K normals)
+    lo, hi = pp.min(0), pp.max(0)
+    c = cx[:, None] * n[:, 0] + cy[:, None] * n[:, 1]
+    r = hw * np.abs(n[:, 0]) + hh * np.abs(n[:, 1])
+    sep |= ((c - r > hi) | (c + r < lo)).any(1)
+    # vertices of the polygon to the boxes, corners of the boxes to the polygon's edges
+    d = np.hypot(
+        np.maximum(np.abs(P[:, 0] - cx[:, None]) - hw, 0), np.maximum(np.abs(P[:, 1] - cy[:, None]) - hh, 0)
+    ).min(1)
+    L2 = np.maximum((E**2).sum(1), 1e-12)
+    for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+        px, py = cx + sx * hw, cy + sy * hh
+        t = np.clip(((px[:, None] - P[:, 0]) * E[:, 0] + (py[:, None] - P[:, 1]) * E[:, 1]) / L2, 0, 1)
+        d = np.minimum(d, np.hypot(px[:, None] - P[:, 0] - t * E[:, 0], py[:, None] - P[:, 1] - t * E[:, 1]).min(1))
+    return np.where(sep, d, 0.0)
+
+
 class Label:
-    def __init__(self, f, R: Raster):
+    def __init__(self, f):
         self.f, self.ref = f, f.Reference()
         self.name = f.GetReference()
         self.polys, self.box = courtyard(f)
-        # half extents and the offset from the text position to its box centre, per angle
-        self.geom = {}
-        for ang in (0, 90):
+        self.centre = ((self.box[0] + self.box[2]) / 2, (self.box[1] + self.box[3]) / 2)
+        self.hull = hull([p for o, _ in self.polys for p in o])
+        self.angle = f.GetOrientationDegrees() % 90  # the part's sides, modulo 90
+        # the text's half extents along and across it (upright), and the offset from the text position to
+        # its centre per angle (KiCad turns the text about its position)
+        self.ref.SetTextAngleDegrees(0)
+        bb = self.ref.GetBoundingBox()
+        self.half = (mm(bb.GetWidth()) / 2, mm(bb.GetHeight()) / 2)
+        self.off = {}
+        for ang in ANGLES:
             self.ref.SetTextAngleDegrees(ang)
-            pos = self.ref.GetPosition()
-            bb = self.ref.GetBoundingBox()
-            c = bb.GetCenter()
-            self.geom[ang] = (mm(bb.GetWidth()) / 2, mm(bb.GetHeight()) / 2, mm(c.x - pos.x), mm(c.y - pos.y))
-        self.at = None  # (x, y, angle, cost terms) of the box centre
+            pos, c = self.ref.GetPosition(), self.ref.GetBoundingBox().GetCenter()
+            self.off[ang] = (mm(c.x - pos.x), mm(c.y - pos.y))
+        self.at = None  # (x, y, angle, cost terms) of the text's centre
 
-    def cells(self, R, x, y, ang, grow=0.0):
-        hw, hh = self.geom[ang][0] + grow, self.geom[ang][1] + grow
+    def turn(self, ang) -> float:
+        par = min((ang - self.angle) % 90, (self.angle - ang) % 90) < 1.0
+        return 0.0 if ang == 0 and par else W_TURNED if par else W_ASKEW
+
+    def cells(self, R, x, y):
+        hw, hh = self.half
         c0 = np.floor((x - hw - R.x0) / RES).astype(int)
         c1 = np.ceil((x + hw - R.x0) / RES).astype(int)
         r0 = np.floor((y - hh - R.y0) / RES).astype(int)
@@ -203,7 +259,7 @@ class Label:
 
     def apply(self):
         x, y, ang = self.at[:3]
-        _hw, _hh, ox, oy = self.geom[ang]
+        ox, oy = self.off[ang]
         self.ref.SetTextAngleDegrees(ang)
         self.ref.SetPosition(pcbnew.VECTOR2I(iu(x - ox), iu(y - oy)))
 
@@ -213,10 +269,6 @@ def main(src: Path, dst: Path) -> int:
     edge = pcbnew.SHAPE_POLY_SET()
     board.GetBoardPolygonOutlines(edge, True)
     bpolys = outlines(edge)
-    allpts = np.array([p for o, _ in bpolys for p in o])
-    (bx0, by0), (bx1, by1) = allpts.min(0), allpts.max(0)
-    R = Raster(bx0 - 1, by0 - 1, bx1 + 1, by1 + 1)
-
     fps = sorted(board.GetFootprints(), key=lambda f: f.GetReference())
     for f in fps:
         r = f.Reference()
@@ -227,10 +279,9 @@ def main(src: Path, dst: Path) -> int:
             r.SetTextSize(pcbnew.VECTOR2I(iu(SIZE), iu(SIZE)))
             r.SetTextThickness(iu(STROKE))
             r.SetKeepUpright(True)
-    labels = [Label(f, R) for f in fps if f.Reference().GetLayer() == pcbnew.F_SilkS]
+    labels = [Label(f) for f in fps if f.Reference().GetLayer() == pcbnew.F_SilkS]
 
     # what a label may never touch: off the board, mask openings, other silkscreen
-    hard = dilate(~R.draw(bpolys), round(EDGE_GAP / RES))
     mask_open, silk = [], []
     for f in fps:
         for p in f.Pads():
@@ -258,67 +309,88 @@ def main(src: Path, dst: Path) -> int:
                 tented += shape(t, pcbnew.F_Cu, 0.0)
             else:
                 mask_open += shape(t, pcbnew.F_Cu, SILK_GAP)
-    hard |= R.draw(mask_open) | R.draw(silk)
-    s_hard = sat(hard)
-    s_court = sat(R.draw([p for f in fps for p in courtyard(f)[0]]))
-    s_body = sat(R.draw([p for f in fps for p in body(f)]))
-    s_via = sat(R.draw(tented))
+    courts = [p for f in fps for p in courtyard(f)[0]]
+    bodies = [p for f in fps for p in body(f)]
     boxes = {f.GetReference(): courtyard(f)[1] for f in fps}
+
+    # per angle, the obstacles in the label's frame (u along the text, v across it), where the label is a box
+    frames = {}
+    for ang in ANGLES:
+        fb = to_frame(bpolys, ang)
+        pts = np.array([p for o, _ in fb for p in o])
+        (fx0, fy0), (fx1, fy1) = pts.min(0), pts.max(0)
+        R = Raster(fx0 - 1, fy0 - 1, fx1 + 1, fy1 + 1)
+        hard = dilate(~R.draw(fb), round(EDGE_GAP / RES))
+        hard |= R.draw(to_frame(mask_open, ang)) | R.draw(to_frame(silk, ang))
+        frames[ang] = (
+            R,
+            sat(hard),
+            sat(R.draw(to_frame(courts, ang))),
+            sat(R.draw(to_frame(bodies, ang))),
+            sat(R.draw(to_frame(tented, ang))),
+        )
 
     def candidates(lb: Label):
         x0, y0, x1, y1 = lb.box
+        hw, hh = lb.half
+        near = [
+            b
+            for n, b in boxes.items()
+            if n != lb.name
+            and b[0] < x1 + NEAR + 3
+            and b[2] > x0 - NEAR - 3
+            and b[1] < y1 + NEAR + 3
+            and b[3] > y0 - NEAR - 3
+        ]
         out = []
-        for ang in (0, 90):
-            hw, hh = lb.geom[ang][:2]
-            xs = np.arange(x0 - NEAR - hw, x1 + NEAR + hw + 1e-9, STEP * RES)
-            ys = np.arange(y0 - NEAR - hh, y1 + NEAR + hh + 1e-9, STEP * RES)
-            X, Y = np.meshgrid(xs, ys)
-            X, Y = X.ravel(), Y.ravel()
-            r0, c0, r1, c1 = lb.cells(R, X, Y, ang)
+        for ang in ANGLES:
+            R, s_hard, s_court, s_body, s_via = frames[ang]
+            (ux, uy), (vx, vy) = axes(ang)
+            P = np.array([(x * ux + y * uy, x * vx + y * vy) for x, y in lb.hull])
+            (px0, py0), (px1, py1) = P.min(0), P.max(0)
+            us = np.arange(px0 - NEAR - hw, px1 + NEAR + hw + 1e-9, STEP * RES)
+            vs = np.arange(py0 - NEAR - hh, py1 + NEAR + hh + 1e-9, STEP * RES)
+            U, V = np.meshgrid(us, vs)
+            U, V = U.ravel(), V.ravel()
+            r0, c0, r1, c1 = lb.cells(R, U, V)
             ok = (r0 >= 0) & (c0 >= 0) & (r1 < R.ny) & (c1 < R.nx)
-            X, Y, r0, c0, r1, c1 = X[ok], Y[ok], r0[ok], c0[ok], r1[ok], c1[ok]
+            U, V, r0, c0, r1, c1 = U[ok], V[ok], r0[ok], c0[ok], r1[ok], c1[ok]
             h = box_sum(s_hard, r0, c0, r1, c1)
             court = box_sum(s_body, r0, c0, r1, c1) * RES * RES
             margin = box_sum(s_court, r0, c0, r1, c1) * RES * RES
             via = box_sum(s_via, r0, c0, r1, c1) * RES * RES
-            # gap between the label's box and its courtyard's box
-            dx = np.maximum(np.maximum(x0 - (X + hw), (X - hw) - x1), 0)
-            dy = np.maximum(np.maximum(y0 - (Y + hh), (Y - hh) - y1), 0)
-            dist = np.hypot(dx, dy)
+            dist = box_to_hull(U, V, hw, hh, P)  # the label's gap to its courtyard
+            X, Y = U * ux + V * vx, U * uy + V * vy  # the label's centre on the board
+            centre = np.hypot(X - lb.centre[0], Y - lb.centre[1])
             own = rect_gap(X, Y, lb.box)
-            near = [
-                b
-                for n, b in boxes.items()
-                if n != lb.name
-                and b[0] < x1 + NEAR + 3
-                and b[2] > x0 - NEAR - 3
-                and b[1] < y1 + NEAR + 3
-                and b[3] > y0 - NEAR - 3
-            ]
             other = np.full(len(X), np.inf)
             for b in near:
                 other = np.minimum(other, rect_gap(X, Y, b))
             foreign = other < own - 0.05
-            cost = (
-                W_BODY * court
-                + W_COURTYARD * margin
-                + W_DIST * dist
-                + W_FOREIGN * foreign
-                + W_VIA * via
-                + (W_TURNED if ang else 0.0)
-            )
-            out.append((ang, X, Y, h, cost, court, dist, foreign))
+            cost = W_BODY * court + W_COURTYARD * margin + W_FOREIGN * foreign + W_VIA * via + lb.turn(ang)
+            out.append((ang, X, Y, h, cost, centre, court, dist, foreign))
         return out
 
-    # each label's best spots, at least SPREAD apart: free of hard obstacles, not hidden under a body
+    # each label's best spots, at least SPREAD apart: free of hard obstacles, not hidden under a body; the
+    # centre's distance counts from the nearest spot the label has, so a large part costs no more
     options: list[list[tuple]] = []
     for lb in labels:
+        cands = candidates(lb)
+        oks = [(h == 0) & (court <= HIDDEN) & (dist <= NEAR) for _a, _X, _Y, h, _c, _ce, court, dist, _f in cands]
+        best = min((float(c[5][ok].min()) for c, ok in zip(cands, oks, strict=True) if ok.any()), default=0.0)
         rows = []
-        for ang, X, Y, h, cost, court, dist, foreign in candidates(lb):
-            ok = (h == 0) & (court <= HIDDEN) & (dist <= NEAR)
+        for (ang, X, Y, _h, cost, centre, court, dist, foreign), ok in zip(cands, oks, strict=True):
             for i in np.flatnonzero(ok):
                 rows.append(
-                    (float(cost[i]), ang, float(X[i]), float(Y[i]), float(court[i]), float(dist[i]), bool(foreign[i]))
+                    (
+                        float(cost[i] + W_CENTRE * (centre[i] - best)),
+                        ang,
+                        float(X[i]),
+                        float(Y[i]),
+                        float(court[i]),
+                        float(dist[i]),
+                        bool(foreign[i]),
+                    )
                 )
         rows.sort()
         kept = []
@@ -329,28 +401,44 @@ def main(src: Path, dst: Path) -> int:
                     break
         options.append(kept)
 
-    # every pair of spots of two labels closer than SILK_GAP: they cannot both be taken
+    # every pair of spots of two labels closer than SILK_GAP: they cannot both be taken (turned boxes,
+    # separating axes)
     spots, owner = [], []
+    g = SILK_GAP / 2
     for li, (lb, opts) in enumerate(zip(labels, options, strict=True)):
+        hw, hh = lb.half[0] + g, lb.half[1] + g
         for o in opts:
-            hw, hh = lb.geom[o[1]][:2]
-            g = SILK_GAP / 2
-            spots.append((o[2] - hw - g, o[3] - hh - g, o[2] + hw + g, o[3] + hh + g))
+            u, v = axes(o[1])
+            ex = hw * abs(u[0]) + hh * abs(v[0])
+            ey = hw * abs(u[1]) + hh * abs(v[1])
+            spots.append((o[2], o[3], u, v, hw, hh, (o[2] - ex, o[3] - ey, o[2] + ex, o[3] + ey)))
             owner.append(li)
     first = np.cumsum([0] + [len(o) for o in options])
+
+    def overlap(a, b) -> bool:
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        for ax in (a[2], a[3], b[2], b[3]):
+            ra = a[4] * abs(a[2][0] * ax[0] + a[2][1] * ax[1]) + a[5] * abs(a[3][0] * ax[0] + a[3][1] * ax[1])
+            rb = b[4] * abs(b[2][0] * ax[0] + b[2][1] * ax[1]) + b[5] * abs(b[3][0] * ax[0] + b[3][1] * ax[1])
+            if abs(dx * ax[0] + dy * ax[1]) >= ra + rb:
+                return False
+        return True
+
     grid: dict[tuple[int, int], list[int]] = {}
-    for s, (x0, y0, x1, y1) in enumerate(spots):
+    for si, sp in enumerate(spots):
+        x0, y0, x1, y1 = sp[6]
         for gx in range(int(x0 // 2), int(x1 // 2) + 1):
             for gy in range(int(y0 // 2), int(y1 // 2) + 1):
-                grid.setdefault((gx, gy), []).append(s)
+                grid.setdefault((gx, gy), []).append(si)
     clash: list[set[int]] = [set() for _ in spots]
     for cell in grid.values():
         for i in cell:
             a = spots[i]
             for j in cell:
-                if j > i and owner[j] != owner[i]:
+                if j > i and owner[j] != owner[i] and j not in clash[i]:
                     b2 = spots[j]
-                    if a[0] < b2[2] and b2[0] < a[2] and a[1] < b2[3] and b2[1] < a[3]:
+                    boxes_meet = a[6][0] < b2[6][2] and b2[6][0] < a[6][2] and a[6][1] < b2[6][3] and b2[6][1] < a[6][3]
+                    if boxes_meet and overlap(a, b2):
                         clash[i].add(j)
                         clash[j].add(i)
     clash = [sorted(c) for c in clash]
