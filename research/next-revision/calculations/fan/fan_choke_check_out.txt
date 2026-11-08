@@ -98,17 +98,17 @@ XGL5030-472 at -20 %, incremental L: 0 A 3.76 uH, 2 A 3.48 uH, 3 A 3.27 uH, 4 A 
    and move to 400 kHz once it spins (Fan_TOFF no longer low); at 400 kHz, Fan_TOFF low in most periods over
    1-2 ms is a jam: back to 50 kHz or Fan_Enable low; a fan that keeps Fan_TOFF low at 50 kHz is jammed
 
-3. STSPIN958 heat at 400 kHz, 17.4 V, D 0.22 (1S) / 0.43 (2S), 2 V/ns edges; Tj from 40 C
-   1.00 A D 0.22: typical 0.37 W -> Tj  53.3 C | bound 0.60 W (cond 0.15, sw 0.06, dead 0.22, VS 0.17) -> Tj  67.0 C
-   1.00 A D 0.43: typical 0.40 W -> Tj  54.4 C | bound 0.64 W (cond 0.19, sw 0.06, dead 0.22, VS 0.17) -> Tj  68.8 C
-   2.50 A D 0.22: typical 1.07 W -> Tj  78.4 C | bound 1.96 W (cond 1.09, sw 0.15, dead 0.54, VS 0.17) -> Tj 128.1 C
-   2.50 A D 0.43: typical 1.11 W -> Tj  79.8 C | bound 2.05 W (cond 1.19, sw 0.15, dead 0.54, VS 0.17) -> Tj 132.3 C
-   4.31 A D 0.22: typical 2.70 W -> Tj 136.7 C | bound 3.70 W (cond 2.33, sw 0.26, dead 0.93, VS 0.17) -> Tj 206.3 C
-   4.31 A D 0.43: typical 2.76 W -> Tj 138.9 C | bound 3.76 W (cond 2.39, sw 0.26, dead 0.93, VS 0.17) -> Tj 209.0 C
+3. STSPIN958 heat at 400 kHz, 17.4 V, D 0.22 (1S) / 0.43 (2S), 1.0 V/ns edges; Tj from 40 C
+   1.00 A D 0.22: typical 0.43 W -> Tj  55.5 C | bound 0.66 W (cond 0.15, sw 0.12, dead 0.22, VS 0.17) -> Tj  69.8 C
+   1.00 A D 0.43: typical 0.46 W -> Tj  56.6 C | bound 0.70 W (cond 0.19, sw 0.12, dead 0.22, VS 0.17) -> Tj  71.7 C
+   2.50 A D 0.22: typical 1.23 W -> Tj  84.1 C | bound 2.17 W (cond 1.15, sw 0.30, dead 0.54, VS 0.17) -> Tj 137.7 C
+   2.50 A D 0.43: typical 1.27 W -> Tj  85.5 C | bound 2.27 W (cond 1.25, sw 0.30, dead 0.54, VS 0.17) -> Tj 142.2 C
+   4.31 A D 0.22: typical 3.01 W -> Tj 147.6 C | bound 3.96 W (cond 2.33, sw 0.52, dead 0.93, VS 0.17) -> Tj 218.0 C
+   4.31 A D 0.43: typical 3.07 W -> Tj 149.8 C | bound 4.02 W (cond 2.39, sw 0.52, dead 0.93, VS 0.17) -> Tj 220.8 C
    (Tj above 150 C: the thermal shutdown stops the driver; the bound case needs the limiter holding the top of
     its band continuously, a stall, which the firmware ends from Fan_TOFF)
    C33 (X7R, 125 C) sits on the board beside the pad, at most Tj - P x RthJB (17.4 C/W) below the junction
-   at 2.5 A bound: Tj 132 C, board at the pad about 97 C
+   at 2.5 A bound: Tj 142 C, board at the pad about 103 C
 
 4. REF for the chosen motor. I_run: its running current at the highest duty the fan will use.
    I_peak = max(1.5 x I_run, (I_run + h) / 0.925), h the ripple half-amplitude at the lowest plausible

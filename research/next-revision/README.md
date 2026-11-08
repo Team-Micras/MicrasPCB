@@ -296,9 +296,11 @@ DRV8874 nFAULT ×2 wire-OR ─ PB6
     energy (76-130 g at 4 m/s). The board's 61 µF of ceramics reach 25 V in 3.1 ms, 30 V in 5.7 ms
     and the DRV8874's 40 V in 12 ms (the electrolytics bought 12-47 ms); a stop lasts hundreds of ms.
 
-  The TVS: **D15, SMAJ18A** (Littelfuse; VR 18 V above the 17.4 V pack, IR 1 µA max, VBR
-  20.0-22.1 V, VC 29.2 V at 13.7 A, 400 W 10/1000 µs, 3.3 W on an infinite heatsink; DO-214AC
-  4.8-5.3 × 2.4-2.8 × 1.9-2.3 mm, about 18 mm² with its pads; LCSC C148219, $0.11) from VBAT
+  The TVS: **D15, SMAJ18A** (Zhuhai Hongjiacheng, LCSC C19077538, Rev 2.2; the Littelfuse part,
+  C148219, has the same VR, VBR, VC and 400 W: VR 18 V above the 17.4 V pack, IR 1 µA max, VBR
+  20.0-22.1 V, VC 29.2 V at 13.7 A, 400 W 10/1000 µs; IFSM 40 A for 8.3 ms and 1.0 W at TL 75 °C,
+  against Littelfuse's 60 A and 3.3 W; DO-214AC 4.8-5.3 × 2.4-2.8 × 1.9-2.3 mm, about 18 mm² with
+  its pads) from VBAT
   (cathode) to GND_BAT, behind the fuse F1, so a TVS that fails short opens F1. With the pack pulled
   under braking its current runs VBAT → D15 → GND_BAT and back to GND through Q6: the channel with SW4 on, the body diode with SW4 off (GND_BAT → GND is
   its forward direction). For 0.15-2 A of braking current VBAT settles at 21.2-22.4 V with SW4 on
@@ -485,11 +487,12 @@ DRV8874 nFAULT ×2 wire-OR ─ PB6
   50 kHz.
 - **STSPIN958 heat** (§3): RDS(on) against temperature, the dead time and the VS operating current are
   unpublished ([STSPIN958] Rev 1, the only revision found); bound by the silicon mobility law (1.95×
-  at 125 °C), 300 ns of body-diode conduction per edge, 10 mA and 45 °C/W, from 40 °C: 2.0 W and
-  Tj 132 °C at 2.5 A (typical, with the DRV8874's +25 % at 125 °C, 100 ns, 7 mA and 35.8 °C/W:
-  1.1 W, 80 °C). Holding the 4.31 A top of the REF band, a stall, reaches 137 °C typical and the
-  150 °C shutdown in the bound; the board at the pad stays about P × 17.4 °C/W (RthJB) below the
-  junction, 97 °C at the 2.5 A bound, inside C33's X7R range.
+  at 125 °C), 300 ns of body-diode conduction per edge, 10 mA and 45 °C/W, from 40 °C, with the
+  1.0 V/ns edges RSR 1 kΩ gives at 17 V (Table 7's 2 V/ns is at VS 58 V; Figure 18): 2.3 W and
+  Tj 142 °C at 2.5 A (typical, with the DRV8874's +25 % at 125 °C, 100 ns, 7 mA and 35.8 °C/W:
+  1.3 W, 86 °C). Holding the 4.31 A top of the REF band, a stall, reaches the 150 °C shutdown
+  typical and passes it in the bound; the board at the pad stays about P × 17.4 °C/W (RthJB) below
+  the junction, 103 °C at the 2.5 A bound, inside C33's X7R range.
 - **Firmware**: duty = V_cmd / VBAT, never below the 11.2 % floor set by the 280 ns minimum pulse at
   400 kHz except at 0, and never above 1 − 280 ns × fPWM (88.8 % at 400 kHz: the driver leaves the
   decay only on a PWM1 low edge); TOFF, low during the decay, sampled in step with the PWM; start
@@ -882,6 +885,9 @@ Driver loss, junction rise and motor ripple loss at 16.8 V, 1S motor (3 µH, 0.4
 | STSPIN958, 0.6 V/ns (today's 5.6 kΩ), 400 kHz | 0.36 W / 0.19 W | 0.89 W / 0.19 W | 2.66 W, +95 °C / 0.19 W |
 | DRV8412 PFB, 400 kHz | 0.32 W / 0.19 W | 0.88 W / 0.19 W | 2.91 W, +71 °C / 0.19 W |
 | DRV8874 + 22 µH choke, 100 kHz | 0.63 W / 0.04 W | 1.90 W, +60 °C / 0.04 W | 6.5 W, fails |
+
+The STSPIN958 rows take Table 7's slew rates, which [STSPIN958] gives at VS 58 V; at 17 V Figure 18
+gives about half, which doubles their switching term (the choke check's §3 uses 1.0 V/ns).
 | DRV8262 + 10 µH choke, 200 kHz | 0.48 W / 0.04 W | 1.15 W / 0.04 W | 3.09 W, +58 °C / 0.04 W |
 | Low-side FET + SS34 + UCC27517A, 400 kHz | 0.49 W / 0.19 W | 0.96 W (SS34 +63 °C) | 1.92 W (SS34 +120 °C) |
 | **TPS28225 + 2 × CSD17578Q3A**, 400 kHz | 0.09 W / 0.19 W | 0.19 W / 0.19 W | 0.49 W, +29 °C / 0.19 W |

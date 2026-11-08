@@ -5,6 +5,7 @@ and encoder boards (MicrasHardware's model). The parts' heights come from their 
 """
 
 import functools
+import itertools
 import math
 import shutil
 
@@ -913,18 +914,44 @@ def test_no_dangling_copper(drc_violations):
     assert not found, "\n".join(found)
 
 
+TEXT_ITEMS = ("Reference field", "Footprint text", "Text")  # kicad-cli's descriptions of silkscreen texts
+
+
+def _owner(description: str) -> str | None:
+    """The footprint a DRC item belongs to ("Segment of SW1 on F.Silkscreen" -> "SW1")."""
+    import re
+
+    m = re.search(r" of (\S+)", description)
+    return m.group(1) if m else None
+
+
 @needs_kicad
-def test_reference_labels_clear_pads_edges_and_other_silkscreen(drc_violations):
+def test_silkscreen_texts_clear_pads_edges_and_other_silkscreen(drc_violations):
     # boards/main/layout/silk.py places every reference clear of the solder mask openings (JLCPCB clips
-    # silkscreen off exposed copper), the board edge and the other silkscreen, or hides it; KiCad's DRC
-    # reports a label that is not as silk_over_copper, silk_edge_clearance or silk_overlap
+    # silkscreen off exposed copper), the board edge and the other silkscreen; the footprints' own
+    # legends (SW4's ON, the wall joints' marks) keep off them too. KiCad's DRC reports a text that
+    # is not as silk_over_copper, silk_edge_clearance or silk_overlap; a footprint's legend over its
+    # own outline is the library's drawing (SW1's ON), not a clash
     found = sorted(
         f"{v['type']}: {', '.join(i['description'] for i in v['items'])}"
         for v in drc_violations
         if v["type"] in ("silk_over_copper", "silk_edge_clearance", "silk_overlap")
-        and any(i["description"].startswith("Reference field") for i in v["items"])
+        and any(i["description"].startswith(TEXT_ITEMS) for i in v["items"])
+        and not (v["type"] == "silk_overlap" and len({_owner(i["description"]) for i in v["items"]}) == 1)
     )
     assert not found, "\n".join(found)
+
+
+@needs_kicad
+def test_no_via_drill_or_diameter_warnings(drc_violations):
+    # rules/jlcpcb.kicad_dru warns below JLCPCB's preferred via hole (0.20 mm) and below its free
+    # via class (0.45 mm copper for a 0.2-0.25 mm hole): every via stays in the cheapest process
+    found = sorted(
+        f"{v['type']}: {', '.join(i['description'] for i in v['items'])}"
+        for v in drc_violations
+        if v["type"] in ("drill_out_of_range", "via_diameter")
+    )
+    assert not found, f"{len(found)} via warnings:\n" + "\n".join(found[:20])
 
 
 def _span(points: list) -> float:
@@ -1082,6 +1109,84 @@ def test_track_width_floor():
         if t.width < TRACK_FLOOR - 1e-4 and not (near(t.start) and near(t.end))
     ]
     assert not problems, "\n".join(problems)
+
+
+# --- the ESP32-C5's supply: its track resistance from the buck ---------------------------------
+
+# The module draws 426 mA peaks transmitting (5 GHz 802.11a, ESP32-C5-MINI-1 datasheet v1.4 Table
+# 6-5) and asks for a supply of at least 0.6 A at 3.0-3.6 V (Table 6-2); its local capacitors
+# C107/C108 sit 13 mm from pin 3, so the feed's own resistance is what the pin sees between their
+# refills. 0.1 Ohm keeps the drop under 60 mV at 0.6 A (the 0.18 mm feed it replaced had 0.14 Ohm).
+RADIO_FEED = ("L3", "2", "U13", "3", "3V3_D")
+RADIO_FEED_MAX_OHM = 0.10
+CU_RHO = 1.72e-8  # Ohm m, annealed copper at 20 C
+CU_OUTER = 35e-6  # m, 1 oz outer copper (main.zen stackup); the inner layers carry 0.5 oz
+CU_INNER = 17.5e-6
+VIA_OHM = 0.0012  # a 0.2-0.3 mm via through the 1.0 mm board, 18 um plating (IPC-6012 class 2)
+
+
+def _feed_resistance(pcb, src, dst, net) -> tuple[float, list[str]]:
+    """The least series resistance over the net's tracks and vias from pad src to pad dst
+    (Dijkstra; pours are left out, so it bounds the real path from above)."""
+    import heapq
+
+    def key(layer, q):
+        return (layer, round(q[0], 3), round(q[1], 3))
+
+    edges: dict = {}
+
+    def link(a, b, r, what):
+        edges.setdefault(a, []).append((b, r, what))
+        edges.setdefault(b, []).append((a, r, what))
+
+    ends = []
+    for tr in pcb.tracks:
+        if tr.net != net or tr.kind != "segment" or tr.width <= 0:
+            continue
+        cu = CU_OUTER if tr.layer in ("F.Cu", "B.Cu") else CU_INNER
+        length = math.dist(tr.start, tr.end) * 1e-3
+        a, b = key(tr.layer, tr.start), key(tr.layer, tr.end)
+        link(a, b, CU_RHO * length / (tr.width * 1e-3 * cu), f"{tr.layer} {tr.width} mm")
+        ends += [(tr.layer, tr.start, a), (tr.layer, tr.end, b)]
+    layers = ("F.Cu", "In1.Cu", "In2.Cu", "B.Cu")
+    for v in pcb.vias:
+        if v.net == net:
+            for la, lb in itertools.pairwise(layers):
+                link(key(la, v.xy), key(lb, v.xy), VIA_OHM / 3, "via")
+            for layer, q, k in ends:  # a track ending inside the via's copper
+                if math.dist(q, v.xy) <= v.size / 2 and k != key(layer, v.xy):
+                    link(k, key(layer, v.xy), 0.0, "via")
+    for f in pcb.footprints.values():  # the path may pass through a capacitor's pad (C57, C109)
+        for pad in f.pads:
+            if pad.net != net:
+                continue
+            for layer, q, k in ends:
+                if (layer in pad.layers or "*.Cu" in pad.layers) and math.dist(q, pad.xy) <= max(pad.size) / 2:
+                    link(("pad", f.ref, pad.number), k, 0.0, "pad")
+    start, goal = ("pad", *src), ("pad", *dst)
+    best, heap = {start: 0.0}, [(0.0, start)]
+    while heap:
+        r, n = heapq.heappop(heap)
+        if n == goal:
+            return r, []
+        if r > best.get(n, math.inf):
+            continue
+        for m, dr, _ in edges.get(n, []):
+            if r + dr < best.get(m, math.inf):
+                best[m] = r + dr
+                heapq.heappush(heap, (r + dr, m))
+    return math.inf, [f"no track path from {src} to {dst}"]
+
+
+def test_radio_feed_resistance():
+    pcb = layout.load("main")
+    a_ref, a_pad, b_ref, b_pad, net = RADIO_FEED
+    r, missing = _feed_resistance(pcb, (a_ref, a_pad), (b_ref, b_pad), net)
+    assert not missing, missing
+    assert r <= RADIO_FEED_MAX_OHM, (
+        f"{net} from {a_ref}.{a_pad} to {b_ref}.{b_pad}: {r * 1000:.0f} mOhm of track and vias "
+        f"(at most {RADIO_FEED_MAX_OHM * 1000:.0f}): widen the feed"
+    )
 
 
 # --- the antenna, ground stitching, pour connections, vias in pads (routing review F2, F10-F12, F15) ---

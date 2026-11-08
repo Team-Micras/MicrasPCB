@@ -51,9 +51,14 @@ including the temperature rise from the current (JST PA catalogue, epa0125). The
 carries about 2.6 A mean and at most 3 A rms over a fast run (the firmware's limit, research
 Drivetrain) with 5-6 A peaks under 1 s, so its rms stays inside the rating with AWG #22 pack
 leads.
-A reversed pack (against the key) forward-biases D15 from GND_BAT into VBAT, a short through F1,
-which opens; until then the board sees only the difference between D15's drop and Q6's
-body-diode drop. D15 need not survive it (IFSM 40 A for 8.3 ms, SMAJ series Rev 2.2 p1).
+The board has no reverse-polarity protection: J1's key is the protection (owner decision,
+2026-10-17). A pack forced in reversed forward-biases D15 (GND_BAT to VBAT) and Q6's body diode
+(GND_BAT to GND), both returning through F1. GND then sits 1.0-3.2 V above VBAT (0.15-0.5 Ohm
+pack, D15 typical to maximum VF, Q6 HSBB3072 Fig. 3; an ngspice operating point), past the
+-0.3 V VM/VS minimum of the DRV8874 (SLVSF66A 6.1) and the STSPIN958 (DS14341 Table 1), with up
+to tens of amps through the bridges' body diodes. F1 opens in 6 ms to over 100 s depending on the
+pack, and D15 (IFSM 40 A for 8.3 ms, Hongjiacheng SMAJ series Rev 2.2 p1) fails, usually short,
+after which F1 opens at about 30 A within seconds.
 Q6 (HSBB3072, 30 V N-MOSFET) is a low-side switch from GND_BAT to GND; SW4 drives its gate from
 VBAT through R43 100 kOhm with R41 100 kOhm to GND_BAT, so VGS settles at VBAT / 2 = 6.0-8.7 V
 (RDS(on) 3.8 mOhm max at 4.5 V, HSBB3072 p2), inside +-20 V; VDS 30 V is 1.72x the 17.4 V pack.
@@ -183,9 +188,9 @@ VSYS (research A.4):
     at 85 C before that margin is gone. The STSPIN958's VS turn-on threshold has a 5.05 V maximum
     and no minimum (DS14341 Table 5), so it is not counted on: the fan stays unpowered because
     EN/nFAULT low leaves its output Hi-Z and, with EN high, PWM1 held low by its internal pull-down
-    (RPDin 500 kOhm, Table 5) holds the output on its low side, both motor ends at LSS (Table 11),
+    (RPDin 570 kOhm typical, Table 5) holds the output on its low side, both motor ends at LSS (Table 11),
     until the firmware runs, which then keeps Fan_Enable low. The firmware reads no pack (its
-    battery reading below the pack's 12 V; firmware_changes.toml battery).
+    battery reading below 6.0 V; firmware_changes.toml battery).
 - VSYS: 11.4-17.4 V on the pack (less D14's 0.6 V maximum drop), 3.8-5.0 V on 5V_IN alone.
 
 3V3_D buck, IC7 (L6981C33DR, fixed 3.3 V, low-consumption mode, DS13554), as on the v1 main board:

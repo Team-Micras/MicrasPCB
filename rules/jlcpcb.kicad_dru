@@ -25,7 +25,15 @@
 (rule "jlc: via hole (preferred)"
 	(severity warning)
 	(condition "A.Type == 'Via'")
-	(constraint hole_size (min 0.30mm)))
+	(constraint hole_size (min 0.20mm)))
+
+# JLCPCB charges for a 0.2 or 0.25 mm via hole whose copper is under 0.45 mm across ("0.2mm or 0.25mm
+# hole size with via diameter less than 0.45mm, will cost more", capabilities page); every board's
+# vias are 0.45 mm and up (spec/<board>.toml pcb.via_diameter), JLCPCB's free class.
+(rule "jlc: via diameter (free class)"
+	(severity warning)
+	(condition "A.Type == 'Via'")
+	(constraint via_diameter (min 0.45mm)))
 
 (rule "jlc: via annular ring"
 	(condition "A.Type == 'Via'")

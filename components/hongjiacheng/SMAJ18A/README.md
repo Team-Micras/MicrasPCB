@@ -2,7 +2,9 @@
 
 Zhuhai Hongjiacheng SMAJ18A (LCSC C19077538, a JLCPCB Preferred Extended part): unidirectional TVS
 diode, 400 W (10/1000 us), 18 V standoff, VBR 20.0-22.1 V, VC 29.2 V at 13.7 A, DO-214AC (SMA). The
-same ratings as the Littelfuse SMAJ18A (C148219). Evidence is in the docstring of
+Littelfuse SMAJ18A's (C148219) VRWM, VBR, VC, IPP and PPPM; its surge and steady-state ratings are
+lower: IFSM 40 A (8.3 ms) and PM(AV) 1.0 W at TL 75 C, against Littelfuse's current 60 A and 3.3 W
+at TL 50 C. Evidence is in the docstring of
 [`SMAJ18A.zen`](SMAJ18A.zen). Datasheet: Hongjiacheng SMAJ series, Rev 2.2.
 
 ```python

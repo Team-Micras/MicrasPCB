@@ -90,7 +90,7 @@ path = { value = "H4.MH", source = "boards/main/main.zen instance path" }
 
 [encoder_slots]
 y = { value = 6.9, source = "v1 board spec/main.toml [encoder_slots] y; MicrasHardware Board.encoder_slot_y" }
-length = { value = 5.8, source = "the 5.0 mm tab (spec/encoder.toml [tab] width) with its corners inside the rounded ends at the 0.79 mm encoder board + 0.1 mm thickness tolerance (tests/test_layout.py slot_findings), plus 0.1 mm JLCPCB outline tolerance per end; v1 board spec/main.toml [encoder_slots] length" }
+length = { value = 5.8, source = "the 5.0 mm tab (spec/encoder.toml [tab] width) with its corners inside the rounded ends at the 0.79 mm encoder board + 0.1 mm thickness tolerance (tests/test_layout.py slot_findings), with 0.4 mm spare (JLCPCB's routed-edge tolerance is +-0.2 mm regular, +-0.1 mm high precision: jlcpcb.com/capabilities/pcb-capabilities); the v1 board's slot, whose encoder boards fit: v1 board spec/main.toml [encoder_slots] length" }
 width = { value = 1.0, source = "JLCPCB PCB capabilities (jlcpcb.com/capabilities/pcb-capabilities, read 2026-10-14): minimum non-plated slot width 1.0 mm; v1 board spec/main.toml [encoder_slots] width" }
 corner_radius = { value = 0.5, source = "a 1.0 mm cutter mills the slot, so its ends are half circles of the slot width (JLCPCB: rectangular slots without rounded corners are not supported); v1 board spec/main.toml [encoder_slots] corner_radius" }
 right_path = { value = "SENSORS.EC1.SLOT", source = "boards/main/Sensors.zen: EC1 takes the right wheel's encoder board (y < 0)" }

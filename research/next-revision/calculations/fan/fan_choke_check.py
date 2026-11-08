@@ -10,7 +10,8 @@ Sources and bounds:
   threshold IOC 7-14 A per power MOSFET (Table 5, section 5.7), 91.4 % of it at 17.4 V (Figure 20,
   normalized at 58 V): in parallel mode the two paralleled MOSFETs share the load current, so the
   device trips at 2 x IOC, 12.8 A at the least;
-  TSD 150 C; RthJA 35.8 C/W on the JESD51 board (Table 4); SR 2 V/ns with RSR 1 kOhm (Table 7).
+  TSD 150 C; RthJA 35.8 C/W on the JESD51 board (Table 4); SR 2 V/ns with RSR 1 kOhm (Table 7, at
+  VS 58 V), about 49 % of it at 17 V (Figure 18): 1.0 V/ns here.
   Not published: the RDS(on) temperature curve, the dead time, the VS operating current, the
   limiter blanking and comparator delay. Bounds used (inference):
   * RDS(on)(T): typical as the DRV8874's (TI SLVSF66A Figures 6-7, about +25 % at 125 C, the same
@@ -173,7 +174,7 @@ print("   with a 0.2 ohm motor; up to 500 ns of blanking the 50 kHz peaks stay a
 print("   and move to 400 kHz once it spins (Fan_TOFF no longer low); at 400 kHz, Fan_TOFF low in most periods over")
 print("   1-2 ms is a jam: back to 50 kHz or Fan_Enable low; a fan that keeps Fan_TOFF low at 50 kHz is jammed")
 
-print("\n3. STSPIN958 heat at 400 kHz, 17.4 V, D 0.22 (1S) / 0.43 (2S), 2 V/ns edges; Tj from 40 C")
+print("\n3. STSPIN958 heat at 400 kHz, 17.4 V, D 0.22 (1S) / 0.43 (2S), 1.0 V/ns edges; Tj from 40 C")
 
 
 def heat(i, d, pp, worst, rth):
@@ -188,7 +189,7 @@ def heat(i, d, pp, worst, rth):
             tdt, iq = 100e-9, 7e-3
         i2 = i ** 2 + pp ** 2 / 12
         p_cond = i2 * RDS25 * hot                    # one switch path conducts at any time
-        p_sw = 17.4 * i * (17.4 / 2e9) * F           # rise + fall, 8.7 ns each at 2 V/ns
+        p_sw = 17.4 * i * (17.4 / 1e9) * F           # rise + fall, 17.4 ns each at 1.0 V/ns
         p_dt = 2 * tdt * F * 0.9 * i
         p_q = 17.4 * iq
         p = p_cond + p_sw + p_dt + p_q

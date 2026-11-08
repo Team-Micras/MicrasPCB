@@ -448,6 +448,9 @@ FIRMWARE_RULES = {
     "imu_interrupt": ["INT2_on_INT1", "rising"],
     # on 5V_IN alone the bridges have no supply and the battery reads near 0 V (Regulators.zen)
     "battery_absent": ["5V_IN", "Motors_Enable", "Fan_Enable"],
+    # a 4S pack sags 1.3-3.3 V under load: a low pack is judged at rest, or averaged mid-run, never
+    # from one reading, so a loaded pack never reads as absent or empty (firmware_changes.toml battery)
+    "battery_low": ["at rest", "during a run", "averaged", "3.0 V/cell"],
 }
 
 

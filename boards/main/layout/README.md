@@ -124,13 +124,13 @@ VBAT ─┬─ IC8/IC9 DRV8874 VM, IC6 STSPIN958 VS
 - **Current**: INA241A2 (gain 20) on each shunt, VS and REF1 on 3V3_A, REF2 on GND: 0.2 V/A
   around VDDA / 2, +7.25 / -8.15 A at 3V3_A 3.3 V, into PA6 (left, a fast ADC channel) and PC1 (right)
   through 150 Ohm (R78/R79, R_iso), with 1 nF X7R on the ADC line (C102 3.5 mm from PC1, C105
-  beside R79, 21 mm of track from PA6); the firmware samples them
+  beside R79, 23 mm of track from PA6); the firmware samples them
   for at least 0.7 us, so the ADC's kickback from a wall-sensor conversion settles below 1 mA.
 
 ## Fan
 
 STSPIN958 in parallel half-bridge mode, PWM trimming, on TIM14 at 400 kHz: R31 25 mOhm, REF from
-4.7k/2.0k on 3V3_D (current limit 3.94 A), RSR 1 kOhm (2 V/ns), 2 x 470 nF 50 V X7R 0805 +
+4.7k/2.0k on 3V3_D (current limit 3.94 A), RSR 1 kOhm (1.0 V/ns at 17 V), 2 x 470 nF 50 V X7R 0805 +
 2 x 10 uF 50 V on VS, CBOOT 1 uF 50 V X7R (the IC runs hot), and a 4.7 uH XGL5030-472 choke between FAN_OUT and the motor. Fan_PWM on PA7 (TIM14_CH1), Fan_TOFF on PB10; Fan_Enable on PB12, driven open drain and read back as the driver's nFAULT.
 
 ## Sensors
@@ -301,7 +301,7 @@ connection is routed, and DRC, DFM and the layout tests pass.
   hole beside C53, U8's 3V3_D (EN) line passing between C81's pads; C57 is
   L3's second 22 uF, on the 3V3_D trunk behind it.
 - **The tab and the module's inner side**: the flashing header J2 sits in the tab between the two
-  notches, its pads 17 mm from the antenna's open end (at least 10 mm) and reachable from the
+  notches, its pads 9.2-11.6 mm from the antenna's keep-out (pad centres) and reachable from the
   robot's rear, with the 10 uF C107 on U13's 3V3_D feed beside it; the EN RC (R89, C110) and the BOOT pull-up R90
   sit off the module's front-right side, because the right motor's OUT2 and TERMINAL paths pass
   under J2, and the B.Cu VBAT pour stops short of J2 so its lines reach the module on B.Cu. EN, TX0, RX0 and BOOT run inboard
@@ -309,12 +309,16 @@ connection is routed, and DRC, DFM and the layout tests pass.
   inner wall (x -39.7, 0.4 mm from the cut, at 1.6-1.8 mm pitch from in front of the antenna's open
   end to the tab) and the tab's wall over the notch (y +6.5) (`route.py` `NOTCH_FENCE`). U13's 3V3
   pin (pin 3) and BOOT pin (pin 4) lie on the module's edge row, 0.6 mm from the board's edge: each
-  leaves by a stub to vias inside the row and runs on B.Cu under the module. 3V3_D comes from L3's
-  output patch on a 0.8 mm B.Cu feed under the module to two vias at pin 3, and a 1.0 mm B.Cu strap
-  from those vias along the edge row joins the 22 uF C109 and 100 nF C108, which sit off the module's
-  front-right corner with two vias each, 13-16 mm from the pin: no capacitor fits nearer it (the
-  edge, the antenna end and the ground pads), and the module decouples its chip itself (datasheet
-  Figure 8-1). SWCLK's series resistor R86 sits at the module's front end. The link's series
+  leaves by a stub to vias inside the row and runs on B.Cu under the module, but for 3V3_D, which
+  reaches pin 3 on F.Cu. 3V3_D leaves L3's output on B.Cu (0.8 then 0.6 mm) to C57, L3's second
+  22 uF, then runs on F.Cu along the right wheel notch, 0.5 mm wide and 0.3 mm from the notch (0.25 mm
+  for 1.8 mm beside C57's ground pad, where the notch curves in, and 0.18 mm for 4.5 mm past H4's
+  hole), to the 22 uF C109; from C109 a via and B.Cu (0.3 mm for 3.3 mm past SWDIO's via, then
+  0.6 mm) take it to a via at the board's edge, and 0.6 mm of F.Cu runs 9 mm along the edge row to
+  pin 3: 86 mOhm of track and vias from L3, 37 mV at the module's 426 mA transmit peak
+  (`test_radio_feed_resistance`). C109 and the 10 uF C107 and 100 nF C108 sit off the module's
+  front-right corner, 13-14 mm from the pin: no capacitor fits nearer it (the edge, the antenna end
+  and the ground pads), and the module decouples its chip itself (datasheet Figure 8-1). SWCLK's series resistor R86 sits at the module's front end. The link's series
   resistors sit mid-line: R95 (ESP_SCK) and R96 (ESP_DATA), with the ESP_CSn pull-up R97 beside
   them, about 24 mm of track from the STM32's rear tip, and R88 (ESP_CSn) about 35 mm from it and
   37 mm from the module. The lines are electrically short at their edges (about 0.4 ns of line
@@ -330,9 +334,13 @@ connection is routed, and DRC, DFM and the layout tests pass.
   not in In1.Cu's ground, which lies beyond In2.Cu and does not shield them. Over VCORE: Wall_Sensor_3
   9.4 mm, Wall_Sensor_2 8.6 mm, Battery_Voltage 5.0 mm, Current_Sensor_Left and Current_Sensor_Right
   2.4 mm each, the other wall lines 1.0-1.4 mm, and 1-7 mm of digital lines (the DIP switch,
-  encoders, IMU, motor and buzzer lines); over 3V3_D only Wall_Sensor_1's 0.6 mm. Both islands are
-  decoupled to ground at the STM32's pins (C3-C12), so a line over them couples into the islands'
-  own noise (VCORE's SMPS ripple), not into a floating plane. B.Cu carries the VBAT pour over
+  encoders, IMU, motor and buzzer lines); over 3V3_D 62 mm of 11 lines, the longest the buzzer's
+  10.3 mm, Current_Sensor_Right's 7.9 mm and Current_Sensor_Left's 7.4 mm (86 mm over VCORE in
+  all). The lines cross the islands' edges at least 43 times, mostly over 0.10-0.15 mm moats; the
+  widest, 0.8 mm, lie under the left encoder's A and B where they pass from 3V3_D to VCORE behind
+  the chip. Both islands are decoupled to ground at the STM32's pins (C3-C12), so a line over them
+  couples into the islands' own noise (VCORE's SMPS ripple), not into a floating plane; at a moat
+  its return current detours to the nearest decoupling capacitor. B.Cu carries the VBAT pour over
   the power entry and both bridges, and no other net's track runs on B.Cu inside it.
 - **Tracks**: F.Cu and B.Cu, octilinear. The power paths (`ROUTES` in `route.py`) are wide and
   locked; signals are mostly 0.12 mm (86 % of their length), 0.15 mm on some runs (11 %) and
@@ -516,7 +524,8 @@ connection is routed, and DRC, DFM and the layout tests pass.
   asks only for "the correct amount" (section 9: too much lifts the module off its signal pads).
 - **Vias**: 0.45/0.3 mm for power and planes, 0.45/0.2 mm for signals (the escapes between the
   STM32's 0.4 mm pitch pins) and for the thermal vias; a 0.2 mm hole is above JLCPCB's 0.15 mm
-  minimum and below its 0.3 mm preferred size, which KiCad's DRC reports as a warning. JLCPCB
+  minimum and at its 0.2 mm preferred size (rules/jlcpcb-pdk.toml), and KiCad's DRC warns below
+  either preferred value, the hole or the 0.45 mm copper (`test_no_via_drill_or_diameter_warnings`). JLCPCB
   charges more for a 0.2 or 0.25 mm hole with copper under 0.45 mm (PCB Capabilities, Drilling,
   accessed 2026-11-07), so every via has 0.45 mm copper (`test_vias_take_jlcpcbs_standard_option`)
   and the board takes JLCPCB's standard via option, 0.3mm/(0.4/0.45mm). Where a grown via met
@@ -595,7 +604,7 @@ Each is a visible TODO in the sheet that owns it.
   switch and the buzzer), Wall_Emitter_Set and
   Wall_Sensor_2 are longer than the layout tests' detour rule; no analog line runs within 0.45 mm
   of a fast digital line on its layer outside the STM32's escapes. The ADC filter capacitor C102 sits
-  3.5 mm from IC1.14 and C105 beside R79, 24 mm of track from IC1.25, where ST AN2834 section 4.2.8
+  3.5 mm from IC1.14 and C105 beside R79, 23 mm of track from IC1.25, where ST AN2834 section 4.2.8
   asks for the pin: the front-left face's lanes and escapes leave no 0402 spot within 3 mm of
   IC1.25 (the test is marked as an expected failure until they move).
 - Assembly: every through-hole lead trimmed to 0.5 mm or less (Ordering); M2's leads lie under
