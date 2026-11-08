@@ -1,0 +1,70 @@
+* (a) today: L6981C33, ~72 uF nominal (58 uF effective assumed) on 3V3, emitters on 3V3
+
+* Older pattern: 2 emitters at once, 187.5 us at 2 kHz (Sensors.zen docstring / review)
+Bgate graw 0 V = (time > 0.008) ? ( (((time-0.008) - floor((time-0.008)/0.5m)*0.5m) < 0.1875m) ? 1 : 0 ) : 0
+Rg graw g 1k
+Cg g 0 0.1n
+
+.model dled D(IS=1.3e-9 N=3.02 RS=0.8)
+.model swm SW(RON=0.05 ROFF=1e6 VT=0.5 VH=0.05)
+
+* bk: averaged L6981-like buck, Vref=3.3 V, K=7.654 A/V (COUT 58 uF eff)
+Bbke bk_e 0 V = 3.3 - v(v3)
+Bbkr bk_r 0 V = 7.65406*v(bk_e) + v(bk_i)
+Bbki 0 bk_i I = 144276*v(bk_e) + 5e4*(v(bk_c) - v(bk_r))
+Cbki bk_i 0 1
+Rbki bk_i 0 1e9
+Bbkc bk_c 0 V = max(0, min(2.0, v(bk_r)))
+Rbkl bk_c bk_l 2k
+Cbkl bk_l 0 1n
+Gbko 0 v3 bk_l 0 1
+.ic v(bk_i)=0.2 v(v3)=3.3
+CCb v3_Cb 0 58u
+RCbesr v3 v3_Cb 0.003
+Rtr v3 vs 0.05
+Ltr vs vsx 40n
+Rtrx vsx vsn 1m
+CCs vsn_Cs 0 4u
+RCsesr vsn vsn_Cs 0.005
+
+* emitter: 10.0 ohm -> SFH 4550 -> AO3400A (switch, 50 mOhm)
+Rled vsn a 10.0
+Dled a k dled
+Sled k kx g 0 swm
+Vmeas kx 0 0
+
+* VDDA: FB1 + C10 100 nF + C11 1 uF, ADC load 1.5 mA
+Rfb v3 fb1 0.34
+Lfb fb1 vdda 1.5u
+Rfbp fb1 vdda 600
+CC11 vdda_C11 0 1u
+RC11esr vdda vdda_C11 0.01
+CC10 vdda_C10 0 100n
+RC10esr vdda vdda_C10 0.02
+
+Iadc vdda 0 1.5m
+
+* MCU (DS13311 Table 24: 125 mA typ SMPS ON, 550 MHz, all peripherals) + encoders 2x16 mA + IMU/amps
+Imcu v3 0 0.17
+
+
+.control
+  set noaskquit
+  tran 0.1u 0.011 0.0075 0.1u uic
+  meas tran v3_pre FIND v(v3) AT=0.009999000000000001
+  meas tran v3_min MIN v(v3) FROM=0.01 TO=0.010150000000000001
+  meas tran v3_75 FIND v(v3) AT=0.010075
+  meas tran v3_150 FIND v(v3) AT=0.010149
+  meas tran vdda_pre FIND v(vdda) AT=0.009999000000000001
+  meas tran vdda_min MIN v(vdda) FROM=0.01 TO=0.010150000000000001
+  meas tran vdda_max MAX v(vdda) FROM=0.01 TO=0.0102
+  meas tran vdda_75 FIND v(vdda) AT=0.010075
+  meas tran vdda_150 FIND v(vdda) AT=0.010149
+  meas tran iled_75 FIND i(Vmeas) AT=0.010075
+  meas tran iled_150 FIND i(Vmeas) AT=0.010149
+  meas tran v3_ppall PP v(v3) FROM=0.009000000000000001 TO=0.011
+  meas tran vdda_ppall PP v(vdda) FROM=0.009000000000000001 TO=0.011
+  wrdata a_two.dat v(v3) v(vdda) i(Vmeas)
+.endc
+
+.end

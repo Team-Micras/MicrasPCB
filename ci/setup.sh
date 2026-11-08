@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Tools on top of KiCad (CI and local setup): curl/zstd/make, uv and the pinned Zener toolchain
-# from versions.env. CI installs uv with astral-sh/setup-uv first; this script then skips it.
+# Tools on top of KiCad (CI and local setup): curl/zstd/make, uv, the pinned Zener toolchain and
+# KiKit (ci/install-kikit.sh) from versions.env. CI installs uv with astral-sh/setup-uv first; this
+# script then skips it.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 . ./versions.env
@@ -13,6 +14,7 @@ export PATH="$HOME/.local/bin:$PATH"
 command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 command -v pcb >/dev/null || curl -fsSL https://raw.githubusercontent.com/diodeinc/pcb/main/install.sh | bash
 pcb toolchain install "$PCB_TOOLCHAIN"
+./ci/install-kikit.sh
 [ -n "${GITHUB_PATH:-}" ] && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 kicad-cli version
 pcb +"$PCB_TOOLCHAIN" --version

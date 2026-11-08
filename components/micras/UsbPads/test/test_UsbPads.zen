@@ -1,0 +1,32 @@
+"""UsbPads package: each signal on its hole (1 GND, 2 D-, 3 D+), no BOM or
+placement entry."""
+
+UsbPads = Module("../UsbPads.zen")
+
+PADS = {"GND": "Pin_1", "DN": "Pin_2", "DP": "Pin_3"}
+
+
+def pinout(module, inputs):
+    nets = module.nets()
+    for name, pin in PADS.items():
+        check([p for _, p in nets[name]] == [pin], name + " must be on " + pin + ", is on " + str(nets[name]))
+
+
+def bare_pads(module, inputs):
+    c = module.components()["J"]
+    check(c.skip_bom, "the pads are not a BOM line")
+    check(c.skip_pos, "the pads are not placed")
+
+
+TestBench(
+    name="UsbPads",
+    module=UsbPads,
+    test_cases={
+        "default": {
+            "GND": Ground("GND"),
+            "DN": Net("DN"),
+            "DP": Net("DP"),
+        },
+    },
+    checks=[pinout, bare_pads],
+)

@@ -1,0 +1,214 @@
+"""Micras wall-sensor board.
+
+One per wall sensor, four on a robot, all alike. The board stands upright on the main board with
+its sensor looking at the wall: an SFH 4550 IR emitter 6.1 mm above a TPS601A(F) phototransistor,
+both seated with their flanges on the front face, so the board, not a hand bend, sets where they
+look (components/micras/WallSensor, mount "upright"). A 2x3 1.27 mm straight header J1
+(components/hanxia/HX-PZ1.27-2x3P-ZZ) joins the two boards, straddling this board's bottom edge:
+the board stands between its two rows with its bottom edge on the insulator, the short pins
+soldered to pads on both faces, and the long pins go down through the main board's plated holes
+(components/micras/WallJoint), on which the insulator sits. The board is ordered with PCBA: JLCPCB
+fits the SMD parts, all on the back face; the sensor W1 and the header J1 are soldered by hand.
+
+Circuit (the main board's wall-sensor channel, research IR emitters and A.4; the model is
+research/next-revision/calculations/emitter/emitter_sink.py, its results emitter_sink_out.txt).
+The main board keeps the shared constant-current sink (its U12 and Q9, whose drain is
+EMITTER_SINK) and each receiver's 1 kOhm load at the ADC (boards/main/Sensors.zen); this board
+holds what belongs at the sensor:
+- Emitter: 3V3_D through R1 3.3 Ohm 0603 (UNI-ROYAL 0603WAF330KT5E, 100 mW, 1 %; the main board's
+  R_3R3_0603) to the SFH 4550 anode; the cathode, LED_K, on the drain of the selector Q1
+  (AO3400A), whose source leaves on J1 as EMITTER_SINK for the main board's sink, which sets the
+  pulse current (175 mA, 150 us per 1 ms). At VF max (1.79 V at 175 mA between the SFH 4550's
+  maximum points, p5) and 3V3_D at 3.229 V (its 3.284 V minimum less the 22 mV emitter droop and
+  a 33 mV ESP32 dip, research power-tree study section 6), the selector and Q9 keep
+  3.229 - 1.79 - 0.175 x 3.3 - 0.21 = 0.65 V. The firmware lights each emitter 150 us per 1 ms
+  frame, 15 % (MicrasFirmware config/targets/v1/target.hpp), so the 3.3 Ohm carries 101 mW
+  during a pulse and 15 mW on average (25 mW at the sink's 223 mA full scale): UNI-ROYAL rates
+  the 0603 1/10 W continuous to 70 C, derated linearly to 0 at 155 C (82 mW at 85 C), and 2.5 x
+  its rated voltage, 6.25 x the power, for 5 s (thick film chip resistor data sheet V.3, 2019,
+  sections 6, 9 and 11), so a 150 us pulse of 101-164 mW is far inside it.
+  R1 also limits the emitter current when the sink fails on (Q9 shorted or U12 stuck high):
+  (3.346 V - VF) / (3.3 + 1.2 Ohm) is about 0.35 A with VF on the chord of the p5 typical
+  points, inside the SFH 4550's 0.38 A pulse rating at tp 150 us and D 0.2 (25 C chart,
+  WallSensor.zen), so a failed sink does not overstress the emitter while the AC-coupled
+  selector still pulses it. The sink's own full scale (code 4095 at VDDA 3.36 V and RO
+  10.3 kOhm) is 0.23 A. A 2.2 Ohm basic part would give the selector 0.19 V more headroom but let
+  a failed sink drive 0.44 A, above the rating; 4.7 Ohm leaves the selector 0.41 V (the main
+  board's bench emitter_pulse_within_rating checks it with the joint's emitter_resistor,
+  components/micras/WallJoint, which tests/test_wall.py holds to R1). The pulse rating falls with
+  temperature: the 85 C chart allows about 0.07 A at D 0.2, and by the chart's scaling (an
+  inference, WallSensor.zen) 223 mA at full scale holds to about 56 C ambient, 175 mA to about
+  65 C. C1 1 uF on 3V3_D at R1 (Samsung CL10A105KB8NNNC, 1 uF 10 % 50 V X5R 0603, a JLCPCB basic
+  part, about 0.95 uF at 3.3 V).
+- Selector gate, AC-coupled as on the v1 main board: PWM (the main board's TIM3 channel,
+  Wall_Sensor_PWM_n) through R2 220 Ohm and C2 220 nF to the gate, with R3 22 kOhm to GND and a
+  1N4148WS clamp D1 from GND to the gate. A pin held high lets the gate decay with 22 kOhm x
+  220 nF = 4.8 ms: the emitter current falls below 100 mA within 5.4 ms and below 1 mA within
+  7.5 ms for a minimum-threshold part (VGS(th) 0.65 V, AO3400A p2; emitter_sink_out.txt
+  section 2), so the emitter never carries the sink's 175 mA as DC, above its 100 mA DC rating
+  (SFH 4550 p4). In the firmware's frame the gate is clamped at every falling edge and relaxes
+  for 850 us, so a pulse starts at -0.2 V + the pin's high level (VDD - 0.4 V = 2.83 V at
+  3.229 V, DS13311 Table 56) and the gate reads 2.54 V at 75 us and 2.50 V at 141 us. The
+  selector is a source follower in series with Q9: the current stays regulated while
+  2.50 V - VGS(175 mA) is above Q9's 0.22 V (0.21 V + 175 mA x 48 mOhm), and the model gives the
+  same current as with a DC-coupled gate (emitter_sink_out.txt section 1). VGS at 175 mA is
+  VGS(th) + 0.35 V: the typical part's Figure 2 (AO3400A Rev 3.1, transfer characteristics at
+  VDS 5 V) reads 1.41 V at 25 C against the 1.05 V typical VGS(th), so 1.80 V for a 1.45 V
+  maximum part. The same figure reads 1.19 V at 125 C, -2.2 mV/K, which extrapolated to -40 C
+  adds 0.14 V: 1.94 V, leaving 2.50 - 1.94 - 0.22 = 0.34 V of margin at the end of the scan
+  (the model, with the selector fitted to Figure 2, gives +0.34 V and keeps the current regulated
+  up to a VGS of 2.10 V). AOS publishes no SPICE model for the AO3400A; a level-3 AO3400 model in
+  AOS's format, of unknown provenance, moves 1.369 V at 25 C to 1.455 V at -40 C and 1.215 V at
+  125 C, -1.3 to -1.5 mV/K, so the extrapolation of Figure 2 is the conservative one
+  (emitter_sink_out.txt section 5). R2, C2 and R3 are the main board's 0402 parts
+  (boards/main/passives.zen: UNI-ROYAL 0402WGF2200TCE and 0402WGF2202TCE, Samsung
+  CL05B224KO5NNNC 220 nF 16 V X7R), Q1 and D1 its AO3400A and 1N4148WS.
+- Receiver: the phototransistor's collector on 3V3_A, its emitter on J1 as the board's output,
+  Wall_Sensor. The load (1 kOhm to GND) stays on the main board at the ADC: the phototransistor is
+  a current source, so the signal crosses the joint as a current and a ground offset between the
+  boards does not reach the reading.
+- Return paths: the emitter's pulse current leaves through EMITTER_SINK, beside the 3V3_D pin it
+  enters by, never through the GND the receiver shares; GND carries C1's and the gate network's
+  returns, and both copper layers pour it.
+
+J1 pin map (the main board's WallJoint pads 1-6): odd pins on the front face, even pins on the
+back behind them, pins 1-2 on the left seen from the front:
+| Pin | Face, along the edge | Net | Main board |
+|---|---|---|---|
+| 1 | front, left | Wall_Sensor | the ADC input and its 1 kOhm load, Wall_Sensor_n |
+| 2 | back, left | GND | GND |
+| 3 | front, middle | 3V3_A | 3V3_A (the receiver's collector) |
+| 4 | back, middle | 3V3_D | 3V3_D (the emitter supply) |
+| 5 | front, right | EMITTER_SINK | the shared sink's drain (Q9) |
+| 6 | back, right | PWM | the selector's TIM3 channel, Wall_Sensor_PWM_n |
+The receiver's output sits right under its phototransistor's emitter lead, and every pin beside
+it, across the board or diagonally (3V3_A, GND, 3V3_D) is quiet; the switching pins take the far
+corner pair. The emitter's pulse current enters on 3V3_D and leaves on EMITTER_SINK.
+
+Mechanics: spec/wall.toml (outline, tab, the sensor and header positions, the joint).
+"""
+
+load(
+    "@stdlib/board_config.zen",
+    "BoardConfig",
+    "Constraints",
+    "Copper",
+    "CopperLayer",
+    "DesignRules",
+    "DielectricLayer",
+    "Material",
+    "NetClass",
+    "SolderMask",
+    "Stackup",
+)
+
+WallSensor = Module("github.com/Team-Micras/MicrasPCB/components/micras/WallSensor/WallSensor.zen")
+Header = Module("github.com/Team-Micras/MicrasPCB/components/hanxia/HX-PZ1.27-2x3P-ZZ/HX-PZ1.27-2x3P-ZZ.zen")
+AO3400A = Module("github.com/Team-Micras/MicrasPCB/components/aos/AO3400A/AO3400A.zen")
+D1N4148WS = Module("github.com/Team-Micras/MicrasPCB/components/cj/1N4148WS/1N4148WS.zen")
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+
+# The main board's rails (boards/main/main.zen): 3V3_D 3.284-3.346 V, 3V3_A 3.24-3.36 V.
+V3V3_D = Power("3V3_D", voltage="3.284V to 3.346V")
+V3V3_A = Power("3V3_A", voltage="3.24V to 3.36V")
+GND = Ground("GND")
+PWM = Net("PWM")
+EMITTER_SINK = Net("EMITTER_SINK")
+WALL_SENSOR = Net("Wall_Sensor")
+LED_A = Net("LED_A")
+LED_K = Net("LED_K")
+DRIVE = Net("DRIVE")
+GATE = Net("GATE")
+
+WallSensor(name="W1", mount="upright", LED_A=LED_A, LED_K=LED_K, PT_C=V3V3_A, PT_E=WALL_SENSOR)
+
+# Emitter.
+Resistor(
+    name="R1",
+    value="3.3Ohm 1%",
+    package="0603",
+    power="100mW",
+    mpn="0603WAF330KT5E",
+    manufacturer="UNI-ROYAL",
+    P1=LED_A,
+    P2=V3V3_D,
+)
+Capacitor(
+    name="C1",
+    value="1uF 10%",
+    package="0603",
+    voltage="50V",
+    dielectric="X5R",
+    mpn="CL10A105KB8NNNC",
+    manufacturer="Samsung Electro-Mechanics",
+    P1=GND,
+    P2=V3V3_D,
+)
+
+# Selector and its AC-coupled gate.
+AO3400A(name="Q1", G=GATE, S=EMITTER_SINK, D=LED_K)
+Resistor(name="R2", value="220Ohm 1%", package="0402", mpn="0402WGF2200TCE", manufacturer="UNI-ROYAL", P1=DRIVE, P2=PWM)
+Capacitor(
+    name="C2",
+    value="220nF 10%",
+    package="0402",
+    voltage="16V",
+    dielectric="X7R",
+    mpn="CL05B224KO5NNNC",
+    manufacturer="Samsung Electro-Mechanics",
+    P1=DRIVE,
+    P2=GATE,
+)
+Resistor(name="R3", value="22kOhm 1%", package="0402", mpn="0402WGF2202TCE", manufacturer="UNI-ROYAL", P1=GND, P2=GATE)
+D1N4148WS(name="D1", A=GND, K=GATE)
+
+Header(name="J1", P1=WALL_SENSOR, P2=GND, P3=V3V3_A, P4=V3V3_D, P5=EMITTER_SINK, P6=PWM)
+
+# Stackup: the encoder board's (boards/encoder/encoder.zen), 0.70 mm FR-4 core and 35 um copper,
+# 0.79 mm with Zener's 10 um mask a side; ordered as JLCPCB's 0.8 mm 2-layer board. Tracks 0.3 mm
+# (the emitter's 175 mA pulses), vias 0.3 / 0.6 mm (JLCPCB's no-surcharge drill), 0.15 mm
+# clearance. Finish: leaded HASL (KiCad "HAL SnPb"), as every Micras board (the owner's choice,
+# 2026-11-07: the v1 main board was ordered with HASL at JLCPCB and worked, and ENIG adds 16.80 USD
+# an order of panels). The straddle header's rows leave the board 0.04 mm a side (spec/wall.toml
+# pcb.thickness), but the 0.8 mm board's own thickness tolerance is larger than HASL's pad
+# unevenness, and JLCPCB prints no paste on J1 (assembly = "hand", parts/jlc.toml): the team pastes
+# and solders it itself. Green solder mask (JLCPCB's base price; black adds to the order) and white
+# silkscreen, as every Micras board (the owner's choice, 2026-11-07): the black 3D-printed case
+# round each wall board, not its mask, keeps stray light off the receiver. JLCPCB's
+# order options come from here (micras-pcb fab writes build/wall/fab/wall-order.txt).
+Board(
+    name="wall",
+    path="layout",
+    layers=2,
+    schematic=True,
+    config=BoardConfig(
+        design_rules=DesignRules(
+            constraints=Constraints(
+                copper=Copper(copper_to_edge_clearance=0.2),
+                solder_mask=SolderMask(clearance=0.02),
+            ),
+            netclasses=[
+                NetClass(
+                    name="Default",
+                    clearance=0.15,
+                    track_width=0.3,
+                    via_diameter=0.6,
+                    via_drill=0.3,
+                ),
+            ],
+        ),
+        stackup=Stackup(
+            copper_finish="HAL SnPb",
+            solder_mask_color="Green",
+            silk_screen_color="White",
+            materials=[Material(name="FR-4", relative_permittivity=4.5)],
+            thickness=0.79,
+            layers=[
+                CopperLayer(thickness=0.035, role="mixed"),
+                DielectricLayer(thickness=0.70, material="FR-4", form="core"),
+                CopperLayer(thickness=0.035, role="mixed"),
+            ],
+        ),
+    ),
+)

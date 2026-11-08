@@ -1,0 +1,63 @@
+== Range table (VS=3.3 V, midscale, linear out 0.05..VS-0.2 V)
+R=   5mOhm G= 10 k=0.050V/A +29.00A/-32.00A LSB16=1.007mA P@3Arms=  45mW P@29.0A=4.20W
+R=   5mOhm G= 20 k=0.100V/A +14.50A/-16.00A LSB16=0.504mA P@3Arms=  45mW P@14.5A=1.05W
+R=   5mOhm G= 50 k=0.250V/A + 5.80A/- 6.40A LSB16=0.201mA P@3Arms=  45mW P@5.8A=0.17W
+R=  10mOhm G= 10 k=0.100V/A +14.50A/-16.00A LSB16=0.504mA P@3Arms=  90mW P@14.5A=2.10W
+R=  10mOhm G= 20 k=0.200V/A + 7.25A/- 8.00A LSB16=0.252mA P@3Arms=  90mW P@7.2A=0.53W
+R=  10mOhm G= 50 k=0.500V/A + 2.90A/- 3.20A LSB16=0.101mA P@3Arms=  90mW P@2.9A=0.08W
+R=  20mOhm G= 10 k=0.200V/A + 7.25A/- 8.00A LSB16=0.252mA P@3Arms= 180mW P@7.2A=1.05W
+R=  20mOhm G= 20 k=0.400V/A + 3.62A/- 4.00A LSB16=0.126mA P@3Arms= 180mW P@3.6A=0.26W
+R=  20mOhm G= 50 k=1.000V/A + 1.45A/- 1.60A LSB16=0.050mA P@3Arms= 180mW P@1.4A=0.04W
+R=  40mOhm G= 10 k=0.400V/A + 3.62A/- 4.00A LSB16=0.126mA P@3Arms= 360mW P@3.6A=0.53W
+R=  40mOhm G= 20 k=0.800V/A + 1.81A/- 2.00A LSB16=0.063mA P@3Arms= 360mW P@1.8A=0.13W
+R=  40mOhm G= 50 k=2.000V/A + 0.72A/- 0.80A LSB16=0.025mA P@3Arms= 360mW P@0.7A=0.02W
+
+== Current TSC2020 board: R=40m G=20, k=0.8
+lin range +- 1.9374999999999998 A ; glitch 0.2V -> 250.0 mA
+D=0.1: on 1.0us off 9.0us; clean (>3us after edge) on 0.0us off 6.0us
+D=0.3: on 3.0us off 7.0us; clean (>3us after edge) on 0.0us off 4.0us
+D=0.5: on 5.0us off 5.0us; clean (>3us after edge) on 2.0us off 2.0us
+D=0.7: on 7.0us off 3.0us; clean (>3us after edge) on 4.0us off 0.0us
+D=0.9: on 9.0us off 1.0us; clean (>3us after edge) on 6.0us off 0.0us
+one-sided glitch 0.3V x 2us per edge, 1 edge/period bias: 75.0 mA; 2 edges: 150.0 mA
+
+== Ripple (sign-magnitude, slow decay, tau>>T): dIpp = V*D*(1-D)*T/L ; max at D=0.5 = V*T/(4L)
+V=16.8 L=20uH f=100k: 2.10 App ; f=40k: 5.25 App
+V=16.8 L=50uH f=100k: 0.84 App ; f=40k: 2.10 App
+V=16.8 L=100uH f=100k: 0.42 App ; f=40k: 1.05 App
+V=16.8 L=300uH f=100k: 0.14 App ; f=40k: 0.35 App
+V=20 L=20uH f=100k: 2.50 App ; f=40k: 6.25 App
+V=20 L=50uH f=100k: 1.00 App ; f=40k: 2.50 App
+V=20 L=100uH f=100k: 0.50 App ; f=40k: 1.25 App
+V=20 L=300uH f=100k: 0.17 App ; f=40k: 0.42 App
+
+== Error budget, proposal: 10 mOhm WSK2512 0.5%, INA241A2 (G=20), VS=VDDA=3.3V, 16-bit ADC
+  gain: shunt tolerance (0.5%, removable by gain cal): 0.500%
+  gain: shunt TCR 35ppm/K x 40K: 0.140%
+  gain: INA241A gain error max: 0.010%
+  gain: INA241A gain drift 1ppm/K x40: 0.004%
+  gain: ADC gain error typ 15 LSB: 0.023%
+  gain RSS uncal 0.520% ; after gain cal (drop tolerance, keep 0.1% cal ref) 0.174%
+  offset: INA241A2 Vos drift 150nV/K x40K: 0.60 mA
+  offset: DC CMRR 150dB min x 20V: 0.06 mA
+  offset: thermal EMF <3uV/K x 2K: 0.60 mA
+  offset: ADC INL typ ~13 LSB: 3.27 mA
+  offset RSS 3.38 mA
+  noise per single conversion: amp 6.44 mA rms (no RC), ADC 0.82 mA rms
+   averaged over 2 independent samples: 4.59 mA rms
+   averaged over 8 independent samples: 2.30 mA rms
+   averaged over 80 independent samples: 0.73 mA rms
+  RC 100R/4.7nF fc=339kHz, amp noise 3.57 mA rms, group delay 0.47 us
+
+== Kelvin: shared copper Rcu in series with shunt gives gain error Rcu/Rshunt
+  Rcu=0.1mOhm: 40mOhm 0.25%  10mOhm 1.00%  5mOhm 2.00%
+  Rcu=0.25mOhm: 40mOhm 0.62%  10mOhm 2.50%  5mOhm 5.00%
+  Rcu=0.5mOhm: 40mOhm 1.25%  10mOhm 5.00%  5mOhm 10.00%
+
+== Kickback: 4pF CADC into C_filter
+  C=1.0nF: worst step 3.3V -> 13.20 mV; same-channel (dV~50mV) 200.0 uV
+  C=2.1999999999999997nF: worst step 3.3V -> 6.00 mV; same-channel (dV~50mV) 90.9 uV
+  C=4.7nF: worst step 3.3V -> 2.81 mV; same-channel (dV~50mV) 42.6 uV
+
+== DRV8874 IPROPI: AERR <0.4A +-30mA, 0.4-1A 7.5%, 1-2 6%, 2-4 5.5%; RIPROPI for 3.0V at 4A: 1666.6666666666667 Ohm
+== INA228 2 mOhm battery shunt: ADCRANGE=1 FS 20.48 A, LSB 39.0625 uA; ADCRANGE=0 FS 81.92 A; offset 1uV -> 0.5 mA; P@10A 0.2 W

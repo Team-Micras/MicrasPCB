@@ -1,0 +1,37 @@
+"""ESP32 flashing pads: six plated holes for a USB-serial adapter's wires, soldered once, or a 2x3
+1.27 mm header fitted by hand.
+
+Pads in the order of Espressif's ESP-Prog Program interface (ESP-Prog user guide, Program
+Interface: 1 ESP_EN, 2 VDD, 3 ESP_TXD, 4 GND, 5 ESP_RXD, 6 ESP_IO0), on the 2-row convention of
+KiCad's PinHeader_2x03 and of IDC ribbon sockets (odd pads 1, 3, 5 on one row, even 2, 4, 6 on the
+other, 1 and 2 side by side), so a 2x3 1.27 mm header in the holes takes the ESP-Prog's 1.27 mm
+ribbon cable pin 1 to pad 1. TXD is the radio's UART0 transmit line (the adapter's RX), RXD its
+receive line (the adapter's TX), IO0 the download-mode strap (on the ESP32-C5, GPIO28), VDD the
+adapter's supply pin: what it feeds is the board's.
+
+Footprint: KiCad's PinHeader_2x03_P1.27mm_Vertical (kicad-footprint-generator,
+connector/pin_header_socket) with its 1.0 mm pads grown to 1.05 mm on the 0.65 mm drills, as
+components/micras/SwdHeader: a 0.2 mm ring against JLCPCB's 0.18 mm PTH minimum and 0.22 mm between
+pads (rules/jlcpcb.kicad_dru); pad 1 square, the silkscreen's pin-1 corner beside it. A 30 AWG
+wire (0.25 mm) or a 0.4 mm square header pin goes through a 0.65 mm hole. Not a purchased part:
+copper on the board, excluded from the BOM and the placement file. The footprint embeds KiCad's
+model of the 2x3 header all the same, so the layout's height checks see a header fitted in the
+holes.
+"""
+
+EN = io(Net, help="pad 1: the radio's EN (reset)")
+VDD = io(Power, help="pad 2: the adapter's supply pin")
+TXD = io(Net, help="pad 3: the radio's UART0 TX")
+GND = io(Ground)
+RXD = io(Net, help="pad 5: the radio's UART0 RX")
+IO0 = io(Net, help="pad 6: the download-mode strap")
+
+Component(
+    name="J",
+    prefix="J",
+    symbol=Symbol(library="EspProgPads.kicad_sym"),
+    footprint=File("EspProgPads_2x03_P1.27mm.kicad_mod"),
+    pins={"Pin_1": EN, "Pin_2": VDD, "Pin_3": TXD, "Pin_4": GND, "Pin_5": RXD, "Pin_6": IO0},
+    skip_bom=True,
+    skip_pos=True,
+)

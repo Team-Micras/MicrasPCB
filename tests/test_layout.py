@@ -1,17 +1,19 @@
 """Layout checks on every board: decoupling next to its pin, the encoder joint's slot, fab hygiene.
 
 The placement-dependent checks skip, with the reason, while a board's layout has no outline: until
-then the footprints sit where the netlist sync packed them, which says nothing about the design.
+then the footprints sit where the netlist sync packed them, which says nothing about the design. A
+schematic-only board (no layout file, Project(layout = False)) is not listed at all.
 """
 
 import json
 import math
+import re
 import shutil
 import tomllib
 
 import pytest
-from micras_pcb import layout, sexpr, spec
-from micras_pcb.paths import ROOT, board_pcb, boards, layout_dir
+from micras_pcb import jlc, layout, sexpr, spec
+from micras_pcb.paths import ROOT, board_pcb, layout_boards, layout_dir
 
 from .conftest import needs_kicad
 from .design import design
@@ -22,6 +24,13 @@ needs_pcb = pytest.mark.skipif(shutil.which("pcb") is None, reason="pcb not inst
 # (MPN prefix, pin names, count, capacitance range in F, source). count None: one capacitor per pad
 # (the STM32's five VDD pads); a number: that many capacitors at the pin group.
 PER_PAD = None
+# reach of the capacitors that cannot sit at their pin (mm, pad centre to pad centre; see below)
+REACH_C109, REACH_C108 = 15.5, 13.5
+REACH_VDDSMPS = 4.6  # mm: the main board's C2 (4.7 uF, the local input capacitor) from VDDSMPS (pin 6)
+# C1 (10 uF 0603) cannot sit in the 1.8 mm room between IC1 and the wall joint W3 (spec [ic1] block):
+# it stands just past the chip's right vertex, the nearest spot (AN5419 Table 2 asks only "close")
+REACH_VDDSMPS_BULK = 5.6  # mm: the main board's C1 from VDDSMPS (pin 6)
+REACH_VFBSMPS = 7.5  # mm: the main board's C3/C4 from VFBSMPS (pin 7)
 DECOUPLING = [
     (
         "STM32H725",
@@ -31,37 +40,113 @@ DECOUPLING = [
         "AN5419 Rev 3 Table 2 p7: 100 nF per VDD pin, as close as possible",
     ),
     ("STM32H725", ("VDDA",), 1, (90e-9, 110e-9), "AN5419 Table 2 p7: 100 nF as close as possible to VDDA"),
+    # The SMPS (Direct SMPS supply): AN5419 asks for its capacitors "close" with no number; the
+    # main board's sit where its escape rows leave room (layout README, Open items). The reaches
+    # are its own, which may not grow.
+    (
+        "STM32H725",
+        ("VDDSMPS",),
+        1,
+        (4.2e-6, 5.2e-6),
+        "AN5419 Rev 3 Table 2 p8: 10 uF + 4.7 uF on VDDSMPS (best performance)",
+        REACH_VDDSMPS,
+    ),
+    (
+        "STM32H725",
+        ("VDDSMPS",),
+        1,
+        (9e-6, 11e-6),
+        "AN5419 Rev 3 Table 2 p8: 10 uF + 4.7 uF on VDDSMPS (best performance)",
+        REACH_VDDSMPS_BULK,
+    ),
+    (
+        "STM32H725",
+        ("VFBSMPS",),
+        2,
+        (9e-6, 11e-6),
+        "AN5419 Rev 3 Table 2 p8: 2 x 10 uF close to the inductor on the VFBSMPS side",
+        REACH_VFBSMPS,
+    ),
     ("STM32H725", ("VBAT",), 1, (90e-9, 110e-9), "AN5419 Table 2 p7: 100 nF close to the VBAT pin"),
     ("STM32H725", ("VCAP1",), 1, (90e-9, 110e-9), "AN5419 Figure 5 p10: 100 nF close to each VCAP pin"),
     ("STM32H725", ("VCAP2",), 1, (90e-9, 110e-9), "AN5419 Figure 5 p10: 100 nF close to each VCAP pin"),
     ("STM32H725", ("VCAP3",), 1, (90e-9, 110e-9), "AN5419 Figure 5 p10: 100 nF close to each VCAP pin"),
     ("LSM6DSV", ("Vdd",), 1, (90e-9, 110e-9), "DS13476 Rev 5 Table 2 note 1, Figure 27: 100 nF as near as possible"),
     ("LSM6DSV", ("Vdd_IO",), 1, (90e-9, 110e-9), "DS13476 Rev 5 Table 2 note 1, Figure 27: 100 nF as near as possible"),
-    (
-        "TSC2020",
-        ("VCC",),
-        1,
-        (90e-9, 110e-9),
-        "DS14393 Rev 7 section 5.11: 100 nF as close as possible to the supply pins",
-    ),
-    (
-        "L6205",
-        ("VSA", "VSB"),
-        1,
-        (90e-9, 220e-9),
-        "L6205 p12: 100-200 nF ceramic between VSA/VSB and ground near the L6205",
-    ),
     ("STSPIN958", ("VS",), 2, (420e-9, 520e-9), "DS14341 Rev 1 section 8, Table 12: 2 x 470 nF close to the VS pins"),
     ("STSPIN958", ("VDD",), 1, (198e-9, 242e-9), "DS14341 Rev 1 section 8, Table 12: 220 nF close to VDD"),
+    (
+        "INA241",
+        ("VS",),
+        1,
+        (90e-9, 110e-9),
+        "SBOSA30D sections 8.3.1, 8.4.1: 0.1 uF as close as possible to the supply and ground pins",
+    ),
+    (
+        "DRV8874",
+        ("VM",),
+        1,
+        (90e-9, 110e-9),
+        "SLVSF66A Table 1, section 10.1: CVM1 0.1 uF from VM to GND close to the pins",
+    ),
+    (
+        "ADP7142",
+        ("VIN",),
+        1,
+        (2.2e-6, 22e-6),
+        "ADP7142 Rev H Table 2, p20: >= 2.2 uF input capacitor close to the pins",
+    ),
+    (
+        "ADP7142",
+        ("VOUT",),
+        1,
+        (2.2e-6, 22e-6),
+        "ADP7142 Rev H Table 2, p20: >= 2.2 uF output capacitor close to the pins",
+    ),
+    (
+        "L6981",
+        ("VIN",),
+        1,
+        (0.9e-6, 11e-6),
+        "DS13554 Rev 3 Table 2 p4: CIN 10 uF; Figure 32 (application board): beside the chip",
+    ),
+    (
+        "L6981",
+        ("VCC",),
+        1,
+        (0.9e-6, 1.1e-6),
+        "DS13554 Rev 3 Table 2 p4: CVCC 1 uF VCC bypass; Figure 32: beside the chip",
+    ),
+    # The module's 3V3 pin (pad 3) faces the board's side edge 1.6 mm away, between the antenna end
+    # and the ground pads: no capacitor fits within reach of it, so its two sit off the module's
+    # front row and a 1 mm B.Cu strap with two vias at each end joins them to the pin (layout README,
+    # ESP32-C5). Their reach is the strap's, not 3 mm; it may not grow.
+    (
+        "ESP32-C5-MINI-1",
+        ("3V3",),
+        1,
+        (20e-6, 24e-6),
+        "ESP32-C5-MINI-1 datasheet Figure 9-1: 22 uF + 0.1 uF on 3V3",
+        REACH_C109,
+    ),
+    (
+        "ESP32-C5-MINI-1",
+        ("3V3",),
+        1,
+        (90e-9, 110e-9),
+        "ESP32-C5-MINI-1 datasheet Figure 9-1: 22 uF + 0.1 uF on 3V3",
+        REACH_C108,
+    ),
 ]
 # Not listed: the AS5047U in 3.3 V mode. Its datasheet (v1-00 p11, Figure 11) asks "close to chip"
 # only for the 1 uF of the 5 V LDO mode; the 3.3 V mode drawing just shows 100 nF on VDD.
 # The datasheets give no number for "close". This project reads it as: the capacitor's nearest pad
 # centre within 3 mm of the pin's pad centre, which puts an 0402 beside the pin with one via (the
-# previous main board's LSM6DSV capacitors sit 2.1-2.5 mm from the part).
+# Altium MicrasMainBoard's LSM6DSV capacitors sit 2.1-2.5 mm from the part).
 MAX_DECOUPLING_MM = 3.0
 
-LAYOUT_BOARDS = boards()
+# A schematic-only board (no .kicad_pcb yet) has nothing to check here.
+LAYOUT_BOARDS = layout_boards()
 
 
 def _placed(board: str) -> layout.Board:
@@ -91,15 +176,16 @@ def _match(groups: list[list[str]]) -> dict[int, str]:
 
 
 def decoupling_findings(board: str, pcb: layout.Board) -> list[str]:
-    """Every listed pin (group) gets its own capacitor within MAX_DECOUPLING_MM; one capacitor
-    serves one pin of a part."""
+    """Every listed pin (group) gets its own capacitor within MAX_DECOUPLING_MM (or the entry's own
+    reach); one capacitor serves one pin of a part."""
     d = design(board)
     problems = []
     for ref in sorted({r for mpn, *_ in DECOUPLING for r in d.refs(mpn)}):
-        wants = []  # (description, source, [(distance, cap)] in range on the pin's rail)
-        for mpn, names, count, (lo, hi), source in DECOUPLING:
+        wants = []  # (description, source, [(distance, cap)] in range on the pin's rail, reach)
+        for mpn, names, count, (lo, hi), source, *reach in DECOUPLING:
             if ref not in d.refs(mpn):
                 continue
+            lim = reach[0] if reach else MAX_DECOUPLING_MM
             numbers = [n for name in names for n in d.pads(ref, name)]
             if not numbers:
                 problems.append(f"{ref} has no pin named {'/'.join(names)}")
@@ -113,9 +199,10 @@ def decoupling_findings(board: str, pcb: layout.Board) -> list[str]:
                     if value is not None and lo <= value <= hi and cap in pcb.footprints:
                         dist = min(math.dist(a.xy, c.xy) for a in pads for c in pcb.footprints[cap].pads if c.net)
                         options.append((dist, cap))
-                wants.append((f"{ref} {'/'.join(names)} (pad {', '.join(group)}, {rail})", source, sorted(options)))
-        matched = _match([[cap for dist, cap in opts if dist <= MAX_DECOUPLING_MM] for _, _, opts in wants])
-        for i, (where, source, options) in enumerate(wants):
+                where = f"{ref} {'/'.join(names)} (pad {', '.join(group)}, {rail})"
+                wants.append((where, source, sorted(options), lim))
+        matched = _match([[cap for dist, cap in opts if dist <= lim] for _, _, opts, lim in wants])
+        for i, (where, source, options, lim) in enumerate(wants):
             if i in matched:
                 continue
             if not options:
@@ -123,7 +210,7 @@ def decoupling_findings(board: str, pcb: layout.Board) -> list[str]:
             else:
                 dist, cap = options[0]
                 problems.append(
-                    f"{where}: no capacitor of its own within {MAX_DECOUPLING_MM} mm (nearest {cap} at {dist:.1f} mm); {source}"
+                    f"{where}: no capacitor of its own within {lim} mm (nearest {cap} at {dist:.1f} mm); {source}"
                 )
     return problems
 
@@ -134,6 +221,128 @@ def decoupling_findings(board: str, pcb: layout.Board) -> list[str]:
 def test_decoupling_sits_at_its_pin(board):
     pcb = _placed(board)
     problems = decoupling_findings(board, pcb)
+    assert not problems, "\n".join(problems)
+
+
+# Bypass capacitors whose loop the datasheet wants on the IC's own layer, with no via between the
+# capacitor and the pin (TI SLVA959B section 5.3.1; DRV8874 SLVSF66A section 10.1 and Figure 37):
+# the capacitor DECOUPLING matches to such a pin has its rail pad joined to the pin by copper of the
+# pin's layer alone (tracks and pours of the rail on that layer, no via).
+DECOUPLING_SAME_LAYER = [("DRV8874", ("VM",))]
+
+
+def _layer_zones(board: str) -> list[tuple[str, list[str], list[tuple[float, float]]]]:
+    """The board's pours (net, layers, outline): rule areas and teardrops left out."""
+    root = sexpr.parse(board_pcb(board).read_text())
+    out = []
+    for z in root.children("zone"):
+        if z.child("keepout") or (z.child("attr") and z.child("attr").child("teardrop")):
+            continue
+        name = z.child("net_name") or z.child("net")
+        layers = (z.child("layers") or z.child("layer")).atoms()
+        pts = [(float(a), float(b)) for a, b in (q.atoms() for q in z.child("polygon").child("pts").children("xy"))]
+        out.append((name.atoms()[-1] if name else "", layers, pts))
+    return out
+
+
+def _in_poly(p: tuple[float, float], poly: list[tuple[float, float]]) -> bool:
+    x, y = p
+    hit = False
+    for (x0, y0), (x1, y1) in zip(poly, poly[1:] + poly[:1], strict=True):
+        if (y0 > y) != (y1 > y) and x < x0 + (y - y0) * (x1 - x0) / (y1 - y0):
+            hit = not hit
+    return hit
+
+
+def _seg_point(p, a, b) -> float:
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    L = dx * dx + dy * dy
+    u = 0.0 if L == 0 else max(0.0, min(1.0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L))
+    return math.dist(p, (a[0] + u * dx, a[1] + u * dy))
+
+
+def same_layer_findings(board: str, pcb: layout.Board) -> list[str]:
+    d = design(board)
+    zones = _layer_zones(board)
+    problems = []
+    for mpn, names in DECOUPLING_SAME_LAYER:
+        for ref in d.refs(mpn):
+            for name in names:
+                for num in d.pads(ref, name):
+                    pin = pcb.footprints[ref].pads_named(num)[0]
+                    layer = next(l_ for l_ in ("F.Cu", "B.Cu") if l_ in pin.layers)
+                    rail = pin.net
+                    # the capacitor of DECOUPLING's value range nearest the pin on the rail
+                    spec_ = next(e for e in DECOUPLING if mpn.startswith(e[0]) and name in e[1])
+                    lo, hi = spec_[3]
+                    caps = [
+                        c
+                        for c in d.two_terminal("capacitor", rail, "GND")
+                        if c in pcb.footprints and lo <= (d.value(c, "capacitance") or 0) <= hi
+                    ]
+                    if not caps:
+                        problems.append(f"{ref}.{num}: no capacitor on {rail}")
+                        continue
+                    cap = min(caps, key=lambda c: min(math.dist(p.xy, pin.xy) for p in pcb.footprints[c].pads))
+                    target = next(p for p in pcb.footprints[cap].pads if p.net == rail)
+                    # items of the rail on the layer: pads (inscribed circle), tracks, pours
+                    items = [
+                        ("pad", p.xy, min(p.size) / 2)
+                        for f in pcb.footprints.values()
+                        for p in f.pads
+                        if p.net == rail and (layer in p.layers or "*.Cu" in p.layers)
+                    ]
+                    items += [
+                        ("track", (t.start, t.end), t.width / 2)
+                        for t in pcb.tracks
+                        if t.net == rail and t.layer == layer
+                    ]
+                    items += [("zone", pts, 0.0) for n, layers, pts in zones if n == rail and layer in layers]
+
+                    def touch(a, b):
+                        (ka, ga, ra), (kb, gb, rb) = a, b
+                        if ka == "zone" and kb == "zone":
+                            return any(_in_poly(q, gb) for q in ga) or any(_in_poly(q, ga) for q in gb)
+                        if kb == "zone":
+                            a, b = b, a
+                            (ka, ga, ra), (kb, gb, rb) = a, b
+                        if ka == "zone":
+                            pts = [gb] if kb == "pad" else list(gb)
+                            return any(_in_poly(q, ga) for q in pts)
+                        if ka == "pad" and kb == "pad":
+                            return math.dist(ga, gb) <= ra + rb
+                        if ka == "track" and kb == "pad":
+                            a, b = b, a
+                            (ka, ga, ra), (kb, gb, rb) = a, b
+                        if ka == "pad":
+                            return _seg_point(ga, *gb) <= ra + rb
+                        return (
+                            min(_seg_point(q, *gb) for q in ga) <= ra + rb
+                            or min(_seg_point(q, *ga) for q in gb) <= ra + rb
+                        )
+
+                    start = next(i for i, it in enumerate(items) if it[0] == "pad" and it[1] == pin.xy)
+                    goal = next(i for i, it in enumerate(items) if it[0] == "pad" and it[1] == target.xy)
+                    seen, todo = {start}, [start]
+                    while todo:
+                        i = todo.pop()
+                        for j in range(len(items)):
+                            if j not in seen and touch(items[i], items[j]):
+                                seen.add(j)
+                                todo.append(j)
+                    if goal not in seen:
+                        problems.append(f"{ref}.{num} ({rail}): {cap} not joined to the pin on {layer} without a via")
+    return problems
+
+
+@needs_kicad
+@needs_pcb
+@pytest.mark.parametrize("board", LAYOUT_BOARDS)
+def test_decoupling_joins_its_pin_on_the_same_layer(board):
+    if not any(design(board).refs(mpn) for mpn, _ in DECOUPLING_SAME_LAYER):
+        pytest.skip(f"{board}: none of {[m for m, _ in DECOUPLING_SAME_LAYER]}")
+    pcb = _placed(board)
+    problems = same_layer_findings(board, pcb)
     assert not problems, "\n".join(problems)
 
 
@@ -399,7 +608,7 @@ def _silk_texts(node: sexpr.Node, owner: str = ""):
 # (<board>.zen Silkscreen), the stroke by `micras-pcb rules` (rules/kicad-severities.toml
 # [design.<board>]). KiCad's stroke font draws a text's stroke at most a quarter of its smaller
 # size, so the stroke that reaches the Gerbers is min(thickness, size / 4).
-@pytest.mark.parametrize("board", ["main", "bluetooth"])
+@pytest.mark.parametrize("board", ["main"])
 def test_silkscreen_text_meets_the_board_minimum(board):
     rules = json.loads((layout_dir(board) / f"{board}.kicad_pro").read_text())["board"]["design_settings"]["rules"]
     min_h, min_t = rules["min_text_height"], rules["min_text_thickness"]
@@ -425,3 +634,37 @@ def test_jlc_part_data_is_complete():
         if not e.get("source"):
             problems.append(f"{mpn}: no source")
     assert not problems, "\n".join(problems)
+
+
+@pytest.mark.parametrize("board", LAYOUT_BOARDS)
+def test_gerbers_cover_every_copper_layer(board):
+    # The fab zip must hold one gerber per copper layer: a 4-layer board exported with only F/B
+    # copper is built without its inner ground and supply planes.
+    pcb = board_pcb(board).read_text()
+    head = pcb[: pcb.index("(setup")]
+    declared = set(re.findall(r'\(\d+ "((?:F|B|In\d+)\.Cu)" (?:signal|power|mixed|jumper)\b', head))
+    exported = jlc.gerber_layers(board)
+    assert declared == {name for name in exported if name.endswith(".Cu")}
+    stackup = re.findall(r'\(layer "((?:F|B|In\d+)\.Cu)"\s*\(type "copper"\)', pcb)
+    assert declared == set(stackup), f"layer table {sorted(declared)} vs stackup {sorted(stackup)}"
+
+
+@needs_kicad
+@needs_pcb
+@pytest.mark.parametrize("board", LAYOUT_BOARDS)
+def test_jlc_bom_excludes_dnp(board, tmp_path):
+    # The assembler's BOM and CPL list the same parts: JLCPCB fits every BOM row, so a DNP part in
+    # the BOM (a 0 Ohm across a choke, a jumper's extended-part fee) would be fitted or charged.
+    rows, errors = jlc.jlc_bom(board)
+    assert not errors, "\n".join(errors)
+    bom = {d for row in rows for d in row["Designator"].split(",")}
+    members = [m for line in jlc.design_bom(board) for m in line["members"]]
+    dnp = sorted(bom & {m["designator"] for m in members if m.get("dnp")})
+    assert not dnp, f"DNP parts in the JLCPCB BOM: {', '.join(dnp)}"
+    # the parts the team solders by hand (assembly = "hand" in parts/jlc.toml) are placed but not ordered
+    hand = {d for row in jlc.hand_bom(board) for d in row["Designator"].split(",")}
+    assert not bom & hand, f"in both the JLCPCB BOM and the hand list: {sorted(bom & hand)}"
+    placed = {r["Ref"] for r in jlc.positions(board, tmp_path)} & {m["designator"] for m in members}
+    assert bom | hand == placed, (
+        f"BOM only: {sorted(bom - placed)}; placed but in no BOM: {sorted(placed - bom - hand)}"
+    )

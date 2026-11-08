@@ -1,0 +1,175 @@
+"""Board-level circuit checks of the wall-sensor board (the parts' own are in their package benches).
+
+The emitter's pulse current against its rating needs the main board's sink: the main board's
+bench emitter_pulse_within_rating checks it with the 3.3 Ohm emitter resistor its wall joints
+declare (components/micras/WallJoint, boards/main/test/test_sensors.zen), and this bench holds R1
+to that value. The selector and its AC-coupled gate are this board's (wall.zen).
+
+Sources: ams-OSRAM SFH 4550 v1.9 (p4: IF 100 mA DC max), AOS AO3400A Rev 3.1 (p2: VGS(th) 0.65 V
+min); the model research/next-revision/calculations/emitter/emitter_sink.py (emitter_sink_out.txt
+sections 1 and 2).
+"""
+
+WALL = Module("../wall.zen")
+
+# J1 pin -> net: odd pins on the front face, even behind them, pins 1-2 on the left seen from the
+# front (wall.zen; the main board's WallJoint pads 1-6 meet the same pins).
+PIN_MAP = {
+    "Pin_1": "Wall_Sensor",
+    "Pin_2": "GND",
+    "Pin_3": "3V3_A",
+    "Pin_4": "3V3_D",
+    "Pin_5": "EMITTER_SINK",
+    "Pin_6": "PWM",
+}
+# A pin held high must let the gate fall below VGS(th) min 0.65 V (AO3400A p2) in milliseconds, so
+# the emitter never carries the sink's current as DC (SFH 4550 p4: 100 mA); and the gate may fall
+# at most 5 % over the firmware's 150 us pulse (the model's margin, emitter_sink_out.txt section 1).
+TAU_MIN = 0.150e-3 / 0.05
+TAU_MAX = 10e-3
+
+
+def parts(module):
+    """Designator (the instance name: W1, Q1, R1, J1, ...) -> component."""
+    return {path.split(".")[-2]: c for path, c in module.components().items()}
+
+
+def nets_of(module):
+    """Net name -> the designators on it."""
+    out = {}
+    for net, ports in module.nets().items():
+        out[net] = sorted([path.split(".")[-2] for path, _ in ports])
+    return out
+
+
+def two_terminal(p, kind, a, z):
+    """Designators of `kind` parts with one pin on net a, the other on z."""
+    out = []
+    for ref, c in p.items():
+        if c.type != kind:
+            continue
+        ns = [n.name for n in c.pins.values()]
+        if len(ns) == 2 and sorted(ns) == sorted([a, z]):
+            out.append(ref)
+    return sorted(out)
+
+
+def capacitor_voltage_ratings(module, inputs):
+    # Every capacitor's rated voltage must cover the largest voltage across it, from the declared
+    # ranges of the nets it joins.
+    p = []
+    for path, c in module.components().items():
+        if c.type != "capacitor" or not hasattr(c, "voltage") or not c.voltage:
+            continue
+        vs = [n.voltage for n in c.pins.values()]
+        if len(vs) != 2 or not vs[0] or not vs[1]:
+            continue
+        worst = max(abs(vs[0].max - vs[1].min), abs(vs[1].max - vs[0].min))
+        if c.voltage.value < worst:
+            p.append(path + " rated " + str(c.voltage) + " sees up to " + str(worst) + " V")
+    check(len(p) == 0, "; ".join(p))
+
+
+def header_pin_map(module, inputs):
+    pins = parts(module)["J1"].pins
+    got = {pin: n.name for pin, n in pins.items()}
+    check(got == PIN_MAP, "J1 pin map " + str(got) + ", expected " + str(PIN_MAP))
+
+
+def emitter_path(module, inputs):
+    # 3V3_D -> R1 3.3 Ohm -> SFH 4550 anode; the cathode only to the selector's drain, whose source
+    # is J1's sink pin and reaches nothing else on this board.
+    p = parts(module)
+    w = p["W1"].pins
+    a, k = w["LED_A"].name, w["LED_K"].name
+    rs = two_terminal(p, "resistor", a, "3V3_D")
+    check(len(rs) == 1, "expected one emitter resistor from 3V3_D to " + a + ", found " + str(rs))
+    r = p[rs[0]].resistance.value
+    # The main board's sink and the joint's emitter_resistor are sized for 3.3 Ohm (wall.zen; the
+    # main board's bench checks the value against the pulse rating and the selector's headroom).
+    check(abs(r - 3.3) < 1e-6, rs[0] + " must be 3.3 Ohm, is " + str(r))
+    fets = [ref for ref in nets_of(module)[k] if ref.startswith("Q") and p[ref].pins["D"].name == k]
+    check(len(fets) == 1, "the cathode " + k + " needs one selector drain, found " + str(fets))
+    check(nets_of(module)[k] == sorted(fets + ["W1"]), "the cathode " + k + " must only reach the selector")
+    sink = parts(module)["J1"].pins["Pin_5"].name
+    if len(fets) == 1:
+        q = p[fets[0]]
+        check(q.pins["S"].name == sink, fets[0] + " source must be J1's sink pin " + sink + ", is " + q.pins["S"].name)
+        check(nets_of(module)[sink] == sorted(["J1", fets[0]]), sink + " must only join J1 and " + fets[0])
+
+
+def selector_gate_is_ac_coupled(module, inputs):
+    # The selector's gate reaches the PWM pin only through a series capacitor from the PWM's
+    # resistor, with a pull-down and a clamp from GND to the gate: a pin held high cannot keep the
+    # emitter on (wall.zen, Selector gate).
+    p = parts(module)
+    nets = nets_of(module)
+    pwm = p["J1"].pins["Pin_6"].name
+    k = p["W1"].pins["LED_K"].name
+    fets = [ref for ref in nets[k] if ref.startswith("Q") and p[ref].pins["D"].name == k]
+    if len(fets) != 1:
+        check(False, "no single selector on the cathode " + k + ": " + str(fets))
+        return
+    q = fets[0]
+    gate = p[q].pins["G"].name
+    problems = []
+    if gate == pwm or two_terminal(p, "resistor", pwm, gate):
+        problems.append(q + " gate is DC-coupled to " + pwm + ": a pin held high keeps the emitter on")
+    downs = two_terminal(p, "resistor", gate, "GND")
+    coupled = []
+    for ref in nets[gate]:
+        c = p[ref]
+        if c.type != "capacitor":
+            continue
+        ns = [n.name for n in c.pins.values()]
+        drive = ns[1] if ns[0] == gate else ns[0]
+        if drive != "GND" and two_terminal(p, "resistor", pwm, drive):
+            coupled.append(ref)
+    clamps = [
+        ref
+        for ref in nets[gate]
+        if ref.startswith("D") and p[ref].pins["K"].name == gate and p[ref].pins["A"].name == "GND"
+    ]
+    if len(coupled) != 1:
+        problems.append(q + " gate needs one series capacitor from " + pwm + "'s gate resistor, found " + str(coupled))
+    if len(downs) != 1:
+        problems.append(q + " gate needs one pull-down to GND, found " + str(downs))
+    if len(clamps) != 1:
+        problems.append(q + " gate needs a clamp diode from GND, found " + str(clamps))
+    if len(coupled) == 1 and len(downs) == 1:
+        tau = p[downs[0]].resistance.value * p[coupled[0]].capacitance.value
+        if tau < TAU_MIN or tau > TAU_MAX:
+            problems.append(q + ": " + downs[0] + " x " + coupled[0] + " = " + str(tau * 1e3) + " ms, outside 3-10 ms")
+    check(len(problems) == 0, "; ".join(problems))
+
+
+def emitter_supply_decoupled(module, inputs):
+    # 1 uF from 3V3_D to GND on the board, as the main board had beside each emitter resistor.
+    p = parts(module)
+    caps = two_terminal(p, "capacitor", "3V3_D", "GND")
+    check(len(caps) == 1, "expected one capacitor from 3V3_D to GND, found " + str(caps))
+    check(abs(p[caps[0]].capacitance.value - 1e-6) < 1e-12, caps[0] + " must be 1 uF")
+
+
+def receiver_leaves_as_a_current(module, inputs):
+    # The phototransistor's collector on 3V3_A and its emitter straight to J1: its load stays on
+    # the main board at the ADC, so the signal crosses the joint as a current.
+    w = parts(module)["W1"].pins
+    check(w["PT_C"].name == "3V3_A", "the receiver's collector must be on 3V3_A, is on " + w["PT_C"].name)
+    out = w["PT_E"].name
+    check(nets_of(module)[out] == ["J1", "W1"], "the receiver's output " + out + " must only reach J1 (no load here)")
+
+
+TestBench(
+    name="wall",
+    module=WALL,
+    test_cases={"default": {}},
+    checks=[
+        capacitor_voltage_ratings,
+        header_pin_map,
+        emitter_path,
+        selector_gate_is_ac_coupled,
+        emitter_supply_decoupled,
+        receiver_leaves_as_a_current,
+    ],
+)

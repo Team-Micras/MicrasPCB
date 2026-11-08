@@ -1,0 +1,75 @@
+"""MPL-AL5030-4R7 - 4.7 uH 20 % molded power inductor, MPS MPL-AL5030 (5.5 x 5.3 x 2.9 mm). Bare part.
+
+Datasheet: MPS MPL-AL5030-4R7 Rev. 1.1 (8/6/2019), the URL in pcb.toml (pages cited as p1-p5).
+Role: the series choke of the fan motor behind the STSPIN958 at 400 kHz (next-revision proposal,
+Fan): 4.7-10 uH, Isat at or above the REF current limit (up to 5 A), about 5 x 5 mm.
+
+Electrical (p1 Electrical Characteristics and General Specifications; p5 Ordering Information):
+- L 4.7 uH +-20 %, measured at 100 kHz, 100 mA.
+- RDC 33 mOhm typ, 36.5 mOhm max. Resonance 22 MHz typ.
+- IR 5.3 A typ: a 40 K coil rise, soldered on a single-layer 35 um copper, 30 x 50 mm board.
+- ISAT 8 A typ at a 30 % drop, the same at 25 C and 100 C ambient.
+- Operating -40 to +155 C including the rise. Flat-wire winding moulded into the core (MPS
+  webinar "Understanding Power Inductor Parameters" p26); the datasheet does not call it shielded.
+
+DC bias (p2 Figure "Inductance vs. Current", 25 C curve, typical part, digitised): 4.67 uH at 0 A,
+4.37 / 3.88 / 3.81 / 3.66 / 3.44 / 3.04 uH at 2 / 4 / 4.31 / 5 / 6 / 8 A. The curve crosses 3.76 uH
+(-20 % from 4.7 uH) at 4.55 A and 3.29 uH (-30 %) at 6.7 A, below the table's 8 A Isat. `isat_20`
+is 4.5 A from the curve; `isat` keeps the table's 8 A, and the curve's 6.7 A is the figure to
+design to.
+
+Thermal (p2 Figure "Temperature Rise vs. Current", DC on MPS's single-layer board): with the typical
+RDC and copper's 0.393 %/K the rise gives 37 K/W at 2.5-6 A and 40 K/W at 7 A.
+
+AC (core) loss: MPS publishes no loss model and no loss data for the MPL-AL in the datasheet or
+the webinar (its product page and inductor selector sit behind a bot challenge). Estimate: p3 Figure "Quality Factor vs. Frequency" gives Q 68 at 400 kHz, a
+small-signal AC resistance 2 pi f L / Q - RDC = 0.14 Ohm (half the 0.277 Ohm of Coilcraft's
+Document 267 model of the XGL5030-472); times that part's large-signal factor (Coilcraft's loss
+tool over its model, 2.83 x), about 35 mW x dIpp^2 at 400 kHz. Bound: twice the larger of
+Coilcraft's loss-tool values for its composite-powder 5030 4.7 uH chokes (XGL5030-472,
+XAL5030-472) at the same ripple and frequency, about 4 x the estimate (1.04 W at 2.74 A pp,
+400 kHz). Research calculations/fan/fan_choke_check.py has both.
+
+Mechanical (p4 Product Package and Dimensions): body 5.50 +-0.2 x 5.30 +-0.2 mm, height 2.90 +-0.2
+mm; two bottom terminals 4.30 +-0.3 mm long, 1.10 +-0.2 mm wide, 2.30 +-0.25 mm apart, along the
+5.50 mm side. Land pattern (p4): A 4.70 (pad length), B 2.0 (gap), C 4.50 mm (outer span), so
+1.25 x 4.70 mm pads at 3.25 mm pitch. The dot on the top marks the start of winding (p4 Top
+Marking): pad 1. MPS lays the start of winding on the switch node (webinar p23: fewer emissions
+and less audible noise).
+
+The `current` property is the lower of IR (40 K rise) and Isat (30 % drop), as for the other
+inductor packages in this registry.
+"""
+
+load("@stdlib/units.zen", "Current", "Inductance", "Resistance")
+load("@stdlib/utils.zen", "format_value")
+
+P1 = io(Net)  # pad 1, start of winding (top dot)
+P2 = io(Net)
+
+# p1 Electrical Characteristics, p5 Ordering Information.
+inductance = Inductance("4.7uH 20%")
+isat = Current("8A")  # 30 % drop, 25 C and 100 C (table; the p2 curve reaches 30 % at 6.7 A)
+isat_20 = Current("4.5A")  # 20 % below 4.7 uH on the p2 curve (4.55 A)
+irms = Current("5.3A")  # IR, 40 K rise
+current = Current("5.3A")
+dcr = Resistance("36.5mOhm")  # max; 33 mOhm typ
+
+Component(
+    name="MPL-AL5030-4R7",
+    prefix="L",
+    symbol=Symbol(library="MPL-AL5030-4R7.kicad_sym"),
+    footprint=File("L_MPS_MPL-AL5030.kicad_mod"),
+    part=Part(mpn="MPL-AL5030-4R7", manufacturer="MPS"),
+    pins={"1": P1, "2": P2},
+    properties={
+        "value": format_value(inductance, current),
+        "inductance": inductance,
+        "current": current,
+        "isat": isat,
+        "isat_20": isat_20,
+        "irms": irms,
+        "dcr": dcr,
+    },
+    type="inductor",
+)

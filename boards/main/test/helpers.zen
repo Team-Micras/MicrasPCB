@@ -82,3 +82,23 @@ def total(values):
 def report(problems):
     """One failure listing every problem, so a single run names every part to change."""
     check(len(problems) == 0, "; ".join(problems))
+
+
+def all_two_terminal(b, kind, a, z):
+    """As two_terminal, including the parts marked DNP (the options a board can fit)."""
+    out = []
+    for ref, c in b.parts.items():
+        if c.type != kind:
+            continue
+        ns = nets_of(c)
+        if len(ns) == 2 and ((ns[0] == a and ns[1] == z) or (ns[0] == z and ns[1] == a)):
+            out.append(ref)
+    return sorted(out)
+
+
+def series_to(b, name, target, max_ohms):
+    """True when net `name` reaches net `target` directly or through one resistor of at most
+    `max_ohms` that is fitted."""
+    if name == target:
+        return True
+    return len([r for r in two_terminal(b, "resistor", name, target) if ohms(b, r) <= max_ohms]) > 0

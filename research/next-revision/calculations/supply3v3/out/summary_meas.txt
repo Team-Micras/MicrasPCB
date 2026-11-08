@@ -1,0 +1,48 @@
+
+== a: (a) today: L6981C33, ~72 uF nominal (58 uF effective assumed) on 3V3, emitters on 3V3
+  3V3   before 3.3102 V  min in pulse 3.2879 V (droop    22.3 mV); at 75 us    14.3 mV, at 150 us    11.0 mV; p-p over frames    36.9 mV
+  VDDA  before 3.3098 V  min 3.2872 max 3.3185 (droop    22.7 mV, overshoot     8.7 mV); drop at 75 us    14.4 mV, at 150 us    11.1 mV; p-p    38.3 mV
+  I_LED at 75 us 168.50 mA, at 150 us 168.79 mA (change in scan window +0.17 %)
+  reading proxy I_LED/VDDA change across scan window +0.072 %
+
+== a_two: (a) today: L6981C33, ~72 uF nominal (58 uF effective assumed) on 3V3, emitters on 3V3
+  3V3   before 3.3000 V  min in pulse 3.2813 V (droop    18.7 mV); at 75 us     5.9 mV, at 150 us     1.1 mV; p-p over frames    37.2 mV
+  VDDA  before 3.2995 V  min 3.2801 max 3.3173 (droop    19.4 mV, overshoot    17.7 mV); drop at 75 us     5.9 mV, at 150 us     1.1 mV; p-p    38.5 mV
+  I_LED at 75 us 168.34 mA, at 150 us 168.76 mA (change in scan window +0.25 %)
+  reading proxy I_LED/VDDA change across scan window +0.104 %
+
+== a_esp: (a) today: L6981C33, ~72 uF nominal (58 uF effective assumed) on 3V3, emitters on 3V3
+  3V3   before 3.3102 V  min in pulse 3.2879 V (droop    22.3 mV); at 75 us    14.3 mV, at 150 us    11.0 mV; p-p over frames    65.0 mV
+  VDDA  before 3.3098 V  min 3.2872 max 3.3185 (droop    22.7 mV, overshoot     8.7 mV); drop at 75 us    14.4 mV, at 150 us    11.1 mV; p-p    67.3 mV
+  I_LED at 75 us 168.50 mA, at 150 us 168.79 mA (change in scan window +0.17 %)
+  reading proxy I_LED/VDDA change across scan window +0.072 %
+
+== b1: (b1) bulk at the Eq. 43 limit: 145 uF effective on 3V3
+  3V3   before 3.3142 V  min in pulse 3.2906 V (droop    23.6 mV); at 75 us    21.1 mV, at 150 us    14.9 mV; p-p over frames    31.5 mV
+  VDDA  before 3.3138 V  min 3.2901 max 3.3152 (droop    23.7 mV, overshoot     1.4 mV); drop at 75 us    21.3 mV, at 150 us    15.0 mV; p-p    31.6 mV
+  I_LED at 75 us 168.24 mA, at 150 us 168.79 mA (change in scan window +0.33 %)
+  reading proxy I_LED/VDDA change across scan window +0.136 %
+
+== b2: (b2) emitter reservoir: 3V3 -> 1 ohm -> 100 uF (eff) local bank -> emitters
+  3V3   before 3.3022 V  min in pulse 3.2978 V (droop     4.4 mV); at 75 us     4.2 mV, at 150 us     4.1 mV; p-p over frames     9.2 mV
+  VDDA  before 3.3017 V  min 3.2973 max 3.3029 (droop     4.4 mV, overshoot     1.2 mV); drop at 75 us     4.2 mV, at 150 us     4.0 mV; p-p     9.3 mV
+  I_LED at 75 us 158.43 mA, at 150 us 156.63 mA (change in scan window -1.14 %)
+  reading proxy I_LED/VDDA change across scan window -1.142 %
+
+== b3: (b3) (a) + VDDA from 3V3 through 10 ohm + 10 uF (RC instead of bead)
+  3V3   before 3.3102 V  min in pulse 3.2881 V (droop    22.1 mV); at 75 us    14.2 mV, at 150 us    11.0 mV; p-p over frames    36.7 mV
+  VDDA  before 3.2879 V  min 3.2825 max 3.2891 (droop     5.4 mV, overshoot     1.2 mV); drop at 75 us     5.2 mV, at 150 us     5.0 mV; p-p    10.3 mV
+  I_LED at 75 us 168.50 mA, at 150 us 168.79 mA (change in scan window +0.17 %)
+  reading proxy I_LED/VDDA change across scan window +0.163 %
+
+== c: (c) buck 5 V (44 uF eff) -> 1 A LDO 3.3 V (10 uF) -> whole board incl. emitters
+  3V3   before 3.2968 V  min in pulse 3.2765 V (droop    20.2 mV); at 75 us    -2.5 mV, at 150 us    -3.2 mV; p-p over frames    47.1 mV
+  VDDA  before 3.2961 V  min 3.2748 max 3.3236 (droop    21.3 mV, overshoot    27.5 mV); drop at 75 us    -2.6 mV, at 150 us    -3.4 mV; p-p    48.9 mV
+  I_LED at 75 us 168.79 mA, at 150 us 168.86 mA (change in scan window +0.04 %)
+  reading proxy I_LED/VDDA change across scan window +0.016 %
+
+== d: (d) separate rails: buck 3V3 digital; 5 V buck -> TPS7A20-class LDO 3V3A for VDDA + sensors; emitters from 5 V through constant-current sinks (170 mA)
+  3V3   before 3.3000 V  min in pulse 3.3000 V (droop     0.0 mV); at 75 us     0.0 mV, at 150 us     0.0 mV; p-p over frames    28.6 mV
+  VDDA  before 3.2999 V  min 3.2999 max 3.2999 (droop     0.0 mV, overshoot     0.0 mV); drop at 75 us     0.0 mV, at 150 us     0.0 mV; p-p     0.0 mV
+  I_LED at 75 us 170.00 mA, at 150 us 170.00 mA (change in scan window +0.00 %)
+  reading proxy I_LED/VDDA change across scan window +0.000 %

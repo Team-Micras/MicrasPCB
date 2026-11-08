@@ -21,10 +21,14 @@ spec geometry). Each check cites its source and names the parts in its failure m
 
 `boards/main/firmware.toml` is the firmware's pin map and drive settings. When MicrasFirmware
 changes them, regenerate it (`MICRAS_FIRMWARE=<checkout> uv run micras-pcb firmware snapshot`);
-`tests/test_firmware.py` then shows what the board must change. A board change the firmware
-must follow (a new ADC pin, a new input) goes in `boards/main/firmware_changes.toml`, which the
-tests apply on top of `firmware.toml` until MicrasFirmware has it; list it in the board README's
-"Firmware changes".
+`tests/test_main.py` then shows what the board must change. A board change the firmware
+must follow (a new ADC pin, a new input, a new drive mode) goes in
+`boards/<board>/firmware_changes.toml`, which the tests apply on top of `firmware.toml` until
+MicrasFirmware has it; list it in the board README's "Firmware changes".
+
+A new board can start as a schematic only: its root declares `Project(layout = False)` (no
+`Board()`), `make gen` writes no `.kicad_pcb`, and the layout gates skip it with that reason. When
+placement starts, `Project()` becomes `Board(...)` with the stackup and rules, and a spec joins.
 
 People own three things: footprint and pin-1 checks, placement and routing, and the fab order.
 Prepare these for review; never sign them off.
@@ -75,11 +79,68 @@ stay out of the BOM, the CPL and `parts/jlc.toml`.
 - `<board>-cpl-jlcpcb.csv`: Designator, Mid X, Mid Y, Layer, Rotation; KiCad's placement plus the
   part's `rotation` offset. Zener's own JLC export applies no rotation corrections, which is why
   this one exists.
+- `<board>-hand-assembly.csv`: the parts the team buys and solders itself, marked `assembly = "hand"`
+  (with `hand_why`) in `parts/jlc.toml`: they stay out of the JLCPCB BOM and CPL. The main board's
+  ST parts (sponsor), ESP32 module (AliExpress), through-hole parts and the extended parts that are
+  easy to solder by hand are on it, for an Economic PCBA order.
+- No paste on the hand parts: JLCPCB prints paste through every opening of the stencil it cuts from
+  the paste gerbers, so a hand part's pads would come back with reflowed solder bumps. The package's
+  `F.Paste`/`B.Paste` are plotted from a build copy of the board (or panel) whose hand footprints
+  carry no paste (`jlc.without_paste`: their pads leave the paste layers, their paste-only pads and
+  paste graphics go); the library footprints and the `.kicad_pcb` keep theirs.
+  `<board>-team-stencil.zip` holds the hand parts' paste alone, both faces with Edge.Cuts, outside
+  the JLCPCB package, for a stencil the team orders or cuts itself. `tests/test_fab.py` fails a
+  JLCPCB paste opening on a hand part's pad, a JLCPCB-placed part left without paste, and a team
+  stencil with any other part. Mark a part `assembly = "hand"` and both follow.
+- `<board>-order.txt`: the choices on JLCPCB's order page (`micras_pcb.order`): layers, size,
+  thickness, the finish and mask and silkscreen colours of the board's stackup (the Zener
+  `Board()` config; every board is leaded HASL, `copper_finish = "HAL SnPb"`, JLCPCB's "HASL(with
+  lead)", which `tests/test_fab.py` holds), the via class from `spec/<board>.toml` `pcb.via_drill`/`via_diameter` (the
+  board's smallest via, which `tests/test_fab.py` holds to the layout; JLCPCB charges for 0.2-0.25
+  mm holes in copper under 0.45 mm and for smaller holes) and `pcb.assembly`. `make quote` prices
+  the bare boards with them (JLCPCB's order calculator, online).
+
+A board under Economic PCBA's 10 x 10 mm single-board minimum is ordered as a panel: its spec gets
+a `[panel]` (`spec/wall.toml`: columns, spacing, frame, tab width, JLCPCB's mouse-bite figures,
+tooling holes, fiducials), and `make fab` builds it with KiKit (`micras_pcb.panel`, pinned in
+`versions.env`, installed by `ci/install-kikit.sh`) and writes `<board>-panel-gerbers.zip`,
+`-panel-bom-jlcpcb.csv` and `-panel-cpl-jlcpcb.csv` instead of the single board's: each copy's
+parts are `<ref>_<n>`, n from 0, with the part's rotation offset. The tab goes only on the middle
+of the board's top edge (`kikit_tabs.py`), and the boards keep their own outlines exactly.
+`tests/test_fab.py` fails a board with JLCPCB-placed parts under 10 x 10 mm without a panel
+(unless `pcb.assembly = "none"`), a panel whose CPL misses or moves a part, and a panel outline
+that differs from the boards' or holds them anywhere else.
 
 KiCad and JLCPCB disagree on the zero rotation of some packages, and no database of offsets is
 complete. The user checks each part once in JLCPCB's placement preview, then sets
 `rotation_verified = true` (fixing `rotation` first if needed). `make fab` lists the parts still
 unverified. Ordering is a manual upload: JLCPCB has no ordering API open to small teams.
+
+## Review outputs
+
+`make review` writes `build/<board>/review/` (`micras_pcb.outputs`: schematic PDF/SVG, layer SVGs,
+top/bottom/iso renders, GLB/STEP from the drill origin), then the assembly (`micras-pcb assembly`,
+`micras_pcb.assembly`), because KiCad Prism shows one board at a time:
+
+- `build/main/review/assembly.glb` / `assembly.step`: the main board with the four wall boards and
+  both encoder boards standing in their joints; origin at the robot's (the axle midpoint), x = -y
+  and y = x of the robot frame, z up.
+- `assembly-iso-left.png`, `assembly-iso-right.png` (from the front-left, front-right) and
+  `assembly-top.png`.
+- `build/main/assembly/`: the build copy of `main.kicad_pcb` with each daughterboard's STEP
+  (exported with its spec origin as the user origin) as an extra 3D model on its joint footprint
+  (W1-W4, EC1/EC2), and the daughterboards' own glTF the export is checked against.
+
+Every placement comes from the specs, never a copied number: a wall board's mid-plane over its
+joint's centre, its front (the sensor side) facing the joint's look direction (`spec/main.toml`
+`[w1]`-`[w4]`), v 0 (`spec/wall.toml`) on the main board's top; an encoder board's mid-plane on its
+slot's centre (`[encoder_slots]`), the shoulder on the main board's top, the chip facing the side
+where `[encoder_boards]` keeps room for its parts. Each becomes a model offset and rotation in the
+footprint's own frame (KiCad turns a model by Rz(-rz) Ry(-ry) Rx(-rx), then offsets it, 0.05 mm
+over the outer copper), edited into the copy with `micras_pcb.sexpr`. The command fails when the
+glTF export puts a daughterboard anywhere else, and warns when one reaches into the main board
+outside its joint or a part's model, or when its joint pads miss the footprint's;
+`tests/test_assembly.py` holds all of it (the export part only with `kicad-cli`).
 
 ## Schematic placement
 
@@ -216,9 +277,11 @@ not list.
 
 Origin, mechanically critical parts and the board outline come from `spec/<board>.toml`, every
 value `{value, source}`. `make gen` writes them into the layout (parts locked) and exports
-`build/<board>/<board>_mech.json` for MicrasHardware, micras-simulation and the firmware. The
-outlines are layout geometry (the boards keep their previous revisions'), and `micras-pcb mech`
-checks each has every interface feature of its spec (`spec/encoder.toml`: tab, reliefs, shoulder,
-tapers, corners, extents; `spec/main.toml`: encoder slots, screw holes, USB-C peg holes, fan hole,
-wheel notches, extents; `spec/bluetooth.toml`: extents, the HM-19's position). Change a mechanical number in the spec, never in the layout or in
-another repo; an outline change goes in both.
+`build/<board>/<board>_mech.json` for MicrasHardware, micras-simulation and the firmware. The main
+board's outline is the spec's (`spec/main.toml`: nose, wheel notches, encoder slots, fan hole,
+antenna and switch notches; `micras-pcb mech` draws it, `mech.OUTLINES`), and so is the wall
+board's (`spec/wall.toml`: bottom edge, sides, corners). The encoder's outline is
+layout geometry (the board keeps its previous revision's), and `micras-pcb mech` checks it has
+every interface feature of its spec (`spec/encoder.toml`: tab, reliefs, shoulder, tapers,
+corners, extents). Change a mechanical number in the spec, never in the layout or in another repo; a
+layout-owned outline change goes in both.

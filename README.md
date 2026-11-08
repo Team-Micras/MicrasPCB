@@ -7,8 +7,11 @@ CI.
 | Board | Status |
 |---|---|
 | `encoder`: AS5047U wheel encoder daughterboard, 2 layers, 0.79 mm | the previous revision's placement and routing, plus pull resistors on the sensor's SPI inputs; passes every check ([open items](boards/encoder/layout/README.md#open-items)) |
-| `main`: STM32H725 controller, power, motor and fan drivers, sensors, 4 layers, 1.04 mm | circuit with the design review's findings fixed, placed and routed; passes every gate ([known faults](boards/main/layout/README.md#known-faults)) |
-| `bluetooth`: HM-19 BLE module on a vertical USB-C plug that mates the main board's U2, 2 layers, 0.79 mm | placed and routed as the previous revision with its design review fixes (a CC signature for the main board's switched SBU supply, a RESETB pull-up); passes every gate ([known faults](boards/bluetooth/layout/README.md#known-faults)) |
+| `wall`: wall-sensor daughterboard (SFH 4550 over a TPS601A, upright, with the emitter's resistor and its AC-coupled selector, joined to the main board by a 2x3 1.27 mm header straddling its bottom edge), one per sensor, 2 layers, 0.79 mm, a paddle 16.0 mm high: 4.2 mm handle, 8.4 mm blade; JLCPCB fits the SMD parts on a 4-up panel, the sensor and header are hand-soldered | placed and routed, passes every check; the main board's wall joints W1-W4 take four ([open items](boards/wall/layout/README.md#open-items)) |
+| `main`: STM32H725 controller, 4S power, DRV8874 wheel bridges with INA241 current sensing, fan driver, sensors, ESP32-C5 dual-band radio and debug probe, no USB receptacle (bare pads on the C5's native USB) ([research/next-revision](research/next-revision/README.md)), 4 layers, 1.04 mm, 91.15 x 50 mm | placed and routed for the six-pin wall slots, the fan ring, the ESP32 flashing pads and USB pads: every connection routed, passes every check ([open items](boards/main/layout/README.md#open-items)) |
+
+The v1 main board and its HM-19 Bluetooth module, which plugged into the v1 board's USB-C port,
+are at the tag `v1` (e34fb9a).
 
 ## How it fits together
 
@@ -21,7 +24,7 @@ boards/<board>/schematic/*.toml ────────────────
                                                      │
           make check: build · warnings · tests · sync · spec · sch · ERC · LVS · previous · DRC · DFM · pytest · parts
                                                      │
-          make review: renders · schematic · layers · 3D · BOM · fab zip ──>  CI artifact
+          make review: renders · schematic · layers · 3D · assembly · BOM · fab zip ──>  CI artifact
 ```
 
 - **Zener owns the circuit.** Parts, nets, values, stackup and design rules are code, with
@@ -41,13 +44,23 @@ boards/<board>/schematic/*.toml ────────────────
   drafts into the file to adopt and adjust. The `micras-pcb` skill has the file format, the rules
   and the hints.
 - **`spec/` owns the mechanics.** `micras-pcb mech` writes the origin and the locked position of
-  mechanically critical parts (the encoder's sensor and tab, the main board's screw holes) into
-  the `.kicad_pcb`, and exports the board for the other repos. The Edge.Cuts outlines are layout
-  geometry (each board keeps its previous revision's); the spec checks their interface features
-  (the encoder's tab, shoulder, tapers and extents; the main board's encoder slots, holes,
-  notches, fan hole and extents; the Bluetooth module's extents). CI fails if the layout drifts.
+  mechanically critical parts (the encoder's sensor and tab, the wall board's sensor and header,
+  the main board's screw holes, battery switch, ESP32 module and wall sensors) into the
+  `.kicad_pcb`, and exports the board for the other repos. The main board's and the wall board's
+  Edge.Cuts outlines are the spec's (`micras-pcb mech` draws them: the main board's nose, wheel
+  notches, encoder slots, fan hole, antenna and switch notches; the wall board's bottom edge,
+  sides and corners), and so is the main board's silkscreen of the fan ring and the drive
+  blocks' outlines; the encoder's is layout
+  geometry (it keeps its previous revision's), and the spec checks its interface features (tab,
+  shoulder, tapers and extents). CI fails if the layout drifts.
 - **KiCad owns placement and routing**, which stay human-led.
 - **`parts/jlc.toml` owns sourcing**: MPN to LCSC number, basic/extended, placement rotation.
+- **The order options** come from where each is decided: finish and colours from the Zener
+  stackup, the via class and the assembly service from `spec/<board>.toml` `[pcb]` (a test holds
+  the via class to the layout's smallest via), and a board under JLCPCB's 10 x 10 mm assembly
+  minimum is ordered as the panel its spec's `[panel]` describes (KiKit, `make fab`). Every board is
+  leaded HASL. JLCPCB prints no paste on the parts the team solders itself (`assembly = "hand"`):
+  their paste goes to a separate stencil file (`micras-pcb` skill, JLCPCB outputs).
 
 ### Why Zener and KiCad
 
@@ -72,12 +85,12 @@ boards/<board>/schematic/*.toml ────────────────
   the JLCPCB BOM and CPL from it. JLCPCB's placement preview is the final word on each part's
   rotation (`rotation_verified`).
 - **Zener labels the nets between module sheets twice**: the main board's schematic has one
-  sheet per Zener module (`Project(..., layout = False)`), and pcb 0.4.81 puts a global label
-  beside each sheet pin and hierarchical label
+  sheet per Zener module (`Project(..., layout = False)`), and pcb 0.4.81 puts
+  a global label beside each sheet pin and hierarchical label
   ([diodeinc/pcb#1520](https://github.com/diodeinc/pcb/issues/1520)), so KiCad's ERC warns
   `same_local_global_label` and `multiple_net_names` on those nets. The placement keeps the global
   label at the pin and draws the hierarchical one in the sheet's ports column, wired to a copy of
-  the global one (`micras-pcb sch`). The board's
+  the global one (`micras-pcb sch`). Each board's
   `erc.toml` accepts these two warnings with that reason, and only them; they go away with a pcb
   release that includes [diodeinc/pcb#1522](https://github.com/diodeinc/pcb/pull/1522)
   ([known faults](boards/main/layout/README.md#known-faults)).
@@ -97,7 +110,7 @@ boards/<board>/schematic/*.toml ────────────────
 ```sh
 ./ci/install-kicad.sh                                                                # KiCad 10 from the PPA, see versions.env
 curl -fsSL https://raw.githubusercontent.com/diodeinc/pcb/main/install.sh | bash      # Zener toolchain launcher
-make setup                                                                            # uv env + pinned pcb toolchain
+make setup                                                                            # uv env + pinned pcb toolchain + KiKit
 ```
 
 Optional: the [Zener VS Code extension](https://docs.pcb.new/pages/vscode) shows a live
@@ -108,10 +121,13 @@ schematic preview of `.zen` files.
 ```sh
 make gen        # regenerate KiCad files from the sources (run after every source change)
 make check      # every gate CI runs, with a pass/FAIL summary
-make review     # build/<board>/review and fab: schematic PDF, layer SVGs, renders, GLB/STEP, fab package
-make fab        # build/<board>/fab: JLCPCB gerbers zip, BOM and CPL
+make review     # build/<board>/review and fab: schematic PDF, layer SVGs, renders, GLB/STEP, fab package,
+                #   and build/main/review/assembly.*: the main board with its wall and encoder boards in place
+make fab        # build/<board>/fab: JLCPCB gerbers zip (no paste on hand-soldered parts), BOM, CPL, order options
+                #   (the wall board's as a 4-up panel) and the team's stencil for the hand-soldered parts
 pcb open boards/encoder/encoder.zen     # open the layout in KiCad
 make parts-online   # JLCPCB stock and basic/extended status (run before ordering)
+make quote          # JLCPCB's bare-board price with each board's finish, colours and via class
 ```
 
 `make check` runs every gate below, even after one fails, then prints a pass/FAIL line per gate
@@ -126,17 +142,18 @@ and fails if any gate failed.
 | sch | `micras-pcb sch --check` | a placement entry, wire or hint naming what its sheet does not have, a sheet symbol too small for its pins, overlaps or items off the page, a placed sheet out of date with the sources; prints how many parts each sheet drafts |
 | ERC | `kicad-cli sch erc` | schematic electrical rules; `boards/<board>/erc.toml` names the nets supplied from off the board (the PWR_FLAG role) and the warnings a board accepts, rule by rule with the reason |
 | LVS | `micras-pcb lvs` | schematic and PCB connect different pads |
-| previous | `micras-pcb previous compare <board>` | a replicated board (main, encoder, bluetooth) connects or names anything differently from its previous revision, except the changes in `boards/<board>/changes.toml` |
+| previous | `micras-pcb previous compare <board>` | a replicated board (the encoder) connects or names anything differently from its previous revision, except the changes in `boards/<board>/changes.toml` |
 | DRC | `kicad-cli pcb drc` + `rules/jlcpcb.kicad_dru` | JLCPCB clearances (copper, SMD pad to pad, hole to track), widths, drills, edge distances |
 | DFM | `pcb dfm` + `rules/jlcpcb-pdk.toml` | geometry-level manufacturability (Diode's sourced JLCPCB PDK) |
-| pytest | `pytest` | board contracts (encoder joint, firmware pin map), power tree, every schematic item on its sheet's page, no overlapping texts, bodies or wires on a sheet, every board's schematic drafted whole from its Zener source (pcb's netlist, nothing overlapping), decoupling at the pin, encoder slot fit, routing style (every track straight at a multiple of 45 degrees, no arcs, no acute corners), courtyards, paste, 3D models, part data |
+| pytest | `pytest` | board contracts (encoder joint, firmware pin map), the assembly (each wall and encoder board standing where the specs put it, its pads on its joint's, clear of the main board and its parts), the fab package (every assembled board or its panel at least 10 x 10 mm, the panel's outlines, tabs and CPL, each board's via class), power tree, every schematic item on its sheet's page, no overlapping texts, bodies or wires on a sheet, every board's schematic drafted whole from its Zener source (pcb's netlist, nothing overlapping), decoupling at the pin, encoder slot fit, routing style (every track straight at a multiple of 45 degrees, no arcs, no acute corners), courtyards, paste, 3D models, part data |
 | lint | `ruff` | Python lint and format |
 | parts | `micras-pcb parts` | a part without an LCSC mapping |
 
-Every board passes every gate. The main board's and the Bluetooth module's READMEs
-([main](boards/main/layout/README.md#known-faults),
-[bluetooth](boards/bluetooth/layout/README.md#known-faults)) give the root cause of each warning
-that remains.
+Every board passes every gate once laid out. A schematic-only board (its root declares `Project(layout = False)`, so it has no
+`.kicad_pcb`) passes the schematic gates, and LVS, DRC, DFM, the layout tests and the gerber, CPL
+and 3D outputs skip it with that reason; `make fab` writes
+its BOM alone. The main board's README ([known faults](boards/main/layout/README.md#known-faults))
+gives the root cause of each warning that remains.
 
 ## CI
 
@@ -154,6 +171,13 @@ To look at a board, download the run's artifact, or open the project in KiCad
 folder as a project and shows the board's README from it (`boards/<board>/layout/README.md`).
 Each layout folder's `.prism.json` names the root schematic and the board, so Prism does not take
 the first sheet in the folder (main's `DRIVERS.kicad_sch`) as the root and drop it from the viewer.
+Prism shows one board at a time; the robot's boards together are in the run's artifact:
+`build/main/review/assembly.glb` and `assembly.step` (the main board with the four wall boards and
+both encoder boards standing in their joints, origin at the robot's) and the renders
+`assembly-iso-left.png`, `assembly-iso-right.png` (from the front-left and front-right) and
+`assembly-top.png`. `micras-pcb assembly` places each daughterboard from the specs on a build copy
+of the main board, as a 3D model on its joint footprint, and fails if KiCad's export puts it
+anywhere else.
 
 ## Working with Claude Code
 
@@ -172,21 +196,21 @@ boards/<board>/        <board>.zen, pcb.toml, layout/ (KiCad project: .kicad_pcb
 boards/<board>/schematic/  one placement file per schematic sheet (micras-pcb sch): parts, wires, frames, paper;
                        drafted entries marked auto = true
 boards/<board>/previous/  snapshot of the board's previous revision (board.json) for the connectivity comparison,
-                       and the scripts that build its layout from that revision (transfer_layout.py; main: rework.py)
-boards/main/layout/*.py  the one-off scripts that place and route the review fixes and the owner's layout
-                       decisions (fixes.py, refine.py, usb_wall.py, finish.py, rail_silk.py, octilinear.py, swd_top.py,
-                       wall_inside.py), and
-                       their 45-degree grid router (router.py)
+                       and the script that builds its layout from that revision (transfer_layout.py): the encoder
+boards/main/layout/*.py  the main board's placement, routing and silkscreen scripts (place.py, route.py, silk.py;
+                       its layout README says what each does) and their 45-degree grid router (router.py)
 boards/main/firmware.toml  the firmware's pin map and drive settings (from MicrasFirmware), tested against the board
 boards/main/firmware_changes.toml  the firmware changes the board needs, applied on top of firmware.toml in the tests
 boards/<board>/test/   Zener test benches of the board's circuit
 components/<mfr>/<P>/  reusable Zener packages: symbol, footprint (STEP embedded), .zen, test bench, README
-spec/                  mechanical single source of truth per board
+spec/                  mechanical single source of truth per board; main_chassis.json, the chassis's shadow over the
+                       main board from MicrasHardware's model (tools/chassis_shadow.py, run in that repo's environment)
 parts/jlc.toml         MPN -> LCSC mapping
 rules/                 JLCPCB KiCad DRC rules, DFM PDK, KiCad rule severities
-tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, outputs, previous, firmware, layout, schematic placement
-                       and drafts (`uv run micras-pcb --help`)
+tools/micras_pcb/      Python glue: mech, lvs, checks, jlc, panel, order, outputs, assembly, previous, firmware, layout,
+                       schematic placement and drafts (`uv run micras-pcb --help`)
 tests/                 pytest design tests
-ci/                    KiCad and toolchain install, for CI and local setup
-versions.env           pinned KiCad and Zener versions
+research/next-revision/ the main board's design research (entered as boards/main) and its calculation scripts
+ci/                    KiCad, toolchain and KiKit install, for CI and local setup
+versions.env           pinned KiCad, Zener, Freerouting and KiKit versions
 ```

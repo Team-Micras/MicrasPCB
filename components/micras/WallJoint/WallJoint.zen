@@ -1,0 +1,80 @@
+"""Micras wall joint: the main board's side of the joint with a wall-sensor board (boards/wall).
+
+A wall board stands upright on the main board, looking at the wall. Its 2x03 1.27 mm straight
+header (components/hanxia/HX-PZ1.27-2x3P-ZZ) straddles the board's bottom edge: the board stands
+between the header's two rows, its bottom edge on the 1.00 mm insulator, the short pins soldered
+to pads on both its faces; the 3.90 mm pins go down into the 6 plated holes here, soldered under
+the main board, and the insulator sits on the main board. No slot: the two rows of pins hold the
+board. The wall board carries the sensor, the emitter resistor with its decoupling, and the
+emitter's selector with its AC-coupled gate network; the main board keeps the shared emitter
+current sink and each receiver's load at its ADC. Pad n here takes the header's pin n:
+
+| Pad | Row, along the board | Pin | Main board net |
+|---|---|---|---|
+| 1 | front, left | OUT | the receiver's output: the ADC input and its load (Wall_Sensor_n) |
+| 2 | back, left | GND | GND |
+| 3 | front, middle | 3V3_A | 3V3_A (the receiver's collector) |
+| 4 | back, middle | 3V3_D | 3V3_D (the emitter supply) |
+| 5 | front, right | SINK | the shared constant-current sink's drain (EMITTER_SINK) |
+| 6 | back, right | PWM | the selector's TIM3 channel (Wall_Sensor_PWM_n) |
+
+Left and right as seen from the front of the wall board. The receiver's output sits at one corner;
+its neighbours, beside it, across the board and diagonally, are 3V3_A, GND and 3V3_D, so neither
+switching pin (PWM, SINK, at the other end) faces it or sits beside it.
+
+Geometry (spec/wall.toml [header] and [joint], the joint's single source):
+- Origin on the pattern's centre, under the wall board's mid-plane; the sensor looks along -y
+  (rotation 0: the robot's forward). The front row (odd pads) at y = -0.635, the back row (even) at
+  y = +0.635; along the row the pads sit at x = +1.27, 0, -1.27 for pins 1-2, 3-4, 5-6: the
+  header's pin 1 is on the board's left seen from the front, the robot's right.
+- Pads 1.10 mm round (pad 1 square) on 0.70 mm holes at 1.27 x 1.27 mm: the drawing recommends
+  0.65 mm holes; 0.70 mm keeps room for JLCPCB's -0.08 mm finished-hole tolerance against the
+  0.57 mm diagonal of the 0.40 mm pin. A 0.20 mm annular ring (JLCPCB's preferred for
+  multilayer boards, rules/jlcpcb-pdk.toml) and 0.17 mm between pads.
+- F.CrtYd: the header's 3.81 x 3.40 mm insulator, on which the wall board's 4.2 mm handle stands,
+  plus 0.25 mm: 4.31 x 3.9 mm. The wall board is a paddle (spec/wall.toml [outline]): its neck
+  widens from the 4.2 mm handle into the 8.4 mm blade, 3.06 mm or more over the main board outside
+  this courtyard, and its overhang beside the handle, the blade's width by the board with its
+  back-face parts (0.79 + 1.2 mm), is F.Fab here: main-board parts under it stay at or below
+  2.55 mm (spec/wall.toml joint.under_blade; tests/test_main_layout.py). F.SilkS draws
+  the insulator, the blade's front and pin 1.
+
+The emitter, its resistor and its selector sit on the wall board (its W1, R1 and Q1):
+`emitter_resistor` and `emitter_pulse_current` carry their values for the main board's emitter
+checks (tests/test_wall.py and tests/test_wall_joint.py compare them with the wall board's).
+
+Not a purchased part: copper on the main board, so it is excluded from the BOM and the placement
+file (the header is the wall board's).
+"""
+
+load("@stdlib/units.zen", "Current", "Resistance")
+
+PWM = io(Net)
+SINK = io(Net)
+V3V3_D = io(Power)
+GND = io(Ground)
+OUT = io(Net)
+V3V3_A = io(Power)
+
+Component(
+    name="JOINT",
+    prefix="W",
+    symbol=Symbol(library="WallJoint.kicad_sym"),
+    footprint=File("WallJoint_2x03_P1.27mm.kicad_mod"),
+    pins={
+        "PWM": PWM,
+        "SINK": SINK,
+        "3V3_D": V3V3_D,
+        "GND": GND,
+        "OUT": OUT,
+        "3V3_A": V3V3_A,
+    },
+    properties={
+        # boards/wall/wall.zen R1: 3V3_D to the SFH 4550 anode on the wall board.
+        "emitter_resistor": Resistance("3.3Ohm"),
+        # The wall board's SFH 4550 (components/micras/WallSensor emitter_pulse_current): TA = 25 C,
+        # D <= 0.2, tp <= 150 us (SFH 4550 v1.8 p.6, OHF05438).
+        "emitter_pulse_current": Current("380mA"),
+    },
+    skip_bom=True,
+)

@@ -116,9 +116,9 @@ mech encoder` checks its features (9.6 mm width, 13.1 mm top with 1 mm corner ra
 shoulder, the tapers to 7.457 mm, the 5.0 x 1.0 mm tab with 0.1 mm reliefs) and exports the layout
 outline to `build/encoder/encoder_mech.json`. The stackup is the PcbDoc's: 0.70 mm FR-4 core
 (Dk 4.5) and 35 um copper; with Zener's fixed 10 um solder mask a side it is 0.79 mm (Altium's
-12.7 um resist makes 0.7954 mm). It is ordered as JLCPCB's 0.8 mm 2-layer board, ENIG finish,
-black solder mask and white silkscreen (Zener's 2-layer defaults, the owner's choice). Solder mask
-expansion 0.02 mm, the Altium rule.
+12.7 um resist makes 0.7954 mm). It is ordered as JLCPCB's 0.8 mm 2-layer board, leaded HASL
+finish, green solder mask and white silkscreen (the stackup in `encoder.zen`, the owner's choices: the
+v1 main board was ordered with HASL and worked; green is JLCPCB's base price). Solder mask expansion 0.02 mm, the Altium rule.
 
 ## Differences from the Altium board
 

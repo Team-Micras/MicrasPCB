@@ -18,6 +18,40 @@ WallSensor(name="W1", LED_A=EMITTER_R, LED_K=EMITTER_SWITCH, PT_C=V3V3, PT_E=WAL
 | 3 | `PT_C` | TPS601A collector (TPS601A pin 2) |
 | 4 | `PT_E` | TPS601A emitter (TPS601A pin 1) |
 
+## Sourcing
+
+Both parts are bought separately and hand-soldered (`skip_bom`: not in the JLCPCB BOM). Prefer the
+TPS601A in rank A (light current 100-300 uA, Toshiba TPS601A(F) datasheet p.2): it keeps the
+unranked part's 100 uA minimum and bounds the top, so on the main board's 1 kOhm load a white wall
+under a spot-lit final's 1500 lux reads 16-48 % of full scale in the dark. The unranked TPS601A(F)
+has no upper bound on its light current, and rank C (400-1200 uA) saturates under 1500 lux
+([`ambient_light.py`](../../../research/next-revision/calculations/emitter/ambient_light.py): 41 % of
+full scale for the typical part, 191 % for rank C's maximum; rank A's band is the typical part's
+scaled to 100-300 uA).
+Rank A's availability is not confirmed; another rank still works under dimmer light.
+
+## Mounts
+
+The `mount` config picks the footprint; the pins are the same:
+
+| `mount` | Footprint | Use |
+|---|---|---|
+| `flat` (default) | `WallSensor_SFH4550_TPS601A_THT` | the leads bent 90 degrees on the board, the bodies lying on it (below) |
+| `upright` | `WallSensor_SFH4550_TPS601A_Upright` | on an upright board facing the wall (`boards/wall`): both flanges seated on its front face, the leads straight through it; origin on the TPS601A axis, the SFH 4550 axis 6.1 mm above it |
+
+```python
+WallSensor(name="W1", mount="upright", LED_A=LED_A, LED_K=LED_K, PT_C=V3V3_A, PT_E=WALL_SENSOR)
+```
+
+The upright footprint: 0.9 mm holes for the SFH 4550's 0.4-0.6 mm square leads, 0.75 mm for the
+TPS601A's round 0.45 mm leads, 1.5 / 1.4 mm pads; F.CrtYd both flanges at their largest and the
+TPS601A key tab (up-left, towards the SFH 4550), plus 0.25 mm; B.CrtYd the two pairs of lead
+joints, so parts fit between them on the back; F.SilkS the two flange outlines and the SFH's flat.
+Its 3D model (`WALL_SENSOR_UPRIGHT`) is MicrasHardware's bodies with straight leads, built by
+[`upright_model.py`](upright_model.py) and embedded; the standalone STEP is not kept.
+
+## Flat mount
+
 The footprint's pad numbers are not the manufacturers' lead numbers (the SFH 4550 land pattern calls
 the cathode pad 1; the TPS601A numbers its emitter 1). Fit the leads by function as in the table.
 The silkscreen draws a diode between pads 1 and 2 with its bar at pad 2, labels pad 2 "C" (LED
@@ -45,3 +79,8 @@ Sourcing and assembly:
   and CPL do not list it. Order 4 + 4 parts separately for a main board.
 
 The series resistor, the emitter switch and the phototransistor load are board circuitry.
+
+The component carries the SFH 4550's pulse rating for a board check: `emitter_pulse_current`
+(0.38 A, the datasheet's Permissible Pulse Handling Capability at TA = 25 C, D = 0.2, tp =
+150 us; it holds for any shorter pulse or lower duty, and falls with temperature, see the
+docstring).

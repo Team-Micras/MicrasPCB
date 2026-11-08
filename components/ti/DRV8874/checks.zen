@@ -1,0 +1,506 @@
+"""Datasheet requirements a board must meet around each DRV8874 (TI SLVSF66A). Not a circuit.
+
+A load() library for test benches: `drv8874_requirements` is a TestBench check that finds every
+DRV8874PWPR in the module under test and fails once with every problem found, each naming the
+driver and the parts to change. A board bench uses it as:
+
+    load("github.com/Team-Micras/MicrasPCB/components/ti/DRV8874/checks.zen", "drv8874_requirements")
+    TestBench(name="motor_drivers", module=MAIN, test_cases={"default": {}}, checks=[drv8874_requirements])
+
+`drv8874_problems(module)` returns the same list (the package's own bench uses it to show each
+rule fires), and `drv8874_settings(module)` returns each driver's decoded PMODE and IMODE levels
+and its ITRIP, so a board bench can also assert the modes and the current limit it designed for.
+
+Rules (SLVSF66A):
+- GND, PGND and PAD on one ground net (Pin Functions; section 10.1).
+- VM within 4.5-37 V when the net declares a voltage (section 6.3).
+- CVM1: a 0.1 uF ceramic from VM to GND; CVM2: a further bulk capacitor from VM to GND; both
+  rated for the highest VM (Table 1). Section 9.1 gives no bulk value: the board sizes it.
+- CVCP: 100 nF X5R/X7R rated 16 V or more from VCP to VM; CFLY: 22 nF X5R/X7R VM-rated from
+  CPH to CPL (Table 1, Pin Functions).
+- RIPROPI from IPROPI to GND (Table 1, section 7.3.3.1), unless IPROPI is tied to GND to
+  disable regulation, which needs VREF above GND (section 7.3.3.2).
+- VREF 0-3.6 V (section 6.3). Where VREF is a divider of a supply with a declared voltage (or a
+  net with a voltage) and RIPROPI is known: IPROPI current at ITRIP, VREF / RIPROPI, at most 3 mA
+  (section 6.3), and the highest ITRIP (equation 3, AIPROPI 450 uA/A with AERR -5.5 %, the
+  resistor and supply tolerances) at most the 6 A peak output current (section 6.3), so the
+  regulation acts below the OCP's 6 A minimum (section 6.5).
+- PMODE (tri-level, Table 2, section 6.5): tied to GND (<= 0.65 V, PH/EN), to a 1.5-5.5 V supply
+  (PWM), left open (independent half-bridge), driven by a controller, or resistors whose
+  divider with the internal 156 kOhm to 5 V and 44 kOhm to GND (typical, Figure 17) lands in
+  one of those windows (Hi-Z: 0.9-1.2 V).
+- IMODE (quad-level, Table 6, section 6.5): tied to GND (<= 0.45 V), 20 kOhm to GND (the
+  resistor's whole tolerance band in 18.6-21.4 kOhm), 62 kOhm to GND (57.6-66.4 kOhm), open or
+  2.5-5.5 V, or driven by a controller (levels 1 and 4 only).
+- nFAULT (open drain, Pin Functions; Table 1; section 6.3): when used, a pull-up resistor to a
+  supply of at most 5.5 V, the sum of the pull-up currents at most 5 mA.
+- nSLEEP: not tied low, left open or only pulled down (100 kOhm internal pull-down, section
+  6.5): the device would never leave sleep (Table 3). Logic pins tied to a supply: at most
+  5.5 V (section 6.3).
+"""
+
+MPN = "DRV8874PWPR"
+AIPROPI = 450e-6  # A/A typ, section 6.5
+AERR = 0.055  # 2-4 A, section 6.5
+PASSIVE = ["resistor", "capacitor", "inductor", "ferrite_bead"]
+CERAMIC_CP = ["X5R", "X7R"]  # Table 1
+
+
+def _eng(x, unit):
+    for scale, prefix in [(1e6, "M"), (1e3, "k"), (1, ""), (1e-3, "m"), (1e-6, "u"), (1e-9, "n"), (1e-12, "p")]:
+        if (x if x >= 0 else -x) >= scale * 0.9999:
+            s = str(int(x / scale * 100 + 0.5) / 100.0)
+            if s.endswith(".0"):
+                s = s[:-2]
+            return s + prefix + unit
+    return str(x) + unit
+
+
+def _index(module):
+    """designator -> component, net name -> [(designator, pin)], net name -> net."""
+    parts, nets, objs = {}, {}, {}
+    for path, c in module.components().items():
+        ref = path.rsplit(".", 1)[0] if "." in path else path
+        parts[ref] = c
+        for pin, n in c.pins.items():
+            if n.name == "":
+                continue
+            nets.setdefault(n.name, []).append((ref, pin))
+            # Keep the richest view of a net: a pin's io can demote a Power or Ground to a Net.
+            old = objs.get(n.name)
+            if old == None or n.type == "Ground" or (old.voltage == None and n.voltage != None):
+                objs[n.name] = n
+    return struct(parts=parts, nets=nets, objs=objs)
+
+
+def _drivers(b):
+    return sorted([ref for ref, c in b.parts.items() if c.mpn == MPN])
+
+
+def _net(b, ref, pin):
+    return b.parts[ref].pins[pin].name
+
+
+def _volts(b, name):
+    """(min, nominal, max) of a net with a declared voltage (0 V for a ground), else None."""
+    n = b.objs.get(name)
+    if n == None:
+        return None
+    if n.type == "Ground":
+        return (0.0, 0.0, 0.0)
+    if n.voltage == None:
+        return None
+    return (n.voltage.min, n.voltage.value, n.voltage.max)
+
+
+def _live(b, ref):
+    c = b.parts[ref]
+    return not c.dnp
+
+
+def _two_terminal(b, kind, a, z):
+    out = []
+    for ref, c in b.parts.items():
+        if c.type != kind or c.dnp or len(c.pins) != 2:
+            continue
+        ns = [n.name for n in c.pins.values()]
+        if (ns[0] == a and ns[1] == z) or (ns[0] == z and ns[1] == a):
+            out.append(ref)
+    return sorted(out)
+
+
+def _others(b, name, ref):
+    """(designator, pin) on the net other than the driver `ref`, DNP parts left out."""
+    return [(r, p) for r, p in b.nets.get(name, []) if r != ref and _live(b, r)]
+
+
+def _open(b, name, ref):
+    return name == "" or len(_others(b, name, ref)) == 0
+
+
+def _active(b, name, ref):
+    """Designators of non-passive parts on the net besides the driver (a controller, a connector)."""
+    return sorted([r for r, _ in _others(b, name, ref) if b.parts[r].type not in PASSIVE])
+
+
+def _resistors_on(b, name):
+    """[(designator, net at the other end)] of the live resistors on a net."""
+    out = []
+    for r, _ in b.nets.get(name, []):
+        c = b.parts[r]
+        if c.type == "resistor" and not c.dnp and len(c.pins) == 2:
+            ns = [n.name for n in c.pins.values()]
+            out.append((r, ns[1] if ns[0] == name else ns[0]))
+    return out
+
+
+def _parallel(values):
+    """(min, nominal, max) of resistances or capacitances in parallel."""
+
+    def combine(xs):
+        g = 0.0
+        for x in xs:
+            g += 1.0 / x
+        return 1.0 / g
+
+    return (combine([v.min for v in values]), combine([v.value for v in values]), combine([v.max for v in values]))
+
+
+def _rating(c):
+    return c.voltage.value if hasattr(c, "voltage") and c.voltage != None else None
+
+
+def _dielectric(c):
+    return c.dielectric.value if hasattr(c, "dielectric") and c.dielectric != None else None
+
+
+def _near(x, target, rel):
+    d = x - target
+    return (d if d >= 0 else -d) <= rel * target
+
+
+def _strap(b, ref, pin, rpu, rpd):
+    """Typical pin voltage of a strap made only of resistors to nets with a known voltage, with the
+    pin's internal pull-up `rpu` to 5 V and pull-down `rpd` (typical values), else None."""
+    name = _net(b, ref, pin)
+    g = 1.0 / rpu + 1.0 / rpd
+    i = 5.0 / rpu
+    for r, other in _resistors_on(b, name):
+        v = _volts(b, other)
+        if v == None:
+            return None
+        g += 1.0 / b.parts[r].resistance.value
+        i += v[1] / b.parts[r].resistance.value
+    for r, _ in _others(b, name, ref):
+        if b.parts[r].type != "resistor":
+            return None
+    return i / g
+
+
+def _pmode(b, ref):
+    """("L" | "H" | "HIZ" | "DRIVEN", None) or (None, problem)."""
+    name = _net(b, ref, "PMODE")
+    where = ref + " PMODE"
+    if _open(b, name, ref):
+        return ("HIZ", None)
+    v = _volts(b, name)
+    if v != None:
+        if v[2] <= 0.65:
+            return ("L", None)
+        if v[0] >= 1.5 and v[2] <= 5.5:
+            return ("H", None)
+        return (
+            None,
+            where
+            + " on "
+            + name
+            + " ("
+            + _eng(v[0], "V")
+            + "-"
+            + _eng(v[2], "V")
+            + ") is not a Table 2 level: <= 0.65 V, 1.5-5.5 V or open",
+        )
+    if _active(b, name, ref):
+        return ("DRIVEN", None)
+    vs = _strap(b, ref, "PMODE", 156e3, 44e3)
+    if vs == None:
+        return (None, where + " (" + name + ") is neither tied, open, driven nor a resistor strap to known voltages")
+    if vs <= 0.65:
+        return ("L", None)
+    if vs >= 0.9 and vs <= 1.2:
+        return ("HIZ", None)
+    if vs >= 1.5:
+        return ("H", None)
+    return (None, where + " strap sits at about " + _eng(vs, "V") + " (Figure 17 typical): between the Table 2 levels")
+
+
+def _imode(b, ref):
+    """(1 | 2 | 3 | 4 | "DRIVEN", None) or (None, problem)."""
+    name = _net(b, ref, "IMODE")
+    where = ref + " IMODE"
+    if _open(b, name, ref):
+        return (4, None)
+    v = _volts(b, name)
+    if v != None:
+        if v[2] <= 0.45:
+            return (1, None)
+        if v[0] >= 2.5 and v[2] <= 5.5:
+            return (4, None)
+        return (None, where + " on " + name + " is not a Table 6 level: <= 0.45 V or 2.5-5.5 V")
+    if _active(b, name, ref):
+        return ("DRIVEN", None)
+    res = _resistors_on(b, name)
+    others = _others(b, name, ref)
+    if not res or len(res) != len(others) or [r for r, o in res if _volts(b, o) != (0.0, 0.0, 0.0)]:
+        return (None, where + " (" + name + ") must be tied to GND, open, or one resistor to GND (Table 6)")
+    lo, nom, hi = _parallel([b.parts[r].resistance for r, _ in res])
+    if lo >= 18.6e3 and hi <= 21.4e3:
+        return (2, None)
+    if lo >= 57.6e3 and hi <= 66.4e3:
+        return (3, None)
+    return (
+        None,
+        where
+        + " resistor "
+        + _eng(lo, "Ohm")
+        + "-"
+        + _eng(hi, "Ohm")
+        + " is outside both Table 6 resistor levels (18.6-21.4 kOhm, 57.6-66.4 kOhm)",
+    )
+
+
+def _vref(b, ref):
+    """(min, nominal, max) VREF from a declared voltage or a resistor divider, else None."""
+    name = _net(b, ref, "VREF")
+    v = _volts(b, name)
+    if v != None:
+        return v
+    # Only a divider (and filter capacitors) on the net: a DAC or another driver makes it unknown.
+    if [r for r, _ in _others(b, name, ref) if b.parts[r].type not in ["resistor", "capacitor"]]:
+        return None
+    top, bottom = [], []
+    for r, other in _resistors_on(b, name):
+        ov = _volts(b, other)
+        if ov == None:
+            return None
+        if ov == (0.0, 0.0, 0.0):
+            bottom.append(b.parts[r].resistance)
+        else:
+            top.append((b.parts[r].resistance, ov))
+    if not top or len(dict([(str(ov), 0) for _, ov in top])) != 1:
+        return None
+    sv = top[0][1]
+    rt = _parallel([r for r, _ in top])
+    if not bottom:
+        return sv
+    rb = _parallel(bottom)
+    return (
+        sv[0] * rb[0] / (rb[0] + rt[2]),
+        sv[1] * rb[1] / (rb[1] + rt[1]),
+        sv[2] * rb[2] / (rb[2] + rt[0]),
+    )
+
+
+def _ripropi(b, ref):
+    """(min, nominal, max) of the resistance from IPROPI to GND, else None."""
+    name = _net(b, ref, "IPROPI")
+    res = [b.parts[r].resistance for r, o in _resistors_on(b, name) if o == _net(b, ref, "GND")]
+    return _parallel(res) if res else None
+
+
+def _itrip(vref, rip):
+    """(lowest, typical, highest) ITRIP from equation 3 with AERR and the tolerances."""
+    return (
+        vref[0] / (rip[2] * AIPROPI * (1 + AERR)),
+        vref[1] / (rip[1] * AIPROPI),
+        vref[2] / (rip[0] * AIPROPI * (1 - AERR)),
+    )
+
+
+def _grounds(b, ref):
+    g = _net(b, ref, "GND")
+    if _net(b, ref, "PGND") != g or _net(b, ref, "PAD") != g or b.objs[g].type != "Ground":
+        return [ref + ": GND, PGND and PAD must share one ground net (Pin Functions, section 10.1)"]
+    return []
+
+
+def _supply(b, ref):
+    p = []
+    vm, gnd = _net(b, ref, "VM"), _net(b, ref, "GND")
+    v = _volts(b, vm)
+    if v != None and (v[0] < 4.5 or v[2] > 37):
+        p.append(ref + " VM " + vm + " must stay within 4.5-37 V (section 6.3)")
+    caps = _two_terminal(b, "capacitor", vm, gnd)
+    cvm1 = [r for r in caps if _dielectric(b.parts[r]) and _near(b.parts[r].capacitance.value, 100e-9, 0.1)]
+    if not cvm1:
+        p.append(ref + " needs CVM1, a 0.1 uF ceramic from " + vm + " to " + gnd + " (Table 1)")
+    if not [r for r in caps if r not in cvm1[:1]]:
+        p.append(ref + " needs CVM2, bulk capacitance from " + vm + " to " + gnd + " (Table 1, section 9.1)")
+    for r in caps:
+        rating = _rating(b.parts[r])
+        if v != None and (rating == None or rating < v[2]):
+            p.append(r + " on " + ref + " VM must be rated for " + _eng(v[2], "V") + " (VM-rated, Table 1)")
+    return p
+
+
+def _charge_pump(b, ref):
+    p = []
+    vm = _net(b, ref, "VM")
+    v = _volts(b, vm)
+    for a, z, f, kind, rule in [("VCP", "VM", 100e-9, "CVCP", "16V"), ("CPH", "CPL", 22e-9, "CFLY", "VM")]:
+        na, nz = _net(b, ref, a), _net(b, ref, z)
+        found = _two_terminal(b, "capacitor", na, nz)
+        good = [r for r in found if _near(b.parts[r].capacitance.value, f, 0.1)]
+        if not good:
+            p.append(
+                ref
+                + " needs "
+                + kind
+                + ", "
+                + _eng(f, "F")
+                + " from "
+                + a
+                + " to "
+                + z
+                + " (Table 1), found "
+                + str(found)
+            )
+            continue
+        c = b.parts[good[0]]
+        if _dielectric(c) not in CERAMIC_CP:
+            p.append(good[0] + " (" + kind + " of " + ref + ") must be X5R or X7R (Table 1)")
+        need = 16.0 if rule == "16V" else (v[2] if v != None else None)
+        rating = _rating(c)
+        if need != None and (rating == None or rating < need):
+            p.append(good[0] + " (" + kind + " of " + ref + ") must be rated " + _eng(need, "V") + " or more (Table 1)")
+    return p
+
+
+def _current(b, ref):
+    p = []
+    ip, vref_net, gnd = _net(b, ref, "IPROPI"), _net(b, ref, "VREF"), _net(b, ref, "GND")
+    pmode, _ = _pmode(b, ref)
+    if ip == gnd:
+        if vref_net == gnd:
+            p.append(ref + ": IPROPI on GND disables regulation only with VREF above GND (section 7.3.3.2)")
+        return p
+    rip = _ripropi(b, ref)
+    if rip == None:
+        p.append(ref + " needs RIPROPI from IPROPI (" + ip + ") to GND (Table 1, section 7.3.3.1)")
+    if vref_net == gnd and pmode != "HIZ":
+        p.append(ref + ": VREF on GND sets ITRIP to 0 A (equation 3)")
+    vref = _vref(b, ref)
+    if vref == None:
+        return p
+    if vref[2] > 3.6:
+        p.append(ref + " VREF reaches " + _eng(vref[2], "V") + ", above the 3.6 V maximum (section 6.3)")
+    if rip == None:
+        return p
+    if vref[2] / rip[0] > 3e-3:
+        p.append(
+            ref
+            + " IPROPI sources "
+            + _eng(vref[2] / rip[0], "A")
+            + " at ITRIP (VREF / RIPROPI), above 3 mA (section 6.3)",
+        )
+    itrip = _itrip(vref, rip)
+    if itrip[2] > 6.0:
+        p.append(
+            ref
+            + " ITRIP reaches "
+            + _eng(itrip[2], "A")
+            + ", above the 6 A peak output current and the OCP minimum (sections 6.3, 6.5)"
+        )
+    return p
+
+
+def _modes(b, ref):
+    p = []
+    for decode in [_pmode, _imode]:
+        level, problem = decode(b, ref)
+        if problem:
+            p.append(problem)
+    return p
+
+
+def _logic(b, ref):
+    p = []
+    for pin, label in [
+        ("EN/IN1", "EN/IN1"),
+        ("PH/IN2", "PH/IN2"),
+        ("~{SLEEP}", "nSLEEP"),
+        ("PMODE", "PMODE"),
+        ("IMODE", "IMODE"),
+    ]:
+        v = _volts(b, _net(b, ref, pin))
+        if v != None and v[2] > 5.5:
+            p.append(
+                ref + " " + label + " is tied to " + _eng(v[2], "V") + ", above the 5.5 V logic maximum (section 6.3)"
+            )
+    name = _net(b, ref, "~{SLEEP}")
+    v = _volts(b, name)
+    stuck = _open(b, name, ref) or (v != None and v[2] <= 0.8)
+    if not stuck and v == None and not _active(b, name, ref):
+        # Driven through a series resistor from a controller, or pulled up to a logic supply.
+        highs = [
+            r
+            for r, o in _resistors_on(b, name)
+            if (_volts(b, o) != None and _volts(b, o)[0] >= 1.5) or (_volts(b, o) == None and _active(b, o, ref))
+        ]
+        stuck = not highs
+    if stuck:
+        p.append(
+            ref
+            + " nSLEEP ("
+            + (name or "open")
+            + ") is never driven high: the device stays asleep (100 kOhm pull-down, section 6.5; Table 3)"
+        )
+    return p
+
+
+def _fault(b, ref):
+    p = []
+    name = _net(b, ref, "~{FAULT}")
+    if _open(b, name, ref):
+        return p
+    if _volts(b, name) != None:
+        return [
+            ref + " nFAULT is open drain: pull it up through a resistor, never tie it to " + name + " (Pin Functions)"
+        ]
+    sink = 0.0
+    pullups = []
+    for r, other in _resistors_on(b, name):
+        v = _volts(b, other)
+        if v != None and v[2] > 0:
+            pullups.append(r)
+            sink += v[2] / b.parts[r].resistance.min
+            if v[2] > 5.5:
+                p.append(r + " pulls " + ref + " nFAULT up to " + _eng(v[2], "V") + ", above 5.5 V (section 6.3)")
+    if not pullups:
+        p.append(ref + " nFAULT (" + name + ") needs an external pull-up resistor (Pin Functions, Table 1)")
+    elif sink > 5e-3:
+        p.append(
+            ref
+            + " nFAULT pull-ups "
+            + str(pullups)
+            + " sink "
+            + _eng(sink, "A")
+            + " when asserted, above 5 mA (section 6.3, Table 1)"
+        )
+    return p
+
+
+def drv8874_problems(module):
+    """Every rule broken by every DRV8874 in the module, as messages naming the parts."""
+    b = _index(module)
+    p = []
+    for ref in _drivers(b):
+        p += _grounds(b, ref) + _supply(b, ref) + _charge_pump(b, ref) + _current(b, ref)
+        p += _modes(b, ref) + _logic(b, ref) + _fault(b, ref)
+    return p
+
+
+def drv8874_requirements(module, inputs):
+    """TestBench check: the module has a DRV8874 and every one meets the rules above."""
+    b = _index(module)
+    check(len(_drivers(b)) > 0, "no " + MPN + " in the module")
+    p = drv8874_problems(module)
+    check(len(p) == 0, "; ".join(p))
+
+
+def drv8874_settings(module):
+    """designator -> struct(pmode, imode, vref, ripropi, itrip): the decoded straps ("L", "H",
+    "HIZ", "DRIVEN"; 1-4, "DRIVEN"; None when illegal) and the (min, typ, max) VREF, RIPROPI and
+    ITRIP where the netlist determines them (None otherwise)."""
+    b = _index(module)
+    out = {}
+    for ref in _drivers(b):
+        vref, rip = _vref(b, ref), _ripropi(b, ref)
+        out[ref] = struct(
+            pmode=_pmode(b, ref)[0],
+            imode=_imode(b, ref)[0],
+            vref=vref,
+            ripropi=rip,
+            itrip=_itrip(vref, rip) if vref != None and rip != None else None,
+        )
+    return out

@@ -1,7 +1,8 @@
 """Apply a board's mechanical spec to its KiCad layout, and export it for the other repos.
 
 The spec owns the aux/grid origin and the position of the footprints it names (written locked),
-and the Edge.Cuts outline of the boards in `OUTLINES`. The other boards' outlines are layout
+and the Edge.Cuts outline of the boards in `OUTLINES`. The layout's zones are written in a
+canonical order (`zone_order`), so a regeneration is byte-stable. The other boards' outlines are layout
 geometry (the boards keep their previous revisions'): the spec checks the features other parts
 mate with (`FEATURES`). KiCad owns everything else: the remaining placement, routing and zones.
 
@@ -67,6 +68,51 @@ def encoder_outline(s: dict) -> list:
     return [*right, Line((hw - r, top), (-(hw - r), top)), *left]
 
 
+def wall_outline(s: dict) -> list:
+    """The wall board's Edge.Cuts in its spec frame (u right, v up), a paddle: the straight bottom
+    edge that rests on the header's insulator, the handle's sides, the neck (an inside arc tangent
+    to the handle's side, then a long outside arc tangent to the blade's side at neck_top), the
+    blade's sides and rounded top corners; counter-clockwise from the bottom edge."""
+    o, se = s["outline"], s["sensor"]
+    hw, bottom, top, r = o["width"] / 2, o["bottom"], o["top"], o["corner_radius"]
+    au = se["u"]
+    n = wall_neck(s)
+    hh, ht, t = o["handle_width"] / 2, n["handle_top"], n["tangent"]
+
+    def mid(c, rad, a, b):
+        """The midpoint of the shorter arc of circle (c, rad) from a to b."""
+        m = ((a[0] + b[0]) / 2 - c[0], (a[1] + b[1]) / 2 - c[1])
+        k = math.hypot(*m)
+        return (c[0] + m[0] / k * rad, c[1] + m[1] / k * rad)
+
+    c45 = math.sqrt(0.5)
+    vt = o["neck_top"]
+    right = [
+        Line((au - hh, bottom), (au + hh, bottom)),
+        Line((au + hh, bottom), (au + hh, ht)),
+        Arc((au + hh, ht), mid(n["inside_centre"], o["neck_inside_radius"], (au + hh, ht), t), t),
+        Arc(t, mid(n["outside_centre"], o["neck_radius"], t, (au + hw, vt)), (au + hw, vt)),
+        Line((au + hw, vt), (au + hw, top - r)),
+        Arc((au + hw, top - r), (au + hw - r * (1 - c45), top - r * (1 - c45)), (au + hw - r, top)),
+    ]
+    left = [_mirror(e) for e in reversed(right[1:])]
+    return [*right, Line((au + hw - r, top), (au - (hw - r), top)), *left]
+
+
+def wall_neck(s: dict) -> dict:
+    """The wall board's neck, right side (spec frame): the outside arc tangent to the blade's side
+    at neck_top, the inside arc tangent to it and to the handle's side, which ends at handle_top."""
+    o, au = s["outline"], s["sensor"]["u"]
+    hw, hh, vt = o["width"] / 2, o["handle_width"] / 2, o["neck_top"]
+    ro, ri = o["neck_radius"], o["neck_inside_radius"]
+    gap = hw - hh
+    ht = vt - math.sqrt(2 * gap * (ri + ro) - gap * gap)  # |inside centre - outside centre| = ri + ro
+    ci, co = (au + hh + ri, ht), (au + hw - ro, vt)
+    k = ri / (ri + ro)
+    t = (ci[0] + (co[0] - ci[0]) * k, ci[1] + (co[1] - ci[1]) * k)
+    return {"handle_top": ht, "inside_centre": ci, "outside_centre": co, "tangent": t}
+
+
 def _mirror(e):
     def m(p):
         return (-p[0], p[1])
@@ -78,7 +124,378 @@ def _mirror(e):
     return Bezier(m(e.b), m(e.c2), m(e.c1), m(e.a))
 
 
-OUTLINES: dict = {}  # boards whose Edge.Cuts outline the spec generates
+def _fillet(pts: list[tuple[float, float]], radii: list[float]) -> list:
+    """A closed polygon with each corner rounded by its radius (0: sharp), as Line/Arc elements in
+    order. Works for convex and concave corners alike: each arc is tangent to both edges."""
+    n = len(pts)
+    cuts = []  # (tangent point on the edge in, arc mid, tangent point on the edge out) per corner
+    for i, (v, r) in enumerate(zip(pts, radii, strict=True)):
+        a, b = pts[i - 1], pts[(i + 1) % n]
+        u1 = _unit((a[0] - v[0], a[1] - v[1]))
+        u2 = _unit((b[0] - v[0], b[1] - v[1]))
+        half = math.acos(max(-1.0, min(1.0, u1[0] * u2[0] + u1[1] * u2[1]))) / 2
+        if r <= 0:
+            cuts.append((v, None, v))
+            continue
+        d = r / math.tan(half)
+        p1, p2 = (v[0] + u1[0] * d, v[1] + u1[1] * d), (v[0] + u2[0] * d, v[1] + u2[1] * d)
+        bis = _unit((u1[0] + u2[0], u1[1] + u2[1]))
+        c = r / math.sin(half)  # vertex to the arc's centre, along the bisector
+        mid = (v[0] + bis[0] * (c - r), v[1] + bis[1] * (c - r))
+        cuts.append((p1, mid, p2))
+    out = []
+    for i, (p1, mid, p2) in enumerate(cuts):
+        if mid is not None:
+            out.append(Arc(p1, mid, p2))
+        nxt = cuts[(i + 1) % n][0]
+        if math.dist(p2, nxt) > 1e-9:
+            out.append(Line(p2, nxt))
+    return out
+
+
+def _unit(v: tuple[float, float]) -> tuple[float, float]:
+    d = math.hypot(*v)
+    return v[0] / d, v[1] / d
+
+
+def _ring(c: tuple[float, float], r: float) -> list:
+    """A circle as two half arcs."""
+    (x, y) = c
+    return [Arc((x + r, y), (x, y + r), (x - r, y)), Arc((x - r, y), (x, y - r), (x + r, y))]
+
+
+def _slot(c: tuple[float, float], length: float, width: float, angle: float = 0.0) -> list:
+    """A milled slot along x, turned by angle (degrees, counter-clockwise): straight sides,
+    half-circle ends (the cutter's width)."""
+    hl, hw = length / 2, width / 2
+    ca, sa = math.cos(math.radians(angle)), math.sin(math.radians(angle))
+
+    def p(x, y):
+        return (c[0] + x * ca - y * sa, c[1] + x * sa + y * ca)
+
+    return [
+        Line(p(-hl + hw, hw), p(hl - hw, hw)),
+        Arc(p(hl - hw, hw), p(hl, 0), p(hl - hw, -hw)),
+        Line(p(hl - hw, -hw), p(-hl + hw, -hw)),
+        Arc(p(-hl + hw, -hw), p(-hl, 0), p(-hl + hw, hw)),
+    ]
+
+
+def wall_joints(s: dict) -> dict[str, tuple[tuple[float, float], float]]:
+    """The wall joints in the robot frame, keyed by the joint footprint's instance path: (centre of
+    the 2x3 hole pattern, under the wall board's mid-plane; the direction the sensor looks in
+    degrees, counter-clockwise from forward)."""
+    return {
+        v["path"]: ((v["x"], v["y"]), v["rotation"])
+        for k, v in s.items()
+        if k[:1] == "w" and k[1:].isdigit() and isinstance(v, dict) and "path" in v
+    }
+
+
+def notch_box(s: dict, name: str) -> tuple[float, float, float, float]:
+    """A rear-corner notch of the main board ([switch_notch], [antenna_notch]) in the robot frame:
+    (x_min, x_max, y_min, y_max), on the side its spec names (left: y > 0, right: y < 0)."""
+    o, n = s["outline"], s[name]
+    r, hw = o["rear"], o["width"] / 2
+    if n["side"] == "left":
+        return r, r + n["depth"], hw - n["width"], hw
+    if n["side"] == "right":
+        return r, r + n["depth"], -hw, -hw + n["width"]
+    raise ValueError(f"[{name}] side must be left or right, not {n['side']!r}")
+
+
+def main_perimeter(s: dict) -> list:
+    """The main board's outer edge in the robot frame: the nose, the wheel notches, the antenna and
+    switch notches in the rear corners, the rounded corners."""
+    o, n = s["outline"], s["wheel_notches"]
+    f, r, hw = o["front"], o["rear"], o["width"] / 2
+    ni, nx, nr = n["inner_y"], n["half_length"], n["corner_radius"]
+    side = {s[k]["side"]: k for k in ("switch_notch", "antenna_notch")}
+    if sorted(side) != ["left", "right"]:
+        raise ValueError("[switch_notch] and [antenna_notch] must take one rear corner each")
+    left, right = side["left"], side["right"]
+    _, lx, ly, _ = notch_box(s, left)
+    _, rx, _, ry = notch_box(s, right)
+    lr, rr = s[left]["corner_radius"], s[right]["corner_radius"]
+    corners = [  # counter-clockwise from the front edge's right end (x forward, y left)
+        ((f, -o["nose_half_width"]), o["front_corner_radius"]),
+        ((f, o["nose_half_width"]), o["front_corner_radius"]),
+        ((o["nose_shoulder_x"], hw), o["shoulder_radius"]),
+        ((nx, hw), nr),
+        ((nx, ni), nr),
+        ((-nx, ni), nr),
+        ((-nx, hw), nr),
+        ((lx, hw), lr),
+        ((lx, ly), lr),
+        ((r, ly), lr),
+        ((r, ry), rr),
+        ((rx, ry), rr),
+        ((rx, -hw), rr),
+        ((-nx, -hw), nr),
+        ((-nx, -ni), nr),
+        ((nx, -ni), nr),
+        ((nx, -hw), nr),
+        ((o["nose_shoulder_x"], -hw), o["shoulder_radius"]),
+    ]
+    return _fillet([c for c, _ in corners], [rad for _, rad in corners])
+
+
+def main_outline(s: dict) -> list:
+    """The main board's Edge.Cuts in the robot frame: the perimeter (main_perimeter), the encoder
+    slots and the fan hole (the wall boards stand on their headers, through holes: no slot)."""
+    els = main_perimeter(s)
+    e = s["encoder_slots"]
+    for c in slots(s).values():
+        els += _slot(c, e["length"], e["width"])
+    els += _ring((s["fan_hole"]["x"], 0.0), s["fan_hole"]["diameter"] / 2)
+    return els
+
+
+def keepout_zones(s: dict) -> list[tuple[str, list[float]]]:
+    """The main board's zones of the chassis over the board, the drive blocks' and the encoder
+    boards': (name, [x_min, x_max, y_min, y_max, max_part_height])."""
+    return [*s["drive_blocks"].items(), *((f"encoder_{k}", v) for k, v in s["encoder_boards"].items())]
+
+
+# boards whose Edge.Cuts outline the spec generates: (outline in the spec frame, spec frame to KiCad)
+OUTLINES: dict = {
+    "main": (main_outline, lambda s, p: robot_to_kicad(s, p)),
+    "wall": (wall_outline, lambda s, p: _xy(s, p)),
+}
+
+
+# ---------------------------------------------------------------------------------------------
+# spec-drawn silkscreen: the fan ring and the drive blocks' outlines on the main board
+
+SILK_LAYER = "F.SilkS"
+SILK_EDGE = 0.3  # mm: a drawn line keeps this far inside the board's edge (the copper-to-edge 0.2 mm, plus margin)
+
+
+def _seg_distance(p, a, b) -> float:
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    L = dx * dx + dy * dy
+    u = 0.0 if L == 0 else max(0.0, min(1.0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L))
+    return math.dist(p, (a[0] + u * dx, a[1] + u * dy))
+
+
+def _inside(p, poly) -> bool:
+    x, y = p
+    hit = False
+    for (x0, y0), (x1, y1) in zip(poly, [*poly[1:], poly[0]], strict=True):
+        if (y0 > y) != (y1 > y) and x < x0 + (y - y0) * (x1 - x0) / (y1 - y0):
+            hit = not hit
+    return hit
+
+
+def clip_lines(lines: list[Line], keep, step: float = 0.01, min_piece: float = 1.0) -> list[Line]:
+    """The parts of each line where keep(point) holds; a piece cut from a longer line is dropped
+    when shorter than min_piece (a stub where a zone's edge meets the board's)."""
+    out = []
+    for ln in lines:
+        n = max(1, round(math.dist(ln.a, ln.b) / step))
+        pts = [(ln.a[0] + (ln.b[0] - ln.a[0]) * k / n, ln.a[1] + (ln.b[1] - ln.a[1]) * k / n) for k in range(n + 1)]
+        ok = [keep(q) for q in pts]
+        if all(ok):
+            out.append(ln)
+            continue
+        k = 0
+        while k <= n:
+            if not ok[k]:
+                k += 1
+                continue
+            j = k
+            while j + 1 <= n and ok[j + 1]:
+                j += 1
+            if math.dist(pts[k], pts[j]) >= min_piece:
+                out.append(Line(pts[k], pts[j]))
+            k = j + 1
+    return out
+
+
+SILK_PAD = (
+    0.2 + 0.075
+)  # mm: a drawn line's centre keeps the pad's mask margin and the silk clearance, plus half its width, off a pad
+
+
+def spec_pads(
+    s: dict, root: sexpr.Node | None, extra: tuple[str, ...] | list[str] = ()
+) -> list[tuple[tuple[float, float], float]]:
+    """The pads of the footprints the spec places (screw holes, slots, switch, module, wall joints)
+    in the robot frame, each as (centre, radius of its circumscribed circle), at the spec's
+    positions; and those of the footprints whose instance paths `extra` names, where the layout
+    put them."""
+    if root is None:
+        return []
+    want, slot_paths = placements(s), set(slots(s)) | set(extra)
+    out = []
+    for fp in root.children("footprint"):
+        path = fp.prop("Path")
+        if path not in want and path not in slot_paths:
+            continue
+        a = fp.child("at").atoms()
+        rot = float(a[2]) if len(a) > 2 else 0.0
+        at = _place_xy(s, want[path]) if path in want else (float(a[0]), float(a[1]))
+        t = math.radians(rot)
+        for pad in fp.children("pad"):
+            px, py = (float(v) for v in pad.child("at").atoms()[:2])
+            dx, dy = px * math.cos(t) + py * math.sin(t), -px * math.sin(t) + py * math.cos(t)
+            w, h = (float(v) for v in pad.child("size").atoms()[:2])
+            out.append((kicad_to_robot(s, (at[0] + dx, at[1] + dy)), math.hypot(w, h) / 2))
+    return out
+
+
+def _clip_circle(c: tuple[float, float], r: float, keep) -> list:
+    """The arcs of the circle where keep(point) holds, at RING_STEPS points; the whole circle as two
+    half arcs when it holds everywhere, and an arc under 1 mm dropped (as clip_lines does)."""
+    pts = [
+        (c[0] + r * math.cos(k * math.tau / RING_STEPS), c[1] + r * math.sin(k * math.tau / RING_STEPS))
+        for k in range(RING_STEPS)
+    ]
+    ok = [keep(q) for q in pts]
+    if all(ok):
+        return _ring(c, r)
+    start = ok.index(False)  # walk the circle from a clipped point, so no kept run wraps round
+    arcs, k = [], 0
+    while k < RING_STEPS:
+        if not ok[(start + k) % RING_STEPS]:
+            k += 1
+            continue
+        j = k
+        while j + 1 < RING_STEPS and ok[(start + j + 1) % RING_STEPS]:
+            j += 1
+        a, b = start + k, start + j
+        if (b - a) * math.tau / RING_STEPS * r >= 1.0:
+            arcs.append(Arc(pts[a % RING_STEPS], pts[((a + b) // 2) % RING_STEPS], pts[b % RING_STEPS]))
+        k = j + 1
+    return arcs
+
+
+def _outside_circles(ln: Line, centres: list[tuple[float, float]], r: float) -> list[Line]:
+    """The pieces of a line outside every circle of radius r round the centres (exact)."""
+    d = (ln.b[0] - ln.a[0], ln.b[1] - ln.a[1])
+    L2 = d[0] ** 2 + d[1] ** 2
+    cut = []
+    for c in centres:
+        f = (ln.a[0] - c[0], ln.a[1] - c[1])
+        b, cc = (f[0] * d[0] + f[1] * d[1]) / L2, (f[0] ** 2 + f[1] ** 2 - r * r) / L2
+        disc = b * b - cc
+        if disc > 0:
+            cut.append((-b - math.sqrt(disc), -b + math.sqrt(disc)))
+    pieces, t0 = [], 0.0
+    for u0, u1 in sorted(cut):
+        if u0 > t0:
+            pieces.append((t0, min(u0, 1.0)))
+        t0 = max(t0, u1)
+    if t0 < 1.0:
+        pieces.append((t0, 1.0))
+
+    def at(u: float) -> tuple[float, float]:
+        return (ln.a[0] + d[0] * u, ln.a[1] + d[1] * u)
+
+    return [Line(at(u0), at(u1)) for u0, u1 in pieces if u1 - u0 > 1e-9]
+
+
+def drive_block_footprint(s: dict, side: str) -> tuple[list[float], list[tuple[float, float]], float]:
+    """A drive block's footprint on the board (robot frame), from [silkscreen]: its plate
+    [x_min, x_max, y_min, y_max], its screw bosses' centres (the holes it names) and their radius."""
+    sk = s["silkscreen"]
+    bosses = [(s[h]["x"], s[h]["y"]) for h in sk[f"drive_block_bosses_{side}"]]
+    return sk[f"drive_block_plate_{side}"], bosses, sk["drive_block_boss_radius"]
+
+
+def drive_block_outlines(s: dict, root: sexpr.Node | None = None) -> dict[str, list]:
+    """Each drive block's outline on the main board (robot frame): the boundary of its footprint
+    (drive_block_footprint: the plate and the boss pads), as lines and arcs, inside the board and
+    SILK_EDGE in from its edge (the edge itself shows where the footprint meets it), and off the
+    spec-placed footprints' pads (spec_pads)."""
+    poly = chain(main_perimeter(s))
+    edges = list(zip(poly, [*poly[1:], poly[0]], strict=True))
+    pads = spec_pads(s, root)
+
+    def keep(q) -> bool:
+        if not _inside(q, poly) or min(_seg_distance(q, a, b) for a, b in edges) < SILK_EDGE:
+            return False
+        return all(math.dist(q, c) >= r + SILK_PAD for c, r in pads)
+
+    return {side: _footprint_outline(*drive_block_footprint(s, side), keep) for side in ("left", "right")}
+
+
+def _footprint_outline(plate: list[float], bosses: list[tuple[float, float]], r: float, keep) -> list:
+    """The boundary of a plate [x_min, x_max, y_min, y_max] united with circles of radius r round
+    the bosses, where keep(point) holds: the plate's edges outside the circles (cut exactly) and
+    each circle's arcs outside the plate and the other circles."""
+    x0, x1, y0, y1 = plate
+    eps = 1e-6
+
+    def in_plate(q) -> bool:
+        return x0 + eps < q[0] < x1 - eps and y0 + eps < q[1] < y1 - eps
+
+    def in_boss(q, skip) -> bool:
+        return any(math.dist(q, c) < r - eps for c in bosses if c != skip)
+
+    rect = [Line((x0, y0), (x1, y0)), Line((x1, y0), (x1, y1)), Line((x1, y1), (x0, y1)), Line((x0, y1), (x0, y0))]
+    els: list = clip_lines([pc for ln in rect for pc in _outside_circles(ln, bosses, r)], keep)
+    for c in bosses:
+        els += _clip_circle(c, r, lambda q, c=c: keep(q) and not in_plate(q) and not in_boss(q, c))
+    return els
+
+
+RING_STEPS = 3600  # the silk circles are clipped at 0.1 deg steps
+
+
+def ring_silk(s: dict, root: sexpr.Node | None = None) -> list:
+    """The fan ring's edge on the silkscreen: the circle as two half arcs, or, where a spec-placed
+    footprint's pad (spec_pads: IC1 straddles the ring) or a pad of a part [fan_ring] silk_breaks
+    names (at its layout position) comes within SILK_PAD of it, the arcs left between those pads; a
+    piece under 1 mm is dropped (as clip_lines does)."""
+    c, r = (s["fan_hole"]["x"], 0.0), s["fan_ring"]["diameter"] / 2
+    pads = spec_pads(s, root, s["fan_ring"].get("silk_breaks", ()))
+    return _clip_circle(c, r, lambda q: all(math.dist(q, pc) >= pr + SILK_PAD for pc, pr in pads))
+
+
+def main_silk(s: dict, root: sexpr.Node | None = None) -> list:
+    """The silkscreen the spec draws on the main board, in the robot frame: the fan ring's edge
+    (ring_silk) and both drive blocks' outlines."""
+    els = ring_silk(s, root)
+    for lines in drive_block_outlines(s, root).values():
+        els += lines
+    return els
+
+
+def _silk_item(s: dict, e, i: int, width: float) -> str:
+    def _pt(p) -> str:
+        x, y = robot_to_kicad(s, p)
+        return f"{sexpr.fmt(x)} {sexpr.fmt(y)}"
+
+    uid = uuid.uuid5(_NS, f"silk/{i}")
+    tail = (
+        f"\t\t(stroke\n\t\t\t(width {sexpr.fmt(width)})\n\t\t\t(type solid)\n\t\t)\n"
+        f'\t\t(layer "{SILK_LAYER}")\n\t\t(uuid "{uid}")\n\t)\n'
+    )
+    if isinstance(e, Line):
+        return f"\t(gr_line\n\t\t(start {_pt(e.a)})\n\t\t(end {_pt(e.b)})\n" + tail
+    return f"\t(gr_arc\n\t\t(start {_pt(e.a)})\n\t\t(mid {_pt(e.mid)})\n\t\t(end {_pt(e.b)})\n" + tail
+
+
+SILK_UUIDS = {str(uuid.uuid5(_NS, f"silk/{i}")) for i in range(1000)}
+
+
+def silk_items(root: sexpr.Node) -> list[sexpr.Node]:
+    """The layout's spec-drawn silkscreen items (their UUIDs are the spec's)."""
+    return [
+        n
+        for n in root.children()
+        if n.head in ("gr_line", "gr_arc") and n.child("uuid") and n.child("uuid").atoms()[0] in SILK_UUIDS
+    ]
+
+
+def _silk_key(n: sexpr.Node) -> tuple:
+    width = float(n.child("stroke").child("width").atoms()[0])
+    return (*_edge_key(n), round(width, 6), n.child("layer").atoms()[0])
+
+
+# boards whose silkscreen the spec partly draws: (items in the spec frame, line width)
+SILK: dict = {"main": (main_silk, lambda s: s["fan_ring"]["silk_width"])}
 
 
 def placements(s: dict) -> dict[str, dict]:
@@ -101,7 +518,7 @@ def kicad_to_robot(s: dict, p: tuple[float, float]) -> tuple[float, float]:
 
 
 def kicad_to_board(s: dict, p: tuple[float, float]) -> tuple[float, float]:
-    """KiCad to a board frame with u right and v up (the encoder's and the Bluetooth module's)."""
+    """KiCad to a board frame with u right and v up (the encoder's)."""
     return p[0] - s["kicad"]["origin_x"], s["kicad"]["origin_y"] - p[1]
 
 
@@ -110,7 +527,7 @@ def _place_xy(s: dict, p: dict) -> tuple[float, float]:
 
 
 # ---------------------------------------------------------------------------------------------
-# main board: interface features of a layout-owned outline
+# layout-owned outlines: the Edge.Cuts read back, for the interface features the spec checks
 
 TOL = 1e-3  # mm: the spec rounds the Altium numbers to 0.1 um, KiCad stores 1 nm
 
@@ -178,106 +595,11 @@ def slots(s: dict) -> dict[str, tuple[float, float]]:
     return {e["right_path"]: (0.0, -e["y"]), e["left_path"]: (0.0, e["y"])}
 
 
-def pegs(s: dict) -> list[tuple[float, float]]:
-    p = s["usb_pegs"]
-    return [(p["x"], p["left_y"]), (p["x"], p["right_y"])]
-
-
-def features(s: dict, root: sexpr.Node) -> list[str]:
-    """Every spec feature the Edge.Cuts outline lacks, as one line each (empty: all present)."""
-    els = outline_elements(s, root)
-    lines = [e for e in els if isinstance(e, Line)]
-    arcs = [e for e in els if isinstance(e, Arc)]
-    problems = []
-
-    pts = [p for e in els for p in sample(e, 64)]
-    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
-    o = s["outline"]
-    for name, got, want in (
-        ("front", max(xs), o["front"]),
-        ("rear", min(xs), o["rear"]),
-        ("left side", max(ys), o["width"] / 2),
-        ("right side", min(ys), -o["width"] / 2),
-    ):
-        if abs(got - want) > TOL:
-            problems.append(f"outline {name} at {got:.4f}, spec {want}")
-
+def slot_rotations(s: dict) -> dict[str, float]:
+    """Encoder slot footprints' rotations in KiCad (degrees), keyed by instance path: the chip side
+    (pads 5-8) outboard on each side."""
     e = s["encoder_slots"]
-    hl, hw, r = e["length"] / 2, e["width"] / 2, e.get("corner_radius", 0.0)
-    for path, (cx, cy) in slots(s).items():
-        # straight sides along the slot, straight ends if the corners leave any, and corner arcs
-        # (centred r in from each corner) that together sweep a full circle
-        want = [((cx - hl + r, cy + sy * hw), (cx + hl - r, cy + sy * hw)) for sy in (1, -1)]
-        if hw - r > TOL:
-            want += [((cx + sx * hl, cy - hw + r), (cx + sx * hl, cy + hw - r)) for sx in (1, -1)]
-        centres = {(cx + sx * (hl - r), cy + sy * (hw - r)) for sx in (1, -1) for sy in (1, -1)}
-        corner = [
-            a for a in arcs if any(math.dist(_circle(a)[:2], c) < TOL for c in centres) and abs(_circle(a)[2] - r) < TOL
-        ]
-        rounded = r <= TOL or abs(sum(map(_sweep, corner)) - 2 * math.pi) < 1e-3
-        if not all(_has_line(lines, a, b) for a, b in want) or not rounded:
-            problems.append(
-                f"no {e['length']} x {e['width']} mm encoder slot with R{r} ends at ({cx}, {cy}) for {path}"
-            )
-
-    p = s["usb_pegs"]
-    for cx, cy in pegs(s):
-        near = [q for el in lines for q in (el.a, el.b) if math.dist(q, (cx, cy)) < p["diameter"]]
-        r = [math.dist(q, (cx, cy)) for q in near]
-        # a polygon with flats on the nominal diameter: vertices sit up to 2.5 % further out
-        if len(near) < 16 or min(r) < p["diameter"] / 2 - TOL or max(r) > p["diameter"] / 2 * 1.025 + TOL:
-            problems.append(f"no {p['diameter']} mm USB-C peg hole at ({cx}, {cy})")
-
-    f = s["fan_hole"]
-    ring = [
-        a
-        for a in arcs
-        if math.dist(_circle(a)[:2], (f["x"], 0.0)) < TOL and abs(_circle(a)[2] - f["diameter"] / 2) < TOL
-    ]
-    if abs(sum(map(_sweep, ring)) - 2 * math.pi) > 1e-3:
-        problems.append(f"no {f['diameter']} mm fan hole at ({f['x']}, 0)")
-
-    n = s["wheel_notches"]
-    inner, half, r = n["inner_y"], n["half_length"], n["corner_radius"]
-    for sign in (1, -1):
-        y0, y1 = sign * inner, sign * (o["width"] / 2)
-        want = [
-            ((half - r, y0), (-(half - r), y0)),  # inner face
-            ((half, y0 + sign * r), (half, y1 - sign * r)),  # front side
-            ((-half, y0 + sign * r), (-half, y1 - sign * r)),  # rear side
-        ]
-        if not all(_has_line(lines, a, b) for a, b in want):
-            problems.append(f"no wheel notch {inner} mm from the centre line on the {'left' if sign > 0 else 'right'}")
-    return problems
-
-
-def bluetooth_features(s: dict, root: sexpr.Node) -> list[str]:
-    """What the Bluetooth module's layout lacks of spec/bluetooth.toml: outline extents (board frame)
-    and the HM-19 at its position."""
-    pts = [p for e in outline_elements(s, root, kicad_to_board) for p in sample(e, 16)]
-    if not pts:
-        return ["no Edge.Cuts outline"]
-    us, vs = [p[0] for p in pts], [p[1] for p in pts]
-    o = s["outline"]
-    problems = [
-        f"outline {name} at {got:.4f}, spec {want}"
-        for name, got, want in (
-            ("left", min(us), o["left"]),
-            ("right", max(us), o["right"]),
-            ("top", max(vs), o["top"]),
-            ("bottom", min(vs), o["bottom"]),
-        )
-        if abs(got - want) > TOL
-    ]
-    m = s["module"]
-    fp = next((f for f in root.children("footprint") if f.prop("Reference") == m["ref"]), None)
-    if fp is None:
-        problems.append(f"{m['ref']} (the HM-19) is missing")
-    else:
-        u, v = kicad_to_board(s, _xy_of(fp.child("at")))
-        if math.dist((u, v), (m["u"], m["v"])) > TOL:
-            problems.append(f"{m['ref']} at ({u:.4f}, {v:.4f}), spec ({m['u']}, {m['v']})")
-    return problems
+    return {e["right_path"]: float(e["right_rotation"]), e["left_path"]: float(e["left_rotation"])}
 
 
 def footprint_checks(s: dict, root: sexpr.Node) -> list[str]:
@@ -293,8 +615,16 @@ def footprint_checks(s: dict, root: sexpr.Node) -> list[str]:
             got = kicad_to_robot(s, _xy_of(fp.child("at")))
             if math.dist(got, centre) > TOL:
                 problems.append(f"{path} at ({got[0]:.4f}, {got[1]:.4f}), not on its slot centre {centre}")
+            at = fp.child("at").atoms()
+            rot, want = float(at[2]) if len(at) > 2 else 0.0, slot_rotations(s)[path]
+            if abs((rot - want + 180) % 360 - 180) > 1e-6:
+                problems.append(
+                    f"{path} at {rot:g} deg, not the {want:g} deg of spec [encoder_slots] (its chip side outboard)"
+                )
     if "holes" in s:
-        for path in placements(s):
+        # the screw holes: the [h1], [h2], ... sections
+        holes = [v["path"] for k, v in s.items() if k[:1] == "h" and k[1:].isdigit()]
+        for path in holes:
             fp = fps.get(path)
             drills = [float(d.atoms()[0]) for pad in fp.children("pad") if (d := pad.child("drill"))] if fp else []
             if drills != [s["holes"]["diameter"]]:
@@ -397,15 +727,17 @@ def encoder_features(s: dict, root: sexpr.Node) -> list[str]:
     return problems
 
 
-FEATURES = {"main": features, "encoder": encoder_features, "bluetooth": bluetooth_features}
+FEATURES = {"encoder": encoder_features}
 
 
-def _pt(s, p) -> str:
-    x, y = _xy(s, p)
-    return f"{sexpr.fmt(x)} {sexpr.fmt(y)}"
+def _edge_item(s: dict, e, i: int, to=None) -> str:
+    """An outline element as a KiCad Edge.Cuts item; `to` maps spec points to KiCad (default: the
+    encoder's u-v frame)."""
 
+    def _pt(s, p) -> str:
+        x, y = (to or _xy)(s, p)
+        return f"{sexpr.fmt(x)} {sexpr.fmt(y)}"
 
-def _edge_item(s: dict, e, i: int) -> str:
     uid = uuid.uuid5(_NS, f"edge/{i}")
     tail = (
         f"\t\t(stroke\n\t\t\t(width {sexpr.fmt(EDGE_WIDTH)})\n\t\t\t(type default)\n\t\t)\n"
@@ -420,15 +752,55 @@ def _edge_item(s: dict, e, i: int) -> str:
 
 
 def _edge_key(n: sexpr.Node) -> tuple:
-    """Direction-independent geometry of an Edge.Cuts item."""
-    pts = [tuple(round(float(v), 4) for v in c.atoms()) for c in n.children() if c.head in ("start", "mid", "end")]
+    """Direction-independent geometry of an Edge.Cuts item: (kind, points)."""
+    pts = [tuple(float(v) for v in c.atoms()) for c in n.children() if c.head in ("start", "mid", "end")]
     if n.head == "gr_curve":
-        pts = [tuple(round(float(v), 4) for v in c.atoms()) for c in n.child("pts").children("xy")]
+        pts = [tuple(float(v) for v in c.atoms()) for c in n.child("pts").children("xy")]
         return (n.head, min(tuple(pts), tuple(reversed(pts))))
     if n.head == "gr_arc":
         start, mid, end = pts
-        return (n.head, tuple(sorted((start, end))), mid)
+        return (n.head, (*sorted((start, end)), mid))
     return (n.head, tuple(sorted(pts)))
+
+
+EDGE_TOL = 1e-3  # mm: KiCad recomputes an arc's mid point when it saves, within 0.1 um
+
+
+def _same_edges(old: list[tuple], new: list[tuple]) -> bool:
+    """The two sets of edge keys describe the same outline, point for point within EDGE_TOL."""
+    left = list(old)
+    for kind, pts in new:
+        hit = next(
+            (
+                k
+                for k, (kk, pp) in enumerate(left)
+                if kk == kind
+                and len(pp) == len(pts)
+                and all(math.dist(a, b) <= EDGE_TOL for a, b in zip(pp, pts, strict=True))
+            ),
+            None,
+        )
+        if hit is None:
+            return False
+        left.pop(hit)
+    return not left
+
+
+def zone_order(text: str) -> str:
+    """The layout with its board-level zones in a canonical order: the zones with a UUID as KiCad
+    wrote them, then the zones without one (teardrops) by their text. KiCad 10 saves a teardrop
+    zone without its UUID and gives it a new one on every load, so each save of a board with
+    teardrops interleaves them with the other zones in another order; this order keeps `make gen`
+    byte-stable. Only the order changes: every zone keeps its text, and a board without teardrops
+    is left as it is."""
+    root = sexpr.parse(text)
+    zones = root.children("zone")
+    spans = [sexpr.line_span(text, z) for z in zones]
+    items = [
+        (i, text[a:b], z.child("uuid") is not None) for i, (z, (a, b)) in enumerate(zip(zones, spans, strict=True))
+    ]
+    canon = [s for _, s, _ in sorted(items, key=lambda it: (0, it[0], "") if it[2] else (1, 0, it[1]))]
+    return sexpr.splice(text, [(a, b, s) for (a, b), s in zip(spans, canon, strict=True)])
 
 
 def apply(board: str, text: str) -> tuple[str, list[str], list[str]]:
@@ -440,10 +812,11 @@ def apply(board: str, text: str) -> tuple[str, list[str], list[str]]:
     old_edges = edge_items(root)
     if board in OUTLINES:
         # Edge.Cuts: the spec owns the whole layer.
-        new_items = [_edge_item(s, e, i) for i, e in enumerate(OUTLINES[board](s))]
+        make, to = OUTLINES[board]
+        new_items = [_edge_item(s, e, i, to) for i, e in enumerate(make(s))]
         new_edges = "".join(new_items)
         # compared as geometry: KiCad re-sorts board graphics and normalises arc direction when it saves
-        if sorted(map(_edge_key, old_edges)) != sorted(_edge_key(sexpr.parse(i)) for i in new_items):
+        if not _same_edges([_edge_key(n) for n in old_edges], [_edge_key(sexpr.parse(i)) for i in new_items]):
             changes.append(f"Edge.Cuts outline ({len(old_edges)} -> {new_edges.count('(layer')} items)")
             for n in old_edges:
                 edits.append((*sexpr.line_span(text, n), ""))
@@ -453,6 +826,27 @@ def apply(board: str, text: str) -> tuple[str, list[str], list[str]]:
     elif board in FEATURES:
         # Edge.Cuts belongs to the layout: the spec checks its features, which only KiCad can fix.
         problems += FEATURES[board](s, root)
+
+    if board in SILK:
+        # the spec's silkscreen (its own items, by UUID): the rest of the silkscreen is the layout's
+        make, width = SILK[board]
+        old_silk = silk_items(root)
+        new_items = [_silk_item(s, e, i, width(s)) for i, e in enumerate(make(s, root))]
+        old_keys = sorted(_silk_key(n) for n in old_silk)
+        new_keys = sorted(_silk_key(sexpr.parse(i)) for i in new_items)
+        same = len(old_keys) == len(new_keys) and all(
+            a[0] == b[0]
+            and a[2:] == b[2:]
+            and all(math.dist(p, q) <= EDGE_TOL for p, q in zip(a[1], b[1], strict=True))
+            for a, b in zip(old_keys, new_keys, strict=True)
+        )
+        if not same:
+            changes.append(f"spec silkscreen ({len(old_silk)} -> {len(new_items)} items)")
+            for n in old_silk:
+                edits.append((*sexpr.line_span(text, n), ""))
+            anchor = root.children("footprint")[0] if root.children("footprint") else None
+            at = sexpr.line_span(text, anchor)[0] if anchor else root.end - 1
+            edits.append((at, at, "".join(new_items)))
 
     # Aux (drill/placement) and grid origins: the spec's aux origin if it names one, else the spec
     # origin, so exports use that frame.
@@ -505,7 +899,11 @@ def apply(board: str, text: str) -> tuple[str, list[str], list[str]]:
         )
     problems += footprint_checks(s, root)
 
-    return sexpr.splice(text, edits), changes, problems
+    new = sexpr.splice(text, edits)
+    ordered = zone_order(new)
+    if ordered != new:
+        changes.append("zones written in canonical order (zone_order)")
+    return ordered, changes, problems
 
 
 def sample(e, n: int = 16) -> list[tuple[float, float]]:
@@ -552,43 +950,145 @@ def encoder_json(s: dict, root: sexpr.Node) -> dict:
     }
 
 
+def wall_json(s: dict, root: sexpr.Node) -> dict:
+    """The wall board in its spec frame: the outline (the spec's, which the layout carries), the
+    optical axes and the header joint."""
+    poly: list[list[float]] = []
+    for p in (pt for e in wall_outline(s) for pt in sample(e)):
+        if not poly or _r(p) != poly[-1]:
+            poly.append(_r(p))
+    se, h, th = s["sensor"], s["header"], s["pcb"]["thickness"]
+    mid = round(-th / 2, 4)
+    return {
+        "frame": "origin on the main board's top surface under the middle of the bottom edge; u right (front view), v up; front face at z = 0, back face at z = -thickness; mm",
+        "thickness": th,
+        "outline": poly,
+        "bottom": s["outline"]["bottom"],
+        "top": s["outline"]["top"],
+        "handle": {"width": s["outline"]["handle_width"], "top": round(wall_neck(s)["handle_top"], 4)},
+        "neck": {
+            "top": s["outline"]["neck_top"],
+            "radius": s["outline"]["neck_radius"],
+            "inside_radius": s["outline"]["neck_inside_radius"],
+        },
+        "blade_width": s["outline"]["width"],
+        "receiver_axis": {"u": se["u"], "v": se["v"], "part": "TPS601A(F)"},
+        "emitter_axis": {"u": se["u"], "v": round(se["v"] + se["led_above"], 4), "part": "SFH 4550"},
+        "header": {
+            "part": "HX PZ1.27-2x3P ZZ",
+            "pins": h["pins"],
+            "pitch": h["pitch"],
+            "row_pitch": h["row_pitch"],
+            "pins_u": [round(h["u"] + h["pitch"] * k, 4) for k in (-1, 0, 1)],
+            "rows_z": [round(mid + h["row_pitch"] / 2, 4), round(mid - h["row_pitch"] / 2, 4)],
+            "insulator": {
+                "u": [round(h["u"] - h["insulator_length"] / 2, 4), round(h["u"] + h["insulator_length"] / 2, 4)],
+                "v": [0.0, h["insulator_height"]],
+                "z": [round(mid - h["insulator_width"] / 2, 4), round(mid + h["insulator_width"] / 2, 4)],
+            },
+            "pins_top_v": round(h["insulator_height"] + h["pin_up"], 4),
+            "pins_end_v": round(-h["pin_down"], 4),
+        },
+        "joint": {k: s["joint"][k] for k in ("drill", "pad")},
+    }
+
+
 def main_json(s: dict, root: sexpr.Node) -> dict:
-    """The main board in the robot frame: the Edge.Cuts outline from the layout, the rest from the spec
-    (which `features` and the placements have checked against the layout)."""
+    """The main board in the robot frame: the Edge.Cuts outline (from the layout, which the spec
+    draws), the screw holes and their countersinks, the encoder slots, the fan hole, the wheel,
+    antenna and switch notches, the ESP32 module, the wall sensors and the drive blocks' zones."""
     edge = []
     for e in outline_elements(s, root):
         if isinstance(e, Line):
             edge.append({"type": "line", "start": _r(e.a), "end": _r(e.b)})
         else:
             edge.append({"type": "arc", "start": _r(e.a), "mid": _r(e.mid), "end": _r(e.b)})
-    sl, n = s["encoder_slots"], s["wheel_notches"]
+    o, sl, n, sw, an = (s[k] for k in ("outline", "encoder_slots", "wheel_notches", "switch_notch", "antenna_notch"))
+    swx0, swx1, swy0, swy1 = notch_box(s, "switch_notch")
+    anx0, anx1, any0, any1 = notch_box(s, "antenna_notch")
     holes = [v for v in s.values() if isinstance(v, dict) and v.get("path", "").startswith("H")]
+    wall = spec.load("wall")
+    th, wth, se = s["pcb"]["thickness"], wall["pcb"]["thickness"], wall["sensor"]
+
+    def sensor(path: str, c: tuple[float, float], look: float) -> dict:
+        d = (math.cos(math.radians(look)), math.sin(math.radians(look)))
+        face = (c[0] + d[0] * wth / 2, c[1] + d[1] * wth / 2)
+        return {
+            "name": path.split(".")[1],
+            "joint_centre": list(c),
+            "look_deg": look,
+            "front_face": _r(face),
+            "receiver_z": round(th + se["v"], 4),
+            "emitter_z": round(th + se["v"] + se["led_above"], 4),
+        }
+
     return {
         "frame": "robot: origin at the wheel-axle midpoint on the board's bottom surface, x forward, y left, z up; mm",
         "kicad_origin": [s["kicad"]["origin_x"], s["kicad"]["origin_y"]],
         "thickness": s["pcb"]["thickness"],
-        "extents": {"front": s["outline"]["front"], "rear": s["outline"]["rear"], "width": s["outline"]["width"]},
+        "extents": {"front": o["front"], "rear": o["rear"], "width": o["width"]},
         "edge": edge,
         "holes": [
             {"name": h["path"].split(".")[0], "pos": [h["x"], h["y"]], "drill": s["holes"]["diameter"]} for h in holes
         ],
+        "countersink": {
+            "diameter": s["countersink"]["diameter"],
+            "angle": s["countersink"]["angle"],
+            "side": s["countersink"]["side"],
+            "fabricated": s["countersink"]["fabricated"],
+        },
         "encoder_slots": [
             {
                 "name": path.split(".")[1],
                 "centre": list(c),
                 "length": sl["length"],
                 "width": sl["width"],
-                "corner_radius": sl.get("corner_radius", 0.0),
+                "corner_radius": sl["corner_radius"],
             }
             for path, c in slots(s).items()
         ],
-        "usb_pegs": [{"centre": list(c), "diameter": s["usb_pegs"]["diameter"]} for c in pegs(s)],
         "fan_hole": {"centre": [s["fan_hole"]["x"], 0.0], "diameter": s["fan_hole"]["diameter"]},
+        "fan_ring": {
+            "centre": [s["fan_hole"]["x"], 0.0],
+            "diameter": s["fan_ring"]["diameter"],
+            "max_part_height": s["fan_ring"]["max_part_height"],
+        },
         "wheel_notches": {
             "inner_y": n["inner_y"],
             "x": [-n["half_length"], n["half_length"]],
             "corner_radius": n["corner_radius"],
         },
+        "switch_notch": {
+            "side": sw["side"],
+            "x": [swx0, swx1],
+            "y": [swy0, swy1],
+            "corner_radius": sw["corner_radius"],
+            "switch": {"pos": [s["sw4"]["x"], s["sw4"]["y"]], "lever": "along -x, 6.0 mm from the body's rear face"},
+        },
+        "antenna_notch": {
+            "side": an["side"],
+            "x": [anx0, anx1],
+            "y": [any0, any1],
+            "corner_radius": an["corner_radius"],
+            "module": {"pos": [s["u13"]["x"], s["u13"]["y"]], "antenna": "along -x, over the notch"},
+        },
+        "wall_sensors": [sensor(path, c, look) for path, (c, look) in wall_joints(s).items()],
+        "wall_joint": {
+            "holes": "2x3 at the header's pitch, rows across the look direction, the centre under the wall board's mid-plane",
+            "pitch": wall["header"]["pitch"],
+            "row_pitch": wall["header"]["row_pitch"],
+            "drill": wall["joint"]["drill"],
+            "under_blade_max_height": wall["joint"]["under_blade"],
+            "insulator": [
+                wall["header"]["insulator_length"],
+                wall["header"]["insulator_width"],
+                wall["header"]["insulator_height"],
+            ],
+        },
+        "keepouts": [
+            {"name": name, "x": [z[0], z[1]], "y": [z[2], z[3]], "max_part_height": z[4]}
+            for name, z in keepout_zones(s)
+        ],
     }
 
 
@@ -612,45 +1112,7 @@ def chain(els: list, tol: float = 1e-3) -> list[tuple[float, float]]:
     return poly
 
 
-def bluetooth_json(s: dict, root: sexpr.Node) -> dict:
-    """The module in its board frame (outline from the layout, the rest from the spec), and where the
-    mating puts that frame in the robot."""
-    poly: list[tuple[float, float]] = []
-    for p in chain(outline_elements(s, root, kicad_to_board)):
-        if not poly or math.dist(p, poly[-1]) >= 0.02:
-            poly.append(p)
-    m, pl, mt = s["module"], s["plug"], s["mating"]
-    main = spec.load("main")
-    face_x = mt["receptacle_x"] - mt["mouth_offset"] + mt["insertion"] - pl["height"]
-    return {
-        "frame": "board: origin at the plug centre on the component side, u right and v up seen from the component side; mm",
-        "thickness": s["pcb"]["thickness"],
-        "outline": [_r(p) for p in poly],
-        "plug": {"u": pl["u"], "v": pl["v"], "height": pl["height"], "side": "top"},
-        "module": {
-            "u": m["u"],
-            "v": m["v"],
-            "width": m["width"],
-            "length": m["length"],
-            "thickness": m["thickness"],
-            "side": "top",
-            "note": "footprint origin on the module's bottom edge; the module extends length up from it",
-        },
-        "robot": {
-            "frame": "spec/main.toml robot frame: x forward, y left, z up from the main board's bottom surface",
-            "origin": [
-                round(face_x, 4),
-                mt["receptacle_y"],
-                round(main["pcb"]["thickness"] + mt["centre_height"], 4),
-            ],
-            "u": [0, 1, 0],
-            "v": [0, 0, 1],
-            "component_side": [1, 0, 0],
-        },
-    }
-
-
-EXPORTS = {"encoder": encoder_json, "main": main_json, "bluetooth": bluetooth_json}
+EXPORTS = {"encoder": encoder_json, "main": main_json, "wall": wall_json}
 
 
 def mech_json(board: str, text: str | None = None) -> dict:

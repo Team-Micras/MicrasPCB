@@ -1,0 +1,42 @@
+"""MPL-AL5030-4R7 (MPS datasheet Rev. 1.1): ratings, and the fan-choke requirement."""
+
+INDUCTOR = Module("../MPL-AL5030-4R7.zen")
+
+
+def part(module):
+    parts = module.components().values()
+    check(len(parts) == 1, "the package is a bare part: expected one component")
+    return parts[0]
+
+
+def ratings(module, inputs):
+    # p1 Electrical Characteristics, p5 Ordering Information; isat_20 from the p2 L-vs-I curve
+    c = part(module)
+    check(c.type == "inductor", "type")
+    check(c.mpn == "MPL-AL5030-4R7", "MPN")
+    check(c.manufacturer == "MPS", "manufacturer")
+    check(c.prefix == "L", "reference prefix must be L")
+    check(len(c.pins) == 2, "two terminals")
+    check(c.properties["inductance"].matches("4.7uH 20%"), "inductance")
+    check(c.properties["isat"].matches("8A"), "Isat (30 % drop)")
+    check(c.properties["isat_20"].value <= 4.55, "Isat (20 % drop) at most the p2 curve's 4.55 A")
+    check(c.properties["irms"].matches("5.3A"), "IR (40 K rise)")
+    check(c.properties["dcr"].matches("36.5mOhm"), "RDC max")
+    check(c.properties["current"].value <= min(c.properties["irms"].value, c.properties["isat"].value), "current")
+
+
+def fan_choke_requirement(module, inputs):
+    # Next-revision proposal, Fan: 4.7-10 uH, Isat at or above the REF limit of up to 5 A.
+    c = part(module)
+    check(c.properties["inductance"].value >= 4.7e-6 - 1e-9, "4.7-10 uH")
+    check(c.properties["inductance"].value <= 10e-6, "4.7-10 uH")
+    check(c.properties["isat"].value >= 5.0, "Isat (30 % drop) must reach the 5 A fan limit")
+    check(c.properties["irms"].value >= 5.0, "IR must carry a 5 A fan current")
+
+
+TestBench(
+    name="MPL-AL5030-4R7",
+    module=INDUCTOR,
+    test_cases={"default": {"P1": Net("A"), "P2": Net("B")}},
+    checks=[ratings, fan_choke_requirement],
+)

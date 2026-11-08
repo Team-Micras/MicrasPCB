@@ -1,0 +1,8 @@
+# Nets supplied from off the board, the role a PWR_FLAG has in a hand-drawn KiCad schematic.
+# `micras-pcb erc` accepts a power_pin_not_driven violation only on these nets; see
+# tools/micras_pcb/checks.py `external_supplies`.
+
+[external_supply]
+"3V3_D" = "the main board's 3V3_D (L6981C33 buck) on J1 pin 4"
+"3V3_A" = "the main board's 3V3_A (ADP7142 LDO) on J1 pin 3"
+GND = "the main board's GND on J1 pin 2"

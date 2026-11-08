@@ -1,0 +1,138 @@
+Fan path: STSPIN958 400 kHz + MPL-AL5030-4R7 + drone coreless motor
+REF limit: typ 3.94 A, band 3.65-4.31 A (3V3_D 3.284-3.346 V, 1 % resistors, ACL 9.5-10.5, RSNS 1 %)
+MPL-AL5030-4R7 at -20 %, incremental L: 0 A 3.76 uH, 2 A 3.52 uH, 3 A 3.32 uH, 4 A 3.13 uH, 5 A 2.94 uH, 6 A 2.77 uH, 7 A 2.60 uH
+   typical part (p2 curve): -19 % from 4.7 uH at the band's top 4.31 A, -24 % at the 5.3 A IR; 20 % point used: 4.5 A
+   thermal resistance from the p2 temperature-rise curve (RDC 33 mOhm typ, +0.393 %/K): 2 A 40, 2.5 A 38, 3 A 37, 4 A 37, 5 A 37, 5.3 A 37, 6 A 38, 7 A 40 K/W; used 40 K/W
+   AC loss: MPS small-signal R_ac at 400 kHz 0.140 ohm (Q 68), XGL5030-472 Document 267 model 0.277 ohm; large-signal factor 2.83
+
+1. Running ripple at 400 kHz (choke -20 % and biased at the running current), worst VBAT 17.4 V
+   motor  Lm uH  I A     D  L tot  dIpp  peak  limiter motor W L6 est mW bound mW
+     1S   0.12  1.0  0.21   3.79  1.92  1.96       ok   0.370     156.5    572.9
+     1S   0.12  2.5  0.21   3.54  2.06  3.53       ok   0.424     179.3    637.8
+     1S   0.50  1.0  0.21   4.17  1.75  1.87       ok   0.306     129.3    495.3
+     1S   0.50  2.5  0.21   3.92  1.86  3.43       ok   0.346     146.2    544.4
+     1S   1.00  1.0  0.21   4.67  1.56  1.78       ok   0.244     103.0    412.5
+     1S   1.00  2.5  0.21   4.42  1.65  3.32       ok   0.272     115.0    451.3
+     1S   3.00  1.0  0.21   6.67  1.09  1.55       ok   0.119      50.5    236.0
+     1S   3.00  2.5  0.21   6.42  1.13  3.07       ok   0.129      54.5    249.5
+     1S  14.00  1.0  0.21  17.67  0.41  1.21       ok   0.017       7.2     38.4
+     1S  14.00  2.5  0.21  17.42  0.42  2.71       ok   0.017       7.4     39.5
+     2S   0.48  1.0  0.43   4.15  2.56  2.28       ok   0.657     233.8    922.8
+     2S   0.48  2.5  0.43   3.90  2.73  3.86    clips   0.744     264.6   1037.7
+     2S   2.00  1.0  0.43   5.67  1.88  1.94       ok   0.352     125.2    552.0
+     2S   2.00  2.5  0.43   5.42  1.96  3.48       ok   0.385     137.0    590.1
+     2S   4.00  1.0  0.43   7.67  1.39  1.69       ok   0.192      68.4    335.6
+     2S   4.00  2.5  0.43   7.42  1.43  3.22       ok   0.205      73.1    356.2
+     2S  12.00  1.0  0.43  15.67  0.68  1.34       ok   0.046      16.4    104.1
+     2S  12.00  2.5  0.43  15.42  0.69  2.84       ok   0.048      16.9    107.6
+     2S  56.00  1.0  0.43  59.67  0.18  1.09       ok   0.003       1.1      7.2
+     2S  56.00  2.5  0.43  59.42  0.18  2.59       ok   0.003       1.1      7.2
+   (motor W: ripple heat at the 1.2 ohm top of the range, an upper bound; 'clips': the peak reaches the
+    lowest REF limit and the limiter trims the pulse, which lowers the mean current, not a fault)
+   the worst: 1S, D = 0.5 never occurs; a 2S motor at D 0.43 with the lowest L: 2.74 A pp
+   L6 temperature (Rth 40 K/W), DCR 36.5 mOhm max + 0.393 %/K copper on I^2 + dIpp^2/12, AC loss at the
+   largest ripple of the table (2S, lowest L), board at 40 C; IR 5.3 A is the 40 K-rise rating, 155 C the
+   part's maximum including its rise (p1); the board's own budget is 125 C, the X7R capacitors' rating:
+   estimate 1.00 A: DC   67 mW + AC  266 mW -> +13.3 K,  53.3 C
+   estimate 2.50 A: DC  293 mW + AC  266 mW -> +22.3 K,  62.3 C
+   estimate 4.31 A: DC  881 mW + AC  266 mW -> +45.9 K,  85.9 C
+      bound 1.00 A: DC   74 mW + AC 1044 mW -> +44.7 K,  84.7 C
+      bound 2.50 A: DC  325 mW + AC 1044 mW -> +54.7 K,  94.7 C
+      bound 4.31 A: DC  978 mW + AC 1044 mW -> +80.9 K, 120.9 C
+   AC loss that takes L6 to 125 C at 4.31 A held: 1.14 W, 1.1 x the bound, 4.3 x the estimate
+   AC loss that takes L6 to 155 C at 4.31 A held: 1.80 W, 1.7 x the bound, 6.8 x the estimate
+
+2. Locked rotor (every start from rest, or a jammed fan): cycle-by-cycle limiter in PWM trimming, the
+   firmware commanding any duty; on-time = max(t_b, crossing) + 200 ns, then low-side recirculation until
+   the next period. Steady state after 600 periods, VBAT 17.4 V, I_lim at the band's top. A minimum on-time
+   sets a minimum mean voltage: at 400 kHz a low-resistance motor stalls far above the limit; at 100 kHz the
+   same on-time is a quarter of the duty. The overcurrent protection trips per MOSFET (IOC 7-14 A), so the
+   paralleled pair stops only at 12.8-28 A: a stall below that persists. 'driver W': the conduction
+   loss mean^2 x RDS(on) at 125 C (1.95 x 82.5 mOhm), a lower bound on the STSPIN958's heat (section 3).
+   f kHz R ohm  Lm uH t_b ns | mean A peak A L6 left driver W vs OC 12.8 A
+     400   0.2   0.12    280 |   8.46   9.91     58 %     11.5       below
+     400   0.2   0.12    500 |  12.20  14.50     45 %     23.9       trips
+     400   0.2   3.00    280 |   8.47   9.12     61 %     11.6       below
+     400   0.2   3.00    500 |  12.21  13.12     48 %     24.0       trips
+     400   0.5   0.12    280 |   4.85   6.04     73 %      3.8       below
+     400   0.5   0.12    500 |   7.00   8.73     62 %      7.9       below
+     400   0.5   3.00    280 |   4.85   5.44     76 %      3.8       below
+     400   0.5   3.00    500 |   7.01   7.82     66 %      7.9       below
+     400   1.2   0.12    280 |   3.56   5.01     78 %      2.0       below
+     400   1.2   0.12    500 |   3.56   5.01     78 %      2.0       below
+     400   1.2   3.00    280 |   3.90   4.69     80 %      2.4       below
+     400   1.2   3.00    500 |   3.89   4.69     80 %      2.4       below
+     100   0.2   0.12    280 |   3.29   5.46     76 %      1.7       below
+     100   0.2   0.12    500 |   3.29   5.46     76 %      1.7       below
+     100   0.2   0.12   1000 |   5.35   9.24     61 %      4.6       below
+     100   0.2   3.00    280 |   3.65   4.84     79 %      2.1       below
+     100   0.2   3.00    500 |   3.65   4.84     79 %      2.1       below
+     100   0.2   3.00   1000 |   5.38   7.13     69 %      4.7       below
+     100   0.5   0.12    280 |   2.47   5.33     77 %      1.0       below
+     100   0.5   0.12    500 |   2.47   5.33     77 %      1.0       below
+     100   0.5   0.12   1000 |   3.06   6.63     71 %      1.5       below
+     100   0.5   3.00    280 |   3.07   4.79     79 %      1.5       below
+     100   0.5   3.00    500 |   3.07   4.79     79 %      1.5       below
+     100   0.5   3.00   1000 |   3.07   4.79     79 %      1.5       below
+     100   1.2   0.12    280 |   1.56   5.13     78 %      0.4       below
+     100   1.2   0.12    500 |   1.56   5.13     78 %      0.4       below
+     100   1.2   0.12   1000 |   1.56   5.13     78 %      0.4       below
+     100   1.2   3.00    280 |   2.30   4.74     79 %      0.8       below
+     100   1.2   3.00    500 |   2.30   4.74     79 %      0.8       below
+     100   1.2   3.00   1000 |   2.30   4.74     79 %      0.8       below
+      50   0.2   0.12    280 |   2.25   5.54     76 %      0.8       below
+      50   0.2   0.12    500 |   2.25   5.54     76 %      0.8       below
+      50   0.2   0.12   1000 |   2.76   6.94     69 %      1.2       below
+      50   0.2   3.00    280 |   2.95   5.03     78 %      1.4       below
+      50   0.2   3.00    500 |   2.95   5.03     78 %      1.4       below
+      50   0.2   3.00   1000 |   2.95   5.03     78 %      1.4       below
+      50   0.5   0.12    280 |   1.48   5.48     76 %      0.4       below
+      50   0.5   0.12    500 |   1.48   5.48     76 %      0.4       below
+      50   0.5   0.12   1000 |   1.58   5.85     74 %      0.4       below
+      50   0.5   3.00    280 |   2.18   4.95     78 %      0.8       below
+      50   0.5   3.00    500 |   2.18   4.95     78 %      0.8       below
+      50   0.5   3.00   1000 |   2.18   4.95     78 %      0.8       below
+      50   1.2   0.12    280 |   0.84   5.29     77 %      0.1       below
+      50   1.2   0.12    500 |   0.84   5.29     77 %      0.1       below
+      50   1.2   0.12   1000 |   0.84   5.29     77 %      0.1       below
+      50   1.2   3.00    280 |   1.34   4.77     79 %      0.3       below
+      50   1.2   3.00    500 |   1.34   4.77     79 %      0.3       below
+      50   1.2   3.00   1000 |   1.34   4.77     79 %      0.3       below
+   at 400 kHz a stall holds 3.6-12.2 A mean, 2.0-24.0 W of conduction loss in the driver; only peaks
+   above 12.8 A can trip the overcurrent protection (and only if the part's IOC sits low), and every case
+   peaking below it (8.5 A mean, 11.6 W at the worst) persists: the driver cycles through its
+   thermal shutdown and L6 runs far past its 4.5 A 20 % point.
+   Worst peak at 100 kHz 9.24 A, at 50 kHz 6.94 A (a 1 us blanking
+   with a 0.2 ohm motor; up to 500 ns of blanking the 50 kHz peaks stay at 4.8-5.5 A, L6 keeping 76 %
+   of its inductance): start the fan at 50 kHz and move to 400 kHz once it spins (Fan_TOFF no longer low);
+   at 400 kHz, Fan_TOFF low in most periods over 1-2 ms is a jam: back to 50 kHz or Fan_Enable low; a fan that
+   keeps Fan_TOFF low at 50 kHz is jammed
+
+3. STSPIN958 heat at 400 kHz, 17.4 V, D 0.22 (1S) / 0.43 (2S), 1.0 V/ns edges; Tj from 40 C
+   1.00 A D 0.22: typical 0.43 W -> Tj  55.5 C | bound 0.66 W (cond 0.15, sw 0.12, dead 0.22, VS 0.17) -> Tj  69.8 C
+   1.00 A D 0.43: typical 0.46 W -> Tj  56.6 C | bound 0.70 W (cond 0.19, sw 0.12, dead 0.22, VS 0.17) -> Tj  71.7 C
+   2.50 A D 0.22: typical 1.23 W -> Tj  84.1 C | bound 2.17 W (cond 1.15, sw 0.30, dead 0.54, VS 0.17) -> Tj 137.6 C
+   2.50 A D 0.43: typical 1.27 W -> Tj  85.5 C | bound 2.27 W (cond 1.25, sw 0.30, dead 0.54, VS 0.17) -> Tj 142.0 C
+   4.31 A D 0.22: typical 3.00 W -> Tj 147.5 C | bound 3.95 W (cond 2.33, sw 0.52, dead 0.93, VS 0.17) -> Tj 217.9 C
+   4.31 A D 0.43: typical 3.06 W -> Tj 149.6 C | bound 4.01 W (cond 2.39, sw 0.52, dead 0.93, VS 0.17) -> Tj 220.5 C
+   (Tj above 150 C: the thermal shutdown stops the driver; the bound case needs the limiter holding the top of
+    its band continuously, a stall, which the firmware ends from Fan_TOFF)
+   C33 (X7R, 125 C) sits on the board beside the pad, at most Tj - P x RthJB (17.4 C/W) below the junction
+   at 2.5 A bound: Tj 142 C, board at the pad about 103 C
+
+4. REF for the chosen motor. I_run: its running current at the highest duty the fan will use.
+   I_peak = max(1.5 x I_run, (I_run + h) / 0.925), h the ripple half-amplitude at the lowest plausible
+   inductance (section 1: 1.03 A for a 1S motor, 1.36 A for a 2S motor): 1.5x leaves the start-up and gust margin,
+   the second term keeps the ripple peak under the bottom of the REF band (above it the limiter trims the pulse
+   and the mean current falls short). VREF = I_peak x RSNS x ACL = I_peak x 0.25 V/A; R29 = R28 x VREF /
+   (3.3 V - VREF), R28 4.7 kOhm, the nearest E24 value at or above. The band's top (x 1.093) stays at or below 4.5 A (L6's 20 % point):
+   I_peak <= 4.12 A, so I_run <= 2.74 A (1S) or 2.44 A (2S); above it the research's discrete half-bridge applies.
+   1S I_run 1.0 A -> I_peak 2.19 A, VREF 0.548 V, R29  0.94 kOhm (band top 2.40 A)
+   1S I_run 1.5 A -> I_peak 2.73 A, VREF 0.683 V, R29  1.23 kOhm (band top 2.99 A)
+   1S I_run 2.0 A -> I_peak 3.27 A, VREF 0.818 V, R29  1.55 kOhm (band top 3.58 A)
+   1S I_run 2.5 A -> I_peak 3.81 A, VREF 0.954 V, R29  1.91 kOhm (band top 4.17 A)
+   2S I_run 1.0 A -> I_peak 2.55 A, VREF 0.639 V, R29  1.13 kOhm (band top 2.79 A)
+   2S I_run 1.5 A -> I_peak 3.10 A, VREF 0.774 V, R29  1.44 kOhm (band top 3.38 A)
+   2S I_run 2.0 A -> I_peak 3.64 A, VREF 0.909 V, R29  1.79 kOhm (band top 3.97 A)
+   2S I_run 2.5 A -> I_peak 4.18 A, VREF 1.044 V, R29  2.17 kOhm (band top 4.57 A, above L6's 4.5 A 20 % point)
+   board: R29 2.0 kOhm -> VREF 0.985 V, 3.94 A typ, 3.65-4.31 A: a 1S motor up to 2.5 A running
