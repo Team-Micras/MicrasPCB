@@ -2063,7 +2063,7 @@ def test_exposed_pad_via_sites_all_hold_a_via(ref):
 # amplifier and back across the shunt, stays under KELVIN_LOOP (the pads sit in opposite corners of the
 # WSK2512 and IN+/IN- on opposite rows of the VSSOP-8, so some loop is left). Routed apart, 4 mm or more
 # between the two lines, each loop was about 25 mm2.
-KELVIN = {"R": ("R65", "U10"), "L": ("R75", "U11")}
+KELVIN = {"L": ("R65", "U10"), "R": ("R75", "U11")}  # IC8/M2 drives the left motor, IC9/M1 the right (Drivers.zen)
 KELVIN_LOOP = 12.0  # mm2
 
 
