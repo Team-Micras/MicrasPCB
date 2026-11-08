@@ -413,8 +413,8 @@ def test_3v3d_island_is_minimal():
 # antipads) skipped.
 MOAT_CROSSINGS = {
     "Battery_Voltage": 3,
-    "Current_Sensor_Left": 2,
     "Current_Sensor_Right": 2,
+    "Current_Sensor_Left": 2,
     "Encoder_Left_ABI_A": 2,
     "Encoder_Left_ABI_B": 2,
     "Encoder_Right_CSn": 1,
@@ -1241,11 +1241,11 @@ DETOUR, DETOUR_ADD = 2.5, 10.0
 ANALOG_DETOUR, ANALOG_ADD = 2.0, 3.0
 # The nets that still run round, with the length they may not exceed (mm): their direct paths cross
 # the STM32's escape rows or the corridor beside the fan hole, which have no free lane
-# (Current_Sensor_Right's run from C102 to R78 past the rear tip is the ESP32-C5 link's and the
+# (Current_Sensor_Left's run from C102 to R78 past the rear tip is the ESP32-C5 link's and the
 # IMU's and encoders' corridor, so it goes round by the DIP switch and the buzzer; the wall-sensor
 # line leaves the front-left face for the right side and the nose). Open item in the layout README.
 ROUND_ABOUT = {
-    "Current_Sensor_Right": 62.0,
+    "Current_Sensor_Left": 62.0,
     "Wall_Sensor_2": 46.5,
 }
 
@@ -1339,11 +1339,11 @@ def test_analog_keeps_clear_of_fast_digital():
 
 # The capacitor of each ADC input's RC filter at the STM32's pin: it is the charge reservoir of the
 # sample-and-hold, so the track between it and the pin stays short (ST AN2834 section 4.2.8).
-ADC_FILTERS = {"Current_Sensor_Left": "C105", "Current_Sensor_Right": "C102"}
+ADC_FILTERS = {"Current_Sensor_Right": "C105", "Current_Sensor_Left": "C102"}
 # mm, pad centre to pad centre: the reach each one has, which may not grow (owner, 2026-11-08). C105
 # sits just outside pins 25-26's escape vias, 1.9 mm from IC1.25, its stub 0.75 mm from the pin's
 # escape via; C102 3.5 mm from IC1.14, past the front-right face's escapes (layout README, open items)
-ADC_CAP_REACH = {"Current_Sensor_Left": 2.0, "Current_Sensor_Right": 3.6}
+ADC_CAP_REACH = {"Current_Sensor_Right": 2.0, "Current_Sensor_Left": 3.6}
 
 
 def test_adc_filter_caps_at_the_pin():

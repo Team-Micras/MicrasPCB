@@ -115,15 +115,15 @@ left = [
     "Encoder_Right_CSn", "Encoder_Right_ABI_A", "Encoder_Right_ABI_B",
     "Wall_Sensor_PWM_0", "Wall_Sensor_PWM_1", "Wall_Sensor_PWM_2", "Wall_Sensor_PWM_3",
     "Wall_Emitter_Set", "Wall_Sensor_0", "Wall_Sensor_1", "Wall_Sensor_2", "Wall_Sensor_3",
-    "Current_Sensor_Left", "Current_Sensor_Right",
+    "Current_Sensor_Right", "Current_Sensor_Left",
 ]
-right = ["MOTOR_L_SENSE_P", "MOTOR_L_SENSE_N", "MOTOR_R_SENSE_P", "MOTOR_R_SENSE_N"]
+right = ["MOTOR_R_SENSE_P", "MOTOR_R_SENSE_N", "MOTOR_L_SENSE_P", "MOTOR_L_SENSE_N"]
 
 [sheet.DRIVERS]
 at = [267, 124]
 size = [36, 24]
 left = [
-    "Motor_Left_EN", "Motor_Left_PH", "Motor_Right_EN", "Motor_Right_PH", "Motors_Enable",
+    "Motor_Right_EN", "Motor_Right_PH", "Motor_Left_EN", "Motor_Left_PH", "Motors_Enable",
     "Motors_nFault", "Fan_PWM", "Fan_Enable", "Fan_TOFF",
 ]
-right = ["MOTOR_L_SENSE_P", "MOTOR_L_SENSE_N", "MOTOR_R_SENSE_P", "MOTOR_R_SENSE_N"]
+right = ["MOTOR_R_SENSE_P", "MOTOR_R_SENSE_N", "MOTOR_L_SENSE_P", "MOTOR_L_SENSE_N"]

@@ -50,9 +50,9 @@ routes round it (the inner lane's lines nearest the rear tip), so that no line c
 tip, where the VCORE island leaves In2.Cu no room, and no two escapes cross where the hole leaves
 no via site. Each side of the hole carries two such ordered streams, one per outer layer (the
 routing plan in the layout README): on the rear-left face B.Cu SWDIO, IMU_SPI_CSn, IMU_INT,
-Motor_Left_EN and F.Cu ESP_Flow, Motor_Right_EN, Motor_Left_PH, Encoder_Left_CSn, the bus,
+Motor_Right_EN and F.Cu ESP_Flow, Motor_Left_EN, Motor_Right_PH, Encoder_Left_CSn, the bus,
 Fan_Enable; on the rear-right face B.Cu Encoder_Right_ABI_B, Motors_Enable, Motors_nFault,
-Motor_Right_PH, Encoder_Right_CSn and F.Cu SWCLK, Encoder_Right_ABI_A and the ESP32-C5 link.
+Motor_Left_PH, Encoder_Right_CSn and F.Cu SWCLK, Encoder_Right_ABI_A and the ESP32-C5 link.
 BOOT0 is held low by R42: the MCU always starts from its flash.
 - The DIP switch on the right-facing rows: Switch_0-3 on PH0, PH1, PC15 and PC14 (reduced-drive
   pins, fine for inputs with pull-ups).
@@ -62,7 +62,8 @@ BOOT0 is held low by R42: the MCU always starts from its flash.
   row. PB4 leaves its reset function NJTRST (the debug port is SWD only): out of reset PB4 is
   NJTRST with its pull-up (RM0468 Rev 3 section 11.3.1), which lifts Wall_Sensor_PWM_3's
   AC-coupled gate for a few ms while the emitter set-point is 0, so no emitter lights.
-- The motors: the right bridge's EN on PA10 (TIM1_CH3) and PH on PB7, the left's EN on PC6
+- The motors (main.zen names each line after the wheel it drives; Drivers.zen): the left motor's
+  bridge IC8 EN on PA10 (TIM1_CH3) and PH on PB7, the right's IC9 EN on PC6
   (TIM8_CH1, slaved to TIM1 over ITR0, RM0468 Table 350: TIM8 ITR0 = tim1_trgo, in gated mode)
   and PH on PA9, both GPIOs; Motors_Enable on PD2 and Motors_nFault on PB6 (EXTI6).
 - LED_ARGB on PA2 (TIM15_CH1, its CCR1 written by DMA on tim15_up, DMAMUX1 input 106, RM0468
@@ -71,14 +72,14 @@ BOOT0 is held low by R42: the MCU always starts from its flash.
   Encoder_Right_CSn on PB8; IMU_INT on PC7 (EXTI7). The right encoder's A on PA15 (TIM2_CH1) and
   B on PB3 (TIM2_CH2), the left's A on PA0 (TIM5_CH1) and B on PA1 (TIM5_CH2). The fan's Fan_TOFF on PB10 (an input sampled in step with the PWM)
   and Fan_Enable on PB12; ESP_Flow on PA11 (EXTI11).
-- The ADC lines: Current_Sensor_Left on PA6, Wall_Sensor_0 on PA4, Wall_Sensor_1 on PA3,
-  Wall_Sensor_2 on PB1, Wall_Sensor_3 on PC0, Current_Sensor_Right on PC1. Each pin keeps an ADC1
+- The ADC lines: Current_Sensor_Right on PA6, Wall_Sensor_0 on PA4, Wall_Sensor_1 on PA3,
+  Wall_Sensor_2 on PB1, Wall_Sensor_3 on PC0, Current_Sensor_Left on PC1. Each pin keeps an ADC1
   and an ADC2 input, which the currents' dual injected-simultaneous sampling needs (PA6
   ADC1/2_INP3, PC1 ADC1/2/3_INP11, PA4 ADC1/2_INP18, PA3 ADC1/2_INP15, PB1 ADC1/2_INP5, PC0
   ADC1/2/3_INP10), and PA6 is a fast channel (INP0-5, DS13311 Table 85; research Current
-  sensing), so the left current takes half of the research's fast-ADC swap.
+  sensing), so the right current takes half of the research's fast-ADC swap.
 - No wall-sensor input sits beside Fan_PWM (PA7, pin 26, 400 kHz): its package neighbours are
-  Current_Sensor_Left (PA6, pin 25), held by its 150 Ohm + 1 nF filter at the INA241's low
+  Current_Sensor_Right (PA6, pin 25), held by its 150 Ohm + 1 nF filter at the INA241's low
   output impedance, and Button (PC4, pin 27), a slow input; the wall receivers' 1 kOhm loads
   with no capacitor pick up a neighbour pin's edges (ST AN2834 section 4.2.11; the 2026-11-07
   signal review's model: 4-24 LSB16 rms per scan beside the fan's PWM). Wall_Sensor_1 on PA3
@@ -111,8 +112,8 @@ code without a conflict: every pin's signal, label, pull, speed and alternate fu
 Button on PC4 an EXTI4 input on the falling edge with its pull-up, on the EXTI4 interrupt alone,
 Motors_nFault (PB6, falling) and IMU_INT (PC7, rising) on EXTI9_5, ESP_Flow (PA11, rising, pull-down)
 on EXTI15_10; TIM8 gated on ITR0 and TIM4 gated on ITR2, TIM1 TRGO = enable and TRGO2 = update;
-ADC1/ADC2 dual injected simultaneous on channels 3 (PA6, Current_Sensor_Left) and 11 (PC1,
-Current_Sensor_Right) at 16.5 cycles (0.825 us at the 20 MHz ADC clock: 160 MHz, /4, and the
+ADC1/ADC2 dual injected simultaneous on channels 3 (PA6, Current_Sensor_Right) and 11 (PC1,
+Current_Sensor_Left) at 16.5 cycles (0.825 us at the 20 MHz ADC clock: 160 MHz, /4, and the
 fixed /2 of RM0468 Rev 3 section 28.4.3) triggered by TIM1 TRGO2, with ADC1's regular group on
 channels 18 (PA4), 15 (PA3), 5 (PB1), 10 (PC0) and 8 (PC5); DAC1 channel 2 on PA5 triggered by
 TIM4 TRGO with its buffer off, channel 1 on-chip only beside PA4's ADC input; TIM14 at ARR 687 on
@@ -283,18 +284,18 @@ WALL_SENSOR_2 = Net("Wall_Sensor_2")
 WALL_SENSOR_3 = Net("Wall_Sensor_3")
 WALL_EMITTER_SET = Net("Wall_Emitter_Set")
 
-MOTOR_LEFT_EN = Net("Motor_Left_EN")
-MOTOR_LEFT_PH = Net("Motor_Left_PH")
 MOTOR_RIGHT_EN = Net("Motor_Right_EN")
 MOTOR_RIGHT_PH = Net("Motor_Right_PH")
+MOTOR_LEFT_EN = Net("Motor_Left_EN")
+MOTOR_LEFT_PH = Net("Motor_Left_PH")
 MOTORS_ENABLE = Net("Motors_Enable")
 MOTORS_NFAULT = Net("Motors_nFault")
-MOTOR_L_SENSE_P = Net("Motor_L_Sense+")
-MOTOR_L_SENSE_N = Net("Motor_L_Sense-")
 MOTOR_R_SENSE_P = Net("Motor_R_Sense+")
 MOTOR_R_SENSE_N = Net("Motor_R_Sense-")
-CURRENT_SENSOR_LEFT = Net("Current_Sensor_Left")
+MOTOR_L_SENSE_P = Net("Motor_L_Sense+")
+MOTOR_L_SENSE_N = Net("Motor_L_Sense-")
 CURRENT_SENSOR_RIGHT = Net("Current_Sensor_Right")
+CURRENT_SENSOR_LEFT = Net("Current_Sensor_Left")
 
 FAN_PWM = Net("Fan_PWM")
 FAN_ENABLE = Net("Fan_Enable")
@@ -324,11 +325,11 @@ STM32H725RGV6(
     PA3=WALL_SENSOR_1,
     PA4=WALL_SENSOR_0,
     PA5=WALL_EMITTER_SET,
-    PA6=CURRENT_SENSOR_LEFT,
+    PA6=CURRENT_SENSOR_RIGHT,
     PA7=FAN_PWM,
     PA8=ENCODER_LEFT_SPI.CS,
-    PA9=MOTOR_LEFT_PH,
-    PA10=MOTOR_RIGHT_EN,
+    PA9=MOTOR_RIGHT_PH,
+    PA10=MOTOR_LEFT_EN,
     PA11=ESP_FLOW,
     PA12=IMU_SPI.CS,
     PA13=SWDIO,
@@ -341,7 +342,7 @@ STM32H725RGV6(
     PB4=WALL_SENSOR_PWM_3,
     PB5=WALL_SENSOR_PWM_2,
     PB6=MOTORS_NFAULT,
-    PB7=MOTOR_RIGHT_PH,
+    PB7=MOTOR_LEFT_PH,
     PB8=ENCODER_RIGHT_SPI.CS,
     PB9=BUZZER,
     PB10=FAN_TOFF,
@@ -350,10 +351,10 @@ STM32H725RGV6(
     PB14=SPI_MISO,
     PB15=SPI_MOSI,
     PC0=WALL_SENSOR_3,
-    PC1=CURRENT_SENSOR_RIGHT,
+    PC1=CURRENT_SENSOR_LEFT,
     PC4=BUTTON,
     PC5=BATTERY_VOLTAGE,
-    PC6=MOTOR_LEFT_EN,
+    PC6=MOTOR_RIGHT_EN,
     PC7=IMU_INT,
     PC9=WALL_SENSOR_PWM_0,
     PC10=ESP_SCK,
@@ -424,16 +425,16 @@ Drivers(
     VBAT=VBAT,
     V3V3_D=V3V3_D,
     GND=GND,
-    Motor_Right_EN=MOTOR_RIGHT_EN,
-    Motor_Right_PH=MOTOR_RIGHT_PH,
     Motor_Left_EN=MOTOR_LEFT_EN,
     Motor_Left_PH=MOTOR_LEFT_PH,
+    Motor_Right_EN=MOTOR_RIGHT_EN,
+    Motor_Right_PH=MOTOR_RIGHT_PH,
     Motors_Enable=MOTORS_ENABLE,
     Motors_nFault=MOTORS_NFAULT,
-    MOTOR_R_SENSE_P=MOTOR_R_SENSE_P,
-    MOTOR_R_SENSE_N=MOTOR_R_SENSE_N,
     MOTOR_L_SENSE_P=MOTOR_L_SENSE_P,
     MOTOR_L_SENSE_N=MOTOR_L_SENSE_N,
+    MOTOR_R_SENSE_P=MOTOR_R_SENSE_P,
+    MOTOR_R_SENSE_N=MOTOR_R_SENSE_N,
     Fan_PWM=FAN_PWM,
     Fan_Enable=FAN_ENABLE,
     Fan_TOFF=FAN_TOFF,
@@ -451,12 +452,12 @@ Sensors(
     Encoder_Right_CSn=ENCODER_RIGHT_SPI.CS,
     Encoder_Left_CSn=ENCODER_LEFT_SPI.CS,
     IMU_INT=IMU_INT,
-    MOTOR_L_SENSE_P=MOTOR_L_SENSE_P,
-    MOTOR_L_SENSE_N=MOTOR_L_SENSE_N,
     MOTOR_R_SENSE_P=MOTOR_R_SENSE_P,
     MOTOR_R_SENSE_N=MOTOR_R_SENSE_N,
-    Current_Sensor_Left=CURRENT_SENSOR_LEFT,
+    MOTOR_L_SENSE_P=MOTOR_L_SENSE_P,
+    MOTOR_L_SENSE_N=MOTOR_L_SENSE_N,
     Current_Sensor_Right=CURRENT_SENSOR_RIGHT,
+    Current_Sensor_Left=CURRENT_SENSOR_LEFT,
     Wall_Sensor_PWM_0=WALL_SENSOR_PWM_0,
     Wall_Sensor_PWM_1=WALL_SENSOR_PWM_1,
     Wall_Sensor_PWM_2=WALL_SENSOR_PWM_2,

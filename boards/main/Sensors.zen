@@ -11,7 +11,7 @@ Mode 1: SDx and SCx grounded, OCS_Aux and SDO_Aux open (Table 2 p10). C24
 and C25 100 nF on Vdd and Vdd_IO (Table 2 note 1, Figure 27 p44). On 3V3_D, as on the v1 main board
 (the research keeps it there: +0.65 mA on 3V3_A if it moves).
 
-Motor current, U10 (right motor) and U11 (left motor): INA241A2IDGKR, gain 20 V/V (TI SBOSA30D;
+Motor current, U10 (left motor, IC8's shunt) and U11 (right motor, IC9's): INA241A2IDGKR, gain 20 V/V (TI SBOSA30D;
 research Current sensing and A.3), across the 10 mOhm 4-terminal shunts R65 / R75 on the
 drivers sheet, IN+ on the bridge-side sense terminal and IN- on the motor side, with no input
 filter (the 25-45 uA input bias makes any series resistance an error, section 6.5). VS on 3V3_A
@@ -21,8 +21,8 @@ bidirectional mid-supply output of section 7.4.3.2, VOUT = 20 x 10 mOhm x I + 3V
 ratiometric to VDDA, which 3V3_A also feeds. Range: (3.3 V - 0.2 V - 1.65 V) / 0.2 V/A = +7.25 A
 and (1.65 V - 0.02 V) / 0.2 V/A = -8.15 A (output swing, section 6.5), above the 2.97 A ITRIP plus
 its overshoot. The output drives the ADC through R78 / R79 150 Ohm (R_iso) with C102 / C105 1 nF
-X7R after it, on the ADC line (Current_Sensor_Right on PC1, a slow ADC channel,
-Current_Sensor_Left on PA6, a fast one; main.zen's pin budget). Section 6.5 rates 1 nF straight on
+X7R after it, on the ADC line (Current_Sensor_Left on PC1, a slow ADC channel,
+Current_Sensor_Right on PA6, a fast one; main.zen's pin budget). Section 6.5 rates 1 nF straight on
 OUT ("no sustained oscillations", no isolation resistor); TI's INA241A2 PSpice model (SBOMC92)
 gives 4.2 dB of peaking and 26 % overshoot there, and behind 150 Ohm a flat response at the pin
 (-3 dB at 0.93 MHz, no overshoot;
@@ -187,12 +187,12 @@ Encoder_Left_CSn = io(Net)
 
 IMU_INT = io(Net)
 
-MOTOR_L_SENSE_P = io(Net)
-MOTOR_L_SENSE_N = io(Net)
 MOTOR_R_SENSE_P = io(Net)
 MOTOR_R_SENSE_N = io(Net)
-Current_Sensor_Left = io(Net)
+MOTOR_L_SENSE_P = io(Net)
+MOTOR_L_SENSE_N = io(Net)
 Current_Sensor_Right = io(Net)
+Current_Sensor_Left = io(Net)
 
 Wall_Sensor_PWM_0 = io(Net)
 Wall_Sensor_PWM_1 = io(Net)
@@ -254,8 +254,8 @@ def current_amplifier(side, amp, c_vs, r_iso, c_f, sense_p, sense_n, adc):
     Capacitor(name=c_f, P1=GND, P2=adc, **C_1N_0402)
 
 
-current_amplifier("R", "U10", "C100", "R78", "C102", MOTOR_R_SENSE_P, MOTOR_R_SENSE_N, Current_Sensor_Right)
-current_amplifier("L", "U11", "C103", "R79", "C105", MOTOR_L_SENSE_P, MOTOR_L_SENSE_N, Current_Sensor_Left)
+current_amplifier("L", "U10", "C100", "R78", "C102", MOTOR_L_SENSE_P, MOTOR_L_SENSE_N, Current_Sensor_Left)
+current_amplifier("R", "U11", "C103", "R79", "C105", MOTOR_R_SENSE_P, MOTOR_R_SENSE_N, Current_Sensor_Right)
 
 # Emitter current sink.
 TLV9001(name="U12", VCC=V3V3_A, GND=GND, IN_P=SINK_SET, IN_N=SINK_FB, OUT=SINK_OUT)

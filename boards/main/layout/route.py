@@ -167,7 +167,7 @@ BOARD = rect(-47.0, 54.0, -25.5, 25.5)  # the outline clips every pour
 # rim, which the lines to the STM32 keep on both outer layers
 VBAT_POUR = [
     (-8.6, 12.6),  # the middle: both bridges, the chokes, the current amplifiers (x -36.5..-8.6)
-    (-18.9, 12.6),  # a notch to U11's OUT pin: CURRENT_L_AMP leaves its pocket on B.Cu there
+    (-18.9, 12.6),  # a notch to U11's OUT pin: CURRENT_R_AMP leaves its pocket on B.Cu there
     (-18.9, 9.4),
     (-19.7, 9.4),
     (-19.7, 12.6),

@@ -9,7 +9,7 @@ large parts by function:
 
 - rear, open up to the battery: the ESP32-C5-MINI-1 in the rear-right corner (spec [u13]), its
   antenna over the board's notch there (spec [antenna_notch]); the battery input (J1, F1, D15, Q6)
-  in the rear-left corner by SW4; the flashing pads J2 on the rear edge behind the right motor
+  in the rear-left corner by SW4; the flashing pads J2 on the rear edge behind M2
   connector, 10.5 mm from the antenna's open end (at least 10);
 - behind the drive blocks (the only room for 5-7.7 mm parts near the motors): both motor chokes and
   the motor connectors, the chokes' pads clear of the drive blocks' outlines on the silkscreen;
@@ -91,8 +91,8 @@ BULK_GAP = 5.0  # mm
 
 # Floorplan: reference -> (x, y, KiCad rotation), robot frame (x forward, y left, mm).
 ANCHORS = {
-    # behind the drive blocks (the only room for 5-7.7 mm parts near the motors): the right choke L4
-    # against the right block's zones, the left one L5 behind it to the left, its pads clear of the
+    # behind the drive blocks (the only room for 5-7.7 mm parts near the motors): IC8's choke L4
+    # against the right block's zones, IC9's L5 behind it to the left, its pads clear of the
     # left block's outline (spec silkscreen); the motor connectors behind each choke
     "L4": (-21.4, -1.95, 0),
     "M2": (-33.73, -3.72, 180),
@@ -195,7 +195,7 @@ HAND = {
     "C97": (-15.38, 4.44, -90),
     "C98": (-15.4, 3.0, 0),
     "C103": (-18.12, 8.55, 180),
-    # the right bridge's references in front of its logic pins, out of OUT1's path round them
+    # IC8's references in front of its logic pins, out of OUT1's path round them
     "R61": (-3.09, -0.8, 90),
     "R86": (-19.55, -13.5, 180),
     # the fan driver: pump and boot capacitors at the rear pins, the sense resistor at the LSS pins 23-24
@@ -226,7 +226,7 @@ HAND = {
     # behind the SMPS row; VBAT's 1 uF past the left vertex; BOOT0's pull-down and NRST's filter by
     # the rear-right face (the lanes round the hole take the room at the rear tip)
     "R79": (17.8, 12.4, 90),
-    # the left current's ADC filter capacitor at its pin (IC1.25, ST AN2834 4.2.8): along the front-left
+    # the right current's ADC filter capacitor at its pin (IC1.25, ST AN2834 4.2.8): along the front-left
     # face just past pins 25-27's escape vias, its pad 2 by pin 25's (layout README, Front-left face)
     "C105": (36.5036, 4.6011, 0),
     # the 3V3_A LDO's soft-start capacitor at its SS pin, outside the fan ring's silk line
@@ -236,7 +236,7 @@ HAND = {
     "R42": (26.163, -7.319, 135),
     "C60": (26.884, -8.04, -45),
     "C21": (28.4, -9.8, 90),
-    # the ESP32-C5's EN RC and BOOT pull-up off the rear, where the right motor's paths pass under J2
+    # the ESP32-C5's EN RC and BOOT pull-up off the rear, where M2's paths pass under J2
     "R89": (-20.0, -15.6, 180),
     "C110": (-23.9, -7.5, 0),
     "R90": (-16.7, -23.7, 270),

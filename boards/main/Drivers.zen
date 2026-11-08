@@ -1,13 +1,14 @@
 """Wheel motor bridges (2 x DRV8874) with their in-line shunts and chokes, and the fan driver
 (STSPIN958) reconfigured for a drone-class motor on 4S.
 
-Bridges, IC8 (right motor, M2) and IC9 (left motor, M1): DRV8874PWPR, one HTSSOP-16 per motor
-next to its connector (TI SLVSF66A; research/next-revision, Drivetrain and A.1). The
+Bridges, IC8 (left motor, M2) and IC9 (right motor, M1): DRV8874PWPR, one HTSSOP-16 per motor
+next to its connector. The motors' leads cross as they are mounted: M1, on the board's left, takes the
+right wheel's motor and M2 the left's (the owner, 2026-11-08), and the nets are named after the motor (TI SLVSF66A; research/next-revision, Drivetrain and A.1). The
 datasheet's netlist rules are checked by components/ti/DRV8874/checks.zen in
 boards/main/test/test_drivers.zen.
 - PH/EN mode, PMODE on GND (Table 2: <= 0.65 V). The timer PWM goes on EN/IN1 and the direction
-  on PH/IN2: right motor Motor_Right_EN (PA10, TIM1_CH3) and Motor_Right_PH (PB7), left motor
-  Motor_Left_EN (PC6, TIM8_CH1) and Motor_Left_PH (PA9). EN = 0 is the low-side brake (Table 3),
+  on PH/IN2: left motor Motor_Left_EN (PA10, TIM1_CH3) and Motor_Left_PH (PB7), right motor
+  Motor_Right_EN (PC6, TIM8_CH1) and Motor_Right_PH (PA9). EN = 0 is the low-side brake (Table 3),
   so the bridge alternates drive and low-side slow decay at 100 kHz, the fPWM maximum (section
   6.3) and below the INA241's 125 kHz PWM-rejection limit (SBOSA30D 7.3.1.1). The datasheet gives
   no minimum output pulse: both edges are delayed alike (tPD 400 ns) and swing in tRISE/tFALL
@@ -225,16 +226,16 @@ VBAT = io(Power)
 V3V3_D = io(Power)
 GND = io(Ground)
 
-Motor_Right_EN = io(Net)
-Motor_Right_PH = io(Net)
 Motor_Left_EN = io(Net)
 Motor_Left_PH = io(Net)
+Motor_Right_EN = io(Net)
+Motor_Right_PH = io(Net)
 Motors_Enable = io(Net)
 Motors_nFault = io(Net)
-MOTOR_R_SENSE_P = io(Net)
-MOTOR_R_SENSE_N = io(Net)
 MOTOR_L_SENSE_P = io(Net)
 MOTOR_L_SENSE_N = io(Net)
+MOTOR_R_SENSE_P = io(Net)
+MOTOR_R_SENSE_N = io(Net)
 
 Fan_PWM = io(Net)
 Fan_Enable = io(Net)
@@ -300,12 +301,12 @@ def bridge(side, ic, en, ph, sense_p, sense_n, motor, refs):
 
 
 bridge(
-    "R",
+    "L",
     "IC8",
-    Motor_Right_EN,
-    Motor_Right_PH,
-    MOTOR_R_SENSE_P,
-    MOTOR_R_SENSE_N,
+    Motor_Left_EN,
+    Motor_Left_PH,
+    MOTOR_L_SENSE_P,
+    MOTOR_L_SENSE_N,
     "M2",
     {
         "cvm1": "C82",
@@ -321,12 +322,12 @@ bridge(
     },
 )
 bridge(
-    "L",
+    "R",
     "IC9",
-    Motor_Left_EN,
-    Motor_Left_PH,
-    MOTOR_L_SENSE_P,
-    MOTOR_L_SENSE_N,
+    Motor_Right_EN,
+    Motor_Right_PH,
+    MOTOR_R_SENSE_P,
+    MOTOR_R_SENSE_N,
     "M1",
     {
         "cvm1": "C91",
