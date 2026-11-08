@@ -654,6 +654,11 @@ Each is a visible TODO in the sheet that owns it.
   3.5 mm from IC1.14, where ST AN2834 section 4.2.8 asks for the pin: the front-right face's escapes
   leave no 0402 spot nearer (C105 is 1.9 mm from IC1.25; `test_adc_filter_caps_at_the_pin` holds
   each at its reach).
+- Analog beside slow digital round C105: Wall_Sensor_2 runs about 4 mm at 0.27 mm from
+  Wall_Sensor_PWM_1 and comes 0.20 mm from LED_Blue, and Wall_Emitter_Set runs about 4 mm at 0.23 mm
+  from LED_Blue. The selectors' PWM switches only between receiver scans (firmware_changes.toml
+  emitters) and LED_Blue changes only between them (firmware_changes.toml leds, led_blue_timing), so
+  no edge lands in a reading.
 - Assembly: every through-hole lead trimmed to 0.5 mm or less (Ordering), the USB cable's wire
   ends at J3 too; M2's leads lie under MicrasHardware's rear skate.
 - Silkscreen: the KiCad library passives (stdlib 0402-1210, 0603 LED) keep their 0.12 mm outlines;

@@ -1342,7 +1342,9 @@ def test_analog_keeps_clear_of_fast_digital():
 ADC_FILTERS = {"Current_Sensor_Right": "C105", "Current_Sensor_Left": "C102"}
 # mm, pad centre to pad centre: the reach each one has, which may not grow (owner, 2026-11-08). C105
 # sits just outside pins 25-26's escape vias, 1.9 mm from IC1.25, its stub 0.75 mm from the pin's
-# escape via; C102 3.5 mm from IC1.14, past the front-right face's escapes (layout README, open items)
+# escape via; C102 3.5 mm from IC1.14, past the front-right face's escapes. AN2834 wants the pin, and
+# 3 mm is not reachable for C102: no 0402 (nor 0201) fits nearer IC1.14 than 3.54 mm outside the escape
+# rows and lanes (the team review's exhaustive search, PR #26; layout README, open items)
 ADC_CAP_REACH = {"Current_Sensor_Right": 2.0, "Current_Sensor_Left": 3.6}
 
 
