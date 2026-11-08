@@ -215,15 +215,23 @@ def test_analog_rail_feeds_only_analog_loads(d):
     assert not problems, "\n".join(problems)
 
 
-def test_no_usb_and_no_5v_rail(d):
-    # Research Design basis: the board has no USB and no 5 V rail; every supply comes from J1. The
-    # one 5 V net is 5V_IN, a programmer's 5 V pin into VSYS through D17, which feeds nothing else.
+def test_no_usb_supply_and_no_5v_rail(d):
+    # Research Design basis: the board has no USB receptacle and no 5 V rail; every supply comes
+    # from J1. The one 5 V net is 5V_IN, a programmer's 5 V pin into VSYS through D17, which feeds
+    # nothing else. The only USB nets are the ESP32-C5's data pair (GPIO13 D-, GPIO14 D+) to the bare
+    # pads J3, with no VBUS (Esp.zen, USB pads).
     usb = sorted(n for n in d.nets() if re.search(r"USB|VBUS|5V", n.upper()) and n != "5V_IN")
-    assert not usb, f"USB or 5 V nets on the board: {usb}"
+    assert usb == ["ESP.USB_DN", "ESP.USB_DP"], f"USB or 5 V nets on the board: {usb}"
+    # module pins 23/24 (ESP32-C5-MINI-1 datasheet v1.4 Table 3-1); J3 pads 2/3 (components/micras/UsbPads)
+    for net, upad, fn, pad in (("ESP.USB_DN", "23", "IO13", "2"), ("ESP.USB_DP", "24", "IO14", "3")):
+        on = d.on(net)
+        assert on == {("J3", pad, f"Pin_{pad}"), ("U13", upad, fn)}, f"{net} reaches {sorted(on)}"
     on_5v = sorted(r for r, _, _ in d.on("5V_IN"))
     assert on_5v == ["D17", "J2", "SWD1"], f"5V_IN reaches {on_5v}: only J2, SWD1 and D17"
     connectors = sorted(r for r in d.nl.parts if r.startswith("J"))
-    assert connectors == ["J1", "J2"], f"connectors {connectors}: J1 (the pack) and J2 (the radio's flashing pads) only"
+    assert connectors == ["J1", "J2", "J3"], (
+        f"connectors {connectors}: J1 (the pack), J2 (the radio's flashing pads) and J3 (its USB pads) only"
+    )
 
 
 # --- decoupling present on the schematic (its distance is test_layout's, once there is a layout) --

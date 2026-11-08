@@ -5,9 +5,9 @@ Power tree (research/next-revision, Power tree):
   VBAT feeds the motor bridges and the fan driver (drivers sheet) and, through D14, VSYS.
 - VSYS, VBAT behind D14 or 5V_IN behind D17, feeds only the 3V3_D buck IC7 and, through R58, the
   3V3_A LDO U8.
-- The board has no USB and no 5 V rail. 5V_IN is programming power only: a USB-serial adapter's or
-  a clone ST-Link's 5 V pin on the flashing pads J2 (pad 2, ESP sheet) or on SWD1's pad 5 (root
-  sheet) runs the 3V3 rails without the pack, for flashing; the bridges and the fan driver stay
+- The board has no USB supply input and no 5 V rail. 5V_IN is programming power only: a USB-serial
+  adapter's, a clone ST-Link's or a USB cable's 5 V wire (the cable on the radio's USB pads J3, ESP
+  sheet) on the flashing pads J2 (pad 2, ESP sheet) or on SWD1's pad 5 (root sheet) runs the 3V3 rails without the pack, for flashing; the bridges and the fan driver stay
   unpowered (VBAT). On the bench, a current-limited supply at 12-16.8 V goes into J1 (a lead with
   the pack's JST PA plug) with SW4 on, and the board starts as from the pack; with the motors and
   the fan disabled, a current limit just above what the 3V3 rails draw keeps a fault on VBAT from

@@ -5,14 +5,15 @@ battery input with its fuse, VSYS behind a Schottky, separate digital and analog
 DRV8874 wheel bridges with in-line INA241 current sensing, the STSPIN958 fan driver, the IMU,
 the joints for four wall-sensor boards (boards/wall) on a shared emitter current sink, the slots
 for the two encoder boards, the
-ESP32-C5 dual-band radio, debug probe and data link with its flashing pads, and the user
-interface. The board has no USB; a programmer's 5 V pin on the flashing pads or the SWD pads
-(5V_IN) powers it for flashing without the pack.
+ESP32-C5 dual-band radio, debug probe and data link with its flashing pads and bare USB pads, and
+the user interface. The board has no USB receptacle: bare pads J3 take a USB cable's data pair and
+ground, soldered once, on the ESP32-C5's native USB; a programmer's 5 V pin on the flashing pads or
+the SWD pads (5V_IN) powers it for flashing without the pack.
 
 The design is [research/next-revision/README.md](../../../research/next-revision/README.md): its
-design basis (maxon DCX 10 L 4.5 V motors on a 4S pack, no boost; no USB; no 5 V rail), the options it recommends, and its connection lists A.1-A.6. The blocks it keeps are
+design basis (maxon DCX 10 L 4.5 V motors on a 4S pack, no boost; no USB receptacle; no 5 V rail), the options it recommends, and its connection lists A.1-A.6. The blocks it keeps are
 the v1 main board's (MicrasPCB e34fb9a, `boards/main`), with their designators; new parts continue each series (C80-C114, D14-D15, D17,
-IC8-IC9, J2, L4-L6, Q9, R58-R97, U8-U13), and the designators of removed parts are not reused.
+IC8-IC9, J2-J3, L4-L6, Q9, R58-R97, U8-U13), and the designators of removed parts are not reused.
 
 The board is 91.15 x 50 mm (x 47.6 to -43.55 in the robot frame), 4 layers, 1.04 mm, every part on the
 top side. Its mechanics are [`spec/main.toml`](../../../spec/main.toml): the outline, the screw
@@ -40,7 +41,7 @@ The board files are in `boards/main/` (this README sits in its `layout/` folder)
 | [`Drivers.zen`](../Drivers.zen) | `DRIVERS` | IC8/IC9 (DRV8874) bridges for M2/M1 with their 10 mOhm shunts R65/R75 and 47 uH chokes L4/L5, IC6 (STSPIN958) fan driver for M3 with its shunt R31 and 4.7 uH choke L6 |
 | [`Sensors.zen`](../Sensors.zen) | `SENSORS` | IC2 (LSM6DSV) IMU, U10/U11 (INA241A2) current amplifiers, wall joints W1-W4 (the wall boards' 2x3 joints: receiver output, GND, 3V3_A, 3V3_D, sink, PWM) with the receivers' 1 kOhm loads R14/R18/R22/R26, the emitter current sink U12/Q9/R83 with its DAC set-point, encoder slots EC1/EC2 |
 | [`Peripherals.zen`](../Peripherals.zen) | `PERIPHERALS` | SW1 DIP switch, SW2/SW3 buttons, R42 BOOT0 pull-down, BZ1 buzzer, D1/D2 (WS2812C-2427-V6) status LEDs, D4/D5 LEDs |
-| [`Esp.zen`](../Esp.zen) | `ESP` | U13 (ESP32-C5-MINI-1-N4) with its decoupling, EN RC, GPIO28 pull-up, flashing pads J2 (`components/micras/EspProgPads`, 5V_IN on pad 2), and the links to the MCU with their series resistors R86, R88, R95, R96 and the ESP_CSn pull-up R97 |
+| [`Esp.zen`](../Esp.zen) | `ESP` | U13 (ESP32-C5-MINI-1-N4) with its decoupling, EN RC, GPIO28 pull-up, flashing pads J2 (`components/micras/EspProgPads`, 5V_IN on pad 2), the USB pads J3 (`components/micras/UsbPads`, GPIO13 D-, GPIO14 D+), and the links to the MCU with their series resistors R86, R88, R95, R96 and the ESP_CSn pull-up R97 |
 | [`passives.zen`](../passives.zen) | | value, package, rating and part number of every resistor, ceramic capacitor and LED line |
 | [`schematic/`](../schematic) | | how each sheet is drawn (`micras-pcb sch`): the root with IC1, its supply domains, the SWD header and the module sheets, and one file per module sheet, each block in a titled frame |
 | [`erc.toml`](../erc.toml) | | nets supplied from off the board (BAT_P, GND, GND_BAT, 5V_IN) or through a passive part (VBAT, VSYS, 3V3_D, the LDO input, VDDA), the PWR_FLAG role for ERC; the two ERC warnings the module sheets leave until a pcb release includes [diodeinc/pcb#1522](https://github.com/diodeinc/pcb/pull/1522) (see [Known faults](#known-faults)) |
@@ -76,8 +77,8 @@ VBAT ─┬─ IC8/IC9 DRV8874 VM, IC6 STSPIN958 VS
 
 - **VSYS** is VBAT behind D14, or 5V_IN behind D17, and feeds only the two regulators. D14 keeps
   5V_IN off VBAT, the bridges' bulk and the pack; D17 keeps the pack off the programmer.
-- **No USB**: every rail comes from J1 but for flashing. 5V_IN takes a USB-serial adapter's or a
-  clone ST-Link's 5 V pin (never its 3.3 V one) on J2 pad 2 or SWD1 pad 5 and runs the 3V3 rails
+- **No USB supply input**: every rail comes from J1 but for flashing. 5V_IN takes a USB-serial
+  adapter's, a clone ST-Link's or the J3 USB cable's 5 V wire (never a 3.3 V one) on J2 pad 2 or SWD1 pad 5 and runs the 3V3 rails
   without the pack: 0.19-0.25 A while flashing, VSYS 3.8 V or more, where the buck still
   regulates; the bridges and the fan stay unpowered and VBAT reads near 0 V (Regulators.zen,
   VSYS). On the bench, a current-limited supply at 12-16.8 V goes into J1 (a lead with the pack's
@@ -190,6 +191,23 @@ STSPIN958 in parallel half-bridge mode, PWM trimming, on TIM14 at 400 kHz: R31 2
   v1.4 Table 6-3), so that plug can destroy the module: the silkscreen marks pad 1 ("1") and pad 2
   ("5V") beside the pads; there are no protection parts. The pads sit at a board edge the robot
   leaves open, easy to reach.
+- **USB pads J3** (`components/micras/UsbPads`: three 1.0 mm SMD pads at 1.27 mm, no part in the
+  BOM): 1 GND, 2 D- (GPIO13, module pin 23), 3 D+ (GPIO14, pin 24), labelled "G", "D-" and "D+" on
+  the silkscreen, for a USB cable's wires soldered once on the C5's USB Serial/JTAG controller:
+  its CDC-ACM console, flashing (idf.py flash, esptool; the ROM's Joint Download Boot 0 takes
+  USB-Serial-JTAG downloads) and JTAG (OpenOCD), with no adapter. J3 has no VBUS pad: the cable's
+  5 V wire goes on J2 pad 2 (5V_IN, through D17) to run the board without the pack, and stays off
+  with the pack in. J3 sits off the module's front-left corner, between the right choke L4 and the
+  module, 1.0 mm from L4's terminal pad (switching, but the pair is digital, not analog). The pair is the board's differential-pair rule, 0.2248 mm at a 0.127 mm gap (90 Ohm
+  on this stackup, v1's USB pair), on F.Cu over In1.Cu's ground with no via: from J3 it runs
+  coupled along the outer side of the module's edge row (D+ 0.1 mm off the unconnected pads
+  25-30, D- 0.352 mm outside it) into pins 24 and 23; D- 10.40 mm and D+ 10.35 mm, 0.05 mm apart
+  (D+ leaves J3 by a 0.83 mm riser that takes up D-'s longer turn into pin 23), 8.2 mm of it
+  coupled (`test_usb_pair_is_short_matched_and_via_free`). No series resistors: the checklist's
+  22/33 Ohm "close to the chip" have no room at pins 23/24 (the row's outer side holds the pair and
+  ESP_CSn_IO 0.17 mm from it, the inner side ESP_DATA_IO), and a 10 mm pair is a lumped load at
+  full speed (`Esp.zen`); no ESD array (a cable soldered once) and no D+ pull-up (GPIO14 has
+  the controller's).
 - **Links to the MCU** (C5 GPIOs free of strapping and other roles, off with no pull at reset):
   SWDIO GPIO0 -> PA13, SWCLK GPIO1 -> PA14 (22 Ohm), NRST GPIO23 (open drain); SPI3 half-duplex
   on three wires, the MCU the master: ESP_SCK PC10 -> GPIO10 (R95 22 Ohm), ESP_DATA PC12
@@ -260,7 +278,8 @@ emitter's pulse and scan; the current channels sampled for at least 0.7 us; the 
 over Wi-Fi through the ESP32-C5's CMSIS-DAP-over-TCP or Black Magic probe, nRESET on its GPIO23
 (open drain only, released before it is enabled), a 10 ms wait for NRST's slow rise, and the C5
 held in reset (J2 pad 1 to pad 4) when an ST-Link uses SWD1; TIM1/TIM8/TIM14 frozen and the drive
-enables cleared on a debug halt; the LSM6DSV's I2C disabled at boot and its interrupts all routed
+enables cleared on a debug halt; the C5's USB Serial/JTAG controller kept on GPIO13/GPIO14 (the USB
+pads J3) with its console beside UART0's; the LSM6DSV's I2C disabled at boot and its interrupts all routed
 to INT1.
 
 ## Layout
@@ -306,7 +325,12 @@ connection is routed, and DRC, DFM and the layout tests pass.
   (pad centres), reached from above; the EN RC (R89, C110) and the BOOT pull-up R90
   sit off the module's front-right side, because the right motor's OUT2 and TERMINAL paths pass
   under J2, and the B.Cu VBAT pour stops short of J2 so its lines reach the module on B.Cu. EN, TX0, RX0 and BOOT run inboard
-  on B.Cu, past the notch's wall, to the module's pins 45/39/40/4. Ground vias fence the notch's
+  on B.Cu, past the notch's wall, to the module's pins 45/39/40/4. The USB pair to J3 holds the
+  outer side of the module's front edge row (pins 23-30): EN crosses under it from C110 to R89 by
+  an In2.Cu hop (a via left of pin 31 to R89's B.Cu diagonal), 3V3_D's feed to the STM32 passes
+  under it on B.Cu, ESP_CSn_IO runs above it and drops between pins 23 and 22 to pin 21 on the
+  row's inner side, ESP_SCK_IO comes down to pin 22 from a via straight above it, and pad 64's
+  ground via sits left of the pad. Ground vias fence the notch's
   inner wall (x -39.7, 0.4 mm from the cut, at 1.6-1.8 mm pitch from in front of the antenna's open
   end to the tab) and the tab's wall over the notch (y +6.5) (`route.py` `NOTCH_FENCE`). U13's 3V3
   pin (pin 3) and BOOT pin (pin 4) lie on the module's edge row, 0.6 mm from the board's edge: each
@@ -465,8 +489,8 @@ connection is routed, and DRC, DFM and the layout tests pass.
   to the amplifier's corner; the loop they close, pad to pin and back, is 10.6 mm2 (R65) and
   8.8 mm2 (R75), set by the WSK2512's sense pads in opposite corners and IN+/IN- on opposite rows.
   The VBAT pour leaves a slot under R75's rear half for its pair; Reset keeps outside R65's.
-- **In2.Cu hops**: an exception where F.Cu and B.Cu have no room, not a routing layer: 50 mm on
-  13 nets (Boot, ESP_BOOT, ESP_SWCLK, ESP_Flow, Motor_Right_EN, Reset, the SPI2 bus, SWCLK, SWDIO,
+- **In2.Cu hops**: an exception where F.Cu and B.Cu have no room, not a routing layer: 60 mm on
+  14 nets (Boot, ESP_BOOT, ESP_EN, ESP_SWCLK, ESP_Flow, Motor_Right_EN, Reset, the SPI2 bus, SWCLK, SWDIO,
   Switch_0, Wall_Sensor_PWM_0), 200 mm at most in all. A hop carries a digital line of the STM32 or the ESP32
   only; it keeps 0.25 mm (plan view) from every switching, analog and battery-side supply track on
   B.Cu (`nets.SWITCHING` includes the fan's low-side sources, bootstrap and charge pump, the
@@ -476,7 +500,7 @@ connection is routed, and DRC, DFM and the layout tests pass.
   exception: a hop of a slow digital line (`nets.SLOW_DIGITAL`) may run under another slow digital
   line's B.Cu track for at most `nets.IN2_PARALLEL_MAX` (1.5 mm) along each of its segments; the
   fast lines (`nets.FAST_DIGITAL`: SPI_SCK, LED_ARGB, the encoders, the ESP32-C5 link's clock and
-  data, the fan's and the bridges' PWM lines) never run along one. The
+  data and its USB pair, the fan's and the bridges' PWM lines) never run along one. The
   longest such run is 1.0 mm (`tests/test_main_layout.py`).
 - **Antenna**: the board is cut away under the MINI-1's antenna and beside it (spec
   `[antenna_notch]`, 6.4 x 31.1 mm from the rear-right corner to y +6.1, R0.8 corners): its inner
@@ -637,6 +661,9 @@ Each is a visible TODO in the sheet that owns it.
   Rev 3 Table 2 asks for them "close"); `tests/test_layout.py` holds them to those reaches.
 - VBAT bulk: C87, C92, C111 and C36 sit in the middle, off a 0.4 mm B.Cu spur of the pour, where the
   2.5 mm 1210 clears the drive blocks' 1.5 mm zones.
+- USB pads J3: the checklist's reserved 22/33 Ohm series resistors and unpopulated capacitors at
+  the C5's pins 23/24 are not on the board (no room on the module's edge row, see ESP32 radio);
+  the pair is 10.4 mm, a lumped load at full speed, so the C5's own drivers set the edges.
 - JLCPCB rotations: unverified until the order's assembly preview.
 - ADC pins: the CubeMX check of the ADC set-up on the swapped pins; R_iso + C_f stability.
 - 3V3_A: the LDO's board-level thermal limit at about 0.33 W.

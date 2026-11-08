@@ -55,3 +55,9 @@ wires = [
     ["R88.2", [44, 16], [52, 16]],
     ["R97.2", [44, 16]],
 ]
+
+[[block]]
+title = "USB pads J3: the USB Serial/JTAG controller (GPIO13 D-, GPIO14 D+)"
+at = [136, 108]
+size = [90, 18]
+parts.J3 = { at = [56, 9], mirror = "x", fields = [4, -1] }

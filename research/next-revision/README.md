@@ -31,7 +31,7 @@ Fixed by the owner:
 |---|---|
 | Drive motors: maxon **DCX 10 L 4.5 V**, one per wheel | 2.9 Ω, 0.045 mH, kt 3.52 mNm/A, 2710 rpm/V, 0.648 A continuous, 14,300 rpm maximum, τw 3.94 s, 11 g ([maxon p100]) |
 | Battery: **4S LiPo**, bridges straight from the switched pack, **no boost** | Pack 12.0-16.8 V (17.4 V with HV cells); the TPS61178 boost and its parts go |
-| **No USB** on the board | Every rail comes from J1 (a bench supply into J1 on the bench), but for flashing: a programmer's 5 V pin on J2 or SWD1 (5V_IN, through D17) runs the 3V3 rails without the pack; the radio flashes over its UART0 header J2 and over the air; no H7 USB or DFU path |
+| **No USB receptacle** on the board: bare USB pads only | Every rail comes from J1 (a bench supply into J1 on the bench), but for flashing: a programmer's 5 V pin on J2 or SWD1 (5V_IN, through D17) runs the 3V3 rails without the pack; the radio flashes over its UART0 header J2, over its native USB on the bare pads J3 (a cable's D-, D+ and ground soldered once) and over the air; no H7 USB or DFU path |
 | The **ESP32-C5 replaces the HM-19 module and the SWD connector** | It flashes the H7 over SWD with NRST as a Wi-Fi debug probe, carries the H7's link (SPI3, UART4 as a fallback on the same pins) and relays 5 GHz Wi-Fi telemetry; the bare SWD1 pads take an ST-Link |
 | Digital 3V3 from the **L6981C33 buck**; analog 3V3_A from a **battery-side LDO** | No 5 V rail; the status LEDs become a 3.3 V part |
 | Fan: a generic, not yet chosen **drone-class brushed coreless motor** (high rpm, low R), PWM preferably about **400 kHz**, **no buck** | The STSPIN958 stays, reconfigured |
@@ -561,7 +561,7 @@ DRV8874 nFAULT ×2 wire-OR ─ PB6
   on its feed (Figure 9-1), EN on a 10 kΩ / 1 µF RC (section 9), GPIO28, the boot strap, pulled up
   by R90 (schematic checklist, Strapping Pins). The other strapping pins (GPIO2, GPIO3, GPIO7,
   GPIO25-GPIO27) stay open at their defaults (Tables 4-1 to 4-7).
-- **No USB**: the radio flashes over the air and, for recovery, over its UART0 pads **J2**
+- **No USB receptacle**: the radio flashes over the air and, for recovery, over its UART0 pads **J2**
   (2 × 3 plated holes at 1.27 mm for wires soldered once, `components/micras/EspProgPads`, no part)
   in the order of Espressif's ESP-Prog Program interface: 1 EN,
   2 VDD (5V_IN), 3 TX0 (GPIO11), 4 GND, 5 RX0 (GPIO12), 6 GPIO28 ([ESP-Prog] Program Interface).
@@ -569,6 +569,12 @@ DRV8874 nFAULT ×2 wire-OR ─ PB6
   pad 6 low and pulsing pad 1 enters the ROM's UART download mode, which only burned eFuses defeat.
   Pad 2 takes the programmer's 5 V into VSYS through D17, which powers the whole board without the
   pack and blocks with it (Power tree, programming power); no connector pin reaches 3V3_D.
+  Bare USB pads **J3** (`components/micras/UsbPads`: three 1.0 mm SMD pads at 1.27 mm, 1 GND, 2 D-,
+  3 D+, no part) take a USB cable's wires soldered once on the C5's USB Serial/JTAG controller
+  (GPIO13 D-, GPIO14 D+, [ESP32-C5-MINI-1] Table 3-1): its console, flashing (the ROM's Joint
+  Download Boot 0 takes USB-Serial-JTAG downloads) and JTAG with no adapter. The cable's 5 V wire
+  goes on J2 pad 2 to run the board without the pack. No ESD array (a cable soldered once) and no
+  series resistors (no room at the module's pins; the 10.4 mm pair is a lumped load at full speed).
 - **H7 data link**: SPI3 in half-duplex on three wires, the H7 the master: ESP_SCK on PC10
   (SPI3_SCK), ESP_DATA on PC12 (the MOSI pad, IOSWP = 0, SPI_CFG2 COMM = 11, [RM0468] §55.4.2
   and §55.4.4), ESP_CSn on PC11 (a GPIO), the C5 an ESP-IDF spi_slave_hd slave in 3-wire and DMA
@@ -828,17 +834,17 @@ Error at the period-mean current, ΔT = 40 K, shared VDDA term included (±1.5 %
 
 ### Q2. The compromise of an ESP32 without USB OTG
 
-**Short answer: the board has no USB, so OTG buys nothing; the ESP32-C5 does every job over Wi-Fi
-and its UART0 header.** OTG mattered only for a wired USB debug probe, console and drive on one
+**Short answer: the board has no USB receptacle, only bare pads on the C5's USB-Serial/JTAG, so OTG
+buys nothing; the ESP32-C5 does every job over Wi-Fi, its UART0 header and those pads.** OTG mattered only for a wired USB debug probe, console and drive on one
 cable. The chips without OTG (C3, C5, C6) have only the fixed-function USB-Serial/JTAG: one CDC
 serial port with fixed descriptors plus a JTAG interface for the ESP's own CPU (non-OTG study Q2.1).
-Without a USB port on the board, each wired function has a cover:
+Without a USB receptacle on the board, each wired function has a cover:
 
 | Function | Cover on the board |
 |---|---|
 | H7 debug probe | CMSIS-DAP over TCP or Black Magic over Wi-Fi ([ESP32 radio](#esp32-radio)); an ST-Link on the SWD1 pads with no Wi-Fi |
 | H7 console and telemetry | the link to the radio, bridged to TCP; logs stored on board and offloaded after a contest allocation |
-| Radio flashing and recovery | OTA (two slots with rollback); the ROM's UART download mode through J2 (GPIO28 low, an EN pulse), which no application can disable |
+| Radio flashing and recovery | OTA (two slots with rollback); the ROM's UART download mode through J2 (GPIO28 low, an EN pulse), which no application can disable; the USB-Serial/JTAG controller (console, flashing, JTAG) through a cable soldered to the bare pads J3 |
 | Power on the bench | a current-limited supply into J1 with SW4 on |
 
 | | ESP32-S3 | ESP32-C5 | ESP32-C6 | ESP32-C3 |

@@ -5,11 +5,11 @@ The module, U13 (Espressif ESP32-C5-MINI-1 & MINI-1U datasheet v1.4), flashes an
 over SWD (a CMSIS-DAP-over-TCP or Black Magic probe over Wi-Fi), carries the MCU's link (SPI3
 half-duplex, UART4 as a fallback on the same pins) and relays Wi-Fi telemetry. The C5 is
 Espressif's dual-band (2.4 and 5 GHz, 5180-5885 MHz, Table 7-7) Wi-Fi 6 part with a 240 MHz
-RISC-V core (Features). The board has no USB: the radio flashes over its UART0 pads J2 and over
-the air, and the root sheet's SWD header SWD1 (with NRST) takes an ST-Link when the radio cannot
-reach the MCU.
-Both take the programmer's 5 V pin as 5V_IN, which powers the board without the pack
-(REGULATORS sheet, D17).
+RISC-V core (Features). The board has no USB receptacle: the radio flashes over its UART0 pads
+J2, over its native USB on the bare pads J3 (a USB cable soldered once) and over the air, and the
+root sheet's SWD header SWD1 (with NRST) takes an ST-Link when the radio cannot reach the MCU.
+J2 and SWD1 take the programmer's 5 V pin as 5V_IN, which powers the board without the pack
+(REGULATORS sheet, D17); a cable on J3 brings its VBUS wire to J2 pad 2 for the same.
 
 MINI-1 (PCB antenna) rather than MINI-1U (external antenna): every metal part of the robot is
 16.6 mm or more from the antenna (drive blocks 16.6 mm, the left motor's can, past the centre
@@ -72,6 +72,30 @@ hold pad 6 low and pulse pad 1; the ROM's UART download mode is in mask ROM, and
 eFuses defeat it. Any USB-serial adapter with 3.3 V logic does it (esptool's own reset sequence
 needs DTR/RTS on EN and GPIO28, as the ESP-Prog wires them; with a plain adapter hold pad 6 to GND
 by hand and pulse pad 1). Pad 1 is square and marked on the silkscreen, which labels the pads.
+
+USB pads J3 (components/micras/UsbPads: three 1.0 mm SMD pads at 1.27 mm, no part): 1 GND, 2 D-, 3
+D+, labelled "G", "D-" and "D+" on the silkscreen, for a USB cable's wires soldered once. They reach
+the C5's USB Serial/JTAG controller, a USB 2.0 full-speed device: GPIO13 is USB_D- (module pin 23)
+and GPIO14 USB_D+ (pin 24) (module datasheet v1.4 Table 3-1; Hardware Design Guidelines, Schematic
+Checklist, USB: "GPIO13 and GPIO14 can be used as D- and D+ of USB respectively"). With the default
+eFuses the controller enumerates as a CDC-ACM serial port and a JTAG adapter: the console, idf.py
+flash (the ROM's Joint Download Boot 0 takes USB-Serial-JTAG downloads, Strapping Pins table note;
+download mode is GPIO28 low at EN's rise, J2 pads 6 and 1, or esptool's reset over the
+USB-Serial-JTAG controller) and OpenOCD, with no adapter. J3 carries no VBUS: the cable's 5 V
+wire goes to J2 pad 2 (5V_IN) if the board is to run without the pack; with the pack in, D17 blocks
+it. GPIO14 has the controller's D+ pull-up (USB_PU, TRM Table 8.13-1; checklist IO Pin Default
+Functions), so no external pull-up; the checklist adds one only for a stable D+ while the chip
+powers up, which a cable soldered to a board already running does not need. The checklist reserves
+series resistors (22/33 Ohm) and unpopulated capacitors to ground "close to the chip" ("initially
+can be unpopulated"): there is no room for two 0402s at pins 23/24 (the outer side of the module's
+edge row holds the pair itself and ESP_CSn_IO, its inner side ESP_DATA_IO 0.45 mm from the pads),
+and the pair is 10.4 mm long, about 70 ps against full-speed edges of 4-20 ns (USB 2.0
+Specification, Full-speed Source Electrical Characteristics, TFR/TFF), so it is a lumped load and
+the controller's own drivers set the source impedance; nothing is fitted. No ESD array: a cable
+soldered once, not a receptacle plugged by hand. The layout routes the pair as a 90 Ohm differential
+pair on F.Cu over In1.Cu's ground, with no via, 0.2248 mm wide at a 0.127 mm gap (the board's
+differential-pair rule, main.zen), matched in length (layout README, ESP32 radio; Hardware Design
+Guidelines, PCB Layout Design, USB).
 
 Links to the MCU (A.6). The C5 pins are those the chip datasheet ranks free of any restriction
 (ESP32-C5 Series Datasheet v1.5, section 2.3.5, priority 2: GPIO0, GPIO1, GPIO6, GPIO8-GPIO10,
@@ -136,6 +160,7 @@ Capacitor = Module("@stdlib/generics/Capacitor.zen")
 Resistor = Module("@stdlib/generics/Resistor.zen")
 ESP32_C5_MINI_1 = Module("github.com/Team-Micras/MicrasPCB/components/espressif/ESP32-C5-MINI-1/ESP32-C5-MINI-1.zen")
 EspProgPads = Module("github.com/Team-Micras/MicrasPCB/components/micras/EspProgPads/EspProgPads.zen")
+UsbPads = Module("github.com/Team-Micras/MicrasPCB/components/micras/UsbPads/UsbPads.zen")
 
 # Its own sheet in the board schematic (layout/main.kicad_sch).
 Project(name="Esp", path="layout", layout=False)
@@ -162,6 +187,8 @@ ESP_SWCLK = Net("ESP_SWCLK")
 ESP_SCK_IO = Net("ESP_SCK_IO")
 ESP_CSN_IO = Net("ESP_CSn_IO")
 ESP_DATA_IO = Net("ESP_DATA_IO")
+USB_DN = Net("USB_DN")
+USB_DP = Net("USB_DP")
 
 NC = NotConnected
 
@@ -183,8 +210,8 @@ ESP32_C5_MINI_1(
     IO10=ESP_SCK_IO,
     IO11=ESP_TXD0,
     IO12=ESP_RXD0,
-    IO13=NC(),
-    IO14=NC(),
+    IO13=USB_DN,
+    IO14=USB_DP,
     IO15=NC(),
     IO23=Reset,
     IO24=ESP_Flow,
@@ -207,6 +234,9 @@ Resistor(name="R90", P1=V3V3_D, P2=ESP_BOOT, **R_10K_0402)
 # Flashing pads, ESP-Prog Program interface order.
 EspProgPads(name="J2", EN=ESP_EN, VDD=V5V_IN, TXD=ESP_TXD0, GND=GND, RXD=ESP_RXD0, IO0=ESP_BOOT)
 
+# USB pads: the C5's USB Serial/JTAG controller (GPIO13 D-, GPIO14 D+).
+UsbPads(name="J3", GND=GND, DN=USB_DN, DP=USB_DP)
+
 # MCU links.
 Resistor(name="R86", P1=ESP_SWCLK, P2=SWCLK, **R_22_0402)
 # R95, R96 and R88 sit mid-line in the layout: the lines are electrically short, so any spot works.
@@ -220,5 +250,6 @@ SCHEMATIC_HINTS = {
     "blocks": [
         {"title": "EN RC delay and GPIO28 pull-up", "parts": ["R89", "C110", "R90"], "anchor": "R89"},
         {"title": "Flashing pads J2 (ESP-Prog Program interface)", "parts": ["J2"], "anchor": "J2"},
+        {"title": "USB pads J3 (USB Serial/JTAG)", "parts": ["J3"], "anchor": "J3"},
     ],
 }

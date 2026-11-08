@@ -54,8 +54,8 @@ ANALOG = {
 NOISY_SUPPLY = {"BAT_P", "GND_BAT", "VBAT", "VSYS", "5V_IN", "REGULATORS.LDO_IN"}
 ANALOG_GAP = 0.5  # mm of copper-free gap, same layer (the ground planes shield one outer layer from the other)
 # The STM32's and the ESP32's digital lines with fast edges or clocks: SPI's clock, the addressable
-# LED's 800 kHz data, the encoders' quadrature and SPI lines, the ESP32-C5 link's clock and data, and
-# the PWM lines: the fan's 400 kHz (TIM14), the bridges' 100 kHz EN inputs (TIM1/TIM8) and the
+# LED's 800 kHz data, the encoders' quadrature and SPI lines, the ESP32-C5 link's clock and data, its
+# USB pair (12 Mbit/s full speed, 4-20 ns edges, to the bare pads J3), and the PWM lines: the fan's 400 kHz (TIM14), the bridges' 100 kHz EN inputs (TIM1/TIM8) and the
 # buzzer's gate drive (TIM17, its PWM at the buzzer's kHz tone with the MCU's fast edges)
 FAST_DIGITAL = {
     "SPI_SCK",
@@ -69,6 +69,8 @@ FAST_DIGITAL = {
     "ESP_DATA",
     "ESP.ESP_SCK_IO",
     "ESP.ESP_DATA_IO",
+    "ESP.USB_DN",
+    "ESP.USB_DP",
 }
 # Their slow digital lines (control, status, interrupts, UART, SWD, SPI data and chip select,
 # buttons and switches): an In2.Cu hop of one may run under another's B.Cu track for at most

@@ -1,13 +1,13 @@
 """Micras main board: the micromouse's MCU, 4S power, DRV8874 wheel bridges, fan
 driver, sensors, ESP32-C5 radio and debug probe, and user interface.
 
-The design is research/next-revision/README.md: its design basis (DCX 10 L 4.5 V motors on a 4S
-pack with no boost; no USB; the ESP32-C5 replacing the HM-19 module and the SWD connector;
-digital 3V3_D from the L6981C33 and analog 3V3_A from a battery-side LDO; no 5 V
-rail; the STSPIN958 fan driver at 400 kHz), its recommended options and its appendix connection
-lists A.1-A.6. The blocks it keeps unchanged are the v1 main board's (MicrasPCB e34fb9a,
-boards/main), with their designators; the parts it adds continue each series, and the
-designators of the v1 parts it drops are not reused.
+The design is research/next-revision/README.md: its design basis (DCX 10 L 4.5 V motors on a 4S pack
+with no boost; no USB receptacle, bare pads J3 on the ESP32-C5's native USB instead; the ESP32-C5
+replacing the HM-19 module and the SWD connector; digital 3V3_D from the L6981C33 and analog 3V3_A
+from a battery-side LDO; no 5 V rail; the STSPIN958 fan driver at 400 kHz), its recommended options
+and its appendix connection lists A.1-A.6. The blocks it keeps unchanged are the v1 main board's
+(MicrasPCB e34fb9a, boards/main), with their designators; the parts it adds continue each series,
+and the designators of the v1 parts it drops are not reused.
 
 This root sheet holds the STM32H725RGV6 (IC1) with its supply network and the test pads, and
 connects the five sheets:

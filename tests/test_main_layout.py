@@ -2257,3 +2257,93 @@ def test_analog_keeps_clear_of_noisy_supplies():
         f"{a} runs {r:.1f} mm within {NOISY_GAP} mm of {f}" for (a, f), r in sorted(runs.items()) if r > NOISY_RUN
     ]
     assert not problems, "\n".join(problems)
+
+
+# The ESP32-C5's USB pair (Esp.zen, USB pads): Espressif's PCB Layout Design, USB, asks for a
+# differential pair "in parallel at equal lengths", 90 Ohm, with as few vias as possible over a
+# continuous ground. On this stackup the board's differential-pair rule (main.zen: 0.2248 mm at a
+# 0.127 mm gap, v1's USB pair) is the 90 Ohm pair; the pair runs on F.Cu over In1.Cu's ground
+# with no via. USB_SKEW_MAX: 0.25 mm of length, about 1.5 ps, under 0.1 % of a full-speed edge
+# (4-20 ns, USB 2.0 Full-speed Source Electrical Characteristics); the layout has 0.05 mm.
+USB_PAIR = {"ESP.USB_DN": ("J3.2", "U13.23"), "ESP.USB_DP": ("J3.3", "U13.24")}
+USB_WIDTH, USB_PITCH = 0.2248, 0.2248 + 0.127
+USB_SKEW_MAX = 0.25  # mm
+USB_LENGTH_MAX = 12.0  # mm, each line, J3 to the module (the layout: 10.4)
+USB_COUPLED_MIN = 7.0  # mm, side by side at the pair's pitch (the layout: 8.2)
+
+
+def _pad(pcb, ref_pad: str):
+    ref, num = ref_pad.split(".")
+    return next(p for p in pcb.footprints[ref].pads if p.number == num)
+
+
+def test_usb_pair_is_short_matched_and_via_free():
+    pcb = layout.load("main")
+    problems, lengths, segs = [], {}, {}
+    for net, ends in USB_PAIR.items():
+        tracks = [t for t in pcb.tracks if t.net == net]
+        segs[net] = tracks
+        problems += [f"{net}: a via at {_xy(v.xy)}" for v in pcb.vias if v.net == net]
+        problems += [f"{net}: a track on {t.layer} at {_xy(t.start)}" for t in tracks if t.layer != "F.Cu"]
+        problems += [
+            f"{net}: {t.width:.4f} mm wide at {_xy(t.start)}" for t in tracks if abs(t.width - USB_WIDTH) > 1e-4
+        ]
+        lengths[net] = sum(math.dist(t.start, t.end) for t in tracks)
+        # one chain of tracks from the pad on J3 to the module's pin
+        key = lambda p: (round(p[0], 4), round(p[1], 4))  # noqa: E731
+        adj: dict = {}
+        for t in tracks:
+            adj.setdefault(key(t.start), set()).add(key(t.end))
+            adj.setdefault(key(t.end), set()).add(key(t.start))
+        a, b = (_pad(pcb, e) for e in ends)
+        inside = lambda p, pad: all(abs(p[i] - pad.xy[i]) <= pad.size[i] / 2 + 1e-6 for i in (0, 1))  # noqa: E731
+        start = [p for p in adj if inside(p, a)]
+        seen, todo = set(start), list(start)
+        while todo:
+            for q in adj[todo.pop()] - seen:
+                seen.add(q)
+                todo.append(q)
+        if not start or not any(inside(p, b) for p in seen):
+            problems.append(f"{net}: no track chain from {ends[0]} to {ends[1]}")
+        if lengths[net] > USB_LENGTH_MAX:
+            problems.append(f"{net}: {lengths[net]:.2f} mm long (at most {USB_LENGTH_MAX})")
+    skew = abs(lengths["ESP.USB_DN"] - lengths["ESP.USB_DP"])
+    if skew > USB_SKEW_MAX:
+        problems.append(f"D- {lengths['ESP.USB_DN']:.3f} mm, D+ {lengths['ESP.USB_DP']:.3f} mm: {skew:.3f} mm apart")
+    coupled = 0.0  # mm of D- alongside D+ at the pair's pitch (parallel segments, overlap of their spans)
+    for n in segs["ESP.USB_DN"]:
+        for p in segs["ESP.USB_DP"]:
+            lp = math.dist(p.start, p.end)
+            if lp == 0 or _angle(n, p) >= 1.0:
+                continue
+            u = ((p.end[0] - p.start[0]) / lp, (p.end[1] - p.start[1]) / lp)
+            rel = [(q[0] - p.start[0], q[1] - p.start[1]) for q in (n.start, n.end)]
+            if any(abs(abs(r[0] * u[1] - r[1] * u[0]) - USB_PITCH) > 0.005 for r in rel):
+                continue
+            s0, s1 = sorted(r[0] * u[0] + r[1] * u[1] for r in rel)
+            coupled += max(0.0, min(s1, lp) - max(s0, 0.0))
+    if coupled < USB_COUPLED_MIN:
+        problems.append(
+            f"the pair runs side by side at {USB_PITCH:.3f} mm for {coupled:.1f} mm (at least {USB_COUPLED_MIN})"
+        )
+    assert not problems, "\n".join(problems)
+
+
+def test_usb_pads_stay_reachable():
+    # J3 takes a cable's wires soldered by hand: its pads are bare copper on the top side, under no
+    # other part's courtyard, its own courtyard clear of every other part's
+    pcb = layout.load("main")
+    j3 = pcb.footprints["J3"]
+    assert j3.side == "top"
+    pads = {p.number: p for p in j3.pads}
+    assert {n: p.net for n, p in pads.items()} == {"1": "GND", "2": "ESP.USB_DN", "3": "ESP.USB_DP"}
+    assert all(p.kind == "smd" and {"F.Cu", "F.Mask"} <= set(p.layers) and min(p.size) >= 1.0 for p in pads.values())
+    own = j3.courtyard_box()
+    over = []
+    for ref, f in pcb.footprints.items():
+        box = f.courtyard_box()
+        if ref == "J3" or box is None:
+            continue
+        if own[0] < box[2] and box[0] < own[2] and own[1] < box[3] and box[1] < own[3]:
+            over.append(ref)
+    assert not over, f"courtyards over J3's: {over}"
