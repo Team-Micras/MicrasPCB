@@ -4271,7 +4271,7 @@
 		(descr "MPS MPL-AL5030 (5.50 x 5.30 x 2.90 mm nominal, 5.70 x 5.50 x 3.10 mm max) molded power inductor: 1.18 x 4.70 mm pads at 3.31 mm pitch (2.13 mm gap, 4.49 mm span), within 0.07 mm of MPS's Land Pattern (MPL-AL5030-4R7 Rev. 1.1 p4: A 4.70, B 2.0, C 4.50 mm) and covering its 1.10 x 4.30 mm terminals 2.30 mm apart; pad 1 at the start-of-winding dot; embedded STEP: the p4 drawing's nominal body and terminals at the 3.1 mm maximum height")
 		(tags "inductor MPS MPL-AL molded")
 		(property "Reference" "L6"
-			(at -0.01119 -0.014848 0)
+			(at -3.314848 0.011191 90)
 			(layer "F.SilkS")
 			(uuid "53ec605a-1863-4d2c-8765-f1e7c0b683de")
 			(effects
@@ -6502,7 +6502,7 @@
 		(descr "MetalLions MTQH707050S (7.2 x 7.0 x 5.0 mm max) molded power inductor on the Coilcraft XAL7070 land pattern: 1.92 x 6.50 mm pads at 4.82 mm pitch, each inside a 2.30 x 7.0 mm MTQH bottom terminal (MetalLions MTQH707050S datasheet p1 Dimensions: L 7.2, W 7.0, E 2.30, G 2.6); embedded STEP: MTQH707050S470MGT nominal body (7.2 x 7.0 x 5.0 mm) with its bottom terminals, from that drawing")
 		(tags "inductor mtqh")
 		(property "Reference" "L4"
-			(at -0.036432 0.025153 0)
+			(at -4.636432 0.025153 0)
 			(layer "F.SilkS")
 			(uuid "84085661-d124-4f35-8be7-e0277b761394")
 			(effects
@@ -15935,7 +15935,7 @@
 		(descr "Capacitor SMD 1210 (3225 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 76, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "capacitor")
 		(property "Reference" "C92"
-			(at -2.375152 1.850239 0)
+			(at -2.475152 1.150239 0)
 			(layer "F.SilkS")
 			(uuid "624d4841-0100-44c5-9b53-97275fa18959")
 			(effects
@@ -35963,7 +35963,7 @@
 		(descr "Resistor SMD 1206 (3216 Metric), square (rectangular) end terminal, IPC-7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf)")
 		(tags "resistor")
 		(property "Reference" "R31"
-			(at 2.495152 0.375956 90)
+			(at 2.495152 -0.024044 90)
 			(layer "F.SilkS")
 			(uuid "c1e1e8fe-905f-4d8f-9277-58ad3a54600e")
 			(effects
@@ -53058,7 +53058,7 @@
 		(at 153.5641 77.7316 -45)
 		(descr "0806 (2.0 x 1.6 mm) power inductor land pattern from the Micras Altium library; generic 2.0 x 1.6 mm STEP")
 		(property "Reference" "L1"
-			(at 1.848067 -0.798275 45)
+			(at 1.848067 0.801725 45)
 			(layer "F.SilkS")
 			(uuid "6dfd3c27-5761-458b-8efb-c3bf609cfb3d")
 			(effects
@@ -53739,7 +53739,7 @@
 		(at 169.3511 99.4736)
 		(descr "6.5 x 6.0 mm molded power inductor, YJYCOIN YSPIA0645 land (F 3.5, G 7.5, H 3.2 mm; datasheet page 2), from the Micras Altium library; STEP is the Vishay IHLP-2525CZ model, not the exact part")
 		(property "Reference" "L3"
-			(at -0.03119 0.025152 0)
+			(at -0.03119 3.625152 0)
 			(layer "F.SilkS")
 			(uuid "061700cc-16fa-4c28-973b-a19441ade6d4")
 			(effects
@@ -54104,7 +54104,7 @@
 		(descr "MetalLions MTQH707050S (7.2 x 7.0 x 5.0 mm max) molded power inductor on the Coilcraft XAL7070 land pattern: 1.92 x 6.50 mm pads at 4.82 mm pitch, each inside a 2.30 x 7.0 mm MTQH bottom terminal (MetalLions MTQH707050S datasheet p1 Dimensions: L 7.2, W 7.0, E 2.30, G 2.6); embedded STEP: MTQH707050S470MGT nominal body (7.2 x 7.0 x 5.0 mm) with its bottom terminals, from that drawing")
 		(tags "inductor mtqh")
 		(property "Reference" "L5"
-			(at -0.02119 0.025152 0)
+			(at -4.62119 0.025152 0)
 			(layer "F.SilkS")
 			(uuid "c8442fd4-6072-4ca2-aa6e-eb0aaafa61ed")
 			(effects
@@ -56121,10 +56121,21 @@
 		(layer "User.1")
 		(uuid "a5ee992f-26cb-4d48-a351-516f168952e2")
 	)
+	(gr_text "MOT R"
+		(at 147.189432 144.118752 0)
+		(layer "F.SilkS")
+		(uuid "24457710-55fc-469a-a0ca-3a7a50b20bc0")
+		(effects
+			(font
+				(size 0.4 0.4)
+				(thickness 0.1)
+			)
+		)
+	)
 	(gr_text "BAT"
 		(at 125.303968 139.383828 0)
 		(layer "F.SilkS")
-		(uuid "b2b96bb9-99b4-4179-a235-3f0dbb53d4f3")
+		(uuid "59ba9178-9e9e-446f-9441-9f14f66b6f1f")
 		(effects
 			(font
 				(size 0.6 0.6)
@@ -56135,7 +56146,7 @@
 	(gr_text "BTN"
 		(at 136.061099 82.878828 0)
 		(layer "F.SilkS")
-		(uuid "3f10d008-4d50-427b-810f-bf7ce5db259b")
+		(uuid "f2445729-c5e6-437c-bc65-486a3ab2aeb5")
 		(effects
 			(font
 				(size 0.6 0.6)
@@ -56146,18 +56157,7 @@
 	(gr_text "SWD"
 		(at 138.466813 153.673828 0)
 		(layer "F.SilkS")
-		(uuid "cb7e5a06-c4a7-4f35-814e-579e3d4a46f6")
-		(effects
-			(font
-				(size 0.6 0.6)
-				(thickness 0.15)
-			)
-		)
-	)
-	(gr_text "MOT R"
-		(at 147.631099 144.203828 0)
-		(layer "F.SilkS")
-		(uuid "24c5123c-ed06-41cc-a360-4e86289280a2")
+		(uuid "2c9f7f28-43c8-446f-aa46-ac1410fc3663")
 		(effects
 			(font
 				(size 0.6 0.6)
@@ -56166,9 +56166,9 @@
 		)
 	)
 	(gr_text "ESP"
-		(at 152.208243 144.103828 0)
+		(at 155.308243 140.203828 0)
 		(layer "F.SilkS")
-		(uuid "0cb196fe-d90c-48b4-a53e-8f82bb127170")
+		(uuid "28afd8c2-aa71-4658-a48c-d758b12aa79f")
 		(effects
 			(font
 				(size 0.6 0.6)
@@ -56179,7 +56179,7 @@
 	(gr_text "MOT L"
 		(at 155.64254 144.003828 0)
 		(layer "F.SilkS")
-		(uuid "bfac8419-317f-480e-b9ba-025d8a780b34")
+		(uuid "c1a93d35-3a95-42e2-b1fc-c0935ba0fedf")
 		(effects
 			(font
 				(size 0.6 0.6)
@@ -56190,7 +56190,7 @@
 	(gr_text "RST"
 		(at 162.315398 87.903828 0)
 		(layer "F.SilkS")
-		(uuid "94d307b9-d9fa-4919-988b-c82acc88f7ab")
+		(uuid "fc123cd3-f413-4e68-8ded-04879e6485f1")
 		(effects
 			(font
 				(size 0.6 0.6)
@@ -56201,7 +56201,7 @@
 	(gr_text "FAN"
 		(at 130.311512 85.319316 90)
 		(layer "F.SilkS")
-		(uuid "e8d679b3-f00c-4354-8fed-8cf7cfe1bd47")
+		(uuid "f5b19c99-c292-4425-9f56-0380d0b17dcb")
 		(effects
 			(font
 				(size 0.6 0.6)
@@ -56212,7 +56212,7 @@
 	(gr_text "USB"
 		(at 157.136328 133.589315 90)
 		(layer "F.SilkS")
-		(uuid "bd50c4c0-0add-4c52-8ac1-8e80195fc619")
+		(uuid "ea1045e6-cf8f-4f72-9a74-da48f04ab8d8")
 		(effects
 			(font
 				(size 0.6 0.6)
