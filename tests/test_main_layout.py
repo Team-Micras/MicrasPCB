@@ -1042,37 +1042,173 @@ def test_silkscreen_texts_clear_pads_edges_and_other_silkscreen(drc_violations):
 
 
 LABEL_NEAR = 1.2  # mm, boards/main/layout/silk.py NEAR: the farthest a label's box sits from its part's courtyard
-LABEL_SIZE = 0.4  # mm, silk.py SIZE
+LABEL_SIZE = 0.6  # mm, silk.py USER_SIZE, the largest label
+LABEL_SLACK = 0.05  # mm, a text's anchor against the centre of its strokes, which silk.py places
+
+
+@functools.cache
+def _silk_tables() -> dict:
+    """silk.py's label tables (UNNAMED, USER, SILENT), read from its source: it needs pcbnew to run."""
+    import ast
+
+    src = (board_pcb("main").parent / "silk.py").read_text()
+    out = {}
+    for node in ast.parse(src).body:
+        name = node.targets[0] if isinstance(node, ast.Assign) else None
+        if isinstance(name, ast.Name) and name.id in ("UNNAMED", "USER", "SILENT"):
+            out[name.id] = ast.literal_eval(node.value)
+    return out
+
+
+def _hidden_field(prop) -> bool:
+    effects = prop.child("effects")
+    hidden = prop.child("hide") is not None and prop.child("hide").atoms()[:1] in ([], ["yes"])
+    return hidden or (effects is not None and "hide" in effects.atoms())
+
+
+def _labels() -> list[tuple[str, float, float]]:
+    """(part, x, y) of every label on the silkscreen: the shown references and the user labels."""
+    pcb, user = layout.load("main"), {v: k for k, v in _silk_tables()["USER"].items()}
+    out = []
+    for fp in _root().children("footprint"):
+        ref = fp.prop("Reference")
+        prop = next(p for p in fp.children("property") if p.atoms()[:1] == ["Reference"])
+        if _hidden_field(prop) or prop.child("layer").atoms()[0] not in ("F.SilkS", "F.Silkscreen"):
+            continue
+        f = pcb.footprints[ref]
+        dx, dy = layout._rotate(*(float(a) for a in prop.child("at").atoms()[:2]), f.rotation)
+        out.append((ref, f.xy[0] + dx, f.xy[1] + dy))
+    for t in _root().children("gr_text"):
+        if t.atoms()[0] in user and t.child("layer").atoms()[0] in ("F.SilkS", "F.Silkscreen"):
+            x, y = (float(a) for a in t.child("at").atoms()[:2])
+            out.append((user[t.atoms()[0]], x, y))
+    return out
 
 
 def test_every_designator_is_shown_by_its_part():
-    # Every part's reference designator is on the board's silkscreen, the mounting holes' aside (the
-    # owner, 2026-11-07), within silk.py's reach of its part, so it names that part and no other
-    # (boards/main/layout/silk.py places them; a label it cannot fit is hidden, which this catches)
-    pcb = layout.load("main")
+    # Every part is named on the board's silkscreen, the mounting holes aside (the owner, 2026-11-07),
+    # within silk.py's reach of its part: by its reference, or for the parts a user handles by what they
+    # are for (silk.py USER: BAT, MOT R, RST, ...); the big ICs (UNNAMED) and the user parts that need no
+    # label (SILENT: SW4's ON legend, the DIP switch's own marks, the LEDs, the buzzer) carry none (the
+    # owner, 2026-11-08). silk.py hides a label it cannot fit, which this catches
+    pcb, t = layout.load("main"), _silk_tables()
+    bare = t["UNNAMED"] | set(t["USER"]) | t["SILENT"]
+    where: dict[str, list] = {}
+    for part, x, y in _labels():
+        where.setdefault(part, []).append((x, y))
     problems = []
     for fp in _root().children("footprint"):
         ref = fp.prop("Reference")
         if fp.atoms()[0].split(":")[-1].startswith("MountingHole"):
             continue
         prop = next(p for p in fp.children("property") if p.atoms()[:1] == ["Reference"])
-        effects = prop.child("effects")
-        hidden = prop.child("hide") is not None and prop.child("hide").atoms()[:1] in ([], ["yes"])
-        hidden |= effects is not None and "hide" in effects.atoms()
-        layer = prop.child("layer").atoms()[0]
-        if hidden or layer not in ("F.SilkS", "F.Silkscreen"):
-            problems.append(f"{ref}: not on the silkscreen ({layer}{', hidden' if hidden else ''})")
+        if ref in bare and not _hidden_field(prop):
+            problems.append(f"{ref}: its reference is shown, but silk.py names it otherwise or not at all")
+        want = 0 if ref in t["UNNAMED"] | t["SILENT"] else 1
+        if len(where.get(ref, [])) != want:
+            problems.append(f"{ref}: {len(where.get(ref, []))} labels on the silkscreen, {want} expected")
             continue
+        box = pcb.footprints[ref].courtyard_box()
+        for x, y in where.get(ref, []) if box else []:
+            gap = math.hypot(max(box[0] - x, x - box[2], 0), max(box[1] - y, y - box[3], 0))
+            reach = LABEL_NEAR + 5 * LABEL_SIZE / 2 + 0.1  # the box's gap plus half the longest label
+            if gap > reach:
+                problems.append(f"{ref}: its label {gap:.1f} mm from its courtyard, at most {reach:.1f}")
+    assert not problems, "\n".join(problems)
+
+
+def _body_hulls() -> dict[str, list[tuple[float, float]]]:
+    """Each part's body seen from above (the convex hull of its F.Fab drawing, its courtyard without one)."""
+    pcb, out = layout.load("main"), {}
+    for fp in _root().children("footprint"):
+        ref = fp.prop("Reference")
+        if fp.atoms()[0].split(":")[-1].startswith("MountingHole"):
+            continue
+        pts = []
+        for head in ("fp_line", "fp_rect", "fp_poly", "fp_arc", "fp_circle"):
+            for g in fp.children(head):
+                if g.child("layer") is None or g.child("layer").atoms()[0] != "F.Fab":
+                    continue
+                q = [tuple(float(a) for a in g.child(k).atoms()[:2]) for k in ("start", "mid", "end") if g.child(k)]
+                if g.child("pts"):
+                    q += [tuple(float(a) for a in p.atoms()[:2]) for p in g.child("pts").children("xy")]
+                if head == "fp_rect" and len(q) == 2:
+                    q += [(q[0][0], q[1][1]), (q[1][0], q[0][1])]
+                if head == "fp_circle" and g.child("center") and g.child("end"):
+                    (cx, cy), (ex, ey) = (tuple(float(a) for a in g.child(k).atoms()[:2]) for k in ("center", "end"))
+                    r = math.dist((cx, cy), (ex, ey))
+                    q = [(cx + r * math.cos(a * math.pi / 8), cy + r * math.sin(a * math.pi / 8)) for a in range(16)]
+                pts += q
         f = pcb.footprints[ref]
-        box = f.courtyard_box()
-        if box is None:
-            continue
-        dx, dy = layout._rotate(*(float(a) for a in prop.child("at").atoms()[:2]), f.rotation)
-        x, y = f.xy[0] + dx, f.xy[1] + dy
-        gap = math.hypot(max(box[0] - x, x - box[2], 0), max(box[1] - y, y - box[3], 0))
-        reach = LABEL_NEAR + len(ref) * LABEL_SIZE / 2 + 0.1  # the box's gap plus half its length
-        if gap > reach:
-            problems.append(f"{ref}: its label {gap:.1f} mm from its courtyard, at most {reach:.1f}")
+        if len(pts) < 3:
+            pts = list(f.courtyard)
+        pts = [(f.xy[0] + dx, f.xy[1] + dy) for dx, dy in (layout._rotate(x, y, f.rotation) for x, y in pts)]
+        if len(pts) >= 3:
+            out[ref] = _convex(pts)
+    return out
+
+
+def _convex(pts):
+    pts = sorted(set(pts))
+
+    def half(seq):
+        h = []
+        for p in seq:
+            while (
+                len(h) >= 2
+                and (h[-1][0] - h[-2][0]) * (p[1] - h[-2][1]) - (h[-1][1] - h[-2][1]) * (p[0] - h[-2][0]) <= 0
+            ):
+                h.pop()
+            h.append(p)
+        return h
+
+    return half(pts)[:-1] + half(list(reversed(pts)))[:-1]
+
+
+def _to_hull(p, hull) -> float:
+    """Distance from a point to a convex polygon (counter-clockwise in a y-up sense), 0 inside."""
+    inside = all(
+        (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]) >= 0
+        for a, b in zip(hull, hull[1:] + hull[:1], strict=True)
+    )
+    if inside:
+        return 0.0
+    best = math.inf
+    for a, b in zip(hull, hull[1:] + hull[:1], strict=True):
+        ex, ey = b[0] - a[0], b[1] - a[1]
+        t = max(0.0, min(1.0, ((p[0] - a[0]) * ex + (p[1] - a[1]) * ey) / max(ex * ex + ey * ey, 1e-12)))
+        best = min(best, math.hypot(p[0] - a[0] - t * ex, p[1] - a[1] - t * ey))
+    return best
+
+
+def test_labels_name_their_nearest_similar_part():
+    # A label names the part nearest to it among the parts it could be taken for (the same kind of
+    # reference, C with C, R with R, or the same footprint: the battery and motor connectors), and a
+    # part's nearest such label is its own (the owner, 2026-11-08), distances from the label's centre to
+    # the part's body. boards/main/layout/silk.py holds both when it places the labels
+    kind = {fp.prop("Reference"): fp.atoms()[0].split(":")[-1] for fp in _root().children("footprint")}
+
+    def similar(a, b):
+        return a.rstrip("0123456789") == b.rstrip("0123456789") or kind[a] == kind[b]
+
+    hulls, labels = _body_hulls(), _labels()
+    problems = []
+    for part, x, y in labels:
+        own = _to_hull((x, y), hulls[part])
+        for other, h in hulls.items():
+            if other != part and similar(other, part):
+                d = _to_hull((x, y), h)
+                if d + LABEL_SLACK < own:
+                    problems.append(
+                        f"{part}'s label at {_xy((x, y))} is {d:.2f} mm from {other}, {own:.2f} from {part}"
+                    )
+    mine = {part: _to_hull((x, y), hulls[part]) for part, x, y in labels}
+    for part, x, y in labels:
+        for other in mine:
+            if other != part and similar(other, part):
+                d = _to_hull((x, y), hulls[other])
+                if d + LABEL_SLACK < mine[other]:
+                    problems.append(f"{other}'s nearest label is {part}'s ({d:.2f} mm), its own {mine[other]:.2f} mm")
     assert not problems, "\n".join(problems)
 
 

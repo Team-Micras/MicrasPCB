@@ -656,11 +656,16 @@ Each is a visible TODO in the sheet that owns it.
   ends at J3 too; M2's leads lie under MicrasHardware's rear skate.
 - Silkscreen: the KiCad library passives (stdlib 0402-1210, 0603 LED) keep their 0.12 mm outlines;
   U13's outline and SW4's run past the board's edge (the module over its notch, the switch's
-  lever at the cut corner), where the fab clips them. Every reference designator is on the board (the
-  mounting holes' aside), 0.4 mm high with a 0.1 mm stroke, at 0, 90 or 45 degrees, written along
-  its part's side with its centre as near the part's centre as the room allows, within 1.2 mm of the
-  courtyard, clear of the mask openings, the other silkscreen and the edge, and off every part's body
-  (`silk.py`; `test_every_designator_is_shown_by_its_part`).
+  lever at the cut corner), where the fab clips them. Every part is named on the board, the mounting
+  holes aside: by its reference designator (0.4 mm high, 0.1 mm stroke), or, for the parts a user
+  handles, by what they are for (0.6 mm: RST and BTN on the buttons, BAT, MOT R on M1 and MOT L on
+  M2, FAN, ESP, SWD, USB); the big ICs (IC1, IC6-IC9, U13) and SW4 (its ON legend), the DIP switch
+  (its own ON and 1-4), the LEDs and the buzzer carry none. Each label lies at 0, 90 or 45 degrees
+  along its part's side, its centre as near the part's centre as the room allows, within 1.2 mm of
+  the courtyard, clear of the mask openings, the other silkscreen and the edge, off every part's body,
+  nearer its own part than any part it could be taken for (the same kind of reference, or the same
+  footprint), and no part has another such label nearer than its own (`silk.py`;
+  `test_every_designator_is_shown_by_its_part`, `test_labels_name_their_nearest_similar_part`).
 - STM32 SMPS: C1/C2 sit 3.8-4.6 mm from VDDSMPS and C3/C4 6.5-7.1 mm from L1 and VFBSMPS (AN5419
   Rev 3 Table 2 asks for them "close"); `tests/test_layout.py` holds them to those reaches.
 - VBAT bulk: C87, C92, C111 and C36 sit in the middle, off a 0.4 mm B.Cu spur of the pour, where the
