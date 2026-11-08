@@ -78,6 +78,7 @@ USER = {
 SILENT = {"SW1", "SW4", "D1", "D2", "D4", "D5", "BZ1"}
 USER_SIZE = 0.6  # mm, a user label's height
 USER_STROKE = 0.15  # mm, a quarter of USER_SIZE
+USER_VIA = 20.0  # times W_VIA for a tented via under a user label
 USER_FALLBACK = (0.5, 0.4)  # mm, a user label's smaller heights where USER_SIZE has no room
 T0, T1 = 20.0, 0.05  # annealing temperature, start and end
 
@@ -447,7 +448,8 @@ def main(src: Path, dst: Path) -> int:
             for n in near:
                 other = np.minimum(other, gap(X, Y, parts[n]))
             foreign = other < own + CLEAR  # as near another part as its own: never taken
-            cost = W_BODY * court + W_COURTYARD * margin + W_VIA * via + lb.turn(ang)
+            # a user label is read at a glance: a via in its letters costs it far more
+            cost = W_BODY * court + W_COURTYARD * margin + W_VIA * (USER_VIA if lb.user else 1) * via + lb.turn(ang)
             out.append((ang, X, Y, h, cost, centre, court, dist, foreign, own))
         return out
 
