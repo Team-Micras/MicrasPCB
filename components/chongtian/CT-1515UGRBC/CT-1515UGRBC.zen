@@ -1,0 +1,56 @@
+"""CT-1515UGRBC/H-P9-MX4 - 3-7.5 V addressable RGB LED, single-wire data, 1.5 x 1.5 mm SMD-4P.
+
+Datasheet: Shenzhen CHONGTIAN Optoelectronic CT-1515UGRBC/H-P9-MX4 specification, version A2
+(2026-01-23), 11 pages, LCSC C52191310 ("CT-DS").
+
+Supply: VDD 3 V min, 5 V typ, 7.5 V max in the recommended operating range ("推荐工作范围",
+p.3) and in the electrical table ("芯片输入电压", p.4); the absolute maximum is 3.0-7.5 V (p.3).
+The electrical and switching tables are stated for Vdd = 4.5-5.0 V, and p.1 says a built-in
+low-voltage module makes it work "100 %" from 5 V up ("内置低压强化模块，VDD 在 5V 以上 100%正常工作");
+3.3 V operation rests on the 3 V minimum of the operating range. Static current 0.4-0.9 mA (p.4).
+VDD is declared 3-7.5 V.
+
+Data (CT-DS p.4): DIN VIH 0.7 x VDD min (2.31 V at 3.3 V), VIL 0.3 x VDD max (0.99 V); logic
+input -0.5 to 5.5 V absolute (p.3); DIN to DOUT delay 200 ns max, data rate 1100 kHz max (p.5).
+Bit timing (p.6): T0H 0.295 us, T1H 0.595 us, T0L 0.595 us, T1L 0.295 us, each +-0.05 us;
+reset low >= 80 us. Its notes: a bit period of at least 1.2 us, the high times inside the table's
+windows, the low times under 20 us; so only the high times are tight (T0H 245-345 ns, T1H
+545-645 ns), and a 1.25 us WS2812 bit fits. 24 bits per LED, MSB first; the p.6 note says GRB
+order ("按照 GRB 的顺序发送数据", and the part name's "GRB"), while the p.6 bit drawing lists R7..R0
+first: the text is taken, and a red/green swap would be a firmware fix.
+
+Current: 5 mA per colour channel, 4-6 mA (p.4 "R/G/B 输出驱动电流"), constant current; output
+withstand 8.5-9.5 V. At 5 mA and 5 V (p.7): green 200-500 mcd 520-525 nm, red 100-300 mcd
+620-625 nm, blue 50-200 mcd 465-470 nm. No headroom curve: as for any 3.3 V addressable LED, a
+channel's current needs VDD above its LED's VF plus the sink's drop.
+
+External parts: the p.7 application circuit draws one capacitor C1 between VDD and GND per LED,
+without a value; integrator-owned.
+
+Pins (p.2 top view and the p.3 pin table): 1 DIN (top left), 2 GND (top right), 3 DOUT (bottom
+right), 4 VDD (bottom left); the p.2 bottom view and the p.9 tape drawing agree.
+Package (p.2): 1.50 x 1.50 x 0.90 mm +-0.10 mm, four bottom terminals 0.45 mm wide and 0.43 mm
+long at the corners, 0.54 mm apart across the middle. Footprint: the datasheet's recommended land
+pattern ("建议焊盘尺寸", p.2): 0.50 x 0.50 mm pads, 0.54 mm apart, centres at +-0.52 mm. Reflow
+peak 255 +-5 C for 10 s twice after 168 h at 30 C/70 %RH (p.10 reliability table); no MSL is
+stated.
+"""
+
+VDD = io(Power(voltage="3V to 7.5V"))
+GND = io(Ground)
+DI = io(Net)
+DO = io(Net)
+
+Component(
+    name="LED",
+    prefix="D",
+    symbol=Symbol(library="CT-1515UGRBC.kicad_sym"),
+    footprint=File("LED-SMD_4P-L1.5-W1.5-P1.04_CT-1515UGRBC.kicad_mod"),
+    part=Part(mpn="CT-1515UGRBC/H-P9-MX4", manufacturer="CHONGTIAN"),
+    pins={
+        "DI": DI,
+        "GND": GND,
+        "DO": DO,
+        "VDD": VDD,
+    },
+)

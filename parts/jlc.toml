@@ -295,6 +295,13 @@ rotation_verified = true
 source = "jlcpcb.com parts search 2026-10-17: extended, 79 k in stock; 10 uF 50 V X7R 1210"
 why_extended = "10 uF 50 V X7R 1210 on VBAT: twice the 1206's capacitance at 16.8 V (Samsung DC-bias curves, passives.zen); no basic 10 uF 50 V X7R"
 
+[parts."CT-1515UGRBC/H-P9-MX4"]
+lcsc = "C52191310"
+type = "extended"
+rotation = 270
+rotation_verified = false
+source = "jlcpcb.com parts search 2026-11-08: extended, 760 in stock; Economic PCBA (JLCPCB's order page took it for D1/D2, where the WS2812C-2427-V6 C55109524 and -2020-V6 C55109522 are Standard PCBA only); rotation 270: LCSC's EasyEDA land is our footprint turned 90 degrees (its pad 1 bottom left). JLCPCB has no CAD for it yet (order page, 2026-11-08: its footprint and model are made after payment, one more day of build time; the preview shows a placeholder), so order with Confirm Parts Placement and check D1/D2 there"
+
 [parts."DRV8874PWPR"]
 lcsc = "C1855818"
 type = "extended"
@@ -445,13 +452,6 @@ type = "extended"
 rotation = 180
 rotation_verified = true
 source = "jlcpcb.com parts search 2026-10-15: extended, 39 k in stock; rotation 180: LCSC's EasyEDA footprint lines up with ours, pin for pin, only turned 180 degrees (2026-11-08)"
-
-[parts."WS2812C-2427-V6"]
-lcsc = "C55109524"
-type = "extended"
-rotation = 0
-rotation_verified = false
-source = "jlcpcb.com parts search 2026-11-02: extended, 150 in stock, Economic PCBA; the WS2812C-2020-V6 (C55109522) had 4, and its /W reel (C55160508) is Standard PCBA only"
 
 [parts."WSK2512R0100FEA"]
 lcsc = "C3985410"

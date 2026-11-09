@@ -1,9 +1,9 @@
-1. WS2812C-2020-V6 on TIM17_CH1, PSC = 0, timer clock 275 MHz
+1. CT-1515UGRBC/H-P9-MX4 on TIM15_CH1, PSC = 0, timer clock 275 MHz
    ARR = 355 (period 1294.5 ns, 772.5 kHz)
-   CCR1 = 93 for a 0 (T0H 338.2 ns, T0L 956.4 ns)
-   CCR1 = 171 for a 1 (T1H 621.8 ns, T1L 672.7 ns)
-   smallest margin to a datasheet limit: 41.8 ns (12 ticks)
-   2 LEDs x 24 bits: 62.1 us of data, then CCR1 = 0 for >= 280 us (217 periods, or stop the DMA with CCR1 = 0)
+   CCR1 = 81 for a 0 (T0H 294.5 ns, T0L 1000.0 ns)
+   CCR1 = 164 for a 1 (T1H 596.4 ns, T1L 698.2 ns)
+   smallest margin to a datasheet limit: 48.6 ns (13 ticks)
+   2 LEDs x 24 bits: 62.1 us of data, then CCR1 = 0 for >= 80 us (62 periods, or stop the DMA with CCR1 = 0)
 
 2. TIM1/TIM8 centre-aligned, PSC = 0
    ARR = 1375: 100.00 kHz, one duty step = 0.073 % (3.64 ns)

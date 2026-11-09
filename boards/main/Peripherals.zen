@@ -19,42 +19,45 @@ the 174 mA coil current below, decaying, against its 300 mA IFM and 2 A IFSM at 
 minimum coil (FUET-5025 p2), 151 mW in R3.
 
 LEDs:
-- D1, D2: WS2812C-2427-V6 addressable LEDs (2.7 x 2.4 mm) in a chain on 3V3_D (research IR emitters
-  and status LEDs; A.4), replacing the v1 main board's WS2815C-2020, whose 9.5-13.5 V supply range
-  fits neither 4S nor 3.3 V. DI of D1 on LED_ARGB (PA2, TIM15_CH1), D1 DO to D2 DI. VDD 3.3-5.3 V,
-  DI VIH 0.55 x VDD, 1.81-1.84 V on this rail, and VIL 0.3 x VDD, 0.99 V (Worldsemi WS2812C-2427-V6
-  datasheet V1.0 p3), so PA2 (VOH >= VDD - 0.4 V, VOL <= 0.4 V, DS13311 Table 56) drives it
-  directly with 1 V and 0.59 V of margin; C19 (D1) and C18 (D2) 100 nF on VDD (p5). The bit timing
-  caps T0L and T1L at 1 us and asks 1.25 us a bit (p4), against the WS2815C's 5 us
-  (boards/main/firmware_changes.toml, leds); it is the WS2812C-2020-V6's.
-  3.3 V operation: the datasheet's tables are at VDD = 5 V; its supply range is 3.3-5.3 V (p3).
-  Each channel's constant-current sink holds its 5 mA from 0.4 V across it (p6 curve), so a channel
-  keeps its full current while its LED's VF is at most VDD - 0.4 V, 2.884 V at the rail's 3.284 V
-  minimum. Worldsemi gives no per-colour VF; a comparable InGaN RGB part reads 2.76 V blue and
-  2.88 V green at 5 mA (Everlight EAST1616RGBA4 Rev 1, Figures p7-8, typical), so red and blue keep
-  full current and green sits at the knee: about -18 % for a die 0.1 V above typical. At worst
-  white and yellow lean slightly away from green; the colours stay recognisable, and the IC starts
-  (rated from 3.3 V, the rail 16 mV below; send the first frame 1 ms or more after power-up). No
-  addressable LED of this size rates its supply below 3.3 V in its electrical table (SK6805-EC20
-  3.5-5.5 V, XL-2020RGBC-2812B 3.5-5.5 V, SK6812-EC20 3.7-5.5 V), and of the WS2812C family JLCPCB
-  stocks the 2427-V6 for Economic assembly (the 2020-V6 had 4 in stock on 2026-11-02, its /W reel
-  is Standard PCBA only).
+- D1, D2: CHONGTIAN CT-1515UGRBC/H-P9-MX4 addressable LEDs (1.5 x 1.5 mm) in a chain on 3V3_D
+  (research IR emitters and status LEDs; A.4), replacing the v1 main board's WS2815C-2020, whose
+  9.5-13.5 V supply range fits neither 4S nor 3.3 V. DI of D1 on LED_ARGB (PA2, TIM15_CH1), D1 DO to
+  D2 DI. JLCPCB places it with Economic PCBA; the Worldsemi WS2812C-2427-V6 and -2020-V6 (rated
+  from 3.3 V), the WS2812B-2020-V6 and -MINI-V6, the XL-2121RGBC-2812B and the TCWIN T64/T65/T77 are
+  Standard PCBA only (JLCPCB's order page, 2026-11-08), and of the parts it places for Economic the
+  SK6805D-EC2018 needs 3.7 V, the CT-3227 emits sideways and the WS2816A-1313's 5-pad land is drawn
+  0.05 mm apart, under JLCPCB's 0.1 mm. VDD 3-7.5 V in the recommended operating range (CT-1515
+  datasheet A2 p3-4; its electrical tables are at 4.5-5.0 V, and p1 calls it "100 %" from 5 V up), DI
+  VIH 0.7 x VDD, 2.30-2.35 V on this rail, and VIL 0.3 x VDD, 0.99 V (p4), so PA2 (VOH >= VDD - 0.4
+  V, VOL <= 0.4 V, DS13311 Table 56) drives it directly with 0.53 V and 0.59 V of margin; C19 (D1)
+  and C18 (D2) 100 nF on VDD (p7: a capacitor per LED, value not given). Its bit timing holds the
+  high times to T0H 0.295 us and T1H 0.595 us +-0.05 us, low times under 20 us and a bit of at least
+  1.2 us, reset >= 80 us (p6), against the WS2815C's 5 us (boards/main/firmware_changes.toml, leds).
+  3.3 V operation: 3.3 V is inside the operating range but below the tables' 4.5 V, and the
+  datasheet draws no sink headroom curve. Each channel sinks a constant 5 mA (4-6 mA, p4); like any
+  constant-current sink it keeps its current while VDD exceeds the LED's VF by the sink's drop. A
+  comparable InGaN RGB part reads 2.76 V blue and 2.88 V green at 5 mA (Everlight EAST1616RGBA4 Rev
+  1, Figures p7-8, typical), leaving 0.4-0.5 V at the rail's 3.284 V minimum: red keeps full current
+  and green and blue may sit at the sink's knee, dimmer; the colours stay recognisable, and the
+  status LEDs run far below full brightness anyway.
 - D5 (red) from 3V3_D through R5 680 Ohm, the power indicator: (3.3 V - VF) / 680 Ohm is
   1.3-2.2 mA for the KT-0603R's VF 1.8-2.4 V (LCSC C2286 listing, at its rated current; VF is
   lower at 2 mA), an indicator's brightness at a tenth of its 20 mA rating.
 - D4 (blue, KENTO KT-0603B datasheet, LCSC C2288, p3 sections 4-5: VF 2.6-3.1 V and IV
   70-175 mcd at IF = 5 mA, IF 30 mA DC max) from LED_Blue (PB2; LED_Red in the v1 firmware,
-  firmware_changes.toml leds) through R4 100 Ohm. VF rises with IF, so 3.1 V bounds it at every current below 5 mA. PB2's high level
-  is VDD - 0.4 V at 8 mA (DS13311 Table 56): at most 0.4 V / 8 mA = 50 Ohm of driver, whose drop
-  shrinks with the current. Dimmest (3V3_D 3.284 V, VF 3.1 V, R4 +1 %, 50 Ohm driver):
-  (3.284 - 3.1) / (101 + 50) = 1.2 mA, at least 17 mcd at the 70 mcd/5 mA bin's slope (light
-  about proportional to IF at low current), against the red D5's 20-33 mcd (300 mcd at 20 mA,
-  C2286 listing); brightest (3.346 V, no driver drop, VF 2.6 V, which holds from 5 mA up, R4
-  -1 %): 0.746 V / 99 Ohm = 7.5 mA, within the 8 mA of PB2's VOH specification and a quarter of
-  the LED's rating; a mid-bin 2.85 V part draws about 4 mA. R4 680 Ohm would leave a 3.1 V die at
-  0.25 mA. The datasheet draws no IF-VF curve; a comparable InGaN 0603 blue rises about 0.3 V from
-  0 to 10 mA (Everlight 19-217/BHC-ZL1M2RY/6T DSE-0014124 Rev 5 p5, Forward Current vs. Forward
-  Voltage, typical), so the dimmest case runs above 1.2 mA in practice.
+  firmware_changes.toml leds) through R4 680 Ohm, R5's value: the owner keeps the red D5 as it is
+  and asks the blue to match it (2026-11-08), both faint indicators. Light is about proportional
+  to IF at low current, so the bins' slopes are 14-35 mcd/mA for D4 (70-175 mcd at 5 mA) and
+  15 mcd/mA for D5 (300 mcd at 20 mA, C2286 listing), whose 1.3-2.2 mA give it 20-33 mcd.
+  The datasheet draws no IF-VF curve; a comparable InGaN 0603 blue rises about 0.3 V from 0 to
+  10 mA (Everlight 19-217/BHC-ZL1M2RY/6T DSE-0014124 Rev 5 p5, Forward Current vs. Forward Voltage,
+  typical), so near 1 mA a die sits about 0.2 V under its 5 mA VF: a mid-bin 2.85 V part at about
+  2.65 V draws (3.3 - 2.65) / 680 = 0.96 mA, 13-34 mcd, the red's brightness. PB2's high level is
+  VDD - 0.4 V at 8 mA (DS13311 Table 56): at most 0.4 V / 8 mA = 50 Ohm of driver, whose drop
+  shrinks with the current. Dimmest, bounding VF by its 3.1 V maximum (VF rises with IF, so it
+  bounds every current below 5 mA; 3V3_D 3.284 V, R4 +1 %, 50 Ohm driver): (3.284 - 3.1) /
+  (687 + 50) = 0.25 mA, at least 3.5 mcd, faint but lit; brightest (3.346 V, no driver drop, the
+  2.6 V minimum less 0.2 V, R4 -1 %): 0.946 V / 673 Ohm = 1.4 mA, at most 49 mcd.
 """
 
 load(
@@ -62,7 +65,6 @@ load(
     "C_100N_0402",
     "LED_BLUE_0603",
     "LED_RED_0603",
-    "R_100_0402",
     "R_10K_0402",
     "R_10_1206",
     "R_220_0402",
@@ -77,7 +79,7 @@ D1N4148WS = Module("github.com/Team-Micras/MicrasPCB/components/cj/1N4148WS/1N41
 DSHP04TJGER = Module("github.com/Team-Micras/MicrasPCB/components/kangshen/DSHP04TJGER/DSHP04TJGER.zen")
 FUET_5025 = Module("github.com/Team-Micras/MicrasPCB/components/fuet/FUET-5025/FUET-5025.zen")
 GT_TC048B = Module("github.com/Team-Micras/MicrasPCB/components/g-switch/GT-TC048B-H025-L1/GT-TC048B-H025-L1.zen")
-WS2812C = Module("github.com/Team-Micras/MicrasPCB/components/worldsemi/WS2812C-2427/WS2812C-2427.zen")
+CT1515 = Module("github.com/Team-Micras/MicrasPCB/components/chongtian/CT-1515UGRBC/CT-1515UGRBC.zen")
 
 # Its own sheet in the board schematic (layout/main.kicad_sch).
 Project(name="Peripherals", path="layout", layout=False)
@@ -133,15 +135,12 @@ Resistor(name="R1", P1=BUZZER_GATE, P2=Buzzer, **R_220_0402)
 Resistor(name="R2", P1=GND, P2=BUZZER_GATE, **R_10K_0402)
 D1N4148WS(name="D3", A=BUZZER_COIL, K=V3V3_D)
 
-# LEDs. Accepted build warning: 3V3_D's range (3.284-3.346 V, DS13554 Table 6) dips 16 mV below
-# the WS2812C's 3.3 V minimum (WS2812C-2427-V6 V1.0 p3); the owner's choice of LED, its 3.3 V operation above.
-# Only the LEDs see the rail as 3.3-3.346 V, so the build warns for any other part below its range.
-LED_VDD = Power(V3V3_D, voltage="3.3V to 3.346V")
-WS2812C(name="D1", VDD=LED_VDD, GND=GND, DI=LED_ARGB, DO=LED_CHAIN)
-WS2812C(name="D2", VDD=LED_VDD, GND=GND, DI=LED_CHAIN, DO=NotConnected())
+# LEDs: the CT-1515's 3-7.5 V operating range holds 3V3_D's 3.284-3.346 V (DS13554 Table 6).
+CT1515(name="D1", VDD=V3V3_D, GND=GND, DI=LED_ARGB, DO=LED_CHAIN)
+CT1515(name="D2", VDD=V3V3_D, GND=GND, DI=LED_CHAIN, DO=NotConnected())
 Capacitor(name="C19", P1=GND, P2=V3V3_D, **C_100N_0402)
 Capacitor(name="C18", P1=GND, P2=V3V3_D, **C_100N_0402)
-Resistor(name="R4", P1=LED_BLUE_A, P2=LED_Blue, **R_100_0402)
+Resistor(name="R4", P1=LED_BLUE_A, P2=LED_Blue, **R_680_0402)
 Led(name="D4", A=LED_BLUE_A, K=GND, **LED_BLUE_0603)
 Resistor(name="R5", P1=LED_RED_A, P2=V3V3_D, **R_680_0402)
 Led(name="D5", A=LED_RED_A, K=GND, **LED_RED_0603)
