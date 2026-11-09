@@ -3,7 +3,7 @@ buzzer.
 
 Sources: Espressif ESP32-C5-MINI-1 datasheet v1.4 (Tables 4-1, 4-3, 6-2; section 9, Figure 9-1),
 the ESP32-C5 hardware design guidelines (schematic checklist) and the ESP-Prog user guide (Program
-Interface), Worldsemi WS2812C-2427-V6 V1.0, Fusheng FUET-5025 specification.
+Interface), CHONGTIAN CT-1515UGRBC/H-P9-MX4 A2, Fusheng FUET-5025 specification.
 """
 
 load(
@@ -78,8 +78,8 @@ def esp_flashing_header(module, inputs):
 
 
 def status_leds_on_3v3(module, inputs):
-    # WS2812C-2427-V6 V1.0 p3: VDD 3.3-5.3 V, DI VIH 0.55 x VDD, 100 nF on VDD (p5). The research
-    # puts them on 3V3_D (no 5 V rail), driven from PA2.
+    # CT-1515UGRBC/H-P9-MX4 A2 p3-4: VDD 3-7.5 V, DI VIH 0.7 x VDD, a capacitor on VDD per LED (p7,
+    # 100 nF here). The research puts them on 3V3_D (no 5 V rail), driven from PA2.
     b = index(module)
     p = []
     vdd = net(b, "IC1", "VDD")

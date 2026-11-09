@@ -40,7 +40,7 @@ The board files are in `boards/main/` (this README sits in its `layout/` folder)
 | [`Regulators.zen`](../Regulators.zen) | `REGULATORS` | J1 battery connector with its fuse F1 and TVS D15, battery switch SW4/Q6, battery measurement R44/R45, VSYS diodes D14 (from VBAT) and D17 (from 5V_IN), 3V3_D buck IC7, 3V3_A LDO U8 |
 | [`Drivers.zen`](../Drivers.zen) | `DRIVERS` | IC8/IC9 (DRV8874) bridges for M2/M1 with their 10 mOhm shunts R65/R75 and 47 uH chokes L4/L5, IC6 (STSPIN958) fan driver for M3 with its shunt R31 and 4.7 uH choke L6 |
 | [`Sensors.zen`](../Sensors.zen) | `SENSORS` | IC2 (LSM6DSV) IMU, U10/U11 (INA241A2) current amplifiers, wall joints W1-W4 (the wall boards' 2x3 joints: receiver output, GND, 3V3_A, 3V3_D, sink, PWM) with the receivers' 1 kOhm loads R14/R18/R22/R26, the emitter current sink U12/Q9/R83 with its DAC set-point, encoder slots EC1/EC2 |
-| [`Peripherals.zen`](../Peripherals.zen) | `PERIPHERALS` | SW1 DIP switch, SW2/SW3 buttons, R42 BOOT0 pull-down, BZ1 buzzer, D1/D2 (WS2812C-2427-V6) status LEDs, D4/D5 LEDs |
+| [`Peripherals.zen`](../Peripherals.zen) | `PERIPHERALS` | SW1 DIP switch, SW2/SW3 buttons, R42 BOOT0 pull-down, BZ1 buzzer, D1/D2 (CT-1515UGRBC) status LEDs, D4/D5 LEDs |
 | [`Esp.zen`](../Esp.zen) | `ESP` | U13 (ESP32-C5-MINI-1-N4) with its decoupling, EN RC, GPIO28 pull-up, flashing pads J2 (`components/micras/EspProgPads`, 5V_IN on pad 2), the USB pads J3 (`components/micras/UsbPads`, GPIO13 D-, GPIO14 D+), and the links to the MCU with their series resistors R86, R88, R95, R96 and the ESP_CSn pull-up R97 |
 | [`passives.zen`](../passives.zen) | | value, package, rating and part number of every resistor, ceramic capacitor and LED line |
 | [`schematic/`](../schematic) | | how each sheet is drawn (`micras-pcb sch`): the root with IC1, its supply domains, the SWD header and the module sheets, and one file per module sheet, each block in a titled frame |
@@ -278,8 +278,8 @@ encoder bus on SPI2, mode 1 for the encoders and mode 3 for the IMU; the gyrosco
 Button on PC4; the LEDs on TIM15 and the buzzer on TIM17; the C5's slow clock on its RC, its pulls
 and its resync after an MCU reset; one wall emitter at a time on TIM3, with the emitter DAC on PA5
 stepping with each selector and a code per emitter, and no LED, SPI or buzzer traffic during an
-emitter's pulse and scan; the current channels sampled for at least 0.7 us; the WS2812C timing
-(T0L/T1L at most 1 us); slow output edges on the buses and every free-running PWM pin; flashing
+emitter's pulse and scan; the current channels sampled for at least 0.7 us; the CT-1515 timing
+(T0H 295 ns and T1H 595 ns, each +-50 ns); slow output edges on the buses and every free-running PWM pin; flashing
 over Wi-Fi through the ESP32-C5's CMSIS-DAP-over-TCP or Black Magic probe, nRESET on its GPIO23
 (open drain only, released before it is enabled), a 10 ms wait for NRST's slow rise, and the C5
 held in reset (J2 pad 1 to pad 4) when an ST-Link uses SWD1; TIM1/TIM8/TIM14 frozen and the drive

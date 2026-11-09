@@ -5,11 +5,11 @@ Clocks: the firmware's CubeMX project (MicrasFirmware cube/micras_v1.ioc, kept o
 SYSCLK 550 MHz, APB1 and APB2 137.5 MHz, so every timer kernel clock is 275 MHz
 (RCC.Tim1OutputFreq_Value and Tim2OutputFreq_Value) and dac_pclk is APB1, 137.5 MHz.
 
-1. WS2812C-2020-V6 on TIM17_CH1 (PB9): PWM period and the two compare values, each bit one PWM
-   period, the next CCR1 written by DMA on tim17_up (DMAMUX1 input 112, RM0468 Table 118).
-   Limits: T0H 220-380 ns, T1H 580-1000 ns, T0L and T1L 580-1000 ns, a bit (TDATA) >= 1.25 us,
-   reset low >= 280 us (Worldsemi WS2812C-2020-V6 datasheet V1.1, p4 Data Transfer Time). The
-   search maximises the smallest margin to any limit.
+1. CT-1515UGRBC/H-P9-MX4 on TIM15_CH1 (PA2): the two compare values for a 356-tick bit (ARR
+   355, 1.294 us, kept for the frame placement below), each bit one PWM period, the next CCR1
+   written by DMA on tim15_up (DMAMUX1 input 106, RM0468 Table 118). Limits: T0H 0.295 us and T1H
+   0.595 us, each +-0.05 us, T0L and T1L under 20 us, a bit >= 1.2 us, reset low >= 80 us (CHONGTIAN
+   CT-1515UGRBC/H-P9-MX4 datasheet A2, p6). The search maximises the smallest margin to any limit.
 2. The motor PWM: TIM1 and TIM8 centre-aligned at 100 kHz.
 3. The emitter DAC grid: a 50 us update of TIM4 (or TIM23) triggers DAC1 channel 2; a 20-entry
    circular DMA buffer holds one 1 ms frame (four 150 us pulses, 50 us gaps, a 200 us dark slot;
@@ -22,15 +22,16 @@ Run: python3 research/next-revision/calculations/mcu/timer_plan.py
 F_TIM = 275e6  # Hz, timer kernel clock
 F_DAC_PCLK = 137.5e6  # Hz, APB1
 
-# 1. WS2812C on TIM17.
-T0H = (220e-9, 380e-9)
-T1H = (580e-9, 1000e-9)
-TXL = (580e-9, 1000e-9)  # T0L and T1L
-TDATA_MIN = 1.25e-6  # T0H + T0L and T1H + T1L
-RESET_MIN = 280e-6
+# 1. CT-1515 on TIM15.
+T0H = (245e-9, 345e-9)
+T1H = (545e-9, 645e-9)
+TXL = (0.0, 20e-6)  # T0L and T1L
+TDATA_MIN = 1.2e-6  # T0H + T0L and T1H + T1L
+RESET_MIN = 80e-6
 LEDS = 2
+PERIOD = 356  # ticks, PSC = 0: ARR 355
 best = None
-for period in range(200, 600):  # ticks, PSC = 0
+for period in (PERIOD,):
     for h0 in range(40, 160):
         for h1 in range(h0 + 1, 300):
             p, a, b = period / F_TIM, h0 / F_TIM, h1 / F_TIM
@@ -45,14 +46,14 @@ for period in range(200, 600):  # ticks, PSC = 0
             if best is None or m > best[0]:
                 best = (m, period, h0, h1)
 m, period, h0, h1 = best
-print("1. WS2812C-2020-V6 on TIM17_CH1, PSC = 0, timer clock 275 MHz")
+print("1. CT-1515UGRBC/H-P9-MX4 on TIM15_CH1, PSC = 0, timer clock 275 MHz")
 print(f"   ARR = {period - 1} (period {period / F_TIM * 1e9:.1f} ns, {F_TIM / period / 1e3:.1f} kHz)")
 print(f"   CCR1 = {h0} for a 0 (T0H {h0 / F_TIM * 1e9:.1f} ns, T0L {(period - h0) / F_TIM * 1e9:.1f} ns)")
 print(f"   CCR1 = {h1} for a 1 (T1H {h1 / F_TIM * 1e9:.1f} ns, T1L {(period - h1) / F_TIM * 1e9:.1f} ns)")
 print(f"   smallest margin to a datasheet limit: {m * 1e9:.1f} ns ({m * F_TIM:.0f} ticks)")
 frame = 24 * LEDS * period / F_TIM
 reset_periods = int(-(-RESET_MIN // (period / F_TIM)))
-print(f"   {LEDS} LEDs x 24 bits: {frame * 1e6:.1f} us of data, then CCR1 = 0 for >= 280 us"
+print(f"   {LEDS} LEDs x 24 bits: {frame * 1e6:.1f} us of data, then CCR1 = 0 for >= 80 us"
       f" ({reset_periods} periods, or stop the DMA with CCR1 = 0)")
 
 # 2. Motor PWM.
