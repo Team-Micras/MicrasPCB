@@ -77,7 +77,8 @@ stay out of the BOM, the CPL and `parts/jlc.toml`.
 - `<board>-bom-jlcpcb.csv`: Comment, Designator, Footprint, `LCSC Part #`, MPN; from `pcb bom`
   and `parts/jlc.toml`. An MPN without an entry fails the build.
 - `<board>-cpl-jlcpcb.csv`: Designator, Mid X, Mid Y, Layer, Rotation; KiCad's placement plus the
-  part's `rotation` offset. Zener's own JLC export applies no rotation corrections, which is why
+  part's `rotation` offset (`jlc.jlc_rotation`: added on top; on the bottom JLCPCB mirrors and turns
+  the other way, so it takes 180 minus both). Zener's own JLC export applies no rotation corrections, which is why
   this one exists.
 - `<board>-hand-assembly.csv`: the parts the team buys and solders itself, marked `assembly = "hand"`
   (with `hand_why`) in `parts/jlc.toml`: they stay out of the JLCPCB BOM and CPL. The main board's
