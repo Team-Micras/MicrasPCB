@@ -247,10 +247,24 @@ def positions(board: str | Path, out: Path) -> list[dict]:
     return rows
 
 
+def jlc_rotation(kicad_rot: float, offset: float, bottom: bool) -> float:
+    """The CPL rotation JLCPCB needs for a part KiCad places at `kicad_rot` (its position export:
+    counterclockwise seen from the top, on either side) with the part's offset (parts/jlc.toml, the
+    turn from the LCSC footprint's zero to KiCad's, seen from the top).
+
+    Top: the two add. Bottom: JLCPCB mirrors the LCSC footprint and turns it counterclockwise as
+    seen from the bottom, so a part KiCad leaves at 0 needs 180, and KiCad's turn (and the offset,
+    a turn in the footprint's own frame) counts the other way. Checked in JLCPCB's placement preview
+    on 2026-11-08 with the wall panel: Q1 (AO3400A) and D1 (1N4148WS) at 0 sat 180 off their pads
+    and at 180 on them, and at 90 they turned counterclockwise in the bottom view."""
+    return ((180 - kicad_rot - offset) if bottom else (kicad_rot + offset)) % 360
+
+
 def cpl_rows(board: str, out: Path, bom_refs: set[str], pcb_file: Path | None = None) -> list[dict]:
-    """Placement for the parts JLC assembles: KiCad's position and rotation plus the part's rotation
-    offset (parts/jlc.toml). Board features such as the encoder tab are not in the BOM. With
-    `pcb_file` (the board's panel), every copy's parts, `<ref>_<n>`, each with its part's offset."""
+    """Placement for the parts JLC assembles: KiCad's position and rotation with the part's rotation
+    offset (parts/jlc.toml), as jlc_rotation turns them for each side. Board features such as the
+    encoder tab are not in the BOM. With `pcb_file` (the board's panel), every copy's parts,
+    `<ref>_<n>`, each with its part's offset."""
     offsets = rotation_offsets(board)
     rows = []
     for r in positions(pcb_file or board, out):
@@ -261,7 +275,7 @@ def cpl_rows(board: str, out: Path, bom_refs: set[str], pcb_file: Path | None = 
             part = copy[0] if copy else ""
         if part not in bom_refs:
             continue
-        rot = (float(r["Rot"]) + offsets.get(part, 0.0)) % 360
+        rot = jlc_rotation(float(r["Rot"]), offsets.get(part, 0.0), r["Side"].lower() != "top")
         rows.append(
             {
                 "Designator": ref,

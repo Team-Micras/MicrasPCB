@@ -416,3 +416,19 @@ def test_team_stencil_has_exactly_the_hand_parts(board, paste_fab):
     feats = _paste_points(e["stencil"], _origin(pcbf))
     got = sorted(ref for ref, fp in pcb.footprints.items() if any(_hits(feats, p) for p in _copper_pads(fp)))
     assert got == want, f"{board}: the team stencil pastes {got}, the hand parts with paste are {want}"
+
+
+@pytest.mark.parametrize(
+    ("kicad", "offset", "bottom", "want"),
+    [
+        (0, 0, False, 0),
+        (-90, 270, False, 180),  # IC8: KiCad -90 with the DRV8874's 270 offset
+        (90, 180, False, 270),  # U12
+        (0, 0, True, 180),  # the wall board's Q1 and D1 (JLC preview, 2026-11-08)
+        (90, 0, True, 90),
+        (90, 90, True, 0),
+    ],
+)
+def test_cpl_rotation_turns_bottom_parts_the_other_way(kicad, offset, bottom, want):
+    """jlc_rotation: top parts add the offset; bottom parts, which JLCPCB mirrors, take 180 minus both."""
+    assert jlc.jlc_rotation(kicad, offset, bottom) == want

@@ -1,0 +1,59 @@
+"""CT-1515UGRBC/H-P9-MX4 package facts (CT-DS A2 p.2-4) on a 3.3 V rail driven by a 3.3 V MCU."""
+
+CT1515 = Module("../CT-1515UGRBC.zen")
+
+# The data comes from an STM32H725 output on the same rail: VOH >= VDD - 0.4 V at 8 mA
+# (DS13311 Table 56, as boards/main/Peripherals.zen cites it).
+VOH_DROP = 0.4
+
+
+def led(module):
+    return [c for path, c in module.components().items() if path.endswith("LED")][0]
+
+
+def pins_by_function(module, inputs):
+    got = {}
+    for net, ports in module.nets().items():
+        for path, pin in ports:
+            if path.endswith(".LED"):
+                got[pin] = net
+    check(got == {"DO": "DOUT", "GND": "GND", "DI": "DIN", "VDD": "V3V3"}, "pinout changed: " + str(got))
+
+
+def one_part(module, inputs):
+    # p.7: the VDD capacitor is the board's; the package is the LED alone.
+    check(len(module.components()) == 1, "the package is the LED alone")
+
+
+def supply_range(module, inputs):
+    # p.3 recommended operating range and p.4: VDD 3 to 7.5 V; the rail must stay inside it.
+    vdd = led(module).pins["VDD"].voltage
+    check(vdd.min >= 3.0 and vdd.max <= 7.5, "VDD outside 3-7.5 V")
+
+
+def data_high_level(module, inputs):
+    # p.4: VIH 0.7 x VDD min; the driver shares the rail, so its VOH tracks VDD.
+    vdd = led(module).pins["VDD"].voltage
+    check(0.7 * vdd.max <= vdd.min - VOH_DROP, "a 3.3 V driver cannot reach VIH = 0.7 x VDD")
+
+
+def sourcing(module, inputs):
+    c = led(module)
+    check(c.mpn == "CT-1515UGRBC/H-P9-MX4", "MPN")
+    check(c.manufacturer == "CHONGTIAN", "manufacturer")
+    check(c.prefix == "D", "reference prefix D")
+
+
+TestBench(
+    name="CT1515_3V3",
+    module=CT1515,
+    test_cases={
+        "default": {
+            "VDD": Power("V3V3", voltage="3.28V to 3.35V"),
+            "GND": Ground("GND"),
+            "DI": Net("DIN"),
+            "DO": Net("DOUT"),
+        },
+    },
+    checks=[pins_by_function, one_part, supply_range, data_high_level, sourcing],
+)

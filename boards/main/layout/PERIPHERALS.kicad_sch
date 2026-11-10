@@ -472,6 +472,165 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "CT-1515UGRBC"
+			(exclude_from_sim yes)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "D"
+				(at 0 6.35 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "CT-1515UGRBC/H-P9-MX4"
+				(at 0 -3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "LED-SMD_4P-L1.5-W1.5-P1.04_CT-1515UGRBC.kicad_mod"
+				(at 0 -6.35 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" "https://www.lcsc.com/product-detail/C52191310.html"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "3-7.5 V addressable RGB LED, single-wire data in/out, 1.5 x 1.5 mm SMD-4P (pinout per CT-1515UGRBC/H-P9-MX4 A2 p.2-3)"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "RGB LED addressable WS2812 1515"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "CT-1515UGRBC_0_1"
+				(rectangle
+					(start -7.62 5.08)
+					(end 7.62 -2.54)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+			)
+			(symbol "CT-1515UGRBC_1_1"
+				(pin input line
+					(at -10.16 2.54 0)
+					(length 2.54)
+					(name "DI"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 10.16 0 180)
+					(length 2.54)
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 10.16 2.54 180)
+					(length 2.54)
+					(name "DO"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at -10.16 0 0)
+					(length 2.54)
+					(name "VDD"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "C_Small"
 			(pin_numbers
 				(hide yes)
@@ -2002,168 +2161,9 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "WS2812C-2427-V6"
-			(exclude_from_sim yes)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "D"
-				(at 0 6.35 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "WS2812C-2427-V6"
-				(at 0 -3.81 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" "LED-SMD_4P-L2.7-W2.4-P1.30_WS2812C-2427-V6.kicad_mod"
-				(at 0 -6.35 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Datasheet" "https://www.lcsc.com/product-detail/C55109524.html"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" "3.3-5.3 V addressable RGB LED, single-wire data in/out, 2.7 x 2.4 mm SMD-4P (pinout per WS2812C-2427-V6 V1.0 p.2)"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "RGB LED addressable WS2812"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "WS2812C-2427-V6_0_1"
-				(rectangle
-					(start -7.62 5.08)
-					(end 7.62 -2.54)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-			)
-			(symbol "WS2812C-2427-V6_1_1"
-				(pin input line
-					(at -10.16 2.54 0)
-					(length 2.54)
-					(name "DI"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin power_in line
-					(at -10.16 0 0)
-					(length 2.54)
-					(name "VDD"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin output line
-					(at 10.16 2.54 180)
-					(length 2.54)
-					(name "DO"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin power_in line
-					(at 10.16 0 180)
-					(length 2.54)
-					(name "GND"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "4"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
 	)
 	(symbol
-		(lib_id "WS2812C-2427-V6")
+		(lib_id "CT-1515UGRBC")
 		(at 119.38 101.6 0)
 		(unit 1)
 		(body_style 1)
@@ -2184,7 +2184,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "WS2812C-2427-V6"
+		(property "Value" "CT-1515UGRBC/H-P9-MX4"
 			(at 111.76 94.615 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -2195,7 +2195,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Team-Micras_MicrasPCB_components_worldsemi_WS2812C-2427:LED-SMD_4P-L2.7-W2.4-P1.30_WS2812C-2427-V6"
+		(property "Footprint" "Team-Micras_MicrasPCB_components_chongtian_CT-1515UGRBC:LED-SMD_4P-L1.5-W1.5-P1.04_CT-1515UGRBC"
 			(at 119.38 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -2206,7 +2206,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.lcsc.com/product-detail/C55109524.html"
+		(property "Datasheet" "https://www.lcsc.com/product-detail/C52191310.html"
 			(at 119.38 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -2217,7 +2217,7 @@
 				)
 			)
 		)
-		(property "Description" "3.3-5.3 V addressable RGB LED, single-wire data in/out, 2.7 x 2.4 mm SMD-4P (pinout per WS2812C-2427-V6 V1.0 p.2)"
+		(property "Description" "3-7.5 V addressable RGB LED, single-wire data in/out, 1.5 x 1.5 mm SMD-4P (pinout per CT-1515UGRBC/H-P9-MX4 A2 p.2-3)"
 			(at 119.38 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -2837,7 +2837,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "100 1%"
+		(property "Value" "1k 1%"
 			(at 159.512 102.87 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -2870,7 +2870,7 @@
 				)
 			)
 		)
-		(property "Description" "100 1%"
+		(property "Description" "1k 1%"
 			(at 157.48 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -3000,7 +3000,7 @@
 		)
 	)
 	(symbol
-		(lib_id "WS2812C-2427-V6")
+		(lib_id "CT-1515UGRBC")
 		(at 60.96 101.6 0)
 		(unit 1)
 		(body_style 1)
@@ -3021,7 +3021,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "WS2812C-2427-V6"
+		(property "Value" "CT-1515UGRBC/H-P9-MX4"
 			(at 53.34 94.615 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -3032,7 +3032,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Team-Micras_MicrasPCB_components_worldsemi_WS2812C-2427:LED-SMD_4P-L2.7-W2.4-P1.30_WS2812C-2427-V6"
+		(property "Footprint" "Team-Micras_MicrasPCB_components_chongtian_CT-1515UGRBC:LED-SMD_4P-L1.5-W1.5-P1.04_CT-1515UGRBC"
 			(at 60.96 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -3043,7 +3043,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.lcsc.com/product-detail/C55109524.html"
+		(property "Datasheet" "https://www.lcsc.com/product-detail/C52191310.html"
 			(at 60.96 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -3054,7 +3054,7 @@
 				)
 			)
 		)
-		(property "Description" "3.3-5.3 V addressable RGB LED, single-wire data in/out, 2.7 x 2.4 mm SMD-4P (pinout per WS2812C-2427-V6 V1.0 p.2)"
+		(property "Description" "3-7.5 V addressable RGB LED, single-wire data in/out, 1.5 x 1.5 mm SMD-4P (pinout per CT-1515UGRBC/H-P9-MX4 A2 p.2-3)"
 			(at 60.96 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -3493,7 +3493,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "680 1%"
+		(property "Value" "1k 1%"
 			(at 197.612 102.87 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -3526,7 +3526,7 @@
 				)
 			)
 		)
-		(property "Description" "680 1%"
+		(property "Description" "1k 1%"
 			(at 195.58 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -7435,7 +7435,7 @@
 		)
 		(uuid "660b04a7-c129-51bf-9ba8-d576f0fa16ae")
 	)
-	(text "Addressable LEDs: WS2812C-2427 chain"
+	(text "Addressable LEDs: CT-1515 chain"
 		(exclude_from_sim no)
 		(at 11.43 87.63 0)
 		(effects
