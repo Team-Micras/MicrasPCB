@@ -40,24 +40,25 @@ LEDs:
   1, Figures p7-8, typical), leaving 0.4-0.5 V at the rail's 3.284 V minimum: red keeps full current
   and green and blue may sit at the sink's knee, dimmer; the colours stay recognisable, and the
   status LEDs run far below full brightness anyway.
-- D5 (red) from 3V3_D through R5 680 Ohm, the power indicator: (3.3 V - VF) / 680 Ohm is
-  1.3-2.2 mA for the KT-0603R's VF 1.8-2.4 V (LCSC C2286 listing, at its rated current; VF is
-  lower at 2 mA), an indicator's brightness at a tenth of its 20 mA rating.
+- D5 (red) from 3V3_D through R5 1 kOhm, the power indicator: (3.3 V - VF) / 1 kOhm is
+  0.9-1.5 mA for the KT-0603R's VF 1.8-2.4 V (LCSC C2286 listing, at its rated current; VF is
+  lower at 1 mA), a faint indicator at a twentieth of its 20 mA rating (the owner, 2026-11-10: a
+  little dimmer than 680 Ohm's 1.3-2.2 mA).
 - D4 (blue, KENTO KT-0603B datasheet, LCSC C2288, p3 sections 4-5: VF 2.6-3.1 V and IV
   70-175 mcd at IF = 5 mA, IF 30 mA DC max) from LED_Blue (PB2; LED_Red in the v1 firmware,
-  firmware_changes.toml leds) through R4 680 Ohm, R5's value: the owner keeps the red D5 as it is
-  and asks the blue to match it (2026-11-08), both faint indicators. Light is about proportional
-  to IF at low current, so the bins' slopes are 14-35 mcd/mA for D4 (70-175 mcd at 5 mA) and
-  15 mcd/mA for D5 (300 mcd at 20 mA, C2286 listing), whose 1.3-2.2 mA give it 20-33 mcd.
-  The datasheet draws no IF-VF curve; a comparable InGaN 0603 blue rises about 0.3 V from 0 to
-  10 mA (Everlight 19-217/BHC-ZL1M2RY/6T DSE-0014124 Rev 5 p5, Forward Current vs. Forward Voltage,
-  typical), so near 1 mA a die sits about 0.2 V under its 5 mA VF: a mid-bin 2.85 V part at about
-  2.65 V draws (3.3 - 2.65) / 680 = 0.96 mA, 13-34 mcd, the red's brightness. PB2's high level is
-  VDD - 0.4 V at 8 mA (DS13311 Table 56): at most 0.4 V / 8 mA = 50 Ohm of driver, whose drop
-  shrinks with the current. Dimmest, bounding VF by its 3.1 V maximum (VF rises with IF, so it
-  bounds every current below 5 mA; 3V3_D 3.284 V, R4 +1 %, 50 Ohm driver): (3.284 - 3.1) /
-  (687 + 50) = 0.25 mA, at least 3.5 mcd, faint but lit; brightest (3.346 V, no driver drop, the
-  2.6 V minimum less 0.2 V, R4 -1 %): 0.946 V / 673 Ohm = 1.4 mA, at most 49 mcd.
+  firmware_changes.toml leds) through R4 1 kOhm, R5's value: the owner asks the blue to match the
+  red (2026-11-10). Light is about proportional to IF at low current, so the bins' slopes are
+  14-35 mcd/mA for D4 (70-175 mcd at 5 mA) and 15 mcd/mA for D5 (300 mcd at 20 mA, C2286
+  listing), whose 0.9-1.5 mA give it 14-23 mcd. The datasheet draws no IF-VF curve; a comparable
+  InGaN 0603 blue rises about 0.3 V from 0 to 10 mA (Everlight 19-217/BHC-ZL1M2RY/6T DSE-0014124
+  Rev 5 p5, Forward Current vs. Forward Voltage, typical), so near 1 mA a die sits about 0.2 V under
+  its 5 mA VF: a mid-bin 2.85 V part at about 2.65 V draws (3.3 - 2.65) / 1 kOhm = 0.65 mA, 9-23
+  mcd, the red's brightness. PB2's high level is VDD - 0.4 V at 8 mA (DS13311 Table 56): at most
+  0.4 V / 8 mA = 50 Ohm of driver, whose drop shrinks with the current. Dimmest, bounding VF by its
+  3.1 V maximum (VF rises with IF, so it bounds every current below 5 mA; 3V3_D 3.284 V, R4 +1 %,
+  50 Ohm driver): (3.284 - 3.1) / (1010 + 50) = 0.17 mA, at least 2.4 mcd, faint but lit;
+  brightest (3.346 V, no driver drop, the 2.6 V minimum less 0.2 V, R4 -1 %): 0.946 V / 990 Ohm =
+  0.96 mA, at most 33 mcd.
 """
 
 load(
@@ -68,7 +69,7 @@ load(
     "R_10K_0402",
     "R_10_1206",
     "R_220_0402",
-    "R_680_0402",
+    "R_1K_0402",
 )
 
 Capacitor = Module("@stdlib/generics/Capacitor.zen")
@@ -140,7 +141,7 @@ CT1515(name="D1", VDD=V3V3_D, GND=GND, DI=LED_ARGB, DO=LED_CHAIN)
 CT1515(name="D2", VDD=V3V3_D, GND=GND, DI=LED_CHAIN, DO=NotConnected())
 Capacitor(name="C19", P1=GND, P2=V3V3_D, **C_100N_0402)
 Capacitor(name="C18", P1=GND, P2=V3V3_D, **C_100N_0402)
-Resistor(name="R4", P1=LED_BLUE_A, P2=LED_Blue, **R_680_0402)
+Resistor(name="R4", P1=LED_BLUE_A, P2=LED_Blue, **R_1K_0402)
 Led(name="D4", A=LED_BLUE_A, K=GND, **LED_BLUE_0603)
-Resistor(name="R5", P1=LED_RED_A, P2=V3V3_D, **R_680_0402)
+Resistor(name="R5", P1=LED_RED_A, P2=V3V3_D, **R_1K_0402)
 Led(name="D5", A=LED_RED_A, K=GND, **LED_RED_0603)
